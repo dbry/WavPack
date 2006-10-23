@@ -1210,6 +1210,9 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
     wpc->config.block_samples = config->block_samples;
     wpc->config.flags = config->flags;
 
+    if (config->flags & CONFIG_VERY_HIGH_FLAG)
+	config->flags |= CONFIG_HIGH_FLAG;
+
     if (config->float_norm_exp) {
 	wpc->config.float_norm_exp = config->float_norm_exp;
 	wpc->config.flags |= CONFIG_FLOAT_DATA;

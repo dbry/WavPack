@@ -238,8 +238,8 @@ int main (argc, argv) int argc; char **argv;
 		    case 'X': case 'x':
 			config.xmode = strtol (++*argv, argv, 10);
 
-			if (config.xmode < 0 || config.xmode > 3) {
-			    error_line ("extra mode only goes from 1 to 3!");
+			if (config.xmode < 0 || config.xmode > 6) {
+			    error_line ("extra mode only goes from 1 to 6!");
 			    ++error_count;
 			}
 			else
