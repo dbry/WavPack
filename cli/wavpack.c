@@ -1137,7 +1137,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 		supported = FALSE;
 
 	    if (!WaveHeader.NumChannels ||
-		WaveHeader.BlockAlign / WaveHeader.NumChannels > 4)
+		WaveHeader.BlockAlign / WaveHeader.NumChannels < (loc_config.bits_per_sample + 7) / 8 ||
+		WaveHeader.BlockAlign / WaveHeader.NumChannels > 4 ||
+		WaveHeader.BlockAlign % WaveHeader.NumChannels)
 		    supported = FALSE;
 
 	    if (loc_config.bits_per_sample < 1 || loc_config.bits_per_sample > 32)
