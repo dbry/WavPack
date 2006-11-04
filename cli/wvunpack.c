@@ -524,7 +524,7 @@ static int unpack_file (char *infilename, char *outfilename)
 
     // use library to open WavPack file
 
-    if (outfilename && !raw_decode)
+    if ((outfilename && !raw_decode) || summary > 1)
 	open_flags |= OPEN_WRAPPER;
 
     if (raw_decode)
@@ -1024,6 +1024,35 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 	fprintf (dst, "original md5:      %s\n", md5_string);
     }
 
+    if (summary > 1) {
+	uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes;
+	uchar *header_data = WavpackGetWrapperData (wpc);
+	char header_name [5];
+	int i;
+
+	strcpy (header_name, "????");
+
+	for (i = 0; i < 4 && i < header_bytes; ++i)
+	    if (header_data [i] >= 0x20 && header_data [i] <= 0x7f)
+		header_name [i] = header_data [i];
+
+	WavpackFreeWrapper (wpc);
+	WavpackSeekTrailingWrapper (wpc);
+	trailer_bytes = WavpackGetWrapperBytes (wpc);
+
+	if (header_bytes && trailer_bytes)
+	    fprintf (dst, "file wrapper:      %d + %d bytes (%s)\n",
+		header_bytes, trailer_bytes, header_name);
+	else if (header_bytes)
+	    fprintf (dst, "file wrapper:      %d byte %s header\n",
+		header_bytes, header_name);
+	else if (trailer_bytes)
+	    fprintf (dst, "file wrapper:      %d byte trailer only\n",
+		trailer_bytes);
+	else
+	    fprintf (dst, "file wrapper:      none (raw audio)\n");
+    }
+	
     if (WavpackGetMode (wpc) & MODE_VALID_TAG) {
 	int ape_tag = WavpackGetMode (wpc) & MODE_APETAG;
 	int num_items = WavpackGetNumTagItems (wpc), i;
