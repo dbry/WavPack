@@ -221,6 +221,7 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
 
     wpc->config.sample_rate = wavhdr.SampleRate;
     wpc->config.num_channels = wavhdr.NumChannels;
+    wpc->config.channel_mask = 5 - wavhdr.NumChannels;
 
     if (wphdr.flags & MONO_FLAG)
 	wpc->config.flags |= CONFIG_MONO_FLAG;

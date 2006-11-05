@@ -65,7 +65,8 @@ static const char *usage =
 " Usage:   WVUNPACK [-options] [@]infile[.wv]|- [...] [-o [@]outfile[.wav]|outpath|-]\n"
 #endif
 "             (infile may contain wildcards: ?,*)\n\n"
-" Options: -c  = extract cuesheet only to stdout (no audio decode)\n"
+" Options: -b  = blindly decode all stream blocks\n"
+"          -c  = extract cuesheet only to stdout (no audio decode)\n"
 "          -cc = extract cuesheet file (.cue) in addition to audio file\n"
 "          -d  = delete source file if successful (use with caution!)\n"
 "          -i  = ignore .wvc file (forces hybrid lossy decompression)\n"
@@ -90,8 +91,8 @@ static const char *usage =
 
 int debug_logging_mode;
 
-static char overwrite_all = 0, delete_source = 0, raw_decode = 0, extract_cuesheet = 0,
-    summary = 0, ignore_wvc = 0, quiet_mode = 0, calc_md5 = 0, copy_time = 0;
+static char overwrite_all, delete_source, raw_decode, extract_cuesheet,
+    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode;
 
 static int num_files, file_index, outbuf_k;
 
@@ -191,6 +192,10 @@ int main (argc, argv) int argc; char **argv;
 
 		    case 'M': case 'm':
 			calc_md5 = 1;
+			break;
+
+		    case 'B': case 'b':
+			blind_decode = 1;
 			break;
 
 		    case 'R': case 'r':
@@ -527,7 +532,7 @@ static int unpack_file (char *infilename, char *outfilename)
     if ((outfilename && !raw_decode) || summary > 1)
 	open_flags |= OPEN_WRAPPER;
 
-    if (raw_decode)
+    if (blind_decode)
 	open_flags |= OPEN_STREAMING;
 
     if (!ignore_wvc)
@@ -566,12 +571,6 @@ static int unpack_file (char *infilename, char *outfilename)
 
 	WavpackCloseFile (wpc);
 	return NO_ERROR;
-    }
-
-    if (!WavpackGetWrapperBytes (wpc) && outfilename && !raw_decode) {
-	error_line ("no wav header, can only decode to raw file (use -r)!");
-	WavpackCloseFile (wpc);
-	return SOFT_ERROR;
     }
 
     if (outfilename) {
@@ -644,15 +643,21 @@ static int unpack_file (char *infilename, char *outfilename)
     gettimeofday(&time1,&timez);
 #endif
 
-    if (WavpackGetWrapperBytes (wpc)) {
-	if (outfile && (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
-	    bcount != WavpackGetWrapperBytes (wpc))) {
-		error_line ("can't write .WAV data, disk probably full!");
-		DoTruncateFile (outfile);
-		result = HARD_ERROR;
-	}
+    if (outfile && !raw_decode) {
+	if (WavpackGetWrapperBytes (wpc)) {
+	    if (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
+		bcount != WavpackGetWrapperBytes (wpc)) {
+		    error_line ("can't write .WAV data, disk probably full!");
+		    DoTruncateFile (outfile);
+		    result = HARD_ERROR;
+	    }
 
-	WavpackFreeWrapper (wpc);
+	    WavpackFreeWrapper (wpc);
+	}
+	else if (!create_riff_header (outfile, wpc)) {
+	    DoTruncateFile (outfile);
+	    result = HARD_ERROR;
+	}
     }
 
     temp_buffer = malloc (4096L * num_channels * 4);
@@ -947,11 +952,99 @@ static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt
     return dst;
 }
 
+static int create_riff_header (FILE *outfile, WavpackContext *wpc)
+{
+    RiffChunkHeader riffhdr;
+    ChunkHeader datahdr, fmthdr;
+    WaveHeader wavhdr;
+    uint32_t bcount;
+
+    uint32_t total_samples = WavpackGetNumSamples (wpc), total_data_bytes;
+    int num_channels = WavpackGetNumChannels (wpc);
+    int32_t channel_mask = WavpackGetChannelMask (wpc);
+    int32_t sample_rate = WavpackGetSampleRate (wpc);
+    int bytes_per_sample = WavpackGetBytesPerSample (wpc);
+    int bits_per_sample = WavpackGetBitsPerSample (wpc);
+    int format = WavpackGetFloatNormExp (wpc) ? 3 : 1;
+    int wavhdrsize = 16;
+
+    if (format == 3 && WavpackGetFloatNormExp (wpc) != 127) {
+	error_line ("can't create valid RIFF wav header for non-normalized floating data!");
+	return FALSE;
+    }
+
+    if (total_samples != (uint32_t) -1)
+	total_data_bytes = total_samples * bytes_per_sample * num_channels;
+    else
+	total_data_bytes = -1;
+
+    CLEAR (wavhdr);
+
+    wavhdr.FormatTag = format;
+    wavhdr.NumChannels = num_channels;
+    wavhdr.SampleRate = sample_rate;
+    wavhdr.BytesPerSecond = sample_rate * num_channels * bytes_per_sample;
+    wavhdr.BlockAlign = bytes_per_sample * num_channels; 
+    wavhdr.BitsPerSample = bits_per_sample;
+
+    if (num_channels > 2 || channel_mask != 0x5 - num_channels) {
+	wavhdrsize = sizeof (wavhdr);
+	wavhdr.cbSize = 22;
+	wavhdr.ValidBitsPerSample = bits_per_sample;
+	wavhdr.SubFormat = format;
+	wavhdr.ChannelMask = channel_mask;
+	wavhdr.FormatTag = 0xfffe;
+	wavhdr.BitsPerSample = bytes_per_sample * 8;
+	wavhdr.GUID [4] = 0x10;
+	wavhdr.GUID [6] = 0x80;
+	wavhdr.GUID [9] = 0xaa;
+	wavhdr.GUID [11] = 0x38;
+	wavhdr.GUID [12] = 0x9b;
+	wavhdr.GUID [13] = 0x71;
+    }
+
+    strncpy (riffhdr.ckID, "RIFF", sizeof (riffhdr.ckID));
+    strncpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
+
+    if (total_data_bytes != (uint32_t) -1)
+	riffhdr.ckSize = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + total_data_bytes;
+    else
+	riffhdr.ckSize = total_data_bytes;
+
+    strncpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
+    fmthdr.ckSize = wavhdrsize;
+
+    strncpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
+    datahdr.ckSize = total_data_bytes; 
+
+    // write the RIFF chunks up to just before the data starts
+
+    WavpackNativeToLittleEndian (&riffhdr, ChunkHeaderFormat);
+    WavpackNativeToLittleEndian (&fmthdr, ChunkHeaderFormat);
+    WavpackNativeToLittleEndian (&wavhdr, WaveHeaderFormat);
+    WavpackNativeToLittleEndian (&datahdr, ChunkHeaderFormat);
+
+    if (!DoWriteFile (outfile, &riffhdr, sizeof (riffhdr), &bcount) || bcount != sizeof (riffhdr) ||
+	!DoWriteFile (outfile, &fmthdr, sizeof (fmthdr), &bcount) || bcount != sizeof (fmthdr) ||
+	!DoWriteFile (outfile, &wavhdr, wavhdrsize, &bcount) || bcount != wavhdrsize ||
+	!DoWriteFile (outfile, &datahdr, sizeof (datahdr), &bcount) || bcount != sizeof (datahdr)) {
+	    error_line ("can't write .WAV data, disk probably full!");
+	    return FALSE;
+    }
+
+    return TRUE;
+}
+
 static void dump_UTF8_string (char *string, FILE *dst);
 static void UTF8ToAnsi (char *string, int len);
+static const char *speakers [] = {
+    "FL", "FR", "FC", "LFE", "BL", "BR", "FLC", "FRC", "BC",
+    "SL", "SR", "TC", "TFL", "TFC", "TFR", "TBL", "TBC", "TBR"
+};
 
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 {
+    uint32_t channel_mask = (uint32_t) WavpackGetChannelMask (wpc);
     int num_channels = WavpackGetNumChannels (wpc);
     uchar md5_sum [16];
     char modes [80];
@@ -967,8 +1060,33 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 	(WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints",
 	WavpackGetSampleRate (wpc));
 
-    fprintf (dst, "channels:          %d (%s)\n", num_channels,
-	num_channels > 2 ? "multichannel" : (num_channels == 1 ? "mono" : "stereo"));
+    if (!channel_mask)
+	strcpy (modes, "undefined speakers");
+    else if (num_channels == 1 && channel_mask == 0x4)
+	strcpy (modes, "mono");
+    else if (num_channels == 2 && channel_mask == 0x3)
+	strcpy (modes, "stereo");
+    else {
+	int cc = num_channels, si = 0;
+	uint32_t cm = channel_mask;
+
+	modes [0] = 0;
+
+	while (cc && cm) {
+	    if (cm & 1) {
+		strcat (modes, speakers [si]);
+		if (--cc)
+		    strcat (modes, ",");
+	    }
+	    cm >>= 1;
+	    si++;
+	}
+
+	if (cc)
+	    strcat (modes, "...");
+    }
+
+    fprintf (dst, "channels:          %d (%s)\n", num_channels, modes);
 
     if (WavpackGetNumSamples (wpc) != (uint32_t) -1) {
 	double seconds = (double) WavpackGetNumSamples (wpc) / WavpackGetSampleRate (wpc);

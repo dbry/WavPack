@@ -253,6 +253,7 @@ uint32_t WavpackGetSampleRate (WavpackContext *wpc);
 int WavpackGetBitsPerSample (WavpackContext *wpc);
 int WavpackGetBytesPerSample (WavpackContext *wpc);
 int WavpackGetNumChannels (WavpackContext *wpc);
+int WavpackGetChannelMask (WavpackContext *wpc);
 int WavpackGetReducedChannels (WavpackContext *wpc);
 int WavpackGetFloatNormExp (WavpackContext *wpc);
 int WavpackGetMD5Sum (WavpackContext *wpc, uchar data [16]);

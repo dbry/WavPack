@@ -2129,6 +2129,20 @@ int WavpackGetNumChannels (WavpackContext *wpc)
     return wpc ? wpc->config.num_channels : 2;
 }
 
+// Returns the standard Microsoft channel mask for the specified WavPack
+// file. A value of zero indicates that there is no speaker assignment
+// information.
+
+int WavpackGetChannelMask (WavpackContext *wpc)
+{
+    return wpc ? wpc->config.channel_mask : 0;
+}
+
+// Return the normalization value for floating point data (valid only
+// if floating point data is present). A value of 127 indicates that
+// the floating point range is +/- 1.0. Higher values indicate a
+// larger floating point range.
+
 int WavpackGetFloatNormExp (WavpackContext *wpc)
 {
     return wpc->config.float_norm_exp;
@@ -2201,17 +2215,19 @@ void WavpackFreeWrapper (WavpackContext *wpc)
 // opened for reading because it is stored in the final block of the file. This
 // function forces a seek to the end of the file to pick up any trailing wrapper
 // stored there (then use WavPackGetWrapper**() to obtain). This can obviously only
-// be used for seekable files (not pipes).
+// be used for seekable files (not pipes) and is not available for pre-4.0 WavPack
+// files.
 
 static void seek_riff_trailer (WavpackContext *wpc);
 
 void WavpackSeekTrailingWrapper (WavpackContext *wpc)
 {
-    if (wpc->reader->can_seek (wpc->wv_in)) {
-        uint32_t pos_save = wpc->reader->get_pos (wpc->wv_in);
+    if ((wpc->open_flags & OPEN_WRAPPER) &&
+        wpc->reader->can_seek (wpc->wv_in) && !wpc->stream3) {
+	    uint32_t pos_save = wpc->reader->get_pos (wpc->wv_in);
 
-        seek_riff_trailer (wpc);
-        wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
+	    seek_riff_trailer (wpc);
+	    wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
     }
 }
 
