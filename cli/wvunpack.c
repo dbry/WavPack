@@ -506,6 +506,7 @@ int main (argc, argv) int argc; char **argv;
 
 static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt);
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
+static int create_riff_header (FILE *outfile, WavpackContext *wpc);
 static int dump_cuesheet (WavpackContext *wpc, FILE *dst);
 
 static int unpack_file (char *infilename, char *outfilename)
