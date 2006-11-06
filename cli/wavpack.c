@@ -770,9 +770,13 @@ int main (argc, argv) int argc; char **argv;
 
 	    // delete source file if that option is enabled
 
-	    if (result == NO_ERROR && delete_source)
-		error_line ("%s source file %s", DoDeleteFile (matches [file_index]) ?
-		    "deleted" : "can't delete", matches [file_index]);
+	    if (result == NO_ERROR && delete_source) {
+		int res = DoDeleteFile (matches [file_index]);
+
+		if (!quiet_mode || !res)
+		    error_line ("%s source file %s", res ?
+			"deleted" : "can't delete", matches [file_index]);
+	    }
 
 	    // clean up in preparation for potentially another file
 

@@ -786,17 +786,27 @@ static int unpack_file (char *infilename, char *outfilename)
 	!copy_timestamp (infilename, outfilename))
 	    error_line ("failure copying time stamp!");
 
-    if (result == NO_ERROR && WavpackGetNumSamples (wpc) != (uint32_t) -1 &&
-	total_unpacked_samples != WavpackGetNumSamples (wpc)) {
-	    error_line ("incorrect number of samples!");
+    if (result == NO_ERROR) {
+	if (WavpackGetNumSamples (wpc) != (uint32_t) -1) {
+	    if (total_unpacked_samples < WavpackGetNumSamples (wpc)) {
+		error_line ("file is missing %d samples!",
+		    WavpackGetNumSamples (wpc) - total_unpacked_samples);
+		result = SOFT_ERROR;
+	    }
+	    else if (total_unpacked_samples > WavpackGetNumSamples (wpc)) {
+		error_line ("file has %d extra samples!",
+		    total_unpacked_samples - WavpackGetNumSamples (wpc));
+		result = SOFT_ERROR;
+	    }
+	}
+
+	if (WavpackGetNumErrors (wpc)) {
+	    error_line ("missing data or crc errors detected in %d block(s)!", WavpackGetNumErrors (wpc));
 	    result = SOFT_ERROR;
+	}
     }
 
-    if (result == NO_ERROR && WavpackGetNumErrors (wpc)) {
-	error_line ("crc errors detected in %d block(s)!", WavpackGetNumErrors (wpc));
-	result = SOFT_ERROR;
-    }
-    else if (result == NO_ERROR && md5_diff && (WavpackGetMode (wpc) & MODE_LOSSLESS)) {
+    if (result == NO_ERROR && md5_diff && (WavpackGetMode (wpc) & MODE_LOSSLESS)) {
 	error_line ("MD5 signatures should match, but do not!");
 	result = SOFT_ERROR;
     }
@@ -890,17 +900,22 @@ static int unpack_file (char *infilename, char *outfilename)
     WavpackCloseFile (wpc);
 
     if (result == NO_ERROR && delete_source) {
-	error_line ("%s source file %s", DoDeleteFile (infilename) ?
-	    "deleted" : "can't delete", infilename);
+	int res = DoDeleteFile (infilename);
+
+	if (!quiet_mode || !res)
+	    error_line ("%s source file %s", res ?
+		"deleted" : "can't delete", infilename);
 
 	if (wvc_mode) {
 	    char in2filename [PATH_MAX];
 
 	    strcpy (in2filename, infilename);
 	    strcat (in2filename, "c");
+	    res = DoDeleteFile (in2filename);
 
-	    error_line ("%s source file %s", DoDeleteFile (in2filename) ?
-		"deleted" : "can't delete", in2filename);
+	    if (!quiet_mode || !res)
+		error_line ("%s source file %s", res ?
+		    "deleted" : "can't delete", in2filename);
 	}
     }
 
