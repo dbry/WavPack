@@ -1584,9 +1584,14 @@ static int create_riff_header (WavpackContext *wpc)
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 {
-    uint32_t max_blocksize = block_samples * 10 + 4096, bcount;
+    uint32_t max_blocksize, bcount;
     uchar *outbuff, *outend, *out2buff, *out2end;
     int result = TRUE;
+
+    if ((wpc->config.flags & CONFIG_FLOAT_DATA) && !(wpc->config.flags & CONFIG_SKIP_WVX))
+	max_blocksize = block_samples * 16 + 4096;
+    else
+	max_blocksize = block_samples * 10 + 4096;
 
     out2buff = (wpc->wvc_flag) ? malloc (max_blocksize) : NULL;
     out2end = out2buff + max_blocksize;
