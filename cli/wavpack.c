@@ -69,6 +69,7 @@ static const char *usage =
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
 "          -f  = fast mode (fast, but some compromise in compression ratio)\n"
 "          -h  = high quality (better compression ratio, but slower)\n"
+"          -x  = extra encode processing (no decoding speed penalty)\n"
 "          --help = complete help\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -113,7 +114,9 @@ static const char *help =
 "          -sn = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)\n"
 "          -t  = copy input file's time stamp to output file(s)\n"
 "          -w \"Field=Value\" = write specified metadata to APEv2 tag\n"
-"          -x[n] = extra encode processing (optional n = 1 to 3, 1=default)\n"
+"          -x[n] = extra encode processing (optional n = 1 to 6, 1=default)\n"
+"                  -x1 to -x3 to choose best of predefined filters\n"
+"                  -x4 to -x6 to generate custom filters (very slow!)\n"
 "          -y  = yes to all warnings (use with caution!)\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
