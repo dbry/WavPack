@@ -55,9 +55,6 @@ int unpack_init (WavpackContext *wpc)
     uchar *blockptr, *block2ptr;
     WavpackMetadata wpmd;
 
-    if (wps->wphdr.block_samples && wps->wphdr.block_index != (uint32_t) -1)
-	wps->sample_index = wps->wphdr.block_index;
-
     wps->mute_error = FALSE;
     wps->crc = wps->crc_x = 0xffffffff;
     CLEAR (wps->wvbits);
@@ -70,19 +67,26 @@ int unpack_init (WavpackContext *wpc)
     blockptr = wps->blockbuff + sizeof (WavpackHeader);
 
     while (read_metadata_buff (&wpmd, wps->blockbuff, &blockptr))
-	if (!process_metadata (wpc, &wpmd))
+	if (!process_metadata (wpc, &wpmd)) {
+	    wps->mute_error = TRUE;
 	    return FALSE;
+	}
 
-    block2ptr = wps->block2buff + sizeof (WavpackHeader);
+    if (wps->wphdr.block_samples && wpc->wvc_flag && wps->block2buff) {
+	block2ptr = wps->block2buff + sizeof (WavpackHeader);
 
-    while (wpc->wvc_flag && wps->wphdr.block_samples && read_metadata_buff (&wpmd, wps->block2buff, &block2ptr))
-	if (!process_metadata (wpc, &wpmd))
-	    return FALSE;
+	while (read_metadata_buff (&wpmd, wps->block2buff, &block2ptr))
+	    if (!process_metadata (wpc, &wpmd)) {
+		wps->mute_error = TRUE;
+		return FALSE;
+	    }
+    }
 
     if (wps->wphdr.block_samples && !bs_is_open (&wps->wvbits)) {
 	if (bs_is_open (&wps->wvcbits))
 	    strcpy (wpc->error_message, "can't unpack correction files alone!");
 
+	wps->mute_error = TRUE;
 	return FALSE;
     }
 
@@ -94,6 +98,9 @@ int unpack_init (WavpackContext *wpc)
 	    wps->float_flags & (FLOAT_EXCEPTIONS | FLOAT_ZEROS_SENT | FLOAT_SHIFT_SENT | FLOAT_SHIFT_SAME))
 		wpc->lossy_blocks = TRUE;
     }
+
+    if (wps->wphdr.block_samples)
+	wps->sample_index = wps->wphdr.block_index;
 
     return TRUE;
 }
@@ -442,7 +449,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 	return sample_count;
     }
 
-    if ((flags & HYBRID_FLAG) && !wpc->wvc_flag)
+    if ((flags & HYBRID_FLAG) && !wps->block2buff)
 	mute_limit *= 2;
 
     ///////////////// handle version 4 lossless mono data /////////////////////
@@ -485,7 +492,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 
     //////////////// handle version 4 lossless stereo data ////////////////////
 
-    else if (!wpc->wvc_flag && !(flags & MONO_DATA)) {
+    else if (!wps->block2buff && !(flags & MONO_DATA)) {
 	int32_t *eptr = buffer + (sample_count * 2);
 
 	i = sample_count;
@@ -580,7 +587,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 
 	    m = (m + 1) & (MAX_TERM - 1);
 
-	    if (wpc->wvc_flag) {
+	    if (wps->block2buff) {
 		if (flags & HYBRID_SHAPE) {
 		    int shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
 		    int32_t temp = -apply_weight (shaping_weight, wps->dc.error [0]);
@@ -611,7 +618,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 
     //////////////// handle version 4 lossy/hybrid stereo data ////////////////
 
-    else if (wpc->wvc_flag && !(flags & MONO_DATA))
+    else if (wps->block2buff && !(flags & MONO_DATA))
 	for (bptr = buffer, i = 0; i < sample_count; ++i) {
 	    int32_t left, right, left2, right2;
 	    int32_t left_c = 0, right_c = 0;
@@ -1341,7 +1348,7 @@ static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags;
-    int lossy_flag = (flags & HYBRID_FLAG) && !wpc->wvc_flag;
+    int lossy_flag = (flags & HYBRID_FLAG) && !wps->block2buff;
     int shift = (flags & SHIFT_MASK) >> SHIFT_LSB;
 
     if (flags & FLOAT_DATA) {

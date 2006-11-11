@@ -312,6 +312,7 @@ typedef struct {
     int num_decorrs, num_passes, best_decorr, mask_decorr;
     uint32_t sample_index, crc, crc_x, crc_wvx;
     Bitstream wvbits, wvcbits, wvxbits;
+    int init_done, wvc_skip;
     float delta_decay;
 
     uchar int32_sent_bits, int32_zeros, int32_ones, int32_dups;
@@ -381,7 +382,7 @@ typedef struct {
 
     uint32_t filelen, file2len, filepos, file2pos, total_samples, crc_errors, first_flags;
     int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, close_files;
-    uint32_t block_samples, max_samples, acc_samples;
+    uint32_t block_samples, max_samples, acc_samples, initial_index;
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
 
