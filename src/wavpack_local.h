@@ -387,7 +387,7 @@ typedef struct {
     M_Tag m_tag;
 
     int current_stream, num_streams, stream_version;
-    WavpackStream *streams [8];
+    WavpackStream *streams [MAX_STREAMS];
     void *stream3;
 
     char error_message [80];

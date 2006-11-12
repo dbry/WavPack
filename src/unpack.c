@@ -64,6 +64,11 @@ int unpack_init (WavpackContext *wpc)
     CLEAR (wps->dc);
     CLEAR (wps->w);
 
+    if (wps->wphdr.flags & UNKNOWN_FLAGS) {
+	wps->mute_error = TRUE;
+	return FALSE;
+    }
+
     blockptr = wps->blockbuff + sizeof (WavpackHeader);
 
     while (read_metadata_buff (&wpmd, wps->blockbuff, &blockptr))

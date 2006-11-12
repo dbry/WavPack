@@ -65,7 +65,7 @@ static const char *usage =
 " Usage:   WVUNPACK [-options] [@]infile[.wv]|- [...] [-o [@]outfile[.wav]|outpath|-]\n"
 #endif
 "             (infile may contain wildcards: ?,*)\n\n"
-" Options: -b  = blindly decode all stream blocks\n"
+" Options: -b  = blindly decode all stream blocks & ignore length info\n"
 "          -c  = extract cuesheet only to stdout (no audio decode)\n"
 "          -cc = extract cuesheet file (.cue) in addition to audio file\n"
 "          -d  = delete source file if successful (use with caution!)\n"
@@ -78,11 +78,12 @@ static const char *usage =
 #if !defined (WIN32)
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
-"          -r  = force raw audio decode (skip RIFF headers & trailers)\n"
+"          -r  = force raw audio decode (results in .raw extension)\n"
 "          -s  = display summary information only to stdout (no audio decode)\n"
 "          -ss = display super summary (including tags) to stdout (no decode)\n"
 "          -t  = copy input file's time stamp to output file(s)\n"
 "          -v  = verify source data only (no output file created)\n"
+"          -w  = regenerate .wav header (ignore RIFF data in file)\n"
 "          -y  = yes to overwrite warning (use with caution!)\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -92,7 +93,7 @@ static const char *usage =
 int debug_logging_mode;
 
 static char overwrite_all, delete_source, raw_decode, extract_cuesheet,
-    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode;
+    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode;
 
 static int num_files, file_index, outbuf_k;
 
@@ -202,6 +203,10 @@ int main (argc, argv) int argc; char **argv;
 			raw_decode = 1;
 			break;
 
+		    case 'W': case 'w':
+			wav_decode = 1;
+			break;
+
 		    case 'Q': case 'q':
 			quiet_mode = 1;
 			break;
@@ -261,6 +266,11 @@ int main (argc, argv) int argc; char **argv;
     if (verify_only && delete_source) {
 	error_line ("can't delete in verify mode!");
 	delete_source = 0;
+    }
+
+    if (raw_decode && wav_decode) {
+	error_line ("-r (raw decode) and -w (wav header) modes are incompatible!");
+	++error_count;
     }
 
     if (verify_only && outfilename) {
@@ -506,12 +516,13 @@ int main (argc, argv) int argc; char **argv;
 
 static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt);
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
-static int create_riff_header (FILE *outfile, WavpackContext *wpc);
+static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
 static int dump_cuesheet (WavpackContext *wpc, FILE *dst);
 
 static int unpack_file (char *infilename, char *outfilename)
 {
-    int result = NO_ERROR, md5_diff = FALSE, open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
+    int result = NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
+    int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
     uint32_t outfile_length, output_buffer_size = 0, bcount, total_unpacked_samples = 0;
     uchar *output_buffer = NULL, *output_pointer = NULL;
     double dtime, progress = -1.0;
@@ -530,7 +541,7 @@ static int unpack_file (char *infilename, char *outfilename)
 
     // use library to open WavPack file
 
-    if ((outfilename && !raw_decode) || summary > 1)
+    if ((outfilename && !raw_decode && !blind_decode && !wav_decode) || summary > 1)
 	open_flags |= OPEN_WRAPPER;
 
     if (blind_decode)
@@ -655,10 +666,12 @@ static int unpack_file (char *infilename, char *outfilename)
 
 	    WavpackFreeWrapper (wpc);
 	}
-	else if (!create_riff_header (outfile, wpc)) {
+	else if (!write_riff_header (outfile, wpc, WavpackGetNumSamples (wpc))) {
 	    DoTruncateFile (outfile);
 	    result = HARD_ERROR;
 	}
+	else
+	    created_riff_header = TRUE;
     }
 
     temp_buffer = malloc (4096L * num_channels * 4);
@@ -754,7 +767,7 @@ static int unpack_file (char *infilename, char *outfilename)
 	error_line ("unpacked md5:  %s", md5_string2);
     }
 
-    if (WavpackGetWrapperBytes (wpc)) {
+    if (!created_riff_header && WavpackGetWrapperBytes (wpc)) {
 	if (outfile && result == NO_ERROR &&
 	    (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
 	    bcount != WavpackGetWrapperBytes (wpc))) {
@@ -764,6 +777,17 @@ static int unpack_file (char *infilename, char *outfilename)
 	}
 
 	WavpackFreeWrapper (wpc);
+    }
+
+    if (result == NO_ERROR && outfile && created_riff_header &&
+	(WavpackGetNumSamples (wpc) == (uint32_t) -1 ||
+	 WavpackGetNumSamples (wpc) != total_unpacked_samples)) {
+	    if (*outfilename == '-' || DoSetFilePositionAbsolute (outfile, 0))
+		error_line ("can't update RIFF header with actual size");
+	    else if (!write_riff_header (outfile, wpc, total_unpacked_samples)) {
+		DoTruncateFile (outfile);
+		result = HARD_ERROR;
+	    }
     }
 
     // if we are not just in verify only mode, grab the size of the output
@@ -789,12 +813,12 @@ static int unpack_file (char *infilename, char *outfilename)
     if (result == NO_ERROR) {
 	if (WavpackGetNumSamples (wpc) != (uint32_t) -1) {
 	    if (total_unpacked_samples < WavpackGetNumSamples (wpc)) {
-		error_line ("file is missing %d samples!",
+		error_line ("file is missing %u samples!",
 		    WavpackGetNumSamples (wpc) - total_unpacked_samples);
 		result = SOFT_ERROR;
 	    }
 	    else if (total_unpacked_samples > WavpackGetNumSamples (wpc)) {
-		error_line ("file has %d extra samples!",
+		error_line ("file has %u extra samples!",
 		    total_unpacked_samples - WavpackGetNumSamples (wpc));
 		result = SOFT_ERROR;
 	    }
@@ -968,14 +992,14 @@ static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt
     return dst;
 }
 
-static int create_riff_header (FILE *outfile, WavpackContext *wpc)
+static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples)
 {
     RiffChunkHeader riffhdr;
     ChunkHeader datahdr, fmthdr;
     WaveHeader wavhdr;
     uint32_t bcount;
 
-    uint32_t total_samples = WavpackGetNumSamples (wpc), total_data_bytes;
+    uint32_t total_data_bytes;
     int num_channels = WavpackGetNumChannels (wpc);
     int32_t channel_mask = WavpackGetChannelMask (wpc);
     int32_t sample_rate = WavpackGetSampleRate (wpc);
@@ -989,10 +1013,10 @@ static int create_riff_header (FILE *outfile, WavpackContext *wpc)
 	return FALSE;
     }
 
-    if (total_samples != (uint32_t) -1)
-	total_data_bytes = total_samples * bytes_per_sample * num_channels;
-    else
-	total_data_bytes = -1;
+    if (total_samples == (uint32_t) -1)
+	total_samples = 0x7ffff000 / (bytes_per_sample * num_channels);
+
+    total_data_bytes = total_samples * bytes_per_sample * num_channels;
 
     CLEAR (wavhdr);
 
@@ -1021,12 +1045,7 @@ static int create_riff_header (FILE *outfile, WavpackContext *wpc)
 
     strncpy (riffhdr.ckID, "RIFF", sizeof (riffhdr.ckID));
     strncpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
-
-    if (total_data_bytes != (uint32_t) -1)
-	riffhdr.ckSize = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + total_data_bytes;
-    else
-	riffhdr.ckSize = total_data_bytes;
-
+    riffhdr.ckSize = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + total_data_bytes;
     strncpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
     fmthdr.ckSize = wavhdrsize;
 
