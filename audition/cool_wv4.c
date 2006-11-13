@@ -209,8 +209,10 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
     else if (dwOptions & OPTIONS_FAST)
 	config.flags |= CONFIG_FAST_FLAG;
 
-    if (dwOptions & OPTIONS_EXTRA)
+    if (dwOptions & OPTIONS_EXTRA) {
 	config.flags |= CONFIG_EXTRA_MODE;
+	config.xmode = 3;
+    }
 
     if (dwOptions & OPTIONS_HYBRID) {
 	config.bitrate = ((dwOptions & OPTIONS_BITRATE) >> 20) / 128.0;
