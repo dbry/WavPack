@@ -22,8 +22,6 @@
 // This flag provides faster encoding speed at the expense of more code. The
 // improvement applies to 16-bit stereo lossless only.
 
-#define FAST_ENCODE
-
 #ifdef DEBUG_ALLOC
 #define malloc malloc_db
 #define realloc realloc_db
@@ -1916,7 +1914,6 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
     //////////////////// handle the lossless stereo mode //////////////////////
 
-#ifdef FAST_ENCODE
     else if (!(flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
 	int32_t *eptr = buffer + (sample_count * 2);
 
@@ -1941,65 +1938,6 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 	    send_word_lossless (wps, bptr [1], 1);
 	}
     }
-#else
-    else if (!(flags & HYBRID_FLAG) && !(flags & MONO_DATA))
-	for (bptr = buffer, i = 0; i < sample_count; ++i, bptr += 2) {
-	    int32_t left, right, sam_A, sam_B;
-
-	    crc = crc * 3 + (left = bptr [0]);
-	    crc = crc * 3 + (right = bptr [1]);
-
-	    if (flags & JOINT_STEREO)
-		right += ((left -= right) >> 1);
-
-	    for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++) {
-		if (dpp->term > 0) {
-		    if (dpp->term > MAX_TERM) {
-			if (dpp->term & 1) {
-			    sam_A = 2 * dpp->samples_A [0] - dpp->samples_A [1];
-			    sam_B = 2 * dpp->samples_B [0] - dpp->samples_B [1];
-			}
-			else {
-			    sam_A = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
-			    sam_B = (3 * dpp->samples_B [0] - dpp->samples_B [1]) >> 1;
-			}
-
-			dpp->samples_A [1] = dpp->samples_A [0];
-			dpp->samples_B [1] = dpp->samples_B [0];
-			dpp->samples_A [0] = left;
-			dpp->samples_B [0] = right;
-		    }
-		    else {
-			int k = (m + dpp->term) & (MAX_TERM - 1);
-
-			sam_A = dpp->samples_A [m];
-			sam_B = dpp->samples_B [m];
-			dpp->samples_A [k] = left;
-			dpp->samples_B [k] = right;
-		    }
-
-		    left -= apply_weight (dpp->weight_A, sam_A);
-		    right -= apply_weight (dpp->weight_B, sam_B);
-		    update_weight (dpp->weight_A, dpp->delta, sam_A, left);
-		    update_weight (dpp->weight_B, dpp->delta, sam_B, right);
-		}
-		else {
-		    sam_A = (dpp->term == -2) ? right : dpp->samples_A [0];
-		    sam_B = (dpp->term == -1) ? left : dpp->samples_B [0];
-		    dpp->samples_A [0] = right;
-		    dpp->samples_B [0] = left;
-		    left -= apply_weight (dpp->weight_A, sam_A);
-		    right -= apply_weight (dpp->weight_B, sam_B);
-		    update_weight_clip (dpp->weight_A, dpp->delta, sam_A, left);
-		    update_weight_clip (dpp->weight_B, dpp->delta, sam_B, right);
-		}
-	    }
-
-	    m = (m + 1) & (MAX_TERM - 1);
-	    send_word_lossless (wps, left, 0);
-	    send_word_lossless (wps, right, 1);
-	}
-#endif
 
     /////////////////// handle the lossy/hybrid mono mode /////////////////////
 
@@ -2262,8 +2200,6 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     wps->sample_index += sample_count;
     return TRUE;
 }
-
-#ifdef FAST_ENCODE
 
 static void decorr_stereo_pass_id2 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count)
 {
@@ -2579,8 +2515,6 @@ static void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_
 	    break;
     }
 }
-
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 // This function returns the accumulated RMS noise as a double if the       //
