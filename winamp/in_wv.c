@@ -178,7 +178,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.4x \nCopyright (c) 2006 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.4b \nCopyright (c) 2006 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -811,7 +811,7 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
 In_Module mod = 
 {
     IN_VER,
-    "WavPack Player v2.4x "
+    "WavPack Player v2.4b "
 
 #ifdef __alpha
     "(AXP)"
