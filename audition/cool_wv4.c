@@ -138,7 +138,7 @@ static int write_block (void *id, void *data, int32_t bcount)
 
     if (wid && wid->file && data && bcount) {
 	if (fwrite (data, 1, bcount, wid->file) != bcount) {
-	    chsize (fileno (wid->file), 0);
+	    _chsize (_fileno (wid->file), 0);
 	    fclose (wid->file);
 	    wid->file = NULL;
 	    wid->error = 1;
@@ -215,7 +215,7 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
     }
 
     if (dwOptions & OPTIONS_HYBRID) {
-	config.bitrate = ((dwOptions & OPTIONS_BITRATE) >> 20) / 128.0;
+	config.bitrate = (float)(((dwOptions & OPTIONS_BITRATE) >> 20) / 128.0);
 	config.flags |= CONFIG_HYBRID_FLAG;
 
 	if (dwOptions & OPTIONS_WVC) {
@@ -353,9 +353,9 @@ DWORD PASCAL WriteFilterOutput (HANDLE hOutput, BYTE *lpbData, long lBytes)
 	    int32_t temp, random = out->random;
 	    int sc = samples;
 
-	    fMult = (bits_per_sample == 24) ? 256.0 : 16.0;
-	    fMin = (bits_per_sample == 24) ? -8388608.0 : -524288.0;
-	    fMax = (bits_per_sample == 24) ? 8388607.0 : 524287.0;
+	    fMult = (float)((bits_per_sample == 24) ? 256.0 : 16.0);
+	    fMin = (float)((bits_per_sample == 24) ? -8388608.0 : -524288.0);
+	    fMax = (float)((bits_per_sample == 24) ? 8388607.0 : 524287.0);
 
 	    while (sc--) {
 		* (float*) fPtr *= fMult;
@@ -366,15 +366,15 @@ DWORD PASCAL WriteFilterOutput (HANDLE hOutput, BYTE *lpbData, long lBytes)
 		if (dwOptions & OPTIONS_DITHER) {
 		    temp = (random = (((random << 4) - random) ^ 1)) >> 1;
 		    temp += (random = (((random << 4) - random) ^ 1)) >> 1;
-		    fDither = temp * (1/2147483648.0) + 0.5;
+		    fDither = (float)(temp * (1/2147483648.0) + 0.5);
 		}
 
 		if (* (float*) fPtr > fMax)
-		    out->error [0] = (temp = fMax) - * (float*) fPtr;
+		    out->error [0] = (float)((temp = (int32_t) fMax) - * (float*) fPtr);
 		else if (* (float*) fPtr < fMin)
-		    out->error [0] = (temp = fMin) - * (float*) fPtr;
+		    out->error [0] = (float)((temp = (int32_t) fMin) - * (float*) fPtr);
 		else
-		    out->error [0] = (temp = floor (* (float*) fPtr + fDither)) - * (float*) fPtr;
+		    out->error [0] = (temp = (int32_t) floor (* (float*) fPtr + fDither)) - * (float*) fPtr;
 
 		* (long*) fPtr++ = (bits_per_sample == 24) ? temp : temp << 4;
 
@@ -389,15 +389,15 @@ DWORD PASCAL WriteFilterOutput (HANDLE hOutput, BYTE *lpbData, long lBytes)
 		if (dwOptions & OPTIONS_DITHER) {
 		    temp = (random = (((random << 4) - random) ^ 1)) >> 1;
 		    temp += (random = (((random << 4) - random) ^ 1)) >> 1;
-		    fDither = temp * (1/2147483648.0) + 0.5;
+		    fDither = (float)(temp * (1/2147483648.0) + 0.5);
 		}
 
 		if (* (float*) fPtr > fMax)
-		    out->error [1] = (temp = fMax) - * (float*) fPtr;
+		    out->error [1] = (temp = (int32_t) fMax) - * (float*) fPtr;
 		else if (* (float*) fPtr < fMin)
-		    out->error [1] = (temp = fMin) - * (float*) fPtr;
+		    out->error [1] = (temp = (int32_t) fMin) - * (float*) fPtr;
 		else
-		    out->error [1] = (temp = floor (* (float*) fPtr + fDither)) - * (float*) fPtr;
+		    out->error [1] = (temp = (int32_t) floor (* (float*) fPtr + fDither)) - * (float*) fPtr;
 
 		* (long*) fPtr++ = (bits_per_sample == 24) ? temp : temp << 4;
 	    }
@@ -717,12 +717,12 @@ DWORD PASCAL FilterGetOptions (HWND hWnd, HINSTANCE hInst, long lSamprate, WORD 
     
     // generate the minimum and default bitrates for hybrid modes
 
-    iMinBitrate = floor (lSamprate / 1000.0 * 2.22 * wChannels + 0.5);
+    iMinBitrate = (int) floor (lSamprate / 1000.0 * 2.22 * wChannels + 0.5);
 
     if (dwOptions & OPTIONS_BITRATE)
-	iCurrentBitrate = floor (lSamprate / 1000.0 * ((dwOptions >> 20) / 128.0) * wChannels + 0.5);
+	iCurrentBitrate = (int) floor (lSamprate / 1000.0 * ((dwOptions >> 20) / 128.0) * wChannels + 0.5);
     else {
-	iCurrentBitrate = floor (lSamprate / 1000.0 * 3.8 * wChannels + 0.5);
+	iCurrentBitrate = (int) floor (lSamprate / 1000.0 * 3.8 * wChannels + 0.5);
 	force_std_bitrate = TRUE;
     }
 

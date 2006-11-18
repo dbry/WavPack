@@ -221,6 +221,22 @@
 			<File
 				RelativePath=".\audition\cool_wv4.c"
 				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						Detect64BitPortabilityProblems="false"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						Detect64BitPortabilityProblems="false"
+					/>
+				</FileConfiguration>
 			</File>
 		</Filter>
 	</Files>

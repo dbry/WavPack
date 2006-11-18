@@ -271,7 +271,8 @@ int main (argc, argv) int argc; char **argv;
 #if defined (WIN32)
 	else if (filespec_wild (infilename)) {
 	    FILE *list = fopen (infilename+1, "rt");
-	    int di, i;
+	    intptr_t file;
+	    int di;
 
 	    for (di = file_index; di < num_files - 1; di++)
 		matches [di] = matches [di + 1];
@@ -279,7 +280,7 @@ int main (argc, argv) int argc; char **argv;
 	    file_index--;
 	    num_files--;
 
-	    if ((i = _findfirst (infilename, &_finddata_t)) != -1L) {
+	    if ((file = _findfirst (infilename, &_finddata_t)) != (intptr_t) -1) {
 		do {
 		    if (!(_finddata_t.attrib & _A_SUBDIR)) {
 			matches = realloc (matches, ++num_files * sizeof (*matches));
@@ -292,9 +293,9 @@ int main (argc, argv) int argc; char **argv;
 			*filespec_name (matches [file_index]) = '\0';
 			strcat (matches [file_index], _finddata_t.name);
 		    }
-		} while (_findnext (i, &_finddata_t) == 0);
+		} while (_findnext (file, &_finddata_t) == 0);
 
-		_findclose (i);
+		_findclose (file);
 	    }
 
 	    free (infilename);
@@ -515,7 +516,7 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 
 	    calc_stereo_peak ((float *) temp_buffer, samples_unpacked, peak);
 	    filter_stereo_samples ((float *) temp_buffer, samples_unpacked);
-	    level = floor (100 * calc_stereo_rms ((float *) temp_buffer, samples_unpacked));
+	    level = (int32_t) floor (100 * calc_stereo_rms ((float *) temp_buffer, samples_unpacked));
 
 	    if (level < 0)
 		histogram [0]++;
@@ -616,37 +617,37 @@ static int update_file (char *infilename, float track_gain, float track_peak, fl
 	    WavpackGetTagItem (wpc, "track", track, sizeof (track));
 		
 	    if (title [0])
-		WavpackAppendTagItem (wpc, "Title", title, strlen (title));
+		WavpackAppendTagItem (wpc, "Title", title, (int) strlen (title));
 		
 	    if (artist [0])
-		WavpackAppendTagItem (wpc, "Artist", artist, strlen (artist));
+		WavpackAppendTagItem (wpc, "Artist", artist, (int) strlen (artist));
 		
 	    if (album [0])
-		WavpackAppendTagItem (wpc, "Album", album, strlen (album));
+		WavpackAppendTagItem (wpc, "Album", album, (int) strlen (album));
 		
 	    if (year [0])
-		WavpackAppendTagItem (wpc, "Year", year, strlen (year));
+		WavpackAppendTagItem (wpc, "Year", year, (int) strlen (year));
 		
 	    if (comment [0])
-		WavpackAppendTagItem (wpc, "Comment", comment, strlen (comment));
+		WavpackAppendTagItem (wpc, "Comment", comment, (int) strlen (comment));
 		
 	    if (track [0])
-		WavpackAppendTagItem (wpc, "Track", track, strlen (track));
+		WavpackAppendTagItem (wpc, "Track", track, (int) strlen (track));
 		
 	    error_line ("warning: ID3v1 tag converted to APEv2");
 	}
 
 	sprintf (value, "%+.2f dB", track_gain);
-	WavpackAppendTagItem (wpc, "replaygain_track_gain", value, strlen (value));
+	WavpackAppendTagItem (wpc, "replaygain_track_gain", value, (int) strlen (value));
 
 	sprintf (value, "%.6f", track_peak);
-	WavpackAppendTagItem (wpc, "replaygain_track_peak", value, strlen (value));
+	WavpackAppendTagItem (wpc, "replaygain_track_peak", value, (int) strlen (value));
 
 	if (album_mode) {
 	    sprintf (value, "%+.2f dB", album_gain);
-	    WavpackAppendTagItem (wpc, "replaygain_album_gain", value, strlen (value));
+	    WavpackAppendTagItem (wpc, "replaygain_album_gain", value, (int) strlen (value));
 	    sprintf (value, "%.6f", album_peak);
-	    WavpackAppendTagItem (wpc, "replaygain_album_peak", value, strlen (value));
+	    WavpackAppendTagItem (wpc, "replaygain_album_peak", value, (int) strlen (value));
 	}
 
 	if (!quiet_mode)
@@ -725,7 +726,7 @@ static float calc_replaygain (uint32_t *histogram)
 	if ((loud_count += histogram [i]) * 20 >= total_windows)
 	    break;
 
-    unclipped_gain = 64.54 - i / 100.0;
+    unclipped_gain = (float)(64.54 - i / 100.0);
 
     if (unclipped_gain > 24.0)
         return 24.0;
@@ -980,8 +981,8 @@ static void butter_filter_stereo_samples (float *samples, uint32_t samcnt)
 	right += butter_hist_b [i - 1] * butter_coeff_b [1] - butter_hist_a [i - 1] * butter_coeff_a [1];  
 	left  += butter_hist_b [i - 4] * butter_coeff_b [2] - butter_hist_a [i - 4] * butter_coeff_a [2];  
 	right += butter_hist_b [i - 3] * butter_coeff_b [2] - butter_hist_a [i - 3] * butter_coeff_a [2];  
-	samples [0] = butter_hist_a [i] = left;
-	samples [1] = butter_hist_a [i + 1] = right;
+	samples [0] = butter_hist_a [i] = (float) left;
+	samples [1] = butter_hist_a [i + 1] = (float) right;
 	samples += 2;
 
 	if ((i += 2) == 256) {
@@ -1038,8 +1039,8 @@ static void yule_filter_stereo_samples (float *samples, uint32_t samcnt)
 	right += yule_hist_b [i - 17] * yule_coeff_b [9] - yule_hist_a [i - 17] * yule_coeff_a [9];  
 	left  += yule_hist_b [i - 20] * yule_coeff_b [10] - yule_hist_a [i - 20] * yule_coeff_a [10];  
 	right += yule_hist_b [i - 19] * yule_coeff_b [10] - yule_hist_a [i - 19] * yule_coeff_a [10];  
-	samples [0] = yule_hist_a [i] = left;
-	samples [1] = yule_hist_a [i + 1] = right;
+	samples [0] = yule_hist_a [i] = (float) left;
+	samples [1] = yule_hist_a [i + 1] = (float) right;
 	samples += 2;
 
 	if ((i += 2) == 256) {

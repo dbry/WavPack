@@ -30,6 +30,9 @@
 #include "wavpack.h"
 #include "utils.h"
 
+#ifdef WIN32
+#define fileno _fileno
+#endif
 
 #ifdef WIN32
 
@@ -199,7 +202,7 @@ char *filespec_path (char *filespec)
     char *cp = filespec + strlen (filespec);
     LANGID langid = GetSystemDefaultLangID ();
     struct _finddata_t finddata;
-    int32_t file;
+    intptr_t file;
 
     if (cp == filespec || filespec_wild (filespec))
 	return NULL;
@@ -215,7 +218,7 @@ char *filespec_path (char *filespec)
     if (*cp == '.' && cp == filespec)
 	return strcat (filespec, "\\");
 
-    if ((file = _findfirst (filespec, &finddata)) != -1L &&
+    if ((file = _findfirst (filespec, &finddata)) != (intptr_t) -1 &&
 	(finddata.attrib & _A_SUBDIR)) {
 	    _findclose (file);
 	    return strcat (filespec, "\\");
@@ -298,7 +301,7 @@ static int is_second_byte (char *filespec, char *pos)
                              (cp [-1] >= 0xe0 && cp [-1] <= 0xfc)))
 	cp--;
 
-    return ((int) pos - (int) cp) & 1;
+    return (int)(pos - cp) & 1;
 }
 
 #endif
@@ -613,7 +616,7 @@ int DoReadFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToRead, uint
     *lpNumberOfBytesRead = 0;
 
     while (nNumberOfBytesToRead) {
-	bcount = fread ((uchar *) lpBuffer + *lpNumberOfBytesRead, 1, nNumberOfBytesToRead, hFile);
+	bcount = (uint32_t) fread ((uchar *) lpBuffer + *lpNumberOfBytesRead, 1, nNumberOfBytesToRead, hFile);
 
 	if (bcount) {
 	    *lpNumberOfBytesRead += bcount;
@@ -633,7 +636,7 @@ int DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, ui
     *lpNumberOfBytesWritten = 0;
 
     while (nNumberOfBytesToWrite) {
-	bcount = fwrite ((uchar *) lpBuffer + *lpNumberOfBytesWritten, 1, nNumberOfBytesToWrite, hFile);
+	bcount = (uint32_t) fwrite ((uchar *) lpBuffer + *lpNumberOfBytesWritten, 1, nNumberOfBytesToWrite, hFile);
 
 	if (bcount) {
 	    *lpNumberOfBytesWritten += bcount;

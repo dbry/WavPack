@@ -38,6 +38,10 @@
 #include <sys/timeb.h>
 #endif
 
+#ifdef WIN32
+#define fileno _fileno
+#endif
+
 #ifdef DEBUG_ALLOC
 #define malloc malloc_db
 #define realloc realloc_db
@@ -315,7 +319,7 @@ int main (argc, argv) int argc; char **argv;
 
 		    case 'B': case 'b':
 			config.flags |= CONFIG_HYBRID_FLAG;
-			config.bitrate = strtod (++*argv, argv);
+			config.bitrate = (float) strtod (++*argv, argv);
 			--*argv;
 
 			if (config.bitrate < 2.0 || config.bitrate > 9600.0) {
@@ -349,7 +353,7 @@ int main (argc, argv) int argc; char **argv;
 			break;
 
 		    case 'S': case 's':
-			config.shaping_weight = strtod (++*argv, argv);
+			config.shaping_weight = (float) strtod (++*argv, argv);
 
 			if (!config.shaping_weight) {
 			    config.flags |= CONFIG_SHAPE_OVERRIDE;
@@ -457,7 +461,7 @@ int main (argc, argv) int argc; char **argv;
 	char *cp = strchr (config.tag_strings [i], '='), *string = NULL;
 
 	if (cp && cp > config.tag_strings [i]) {
-	    int item_len = cp - config.tag_strings [i];
+	    int item_len = (int)(cp - config.tag_strings [i]);
 
 	    if (cp [1] == '@') {
 		FILE *file = wild_fopen (cp+2, "rb");
@@ -620,6 +624,7 @@ int main (argc, argv) int argc; char **argv;
 #if defined (WIN32)
 	else if (filespec_wild (infilename)) {
 	    FILE *list = fopen (infilename+1, "rt");
+	    intptr_t file;
 	    int di;
 
 	    for (di = file_index; di < num_files - 1; di++)
@@ -628,7 +633,7 @@ int main (argc, argv) int argc; char **argv;
 	    file_index--;
 	    num_files--;
 
-	    if ((i = _findfirst (infilename, &_finddata_t)) != -1L) {
+	    if ((file = _findfirst (infilename, &_finddata_t)) != (intptr_t) -1) {
 		do {
 		    if (!(_finddata_t.attrib & _A_SUBDIR)) {
 			matches = realloc (matches, ++num_files * sizeof (*matches));
@@ -641,9 +646,9 @@ int main (argc, argv) int argc; char **argv;
 			*filespec_name (matches [file_index]) = '\0';
 			strcat (matches [file_index], _finddata_t.name);
 		    }
-		} while (_findnext (i, &_finddata_t) == 0);
+		} while (_findnext (file, &_finddata_t) == 0);
 
-		_findclose (i);
+		_findclose (file);
 	    }
 
 	    free (infilename);
@@ -869,12 +874,12 @@ static FILE *wild_fopen (char *filename, const char *mode)
     struct _finddata_t _finddata_t;
     char *matchname = NULL;
     FILE *res = NULL;
-    int i;
+    intptr_t file;
 
     if (!filespec_wild (filename) || !filespec_name (filename))
 	return fopen (filename, mode);
 
-    if ((i = _findfirst (filename, &_finddata_t)) != -1L) {
+    if ((file = _findfirst (filename, &_finddata_t)) != (intptr_t) -1) {
 	do {
 	    if (!(_finddata_t.attrib & _A_SUBDIR)) {
 		if (matchname) {
@@ -888,9 +893,9 @@ static FILE *wild_fopen (char *filename, const char *mode)
 		    strcpy (filespec_name (matchname), _finddata_t.name);  
 		}
 	    }
-	} while (_findnext (i, &_finddata_t) == 0);
+	} while (_findnext (file, &_finddata_t) == 0);
 
-	_findclose (i);
+	_findclose (file);
     }
 
     if (matchname) {
@@ -1280,8 +1285,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 	int i;
 
 	for (i = 0; i < config->num_tag_strings; ++i) {
-	    int item_len = strchr (config->tag_strings [i], '=') - config->tag_strings [i];
-	    int value_len = strlen (config->tag_strings [i]) - item_len - 1;
+	    int item_len = (int)(strchr (config->tag_strings [i], '=') - config->tag_strings [i]);
+	    int value_len = (int) strlen (config->tag_strings [i]) - item_len - 1;
 
 	    if (value_len) {
 		char *item = malloc (item_len + 1);
@@ -1291,7 +1296,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 		item [item_len] = 0;
 		strcpy (value, config->tag_strings [i] + item_len + 1);
 		AnsiToUTF8 (value, value_len * 2 + 1);
-		WavpackAppendTagItem (wpc, item, value, strlen (value));
+		WavpackAppendTagItem (wpc, item, value, (int) strlen (value));
 		free (value);
 		free (item);
 	    }
@@ -1652,7 +1657,7 @@ static int WideCharToUTF8 (const ushort *Wide, uchar *pUTF8, int len)
     }
 
     pUTF8 [outndx] = 0;
-    return pWide - Wide;
+    return (int)(pWide - Wide);
 }
 
 #endif
@@ -1665,7 +1670,7 @@ static int WideCharToUTF8 (const ushort *Wide, uchar *pUTF8, int len)
 
 static void AnsiToUTF8 (char *string, int len)
 {
-    int max_chars = strlen (string);
+    int max_chars = (int) strlen (string);
 #if defined(WIN32)
     ushort *temp = (ushort *) malloc ((max_chars + 1) * 2);
 

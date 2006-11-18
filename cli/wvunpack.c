@@ -40,6 +40,10 @@
 #include "utils.h"
 #include "md5.h"
 
+#ifdef WIN32
+#define fileno _fileno
+#endif
+
 #ifdef DEBUG_ALLOC
 #define malloc malloc_db
 #define realloc realloc_db
@@ -350,7 +354,8 @@ int main (argc, argv) int argc; char **argv;
 #if defined (WIN32)
 	else if (filespec_wild (infilename)) {
 	    FILE *list = fopen (infilename+1, "rt");
-	    int di, i;
+	    intptr_t file;
+	    int di;
 
 	    for (di = file_index; di < num_files - 1; di++)
 		matches [di] = matches [di + 1];
@@ -358,7 +363,7 @@ int main (argc, argv) int argc; char **argv;
 	    file_index--;
 	    num_files--;
 
-	    if ((i = _findfirst (infilename, &_finddata_t)) != -1L) {
+	    if ((file = _findfirst (infilename, &_finddata_t)) != (intptr_t) -1) {
 		do {
 		    if (!(_finddata_t.attrib & _A_SUBDIR)) {
 			matches = realloc (matches, ++num_files * sizeof (*matches));
@@ -371,9 +376,9 @@ int main (argc, argv) int argc; char **argv;
 			*filespec_name (matches [file_index]) = '\0';
 			strcat (matches [file_index], _finddata_t.name);
 		    }
-		} while (_findnext (i, &_finddata_t) == 0);
+		} while (_findnext (file, &_finddata_t) == 0);
 
-		_findclose (i);
+		_findclose (file);
 	    }
 
 	    free (infilename);
@@ -695,8 +700,8 @@ static int unpack_file (char *infilename, char *outfilename)
 	    if (samples_unpacked)
 		output_pointer = format_samples (bps, output_pointer, temp_buffer, samples_unpacked * num_channels);
 
-	    if (!samples_unpacked || (output_buffer_size - (output_pointer - output_buffer)) < bytes_per_sample) {
-		if (!DoWriteFile (outfile, output_buffer, output_pointer - output_buffer, &bcount) ||
+	    if (!samples_unpacked || (output_buffer_size - (output_pointer - output_buffer)) < (uint32_t) bytes_per_sample) {
+		if (!DoWriteFile (outfile, output_buffer, (uint32_t)(output_pointer - output_buffer), &bcount) ||
 		    bcount != output_pointer - output_buffer) {
 			error_line ("can't write .WAV data, disk probably full!");
 			DoTruncateFile (outfile);
@@ -1129,7 +1134,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 	int hours = (int) floor (seconds / 3600.0);
 
 	seconds -= minutes * 60.0;
-	minutes -= hours * 60.0;
+	minutes -= (int)(hours * 60.0);
 
 	fprintf (dst, "duration:          %d:%02d:%05.2f\n", hours, minutes, seconds);
     }
@@ -1178,10 +1183,9 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     }
 
     if (summary > 1) {
-	uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes;
+	uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes, i;
 	uchar *header_data = WavpackGetWrapperData (wpc);
 	char header_name [5];
-	int i;
 
 	strcpy (header_name, "????");
 
@@ -1359,7 +1363,7 @@ static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide)
 
 static void UTF8ToAnsi (char *string, int len)
 {
-    int max_chars = strlen (string);
+    int max_chars = (int) strlen (string);
 #if defined (WIN32)
     unsigned short *temp = malloc ((max_chars + 1) * 2);
     int act_chars = UTF8ToWideChar (string, temp);
