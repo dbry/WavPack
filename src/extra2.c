@@ -39,8 +39,6 @@ typedef struct {
     uint32_t best_bits;
 } WavpackExtraInfo;
 
-extern const signed char default_terms [], high_terms [], fast_terms [];
-
 static void decorr_stereo_pass (int32_t *in_samples, int32_t *out_samples, int32_t num_samples, struct decorr_pass *dpp, int dir)
 {
     int m = 0, i;
@@ -486,7 +484,7 @@ static void sort_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
 
 static const uint32_t xtable [] = { 91, 123, 187, 251 };
 
-void analyze_stereo (WavpackContext *wpc, int32_t *samples, int do_samples)
+static void analyze_stereo (WavpackContext *wpc, int32_t *samples, int do_samples)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     WavpackExtraInfo info;
@@ -611,7 +609,7 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
     int32_t num_samples = wps->wphdr.block_samples;
     int32_t buf_size = sizeof (int32_t) * num_samples * 2;
     uint32_t best_size = (uint32_t) -1, size;
-    int force_js = 0, force_ts = 0, pi, i;
+    int log_limit, force_js = 0, force_ts = 0, pi, i;
 
     for (i = 0; i < num_samples * 2; ++i)
 	if (samples [i])
@@ -624,6 +622,15 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
 	init_words (wps);
 	return;
     }
+
+#ifdef LOG_LIMIT
+    log_limit = (((wps->wphdr.flags & MAG_MASK) >> MAG_LSB) + 4) * 256;
+
+    if (log_limit > LOG_LIMIT)
+	log_limit = LOG_LIMIT;
+#else
+    log_limit = 0;
+#endif
 
     if (wpc->config.flags & CONFIG_JOINT_OVERRIDE) {
 	if (wps->wphdr.flags & JOINT_STEREO)
@@ -666,7 +673,7 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
 
     for (pi = 0; pi < wps->num_passes;) {
 	WavpackDecorrSpec *wpds;
-	int c, j;
+	int nterms, c, j;
 
 	if (!pi)
 	    c = wps->best_decorr;
@@ -683,55 +690,63 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
 	}
 
 	wpds = &wps->decorr_specs [c];
+        nterms = (int) strlen (wpds->terms);
 
-	if (force_js || (wpds->joint_stereo && !force_ts)) {
-	    if (!js_buffer) {
-		int32_t *lptr, cnt = num_samples;
+        while (1) {
+            if (force_js || (wpds->joint_stereo && !force_ts)) {
+                if (!js_buffer) {
+                    int32_t *lptr, cnt = num_samples;
 
-		lptr = js_buffer = malloc (buf_size);
-		memcpy (js_buffer, noisy_buffer ? noisy_buffer : samples, buf_size);
+                    lptr = js_buffer = malloc (buf_size);
+                    memcpy (js_buffer, noisy_buffer ? noisy_buffer : samples, buf_size);
 
-		while (cnt--) {
-		    lptr [1] += ((lptr [0] -= lptr [1]) >> 1);
-		    lptr += 2;
-		}
-	    }
+                    while (cnt--) {
+                        lptr [1] += ((lptr [0] -= lptr [1]) >> 1);
+                        lptr += 2;
+                    }
+                }
 
-	    memcpy (temp_buffer [0], js_buffer, buf_size);
-	}
-	else
-	    memcpy (temp_buffer [0], noisy_buffer ? noisy_buffer : samples, buf_size);
+                memcpy (temp_buffer [0], js_buffer, buf_size);
+            }
+            else
+                memcpy (temp_buffer [0], noisy_buffer ? noisy_buffer : samples, buf_size);
 
-	CLEAR (save_decorr_passes);
+            CLEAR (save_decorr_passes);
 
-	for (j = 0; j < (int) strlen (wpds->terms); ++j) {
-	    CLEAR (temp_decorr_pass);
-	    temp_decorr_pass.delta = wpds->delta;
-	    temp_decorr_pass.term = wpds->terms [j];
+            for (j = 0; j < nterms; ++j) {
+                CLEAR (temp_decorr_pass);
+                temp_decorr_pass.delta = wpds->delta;
+                temp_decorr_pass.term = wpds->terms [j];
 
-	    if (temp_decorr_pass.term < 0 && !(wps->wphdr.flags & CROSS_DECORR))
-		temp_decorr_pass.term = -3;
+                if (temp_decorr_pass.term < 0 && !(wps->wphdr.flags & CROSS_DECORR))
+                    temp_decorr_pass.term = -3;
 
-	    decorr_stereo_pass (temp_buffer [j&1], temp_buffer [~j&1],
-		num_samples > 2048 ? 2048 : num_samples, &temp_decorr_pass, -1);
+                decorr_stereo_pass (temp_buffer [j&1], temp_buffer [~j&1],
+                    num_samples > 2048 ? 2048 : num_samples, &temp_decorr_pass, -1);
 
-	    if (j) {
-		CLEAR (temp_decorr_pass.samples_A);
-		CLEAR (temp_decorr_pass.samples_B);
-	    }
-	    else
-		reverse_decorr (&temp_decorr_pass);
+                if (j) {
+                    CLEAR (temp_decorr_pass.samples_A);
+                    CLEAR (temp_decorr_pass.samples_B);
+                }
+                else
+                    reverse_decorr (&temp_decorr_pass);
 
-	    memcpy (save_decorr_passes + j, &temp_decorr_pass, sizeof (struct decorr_pass));
-	    decorr_stereo_pass (temp_buffer [j&1], temp_buffer [~j&1], num_samples, &temp_decorr_pass, 1);
-	}
+                memcpy (save_decorr_passes + j, &temp_decorr_pass, sizeof (struct decorr_pass));
+                decorr_stereo_pass (temp_buffer [j&1], temp_buffer [~j&1], num_samples, &temp_decorr_pass, 1);
+            }
 
-	size = (wps->num_passes == 1) ? 0 : log2buffer (temp_buffer [j&1], num_samples * 2, 0);
+            size = log2buffer (temp_buffer [j&1], num_samples * 2, log_limit);
+
+            if (size == (uint32_t) -1 && nterms)
+                nterms >>= 1;
+            else
+                break;
+        }
 
 	if (size < best_size) {
 	    memcpy (best_buffer, temp_buffer [j&1], buf_size);
 	    memcpy (wps->decorr_passes, save_decorr_passes, sizeof (struct decorr_pass) * MAX_NTERMS);
-	    wps->num_terms = (int) strlen (wpds->terms);
+	    wps->num_terms = nterms;
 	    wps->best_decorr = c;
 	    best_size = size;
 	}

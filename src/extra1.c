@@ -356,7 +356,7 @@ static void sort_mono (WavpackContext *wpc, WavpackExtraInfo *info)
 
 static const uint32_t xtable [] = { 91, 123, 187, 251 };
 
-void analyze_mono (WavpackContext *wpc, int32_t *samples, int do_samples)
+static void analyze_mono (WavpackContext *wpc, int32_t *samples, int do_samples)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     WavpackExtraInfo info;
@@ -466,7 +466,7 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
     int32_t num_samples = wps->wphdr.block_samples;
     int32_t buf_size = sizeof (int32_t) * num_samples;
     uint32_t best_size = (uint32_t) -1, size;
-    int pi, i;
+    int log_limit, pi, i;
 
     for (i = 0; i < num_samples; ++i)
 	if (samples [i])
@@ -478,6 +478,15 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
 	init_words (wps);
 	return;
     }
+
+#ifdef LOG_LIMIT
+    log_limit = (((wps->wphdr.flags & MAG_MASK) >> MAG_LSB) + 4) * 256;
+
+    if (log_limit > LOG_LIMIT)
+	log_limit = LOG_LIMIT;
+#else
+    log_limit = 0;
+#endif
 
     CLEAR (save_decorr_passes);
     temp_buffer [0] = malloc (buf_size);
@@ -513,7 +522,7 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
 
     for (pi = 0; pi < wps->num_passes;) {
 	WavpackDecorrSpec *wpds;
-	int c, j;
+	int nterms, c, j;
 
 	if (!pi)
 	    c = wps->best_decorr;
@@ -530,10 +539,13 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
 	}
 
 	wpds = &wps->decorr_specs [c];
+        nterms = (int) strlen (wpds->terms);
+
+        while (1) {
 	memcpy (temp_buffer [0], noisy_buffer ? noisy_buffer : samples, buf_size);
 	CLEAR (save_decorr_passes);
 
-	for (j = 0; j < (int) strlen (wpds->terms); ++j) {
+	for (j = 0; j < nterms; ++j) {
 	    CLEAR (temp_decorr_pass);
 	    temp_decorr_pass.delta = wpds->delta;
 	    temp_decorr_pass.term = wpds->terms [j];
@@ -554,12 +566,18 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
 	    decorr_mono_pass (temp_buffer [j&1], temp_buffer [~j&1], num_samples, &temp_decorr_pass, 1);
 	}
 
-	size = (wps->num_passes == 1) ? 0 : log2buffer (temp_buffer [j&1], num_samples, 0);
+	size = log2buffer (temp_buffer [j&1], num_samples, log_limit);
+
+        if (size == (uint32_t) -1 && nterms)
+            nterms >>= 1;
+        else
+            break;
+        }
 
 	if (size < best_size) {
 	    memcpy (best_buffer, temp_buffer [j&1], buf_size);
 	    memcpy (wps->decorr_passes, save_decorr_passes, sizeof (struct decorr_pass) * MAX_NTERMS);
-	    wps->num_terms = (int) strlen (wpds->terms);
+	    wps->num_terms = nterms;
 	    wps->best_decorr = c;
 	    best_size = size;
 	}
