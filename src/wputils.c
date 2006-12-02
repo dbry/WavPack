@@ -561,6 +561,8 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 		    bcount = read_next_header (wpc->reader, wpc->wv_in, &wps->wphdr);
 
 		    if (bcount == (uint32_t) -1) {
+                        wpc->streams [0]->wphdr.block_samples = 0;
+                        wpc->streams [0]->wphdr.ckSize = 24;
 			file_done = TRUE;
 			break;
 		    }
@@ -575,6 +577,8 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
 		    if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + 32, wps->wphdr.ckSize - 24) !=
 			wps->wphdr.ckSize - 24) {
+                            wpc->streams [0]->wphdr.block_samples = 0;
+                            wpc->streams [0]->wphdr.ckSize = 24;
 			    file_done = TRUE;
 			    break;
 		    }
@@ -627,7 +631,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 	    unpack_samples (wpc, buffer, samples_to_unpack);
 
 	if (!(wps->wphdr.flags & FINAL_BLOCK) && wpc->num_streams == MAX_STREAMS) {
-	    strcpy (wpc->error_message, "to many channels!");
+	    strcpy (wpc->error_message, "too many channels!");
 	    break;
 	}
 
