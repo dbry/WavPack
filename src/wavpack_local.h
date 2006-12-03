@@ -414,17 +414,17 @@ typedef struct {
 
 #if 1	// PERFCOND
 #define update_weight(weight, delta, source, result) \
-    if (source && result) { int32_t s = (int32_t) (source ^ result) >> 31; weight += (s ^ delta) - s; }
+    if (source && result) { int32_t s = (int32_t) (source ^ result) >> 31; weight = (delta ^ s) + (weight - s); }
 #elif 1
 #define update_weight(weight, delta, source, result) \
-    if (source && result) weight -= ((((source ^ result) >> 30) & 2) - 1) * delta;
+    if (source && result) weight += (((source ^ result) >> 30) | 1) * delta;
 #else
 #define update_weight(weight, delta, source, result) \
     if (source && result) (source ^ result) < 0 ? (weight -= delta) : (weight += delta);
 #endif
 
 #define update_weight_d1(weight, delta, source, result) \
-    if (source && result) weight -= (((source ^ result) >> 30) & 2) - 1;
+    if (source && result) weight += ((source ^ result) >> 30) | 1;
 
 #define update_weight_d2(weight, delta, source, result) \
     if (source && result) weight -= (((source ^ result) >> 29) & 4) - 2;
