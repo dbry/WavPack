@@ -1,3 +1,66 @@
+                     -------------------------------
+                     Release 4.40 - December 3, 2006
+                     -------------------------------
+
+ WavPack Library Source Code - 4.40
+ ----------------------------------
+  added: new hardware-friendly "high" mode that compresses almost as well as
+         old "high" mode but decodes significantly faster; old "high" mode
+	 now available as "very high"
+  added: option added to improve compression of mono material in stereo files
+         (requires at least version 4.3 decoder)
+  added: function to obtain channel mapping information on decoding
+  added: function to get trailing wrapper info (RIFF) without decoding file
+  improved: "extra" mode levels 1-3 completely revamped, fast enough for use
+  improved: reorganized to create a standard library that should more easily
+            integrate into other applications; eliminated namespace issues
+  improved: more robust handling of corrupt files
+
+ wavpack.exe (command-line encoder) - 4.40
+ -----------------------------------------
+  added: accepts long option names including --help for full usage info
+  added: new hardware-friendly "high" mode that compresses almost as well as
+         old "high" mode but decodes significantly faster; old "high" mode
+	 now available as "very high" (-hh)
+  added: --optimize-mono option added to improve compression of mono material
+         in stereo files (requires at least version 4.3 decoder)
+  improved: "extra" mode levels 1-3 completely revamped, fast enough for use
+  improved: switched to Microsoft Visual Studio 2005 (win32 only)
+  removed: support for Windows 95
+
+ wvunpack.exe (command-line decoder) - 4.40
+ ------------------------------------------
+  added: cuesheet extraction (to .cue file or stdout)
+  added: wav header generation on decode for files with missing RIFF
+         information, or forced with -w option
+  added: more summary info (wrapper info + channel assignments)
+  improved: more robust handling of corrupt files
+  improved: separate options for raw (-r) and blind stream decoding (-b)
+  improved: switched to Microsoft Visual Studio 2005 (win32 only)
+  removed: support for Windows 95
+
+ wvgain.exe (command-line ReplayGain scanner) - 4.40
+ ---------------------------------------------------
+  improved: switched to Microsoft Visual Studio 2005 (win32 only)
+  removed: support for Windows 95
+
+ wvselfx.exe (self-extraction stub) - 4.40
+ ------------------------------------------
+  added: automatic cuesheet extraction (if present in APEv2 tag)
+
+ in_wv.dll (winamp plugin) - 2.4
+ -------------------------------
+  fixed: quietly skips deleted files in playlist
+  improved: more robust handling of corrupt files
+
+ cool_wv4.flt (CoolEdit / Audition filter) - 2.7
+ -----------------------------------------------
+  added: new hardware-friendly "high" mode that compresses almost as well as
+         old "high" mode but decodes significantly faster; old "high" mode
+	 now available as "v. high"
+  improved: more robust handling of corrupt files
+  
+  
                         ----------------------
                         Update - April 5, 2006
                         ----------------------
