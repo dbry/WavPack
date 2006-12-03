@@ -8,10 +8,14 @@
 
 This package contains all the source code required to build the WavPack
 command-line programs and the WavPack library and it has been tested on many
-platforms. For example code using the library you might want to check the
-Cooledit/Audition plugin or the winamp plugin.
+platforms.
 
-To build everything, type:
+On Windows there are solution and project files for Visual Studio 2005 and
+additional sourcecode to build the CoolEdit/Audition plugin and the winamp
+plugin. The CoolEdit/Audition plugin provides a good example for using the
+library to read and write WavPack files.
+
+To build everything on Linux, type:
 
 1. ./configure
 2. make
