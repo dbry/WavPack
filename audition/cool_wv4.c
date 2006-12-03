@@ -19,6 +19,7 @@
 // Version 2.4 - Apr 2, 2005   (fixed 2gig+ problem, new libs)
 // Version 2.5 - Sept 1, 2005  (fixed encoder/decoder overflow on extra mode)
 // Version 2.6 - Nov 1, 2005   (updated to library version 4.3)
+// Version 2.7 - Dec 3, 2006   (updated to library version 4.40, added v.high mode)
 
 #include <windows.h>
 #include <stdlib.h>
