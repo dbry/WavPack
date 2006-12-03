@@ -589,6 +589,59 @@ static int unpack_file (char *infilename, char *outfilename)
 	WavpackCloseFile (wpc);
 	return NO_ERROR;
     }
+    else if (extract_cuesheet > 1 && outfilename && *outfilename != '-' && dump_cuesheet (wpc, NULL)) {
+	char *cuefilename = malloc (strlen (outfilename) + 10);
+
+	strcpy (cuefilename, outfilename);
+
+        if (filespec_ext (cuefilename))
+            strcpy (filespec_ext (cuefilename), ".cue");
+        else
+            strcat (cuefilename, ".cue");
+
+        if (!overwrite_all && (outfile = fopen (cuefilename, "r")) != NULL) {
+            DoCloseHandle (outfile);
+            fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (cuefilename));
+#if defined(WIN32)
+            SetConsoleTitle ("overwrite?");
+#endif
+            switch (yna ()) {
+
+                case 'n':
+                    result = SOFT_ERROR;
+                    break;
+
+                case 'a':
+                    overwrite_all = 1;
+            }
+        }
+
+        // open output file for writing
+
+        if (result == NO_ERROR) {
+            if ((outfile = fopen (cuefilename, "wt")) == NULL) {
+                error_line ("can't create file %s!", FN_FIT (cuefilename));
+                result = SOFT_ERROR;
+            }
+            else {
+                dump_cuesheet (wpc, outfile);
+
+                if (!DoCloseHandle (outfile)) {
+                    error_line ("can't close file %s!", FN_FIT (cuefilename));
+                    result = SOFT_ERROR;
+                }
+                else if (!quiet_mode)
+                    error_line ("extracted cuesheet file %s", FN_FIT (cuefilename));
+            }
+        }
+
+	free (cuefilename);
+
+	if (result != NO_ERROR) {
+	    WavpackCloseFile (wpc);
+	    return result;
+	}
+    }   
 
     if (outfilename) {
 	if (*outfilename != '-') {
@@ -620,7 +673,7 @@ static int unpack_file (char *infilename, char *outfilename)
 	    // open output file for writing
 
 	    if ((outfile = fopen (outfilename, "wb")) == NULL) {
-		error_line ("can't create file %s!", outfilename);
+		error_line ("can't create file %s!", FN_FIT (outfilename));
 		WavpackCloseFile (wpc);
 		return SOFT_ERROR;
 	    }
@@ -803,7 +856,7 @@ static int unpack_file (char *infilename, char *outfilename)
 	outfile_length = DoGetFileSize (outfile);
 
 	if (!DoCloseHandle (outfile)) {
-	    error_line ("can't close file!");
+	    error_line ("can't close file %s!", FN_FIT (outfilename));
 	    result = SOFT_ERROR;
 	}
 
@@ -882,49 +935,6 @@ static int unpack_file (char *infilename, char *outfilename)
 
 	error_line ("%s %s%s in %.2f secs (%s%s)", oper, file, fext, dtime, cmode, cratio);
     }
-
-    if (result == NO_ERROR && extract_cuesheet > 1 && outfilename && *outfilename != '-' && dump_cuesheet (wpc, NULL)) {
-        if (filespec_ext (outfilename))
-            strcpy (filespec_ext (outfilename), ".cue");
-        else
-            strcat (outfilename, ".cue");
-
-        if (!overwrite_all && (outfile = fopen (outfilename, "r")) != NULL) {
-            DoCloseHandle (outfile);
-            fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
-#if defined(WIN32)
-            SetConsoleTitle ("overwrite?");
-#endif
-            switch (yna ()) {
-
-                case 'n':
-                    result = SOFT_ERROR;
-                    break;
-
-                case 'a':
-                    overwrite_all = 1;
-            }
-        }
-
-        // open output file for writing
-
-        if (result == NO_ERROR) {
-            if ((outfile = fopen (outfilename, "w")) == NULL) {
-                error_line ("can't create cuesheet file %s!", outfilename);
-                result = SOFT_ERROR;
-            }
-            else {
-                dump_cuesheet (wpc, outfile);
-
-                if (!DoCloseHandle (outfile)) {
-                    error_line ("can't close cuesheet file!");
-                    result = SOFT_ERROR;
-                }
-                else if (!quiet_mode)
-                    error_line ("extracted cuesheet file");
-            }
-        }
-    }   
 
     WavpackCloseFile (wpc);
 
