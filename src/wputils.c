@@ -359,6 +359,7 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 // MODE_SFX:  file was created as a "self-extracting" executable
 // MODE_VERY_HIGH:  file was created in the "very high" mode (or in
 //                  the "high" mode prior to 4.4)
+// MODE_MD5:  file contains an MD5 checksum
 
 int WavpackGetMode (WavpackContext *wpc)
 {
@@ -395,6 +396,9 @@ int WavpackGetMode (WavpackContext *wpc)
 
 	if (wpc->config.flags & CONFIG_CREATE_EXE)
 	    mode |= MODE_SFX;
+
+	if (wpc->config.flags & CONFIG_MD5_CHECKSUM)
+	    mode |= MODE_MD5;
 
 #ifndef NO_TAGS
 	if (valid_tag (&wpc->m_tag)) {

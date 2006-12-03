@@ -239,6 +239,7 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_APETAG	0x100
 #define MODE_SFX	0x200
 #define MODE_VERY_HIGH	0x400
+#define MODE_MD5	0x800
 
 char *WavpackGetErrorMessage (WavpackContext *wpc);
 int WavpackGetVersion (WavpackContext *wpc);
