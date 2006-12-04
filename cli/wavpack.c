@@ -550,7 +550,7 @@ int main (argc, argv) int argc; char **argv;
 	if (wvselfx_file) {
 	    wvselfx_size = DoGetFileSize (wvselfx_file);
 
-	    if (wvselfx_size && wvselfx_size != 26624 && wvselfx_size < 49152) {
+	    if (wvselfx_size && wvselfx_size != 26624 && wvselfx_size != 30720 && wvselfx_size < 49152) {
 		wvselfx_image = malloc (wvselfx_size);
 
 		if (!DoReadFile (wvselfx_file, wvselfx_image, wvselfx_size, &bcount) || bcount != wvselfx_size) {
