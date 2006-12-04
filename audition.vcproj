@@ -234,6 +234,7 @@
 					>
 					<Tool
 						Name="VCCLCompilerTool"
+						RuntimeLibrary="0"
 						Detect64BitPortabilityProblems="false"
 					/>
 				</FileConfiguration>
