@@ -1144,6 +1144,9 @@ WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id,
 // o CONFIG_SKIP_WVX		no wvx stream for floats & large ints
 // o CONFIG_MD5_CHECKSUM	specify if you plan to store MD5 signature
 // o CONFIG_CREATE_EXE		specify if you plan to prepend sfx module
+// o CONFIG_OPTIMIZE_MONO       detect and optimize for mono files posing as
+//                               stereo (uses a more recent stream format that
+//                               is not compatible with decoders < 4.3)
 
 // config->bitrate              hybrid bitrate in either bits/sample or kbps
 // config->shaping_weight       hybrid noise shaping coefficient override
