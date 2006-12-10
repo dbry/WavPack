@@ -20,6 +20,12 @@ WavPack files as easy as possible, however there are some subtleties involved
 (especially when creating WavPack files) that should be understood to get the
 most out of WavPack and to make sure the resulting files are standardized.
 
+There is also some limited functionality in the library to create, read and
+edit metadata tags that are often appended to WavPack files. The WavPack format
+was recently adopted by WinZip Computing to be used for compressing WAV files
+and important details of this are discussed at the end of the document for
+prgrammers integrating this library with ZIP handling software.
+
 To test decoders, there is also a test suite available that has many varieties
 of WavPack files to test the robustness of any decoder. This is constantly
 getting updated, but is as of this writing available here:
@@ -862,8 +868,27 @@ stored in the ZIP files. Some issues to keep in mind:
    generate the RIFF headers (either during encode or decode) because of the
    obvious danger of generating files that don't match exactly.
 
+6. The WavPack data should probably NOT have metadata tags or MD5 sums added
+   to it. This information would be discarded during decoding anyway and could
+   possibly trigger an error condition in a decoder.
+
 The easiest way of using the WavPack library to decode the embedded WavPack
 data would be to open a WavPack context using WavpackOpenFileInputEx() and
 provide a WavpackStreamReader that would read the appropriate part of the
 ZIP file by using an offset. If only the standard unpacking operations are
-used then the WavPack library will not attempt to seek during a decode.
+used, then the WavPack library will not attempt to seek during a decode. The
+only flag to use for the "open" call would be OPEN_WRAPPER.
+
+The most critical aspect of creating WavPack images to embed in ZIP files is
+making sure that the decoded data will exactly match the source. This is in
+contrast to the case of WavPack command-line programs where some invalid WAV
+files may not encode (or exactly decode) for one reason or another. For this
+reason it is important to check the parameters in the WAV header carefully and
+allow only a well-defined set of known good combinations. The size of the audio
+data should be checked to make sure it contains the correct number of whole
+composite samples (or if it doesn't then this is properly handled). Since
+WavPack cannot properly decode WavPack files that contain no audio data (i.e.
+zero samples), this case should also be avoided. In all situations where some
+question exists, the prudent choice would be to default to some other (more
+genereralized) data compression method.
+
