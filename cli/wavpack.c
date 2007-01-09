@@ -466,7 +466,7 @@ int main (argc, argv) int argc; char **argv;
 	    if (cp [1] == '@') {
 		FILE *file = wild_fopen (cp+2, "rb");
 
-		if (!file && filespec_name (matches [0]) && *matches [0] != '-') {
+		if (!file && num_files && filespec_name (matches [0]) && *matches [0] != '-') {
 		    char *temp = malloc (strlen (matches [0]) + PATH_MAX);
 
 		    strcpy (temp, matches [0]);
@@ -475,7 +475,7 @@ int main (argc, argv) int argc; char **argv;
 		    free (temp);
 		}
 
-		if (!file && filespec_name (outfilename) && *outfilename != '-') {
+		if (!file && outfilename && filespec_name (outfilename) && *outfilename != '-') {
 		    char *temp = malloc (strlen (outfilename) + PATH_MAX);
 
 		    strcpy (temp, outfilename);
