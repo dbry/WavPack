@@ -301,7 +301,7 @@ static int is_second_byte (char *filespec, char *pos)
                              (cp [-1] >= 0xe0 && cp [-1] <= 0xfc)))
 	cp--;
 
-    return (int)(pos - cp) & 1;
+    return (int)((char *)pos - cp) & 1;
 }
 
 #endif

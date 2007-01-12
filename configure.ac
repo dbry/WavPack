@@ -46,6 +46,10 @@ AC_HEADER_STDC
 # Checks for libraries.
 AC_CHECK_LIB(m, log10, [], AC_MSG_ERROR(math library not found))
 
+# Check if cross-compiling on mingw
+AC_MINGW32()
+
+if [ test "x$MINGW32" != "xyes" ]; then
 # Check for iconv
 AC_ARG_WITH(iconv, [  --with-iconv[=DIR]      Add ICONV support (on)])
 if test "$with_iconv" = "no" ; then
@@ -86,6 +90,7 @@ iconv (cd, NULL, NULL, NULL, NULL);],[
 fi
 AC_SUBST(ICONV)
 AC_SUBST(ICONV_LIBS)
+fi
 
 AC_CONFIG_FILES(
 Makefile
