@@ -301,8 +301,20 @@ typedef struct {
     char joint_stereo, delta, terms [MAX_NTERMS+1];
 } WavpackDecorrSpec;
 
+struct entropy_data {
+    uint32_t median [3], slow_level, error_limit;
+};
+
+struct words_data {
+    uint32_t bitrate_delta [2], bitrate_acc [2];
+    uint32_t pend_data, holding_one, zeros_acc;
+    int holding_zero, pend_count;
+    struct entropy_data c [2];
+};
+
 typedef struct {
     WavpackHeader wphdr;
+    struct words_data w;
 
     uchar *blockbuff, *blockend;
     uchar *block2buff, *block2end;
@@ -325,13 +337,6 @@ typedef struct {
 
     struct decorr_pass decorr_passes [MAX_NTERMS];
     WavpackDecorrSpec *decorr_specs;
-
-    struct {
-	uint32_t bitrate_delta [2], bitrate_acc [2];
-	uint32_t median [3] [2], slow_level [2], error_limit [2];
-	uint32_t pend_data, holding_one, zeros_acc;
-	int holding_zero, pend_count;
-    } w;
 } WavpackStream;
 
 // flags for float_flags:
@@ -423,18 +428,11 @@ typedef struct {
     if (source && result) (source ^ result) < 0 ? (weight -= delta) : (weight += delta);
 #endif
 
-#define update_weight_d1(weight, delta, source, result) \
-    if (source && result) weight += ((source ^ result) >> 30) | 1;
-
 #define update_weight_d2(weight, delta, source, result) \
     if (source && result) weight -= (((source ^ result) >> 29) & 4) - 2;
 
 #define update_weight_clip(weight, delta, source, result) \
     if (source && result && ((source ^ result) < 0 ? (weight -= delta) < -1024 : (weight += delta) > 1024)) \
-	weight = weight < 0 ? -1024 : 1024;
-
-#define update_weight_clip_d1(weight, delta, source, result) \
-    if (source && result && abs (weight -= (((source ^ result) >> 30) & 2) - 1) > 1024) \
 	weight = weight < 0 ? -1024 : 1024;
 
 #define update_weight_clip_d2(weight, delta, source, result) \
@@ -571,9 +569,9 @@ void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd);
 int32_t FASTCALL send_word (WavpackStream *wps, int32_t value, int chan);
-void FASTCALL send_word_lossless (WavpackStream *wps, int32_t value, int chan);
+void send_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsamples);
 int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction);
-int32_t FASTCALL get_word_lossless (WavpackStream *wps, int chan);
+int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsamples);
 void flush_word (WavpackStream *wps);
 int32_t nosend_word (WavpackStream *wps, int32_t value, int chan);
 void scan_word (WavpackStream *wps, int32_t *samples, uint32_t num_samples, int dir);
