@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "winamp", "winamp\winamp.vcp
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "audition", "audition\audition.vcproj", "{FDF08D60-E2B8-4C79-8244-9FF1DC360072}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wavpackdll", "wavpackdll\wavpackdll.vcproj", "{1A87F412-BA74-4DBB-9F77-FD55C042FB63}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -43,6 +45,10 @@ Global
 		{FDF08D60-E2B8-4C79-8244-9FF1DC360072}.Debug|Win32.Build.0 = Debug|Win32
 		{FDF08D60-E2B8-4C79-8244-9FF1DC360072}.Release|Win32.ActiveCfg = Release|Win32
 		{FDF08D60-E2B8-4C79-8244-9FF1DC360072}.Release|Win32.Build.0 = Release|Win32
+		{1A87F412-BA74-4DBB-9F77-FD55C042FB63}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1A87F412-BA74-4DBB-9F77-FD55C042FB63}.Debug|Win32.Build.0 = Debug|Win32
+		{1A87F412-BA74-4DBB-9F77-FD55C042FB63}.Release|Win32.ActiveCfg = Release|Win32
+		{1A87F412-BA74-4DBB-9F77-FD55C042FB63}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
