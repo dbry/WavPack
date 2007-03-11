@@ -35,7 +35,7 @@
 
 static void bs_read (Bitstream *bs);
 
-void bs_open_read (Bitstream *bs, uchar *buffer_start, uchar *buffer_end)
+void bs_open_read (Bitstream *bs, void *buffer_start, void *buffer_end)
 {
     bs->error = bs->sr = bs->bc = 0;
     bs->ptr = (bs->buf = buffer_start) - 1;
@@ -61,13 +61,14 @@ uint32_t bs_close_read (Bitstream *bs)
 {
     uint32_t bytes_read;
 
-    if (bs->bc < 8)
+    if (bs->bc < sizeof (*(bs->ptr)) * 8)
 	bs->ptr++;
 
-    if ((bs->buf - bs->ptr) & 1)
-	bs->ptr++;
+    bytes_read = (uint32_t)(bs->ptr - bs->buf) * sizeof (*(bs->ptr));
 
-    bytes_read = (uint32_t)(bs->ptr - bs->buf);
+    if (!(bytes_read & 1))
+	++bytes_read;
+
     CLEAR (*bs);
     return bytes_read;
 }
@@ -82,7 +83,7 @@ uint32_t bs_close_read (Bitstream *bs)
 
 static void bs_write (Bitstream *bs);
 
-void bs_open_write (Bitstream *bs, uchar *buffer_start, uchar *buffer_end)
+void bs_open_write (Bitstream *bs, void *buffer_start, void *buffer_end)
 {
     bs->error = bs->sr = bs->bc = 0;
     bs->ptr = bs->buf = buffer_start;
@@ -109,8 +110,19 @@ uint32_t bs_close_write (Bitstream *bs)
     if (bs->error)
 	return (uint32_t) -1;
 
-    while (bs->bc || ((bs->ptr - bs->buf) & 1)) putbit_1 (bs);
-    bytes_written = (uint32_t)(bs->ptr - bs->buf);
+    while (1) {
+	while (bs->bc)
+	    putbit_1 (bs);
+
+	bytes_written = (uint32_t)(bs->ptr - bs->buf) * sizeof (*(bs->ptr));
+
+	if (bytes_written & 1) {
+	    putbit_1 (bs);
+	}
+	else
+	    break;
+    };
+
     CLEAR (*bs);
     return bytes_written;
 }

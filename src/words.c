@@ -1021,7 +1021,7 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
 		wps->wvbits.wrap (&wps->wvbits);
 
 	    next8 = (wps->wvbits.sr |= *(wps->wvbits.ptr) << wps->wvbits.bc) & 0xff;
-	    wps->wvbits.bc += 8;
+	    wps->wvbits.bc += sizeof (*(wps->wvbits.ptr)) * 8;
 	}
 	else
 	    next8 = wps->wvbits.sr & 0xff;
@@ -1197,7 +1197,7 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 		    bs->wrap (bs);
 
 		next8 = (bs->sr |= *(bs->ptr) << bs->bc) & 0xff;
-		bs->bc += 8;
+		bs->bc += sizeof (*(bs->ptr)) * 8;
 	    }
 	    else
 		next8 = bs->sr & 0xff;
@@ -1294,20 +1294,35 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 
 static uint32_t FASTCALL read_code (Bitstream *bs, uint32_t maxcode)
 {
-    int bitcount = count_bits (maxcode);
-    uint32_t extras = bitset [bitcount] - maxcode - 1, code;
+    uint32_t extras, code;
+    int bitcount;
 
-    if (!bitcount)
-	return 0;
+    if (maxcode < 2)
+	return maxcode ? getbit (bs) : 0;
 
-    getbits (&code, bitcount - 1, bs);
-    code &= bitmask [bitcount - 1];
+    bitcount = count_bits (maxcode);
+    extras = bitset [bitcount] - maxcode - 1;
 
-    if (code >= extras) {
-	code = (code << 1) - extras;
+    while (bs->bc < bitcount) {
+	if (++(bs->ptr) == bs->end)
+	    bs->wrap (bs);
 
-	if (getbit (bs))
-	    ++code;
+	bs->sr |= *(bs->ptr) << bs->bc;
+	bs->bc += sizeof (*(bs->ptr)) * 8;
+    }
+
+    if ((code = bs->sr & bitmask [bitcount - 1]) >= extras)
+	code = (code << 1) - extras + ((bs->sr >> (bitcount - 1)) & 1);
+    else
+	bitcount--;
+
+    if (bs->bc > 32) {
+	bs->bc -= bitcount;
+        bs->sr = *(bs->ptr) >> (sizeof (*(bs->ptr)) * 8 - bs->bc);
+    }
+    else {
+	bs->sr >>= bitcount;
+	bs->bc -= bitcount;
     }
 
     return code;

@@ -17,6 +17,12 @@
 #define FASTCALL
 #endif
 
+#if defined(WIN32) || \
+    (defined(BYTE_ORDER) && defined(LITTLE_ENDIAN) && (BYTE_ORDER == LITTLE_ENDIAN))
+#define BITSTREAM_SHORTS    // use "shorts" for reading/writing bitstreams
+			    //  (only works on little-endian machines)
+#endif
+
 #include <sys/types.h>
 
 // This header file contains all the definitions required by WavPack.
@@ -280,7 +286,11 @@ typedef struct {
 // possible to decode WavPack blocks without buffering an entire block.
 
 typedef struct bs {
-    uchar *buf, *end, *ptr;
+#ifdef BITSTREAM_SHORTS
+    unsigned short *buf, *end, *ptr;
+#else
+    unsigned char *buf, *end, *ptr;
+#endif
     void (*wrap)(struct bs *bs);
     int error, bc;
     uint32_t sr;
@@ -441,8 +451,8 @@ typedef struct {
 
 // bits.c
 
-void bs_open_read (Bitstream *bs, uchar *buffer_start, uchar *buffer_end);
-void bs_open_write (Bitstream *bs, uchar *buffer_start, uchar *buffer_end);
+void bs_open_read (Bitstream *bs, void *buffer_start, void *buffer_end);
+void bs_open_write (Bitstream *bs, void *buffer_start, void *buffer_end);
 uint32_t bs_close_read (Bitstream *bs);
 uint32_t bs_close_write (Bitstream *bs);
 
@@ -459,7 +469,7 @@ int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
 #define getbit(bs) ( \
     (((bs)->bc) ? \
 	((bs)->bc--, (bs)->sr & 1) : \
-	    (((++((bs)->ptr) != (bs)->end) ? (void) 0 : (bs)->wrap (bs)), (bs)->bc = 7, ((bs)->sr = *((bs)->ptr)) & 1) \
+	    (((++((bs)->ptr) != (bs)->end) ? (void) 0 : (bs)->wrap (bs)), (bs)->bc = sizeof (*((bs)->ptr)) * 8 - 1, ((bs)->sr = *((bs)->ptr)) & 1) \
     ) ? \
 	((bs)->sr >>= 1, 1) : \
 	((bs)->sr >>= 1, 0) \
@@ -469,12 +479,12 @@ int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
     while ((nbits) > (bs)->bc) { \
 	if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
 	(bs)->sr |= (int32_t)*((bs)->ptr) << (bs)->bc; \
-	(bs)->bc += 8; \
+	(bs)->bc += sizeof (*((bs)->ptr)) * 8; \
     } \
     *(value) = (bs)->sr; \
     if ((bs)->bc > 32) { \
         (bs)->bc -= (nbits); \
-        (bs)->sr = *((bs)->ptr) >> (8 - (bs)->bc); \
+        (bs)->sr = *((bs)->ptr) >> (sizeof (*((bs)->ptr)) * 8 - (bs)->bc); \
     } \
     else { \
         (bs)->bc -= (nbits); \
@@ -483,21 +493,21 @@ int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
 }
 
 #define putbit(bit, bs) { if (bit) (bs)->sr |= (1 << (bs)->bc); \
-    if (++((bs)->bc) == 8) { \
+    if (++((bs)->bc) == sizeof (*((bs)->ptr)) * 8) { \
 	*((bs)->ptr) = (bs)->sr; \
 	(bs)->sr = (bs)->bc = 0; \
 	if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
     }}
 
 #define putbit_0(bs) { \
-    if (++((bs)->bc) == 8) { \
+    if (++((bs)->bc) == sizeof (*((bs)->ptr)) * 8) { \
 	*((bs)->ptr) = (bs)->sr; \
 	(bs)->sr = (bs)->bc = 0; \
 	if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
     }}
 
 #define putbit_1(bs) { (bs)->sr |= (1 << (bs)->bc); \
-    if (++((bs)->bc) == 8) { \
+    if (++((bs)->bc) == sizeof (*((bs)->ptr)) * 8) { \
 	*((bs)->ptr) = (bs)->sr; \
 	(bs)->sr = (bs)->bc = 0; \
 	if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
@@ -505,13 +515,14 @@ int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
 
 #define putbits(value, nbits, bs) { \
     (bs)->sr |= (int32_t)(value) << (bs)->bc; \
-    if (((bs)->bc += (nbits)) >= 8) \
+    if (((bs)->bc += (nbits)) >= sizeof (*((bs)->ptr)) * 8) \
 	do { \
 	    *((bs)->ptr) = (bs)->sr; \
-	    (bs)->sr >>= 8; \
-	    if (((bs)->bc -= 8) > 24) (bs)->sr |= ((value) >> ((nbits) - (bs)->bc)); \
+	    (bs)->sr >>= sizeof (*((bs)->ptr)) * 8; \
+	    if (((bs)->bc -= sizeof (*((bs)->ptr)) * 8) > 32 - sizeof (*((bs)->ptr)) * 8) \
+		(bs)->sr |= ((value) >> ((nbits) - (bs)->bc)); \
 	    if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
-	} while ((bs)->bc >= 8); \
+	} while ((bs)->bc >= sizeof (*((bs)->ptr)) * 8); \
 }
 
 void little_endian_to_native (void *data, char *format);
