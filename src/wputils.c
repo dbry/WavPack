@@ -2356,6 +2356,8 @@ static uint32_t seek_final_index (WavpackStreamReader *reader, void *id)
 
     if (reader->get_length (id) > 1200000L)
 	reader->set_pos_rel (id, -1048576L, SEEK_END);
+    else
+	reader->set_pos_abs (id, 0);
 
     while (1) {
 	bcount = read_next_header (reader, id, &wphdr);
