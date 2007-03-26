@@ -49,9 +49,9 @@ AC_CHECK_LIB(m, log10, [], AC_MSG_ERROR(math library not found))
 # Check if cross-compiling on mingw
 AC_MINGW32()
 
-if [ test "x$MINGW32" != "xyes" ]; then
+if test "x$MINGW32" != "xyes" ; then
 # Check for iconv
-AC_ARG_WITH(iconv, [  --with-iconv[=DIR]      Add ICONV support (on)])
+AC_ARG_WITH(iconv, [[  --with-iconv[=DIR]      add ICONV support [yes]]])
 if test "$with_iconv" = "no" ; then
     AC_MSG_ERROR([[Sorry, you can't deactivate iconv.]])
 else
@@ -92,6 +92,11 @@ AC_SUBST(ICONV)
 AC_SUBST(ICONV_LIBS)
 fi
 
+AC_ARG_ENABLE(mmx, [[  --enable-mmx            enable MMX optimizations [default=no]]])
+if test "x$enable_mmx" = "xyes" ; then
+    AC_DEFINE([OPT_MMX], 1, [MMX optimization])
+fi
+
 AC_CONFIG_FILES(
 Makefile
 wavpack.pc
@@ -99,4 +104,3 @@ src/Makefile
 include/Makefile
 cli/Makefile)
 AC_OUTPUT
-

@@ -685,4 +685,49 @@ void *WavpackGetWrapperLocation (void *first_block, uint32_t *size);
 void WavpackLittleEndianToNative (void *data, char *format);
 void WavpackNativeToLittleEndian (void *data, char *format);
 
+///////////////////////////// SIMD helper macros /////////////////////////////
+
+#ifdef OPT_MMX
+
+#if defined (__GNUC__) && !defined (__INTEL_COMPILER)
+//directly map to gcc's native builtins for faster code
+
+#if __GNUC__ < 4
+typedef int __di __attribute__ ((__mode__ (__DI__)));
+typedef int __m64 __attribute__ ((__mode__ (__V2SI__)));
+typedef int __v4hi __attribute__ ((__mode__ (__V4HI__)));
+#define _m_paddsw(m1, m2) (__m64) __builtin_ia32_paddsw ((__v4hi) m1, (__v4hi) m2)
+#define _m_pand(m1, m2) (__m64) __builtin_ia32_pand ((__di) m1, (__di) m2)
+#define _m_pandn(m1, m2) (__m64) __builtin_ia32_pandn ((__di) m1, (__di) m2)
+#define _m_pmaddwd(m1, m2) __builtin_ia32_pmaddwd ((__v4hi) m1, (__v4hi) m2)
+#define _m_por(m1, m2) (__m64) __builtin_ia32_por ((__di) m1, (__di) m2)
+#define _m_pxor(m1, m2) (__m64) __builtin_ia32_pxor ((__di) m1, (__di) m2)
+#else
+typedef int __m64 __attribute__ ((__vector_size__ (8)));
+#define _m_paddsw(m1, m2) __builtin_ia32_paddsw (m1, m2)
+#define _m_pand(m1, m2) __builtin_ia32_pand (m1, m2)
+#define _m_pandn(m1, m2) __builtin_ia32_pandn (m1, m2)
+#define _m_pmaddwd(m1, m2) __builtin_ia32_pmaddwd (m1, m2)
+#define _m_por(m1, m2) __builtin_ia32_por (m1, m2)
+#define _m_pxor(m1, m2) __builtin_ia32_pxor (m1, m2)
+#endif
+
+#define _m_paddd(m1, m2) __builtin_ia32_paddd (m1, m2)
+#define _m_pcmpeqd(m1, m2) __builtin_ia32_pcmpeqd (m1, m2)
+#define _m_pslldi(m1, m2) __builtin_ia32_pslld (m1, m2)
+#define _m_psradi(m1, m2) __builtin_ia32_psrad (m1, m2)
+#define _m_psrldi(m1, m2) __builtin_ia32_psrld (m1, m2)
+#define _m_psubd(m1, m2) __builtin_ia32_psubd (m1, m2)
+#define _m_punpckhdq(m1, m2) __builtin_ia32_punpckhdq (m1, m2)
+#define _m_punpckldq(m1, m2) __builtin_ia32_punpckldq (m1, m2)
+#define _mm_empty() __builtin_ia32_emms ()
+#define _mm_set_pi32(m1, m2) { m2, m1 }
+#define _mm_set1_pi32(m) { m, m }
+
+#else
+#include <mmintrin.h>
+#endif
+
+#endif //OPT_MMX
+
 #endif
