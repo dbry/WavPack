@@ -95,6 +95,7 @@ fi
 AC_ARG_ENABLE(mmx, [[  --enable-mmx            enable MMX optimizations [default=no]]])
 if test "x$enable_mmx" = "xyes" ; then
     AC_DEFINE([OPT_MMX], 1, [MMX optimization])
+    $CC $CFLAGS -mmmx -S -o /dev/null -xc /dev/null > /dev/null 2>&1 && CFLAGS="-mmmx $CFLAGS"
 fi
 
 AC_CONFIG_FILES(
