@@ -594,7 +594,7 @@ uint32_t log2buffer (int32_t *samples, uint32_t num_samples, int limit);
 signed char store_weight (int weight);
 int restore_weight (signed char weight);
 
-#define WORD_EOF (1L << 31)
+#define WORD_EOF ((int32_t)(1L << 31))
 
 // float.c
 
