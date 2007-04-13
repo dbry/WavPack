@@ -22,6 +22,8 @@
 #include "wavpack_local.h"
 #include "unpack3.h"
 
+#define ATTEMPT_ERROR_MUTING
+
 #ifdef DEBUG_ALLOC
 #define malloc malloc_db
 #define realloc realloc_db
@@ -787,6 +789,18 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
     int weight [2] [1];
     uint i;
 
+#ifdef ATTEMPT_ERROR_MUTING
+    int32_t mute_limit = (flags & BYTES_3) ? 8388608 : 32768;
+    int mute_block = 0;
+
+    if (wps->wphdr.bits && !(flags & WVC_FLAG)) {
+	if (wps->wphdr.version < 3)
+	    mute_limit *= 4;
+	else
+	    mute_limit *= 2;
+    }
+#endif
+
     if (wps->sample_index + sample_count > wpc->total_samples)
 	sample_count = wpc->total_samples - wps->sample_index;
 
@@ -1261,10 +1275,20 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 
 		crc = crc * 3 + (sample [0] [0] += sample [0] [1] += read_word);
 
-		if (sample [0] [0] < min_value)
+		if (sample [0] [0] < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] < -mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = min_shifted;
-		else if (sample [0] [0] > max_value)
+		}
+		else if (sample [0] [0] > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] > mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = max_shifted;
+		}
 		else
 		    *bptr++ = sample [0] [0] << shift;
 	    }
@@ -1301,10 +1325,20 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 		else {
 		    crc = crc * 3 + read_word;
 
-		    if (read_word < min_value)
+		    if (read_word < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+			if (read_word < -mute_limit)
+			    mute_block = 1;
+#endif
 			*bptr++ = min_shifted;
-		    else if (read_word > max_value)
+		    }
+		    else if (read_word > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+			if (read_word > mute_limit)
+			    mute_block = 1;
+#endif
 			*bptr++ = max_shifted;
+		    }
 		    else
 			*bptr++ = read_word << shift;
 		}
@@ -1328,10 +1362,20 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 		sample [0] [1] = new_sample - sample [0] [0];
 		crc = crc * 3 + (sample [0] [0] = new_sample);
 
-		if (sample [0] [0] < min_value)
+		if (sample [0] [0] < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] < -mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = min_shifted;
-		else if (sample [0] [0] > max_value)
+		}
+		else if (sample [0] [0] > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] > mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = max_shifted;
+		}
 		else
 		    *bptr++ = sample [0] [0] << shift;
 	    }
@@ -1348,19 +1392,39 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 
 		crc = crc * 3 + (sample [0] [0] += sample [0] [1] += read_word);
 
-		if (sample [0] [0] < min_value)
+		if (sample [0] [0] < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] < -mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = min_shifted;
-		else if (sample [0] [0] > max_value)
+		}
+		else if (sample [0] [0] > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] > mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = max_shifted;
+		}
 		else
 		    *bptr++ = sample [0] [0] << shift;
 
 		crc = crc * 3 + (sample [1] [0] += sample [1] [1] += get_word3 (wps, 1));
 
-		if (sample [1] [0] < min_value)
+		if (sample [1] [0] < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [1] [0] < -mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = min_shifted;
-		else if (sample [1] [0] > max_value)
+		}
+		else if (sample [1] [0] > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [1] [0] > mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = max_shifted;
+		}
 		else
 		    *bptr++ = sample [1] [0] << shift;
 	    }
@@ -1420,17 +1484,37 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 		    *bptr++ = right << shift;
 		}
 		else {
-		    if (left < min_value)
+		    if (left < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+			if (left < -mute_limit)
+			    mute_block = 1;
+#endif
 			*bptr++ = min_shifted;
-		    else if (left > max_value)
+		    }
+		    else if (left > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+			if (left > mute_limit)
+			    mute_block = 1;
+#endif
 			*bptr++ = max_shifted;
+		    }
 		    else
 			*bptr++ = left << shift;
 
-		    if (right < min_value)
+		    if (right < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+			if (right < -mute_limit)
+			    mute_block = 1;
+#endif
 			*bptr++ = min_shifted;
-		    else if (right > max_value)
+		    }
+		    else if (right > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+			if (right > mute_limit)
+			    mute_block = 1;
+#endif
 			*bptr++ = max_shifted;
+		    }
 		    else
 			*bptr++ = right << shift;
 		}
@@ -1467,17 +1551,37 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 		sample [1] [1] = new_sample - sample [1] [0];
 		crc = crc * 3 + (sample [1] [0] = new_sample);
 
-		if (sample [0] [0] < min_value)
+		if (sample [0] [0] < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] < -mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = min_shifted;
-		else if (sample [0] [0] > max_value)
+		}
+		else if (sample [0] [0] > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] > mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = max_shifted;
+		}
 		else
 		    *bptr++ = sample [0] [0] << shift;
 
-		if (sample [1] [0] < min_value)
+		if (sample [1] [0] < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [1] [0] < -mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = min_shifted;
-		else if (sample [1] [0] > max_value)
+		}
+		else if (sample [1] [0] > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [1] [0] > mute_limit)
+			mute_block = 1;
+#endif
 		    *bptr++ = max_shifted;
+		}
 		else
 		    *bptr++ = sample [1] [0] << shift;
 	    }
@@ -1493,10 +1597,20 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 	    sample [0] [0] += sample [0] [1] += read_word;
 
 	    if (wps->wphdr.bits) {
-		if (sample [0] [0] < min_value)
+		if (sample [0] [0] < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] < -mute_limit)
+			mute_block = 1;
+#endif
 		    sample [0] [0] = min_value;
-		else if (sample [0] [0] > max_value)
+		}
+		else if (sample [0] [0] > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] > mute_limit)
+			mute_block = 1;
+#endif
 		    sample [0] [0] = max_value;
+		}
 	    }
 
 	    *bptr++ = sample [0] [0] << shift;
@@ -1515,15 +1629,35 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 	    sample [1] [0] += sample [1] [1] += ((sum - diff) >> 1);
 
 	    if (wps->wphdr.bits) {
-		if (sample [0] [0] < min_value)
+		if (sample [0] [0] < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] < -mute_limit)
+			mute_block = 1;
+#endif
 		    sample [0] [0] = min_value;
-		else if (sample [0] [0] > max_value)
+		}
+		else if (sample [0] [0] > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [0] [0] > mute_limit)
+			mute_block = 1;
+#endif
 		    sample [0] [0] = max_value;
+		}
 
-		if (sample [1] [0] < min_value)
+		if (sample [1] [0] < min_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [1] [0] < -mute_limit)
+			mute_block = 1;
+#endif
 		    sample [1] [0] = min_value;
-		else if (sample [1] [0] > max_value)
+		}
+		else if (sample [1] [0] > max_value) {
+#ifdef ATTEMPT_ERROR_MUTING
+		    if (sample [1] [0] > mute_limit)
+			mute_block = 1;
+#endif
 		    sample [1] [0] = max_value;
+		}
 	    }
 
 	    *bptr++ = sample [0] [0] << shift;
@@ -1531,6 +1665,21 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 	}
     else
         i = 0;  /* can't get here, but suppresses warning */
+
+#ifdef ATTEMPT_ERROR_MUTING
+    if (!wps->wphdr.bits || (flags & WVC_FLAG)) {
+	int32_t *eptr = buffer + sample_count * ((flags & MONO_FLAG) ? 1 : 2);
+
+	for (bptr = buffer; bptr < eptr; bptr += 3)
+	    if (*bptr > mute_limit || *bptr < -mute_limit) {
+		mute_block = 1;
+		break;
+	    }
+    }
+
+    if (mute_block)
+	memset (buffer, 0, sizeof (*buffer) * sample_count * ((flags & MONO_FLAG) ? 1 : 2));
+#endif
 
     if (i && (wps->sample_index += i) == wpc->total_samples) {
 
