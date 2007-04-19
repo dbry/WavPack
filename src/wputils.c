@@ -217,6 +217,7 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 {
     WavpackContext *wpc = malloc (sizeof (WavpackContext));
     WavpackStream *wps;
+    int num_blocks = 0;
     uchar first_byte;
     uint32_t bcount;
 
@@ -263,9 +264,10 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 	wpc->filepos = wpc->reader->get_pos (wpc->wv_in);
 	bcount = read_next_header (wpc->reader, wpc->wv_in, &wps->wphdr);
 
-	if (bcount == (uint32_t) -1) {
-	    strcpy (error, "not compatible with this version of WavPack file!");
-	    return WavpackCloseFile (wpc);
+	if (bcount == (uint32_t) -1 ||
+	    (!wps->wphdr.block_samples && num_blocks++ > 16)) {
+		strcpy (error, "not compatible with this version of WavPack file!");
+		return WavpackCloseFile (wpc);
 	}
 
 	wpc->filepos += bcount;
@@ -471,6 +473,10 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
     while (samples) {
 	if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
 	    wps->sample_index >= wps->wphdr.block_index + wps->wphdr.block_samples) {
+
+		if (wpc->wrapper_bytes >= MAX_WRAPPER_BYTES)
+		    break;
+
 		free_streams (wpc);
 		wpc->filepos = wpc->reader->get_pos (wpc->wv_in);
 		bcount = read_next_header (wpc->reader, wpc->wv_in, &wps->wphdr);

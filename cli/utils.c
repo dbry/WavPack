@@ -32,6 +32,8 @@
 
 #ifdef WIN32
 #define fileno _fileno
+#define stat64 __stat64
+#define fstat64 _fstat64
 #endif
 
 #ifdef WIN32
@@ -649,6 +651,20 @@ int DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, ui
     return !ferror (hFile);
 }
 
+#if 1
+
+int64_t DoGetFileSize (FILE *hFile)
+{
+    struct stat64 statbuf;
+
+    if (!hFile || fstat64 (fileno (hFile), &statbuf) || !(statbuf.st_mode & S_IFREG))
+	return 0;
+
+    return statbuf.st_size;
+}
+
+#else
+
 uint32_t DoGetFileSize (FILE *hFile)
 {
     struct stat statbuf;
@@ -658,6 +674,8 @@ uint32_t DoGetFileSize (FILE *hFile)
 
     return statbuf.st_size;
 }
+
+#endif
 
 uint32_t DoGetFilePosition (FILE *hFile)
 {

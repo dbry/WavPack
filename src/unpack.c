@@ -401,7 +401,7 @@ int read_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 
 int read_wrapper_data (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
-    if (wpc->open_flags & OPEN_WRAPPER) {
+    if ((wpc->open_flags & OPEN_WRAPPER) && wpc->wrapper_bytes < MAX_WRAPPER_BYTES) {
 	wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + wpmd->byte_length);
 	memcpy (wpc->wrapper_data + wpc->wrapper_bytes, wpmd->data, wpmd->byte_length);
 	wpc->wrapper_bytes += wpmd->byte_length;

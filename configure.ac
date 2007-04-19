@@ -98,6 +98,8 @@ if test "x$enable_mmx" = "xyes" ; then
     $CC $CFLAGS -mmmx -S -o /dev/null -xc /dev/null > /dev/null 2>&1 && CFLAGS="-mmmx $CFLAGS"
 fi
 
+AC_DEFINE(_LARGEFILE64_SOURCE)
+
 AC_CONFIG_FILES(
 Makefile
 wavpack.pc

@@ -487,7 +487,8 @@ int main (argc, argv) int argc; char **argv;
 		if (file) {
 		    uint32_t bcount, file_len;
 
-		    file_len = DoGetFileSize (file);
+		    file_len = (uint32_t) DoGetFileSize (file);
+
 		    if (file_len < 1048576 && (string = malloc (item_len + file_len + 2)) != NULL) {
 			memcpy (string, config.tag_strings [i], item_len + 1);
 
@@ -548,7 +549,7 @@ int main (argc, argv) int argc; char **argv;
 	}
 
 	if (wvselfx_file) {
-	    wvselfx_size = DoGetFileSize (wvselfx_file);
+	    wvselfx_size = (uint32_t) DoGetFileSize (wvselfx_file);
 
 	    if (wvselfx_size && wvselfx_size != 26624 && wvselfx_size != 30720 && wvselfx_size < 49152) {
 		wvselfx_image = malloc (wvselfx_size);
@@ -932,6 +933,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     ChunkHeader chunk_header;
     WaveHeader WaveHeader;
     WavpackContext *wpc;
+    int64_t infilesize;
     double dtime;
     FILE *infile;
     int result;
@@ -957,6 +959,14 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     }
     else if ((infile = fopen (infilename, "rb")) == NULL) {
 	error_line ("can't open file %s!", infilename);
+	WavpackCloseFile (wpc);
+	return SOFT_ERROR;
+    }
+
+    infilesize = DoGetFileSize (infile);
+
+    if (infilesize >= 4294967296LL && !ignore_length) {
+	error_line ("can't handle .WAV files larger than 4 GB (non-standard)!");
 	WavpackCloseFile (wpc);
 	return SOFT_ERROR;
     }
@@ -1200,7 +1210,26 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
 	    // on the data chunk, get size and exit loop
 
+	    if (infilesize && !ignore_length && infilesize - chunk_header.ckSize > 16777216) {
+		error_line ("this .WAV file has over 16 MB of extra RIFF data, probably is corrupt!");
+		DoCloseHandle (infile);
+		DoCloseHandle (wv_file.file);
+		DoDeleteFile (outfilename);
+		WavpackCloseFile (wpc);
+		return SOFT_ERROR;
+	    }
+
 	    total_samples = chunk_header.ckSize / WaveHeader.BlockAlign;
+
+	    if (!total_samples && !ignore_length) {
+		error_line ("this .WAV file has no audio samples, probably is corrupt!");
+		DoCloseHandle (infile);
+		DoCloseHandle (wv_file.file);
+		DoDeleteFile (outfilename);
+		WavpackCloseFile (wpc);
+		return SOFT_ERROR;
+	    }
+
 	    break;
 	}
 	else {		// just copy unknown chunks to output file

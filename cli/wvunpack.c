@@ -528,7 +528,7 @@ static int unpack_file (char *infilename, char *outfilename)
 {
     int result = NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
-    uint32_t outfile_length, output_buffer_size = 0, bcount, total_unpacked_samples = 0;
+    uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
     uchar *output_buffer = NULL, *output_pointer = NULL;
     double dtime, progress = -1.0;
     MD5_CTX md5_context;
@@ -795,8 +795,6 @@ static int unpack_file (char *infilename, char *outfilename)
 	}
     }
 
-    free (temp_buffer);
-
     if (output_buffer)
 	free (output_buffer);
 
@@ -825,7 +823,7 @@ static int unpack_file (char *infilename, char *outfilename)
 	error_line ("unpacked md5:  %s", md5_string2);
     }
 
-    if (!created_riff_header && WavpackGetWrapperBytes (wpc)) {
+    while (!created_riff_header && WavpackGetWrapperBytes (wpc)) {
 	if (outfile && result == NO_ERROR &&
 	    (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
 	    bcount != WavpackGetWrapperBytes (wpc))) {
@@ -835,7 +833,10 @@ static int unpack_file (char *infilename, char *outfilename)
 	}
 
 	WavpackFreeWrapper (wpc);
+	WavpackUnpackSamples (wpc, temp_buffer, 1); // perhaps there's more RIFF info...
     }
+
+    free (temp_buffer);
 
     if (result == NO_ERROR && outfile && created_riff_header &&
 	(WavpackGetNumSamples (wpc) == (uint32_t) -1 ||
@@ -852,6 +853,8 @@ static int unpack_file (char *infilename, char *outfilename)
     // file and close the file
 
     if (outfile != NULL) {
+	int64_t outfile_length;
+
 	fflush (outfile);
 	outfile_length = DoGetFileSize (outfile);
 

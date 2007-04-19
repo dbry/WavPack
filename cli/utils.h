@@ -41,7 +41,7 @@ char yna (void);
 
 int DoReadFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToRead, uint32_t *lpNumberOfBytesRead);
 int DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, uint32_t *lpNumberOfBytesWritten);
-uint32_t DoGetFileSize (FILE *hFile);
+int64_t DoGetFileSize (FILE *hFile);
 uint32_t DoGetFilePosition (FILE *hFile);
 int DoSetFilePositionAbsolute (FILE *hFile, uint32_t pos);
 int DoSetFilePositionRelative (FILE *hFile, int32_t pos, int mode);
