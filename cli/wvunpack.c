@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2006 Conifer Software.               //
+//              Copyright (c) 1998 - 2007 Conifer Software.               //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -60,7 +60,7 @@ static char *strdup (const char *s)
 
 static const char *sign_on = "\n"
 " WVUNPACK  Hybrid Lossless Audio Decompressor  %s Version %s\n"
-" Copyright (c) 1998 - 2006 Conifer Software.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2007 Conifer Software.  All Rights Reserved.\n\n";
 
 static const char *usage =
 #if defined (WIN32)
@@ -73,6 +73,7 @@ static const char *usage =
 "          -c  = extract cuesheet only to stdout (no audio decode)\n"
 "          -cc = extract cuesheet file (.cue) in addition to audio file\n"
 "          -d  = delete source file if successful (use with caution!)\n"
+"          --help = this help display\n"
 "          -i  = ignore .wvc file (forces hybrid lossy decompression)\n"
 #if defined (WIN32)
 "          -l  = run at low priority (for smoother multitasking)\n"
@@ -85,7 +86,11 @@ static const char *usage =
 "          -r  = force raw audio decode (results in .raw extension)\n"
 "          -s  = display summary information only to stdout (no audio decode)\n"
 "          -ss = display super summary (including tags) to stdout (no decode)\n"
+"          --skip=[sample|hh:mm:ss.ss] = start decoding at specified sample/time\n"
 "          -t  = copy input file's time stamp to output file(s)\n"
+"          --until=[+|-][sample|hh:mm:ss.ss] = stop decoding at specified sample/time\n"
+"            (specifying a '+' causes sample/time to be relative to '--skip' point;\n"
+"             specifying a '-' causes sample/time to be relative to end of file)\n"
 "          -v  = verify source data only (no output file created)\n"
 "          -w  = regenerate .wav header (ignore RIFF data in file)\n"
 "          -y  = yes to overwrite warning (use with caution!)\n\n"
@@ -101,8 +106,14 @@ static char overwrite_all, delete_source, raw_decode, extract_cuesheet,
 
 static int num_files, file_index, outbuf_k;
 
+static struct sample_time_index {
+    int value_is_time, value_is_relative, value_is_valid;
+    double value;
+} skip, until;
+
 /////////////////////////// local function declarations ///////////////////////
 
+static void parse_sample_time_index (struct sample_time_index *dst, char *src);
 static int unpack_file (char *infilename, char *outfilename);
 static void display_progress (double file_progress);
 
@@ -116,7 +127,7 @@ static void display_progress (double file_progress);
 
 int main (argc, argv) int argc; char **argv;
 {
-    int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0;
+    int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, ask_help = 0;
     char outpath, **matches = NULL, *outfilename = NULL;
     int result;
 
@@ -150,10 +161,40 @@ int main (argc, argv) int argc; char **argv;
     // loop through command-line arguments
 
     while (--argc) {
+	if (**++argv == '-' && (*argv)[1] == '-' && (*argv)[2]) {
+	    char *long_option = *argv + 2, *long_param = long_option;
+
+	    while (*long_param)
+		if (*long_param++ == '=')
+		    break;
+
+	    if (!strcmp (long_option, "help"))                          // --help
+		ask_help = 1;
+	    else if (!strncmp (long_option, "skip", 4)) {		// --skip
+		parse_sample_time_index (&skip, long_param);
+
+		if (!skip.value_is_valid || skip.value_is_relative) {
+		    error_line ("invalid --skip parameter!");
+		    ++error_count;
+		}
+	    }
+	    else if (!strncmp (long_option, "until", 5)) {		// --until
+		parse_sample_time_index (&until, long_param);
+
+		if (!until.value_is_valid) {
+		    error_line ("invalid --until parameter!");
+		    ++error_count;
+		}
+	    }
+	    else {
+		error_line ("unknown option: %s !", long_option);
+		++error_count;
+	    }
+	}
 #if defined (WIN32)
-	if ((**++argv == '-' || **argv == '/') && (*argv)[1])
+        else if ((**argv == '-' || **argv == '/') && (*argv)[1])
 #else
-	if ((**++argv == '-') && (*argv)[1])
+        else if ((**argv == '-') && (*argv)[1])
 #endif
 	    while (*++*argv)
 		switch (**argv) {
@@ -267,8 +308,8 @@ int main (argc, argv) int argc; char **argv;
 
    // check for various command-line argument problems
 
-    if (verify_only && delete_source) {
-	error_line ("can't delete in verify mode!");
+    if (delete_source && (verify_only || skip.value_is_valid || until.value_is_valid)) {
+	error_line ("can't delete in verify mode or when --skip or --until are used!");
 	delete_source = 0;
     }
 
@@ -290,7 +331,7 @@ int main (argc, argv) int argc; char **argv;
     if (!quiet_mode && !error_count)
 	fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
 
-    if (!num_files) {
+    if (!num_files || ask_help) {
 	printf ("%s", usage);
 	return 1;
     }
@@ -511,6 +552,46 @@ int main (argc, argv) int argc; char **argv;
     return error_count ? 1 : 0;
 }
 
+// Parse the parameter of the --skip and --until commands, which are of the form:
+//   [+|-] [samples | hh:mm:ss.ss]
+// The value is returned in a double (in the "dst" struct) as either samples or
+// seconds (if a time is specified). If sample, the value must be an integer.
+
+static void parse_sample_time_index (struct sample_time_index *dst, char *src)
+{
+    int colons = 0;
+    double temp;
+
+    memset (dst, 0, sizeof (*dst));
+
+    if (*src == '+' || *src == '-')
+	dst->value_is_relative = (*src++ == '+') ? 1 : -1;
+
+    while (*src)
+	if (*src == ':') {
+	    if (++colons == 3)
+		return;
+
+	    src++;
+	    dst->value_is_time = 1;
+	    dst->value *= 60.0;
+	    continue;
+	}
+	else if (*src == '.' || isdigit (*src)) {
+	    temp = strtod (src, &src);
+
+	    if (temp < 0.0 || (dst->value_is_time && temp >= 60.0) ||
+		(!dst->value_is_time && temp != floor (temp)))
+		    return;
+
+	    dst->value += temp;
+	}
+	else
+	    return;
+
+    dst->value_is_valid = 1;
+}
+
 // Unpack the specified WavPack input file into the specified output file name.
 // This function uses the library routines provided in wputils.c to do all
 // unpacking. This function takes care of reformatting the data (which is
@@ -529,6 +610,7 @@ static int unpack_file (char *infilename, char *outfilename)
     int result = NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
     uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
+    uint32_t skip_sample_index = 0, until_samples_total = 0;
     uchar *output_buffer = NULL, *output_pointer = NULL;
     double dtime, progress = -1.0;
     MD5_CTX md5_context;
@@ -546,8 +628,9 @@ static int unpack_file (char *infilename, char *outfilename)
 
     // use library to open WavPack file
 
-    if ((outfilename && !raw_decode && !blind_decode && !wav_decode) || summary > 1)
-	open_flags |= OPEN_WRAPPER;
+    if ((outfilename && !raw_decode && !blind_decode && !wav_decode &&
+	!skip.value_is_valid && !until.value_is_valid) || summary > 1)
+	    open_flags |= OPEN_WRAPPER;
 
     if (blind_decode)
 	open_flags |= OPEN_STREAMING;
@@ -572,6 +655,58 @@ static int unpack_file (char *infilename, char *outfilename)
     num_channels = WavpackGetNumChannels (wpc);
     bps = WavpackGetBytesPerSample (wpc);
     bytes_per_sample = num_channels * bps;
+
+    if (skip.value_is_valid) {
+	if (skip.value_is_time)
+	    skip_sample_index = (uint32_t) skip.value * WavpackGetSampleRate (wpc);
+	else
+	    skip_sample_index = (uint32_t) skip.value;
+
+	if (skip_sample_index && !WavpackSeekSample (wpc, skip_sample_index)) {
+	    error_line ("can't seek to specified --skip point!");
+	    WavpackCloseFile (wpc);
+	    return SOFT_ERROR;
+	}
+
+	if (WavpackGetNumSamples (wpc) != (uint32_t) -1)
+	    until_samples_total = WavpackGetNumSamples (wpc) - skip_sample_index;
+    }
+
+    if (until.value_is_valid) {
+	if (until.value_is_time)
+	    until.value *= WavpackGetSampleRate (wpc);
+
+	if (until.value_is_relative == -1) {
+	    if (WavpackGetNumSamples (wpc) == (uint32_t) -1) {
+		error_line ("can't use negative relative --until command with files of unknown length!");
+		WavpackCloseFile (wpc);
+		return SOFT_ERROR;
+	    }
+
+	    if ((uint32_t) until.value + skip_sample_index < WavpackGetNumSamples (wpc))
+		until_samples_total = WavpackGetNumSamples (wpc) - (uint32_t) until.value - skip_sample_index;
+	    else
+		until_samples_total = 0;
+	}
+	else {
+	    if (until.value_is_relative == 1)
+		until_samples_total = (uint32_t) until.value;
+	    else if ((uint32_t) until.value > skip_sample_index)
+		until_samples_total = (uint32_t) until.value - skip_sample_index;
+	    else
+		until_samples_total = 0;
+
+	    if (WavpackGetNumSamples (wpc) != (uint32_t) -1 &&
+		skip_sample_index + until_samples_total > WavpackGetNumSamples (wpc))
+		    until_samples_total = WavpackGetNumSamples (wpc) - skip_sample_index;
+	}
+
+	if (!until_samples_total) {
+	    error_line ("--until command results in no samples to decode!");
+	    WavpackCloseFile (wpc);
+	    return SOFT_ERROR;
+	}
+    }
 
     if (summary) {
 	dump_summary (wpc, infilename, stdout);
@@ -714,7 +849,15 @@ static int unpack_file (char *infilename, char *outfilename)
 #endif
 
     if (outfile && !raw_decode) {
-	if (WavpackGetWrapperBytes (wpc)) {
+	if (until_samples_total) {
+	    if (!write_riff_header (outfile, wpc, until_samples_total)) {
+		DoTruncateFile (outfile);
+		result = HARD_ERROR;
+	    }
+	    else
+		created_riff_header = TRUE;
+	}
+	else if (WavpackGetWrapperBytes (wpc)) {
 	    if (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
 		bcount != WavpackGetWrapperBytes (wpc)) {
 		    error_line ("can't write .WAV data, disk probably full!");
@@ -745,6 +888,9 @@ static int unpack_file (char *infilename, char *outfilename)
 	}
 	else
 	    samples_to_unpack = 4096;
+
+	if (until_samples_total && samples_to_unpack > until_samples_total - total_unpacked_samples)
+	    samples_to_unpack = until_samples_total - total_unpacked_samples;
 
 	samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
 	total_unpacked_samples += samples_unpacked;
@@ -840,7 +986,7 @@ static int unpack_file (char *infilename, char *outfilename)
 
     if (result == NO_ERROR && outfile && created_riff_header &&
 	(WavpackGetNumSamples (wpc) == (uint32_t) -1 ||
-	 WavpackGetNumSamples (wpc) != total_unpacked_samples)) {
+	 (until_samples_total ? until_samples_total : WavpackGetNumSamples (wpc)) != total_unpacked_samples)) {
 	    if (*outfilename == '-' || DoSetFilePositionAbsolute (outfile, 0))
 		error_line ("can't update RIFF header with actual size");
 	    else if (!write_riff_header (outfile, wpc, total_unpacked_samples)) {
@@ -872,7 +1018,7 @@ static int unpack_file (char *infilename, char *outfilename)
 	    error_line ("failure copying time stamp!");
 
     if (result == NO_ERROR) {
-	if (WavpackGetNumSamples (wpc) != (uint32_t) -1) {
+	if (!until_samples_total && WavpackGetNumSamples (wpc) != (uint32_t) -1) {
 	    if (total_unpacked_samples < WavpackGetNumSamples (wpc)) {
 		error_line ("file is missing %u samples!",
 		    WavpackGetNumSamples (wpc) - total_unpacked_samples);
@@ -891,7 +1037,7 @@ static int unpack_file (char *infilename, char *outfilename)
 	}
     }
 
-    if (result == NO_ERROR && md5_diff && (WavpackGetMode (wpc) & MODE_LOSSLESS)) {
+    if (result == NO_ERROR && md5_diff && (WavpackGetMode (wpc) & MODE_LOSSLESS) && !until_samples_total) {
 	error_line ("MD5 signatures should match, but do not!");
 	result = SOFT_ERROR;
     }

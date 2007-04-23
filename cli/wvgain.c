@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2006 Conifer Software.               //
+//              Copyright (c) 1998 - 2007 Conifer Software.               //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -61,7 +61,7 @@ static char *strdup (const char *s)
 
 static const char *sign_on = "\n"
 " WVGAIN  ReplayGain Scanner/Tagger for WavPack  %s Version %s\n"
-" Copyright (c) 2006 Conifer Software.  All Rights Reserved.\n\n";
+" Copyright (c) 2007 Conifer Software.  All Rights Reserved.\n\n";
 
 static const char *usage =
 " Usage:   WVGAIN [-options] [@]infile[.wv] [...]\n"
