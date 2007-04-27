@@ -1263,7 +1263,14 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     loc_config.num_channels = WaveHeader.NumChannels;
     loc_config.sample_rate = WaveHeader.SampleRate;
 
-    WavpackSetConfiguration (wpc, &loc_config, total_samples);
+    if (!WavpackSetConfiguration (wpc, &loc_config, total_samples)) {
+	error_line ("%s", WavpackGetErrorMessage (wpc));
+	DoCloseHandle (infile);
+	DoCloseHandle (wv_file.file);
+	DoDeleteFile (outfilename);
+	WavpackCloseFile (wpc);
+	return SOFT_ERROR;
+    }
 
     // if we are creating a "correction" file, open it now for writing
 
