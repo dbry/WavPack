@@ -1,0 +1,100 @@
+////////////////////////////////////////////////////////////////////////////
+//                           **** WAVPACK ****                            //
+//                  Hybrid Lossless Wavefile Compressor                   //
+//              Copyright (c) 1998 - 2007 Conifer Software.               //
+//                          All Rights Reserved.                          //
+//      Distributed under the BSD Software License (see license.txt)      //
+////////////////////////////////////////////////////////////////////////////
+
+                   Experimental Low Latency Version
+                   --------------------------------
+
+                           April 28, 2007
+                            David Bryant
+
+1.0 INTRODUCTION
+
+The WavPack algorithm, consisting of purely backward prediction in its basic
+operation (i.e. not counting the -x modes), has inherently very low latency.
+However, the regular WavPack block format imposes significant latency on the
+system by requiring relatively large blocks of audio that can be decoded
+independently. These blocks are normally in the 1/2 to 1 second range, but
+can be as short as about 1000 samples and still be reasonably efficient.
+
+Some applications, however, require much lower latency than this. Therefore,
+I have devised a slightly modified format that is optimized for smaller
+blocks. In fact, this new format can operate very efficiently with latencies
+in the 50-100 sample range and works equally well in the pure lossless mode,
+the lossy mode, and the hybrid lossless mode.
+
+The idea is very simple. The existing (independently decodable) block still
+exists, but following it it is possible to have "continuation" blocks that
+just consist of another block's worth of bitstream data with no header other
+than the 2 (or 4) byte metadata header. Decoding can only begin on the full
+blocks (that include decoder state data), but each sub-block can be encoded
+and transmitted as soon as the audio data is ready. On the decode side the
+sub-blocks must be presented in the original order and none can be corrupt
+or missing (otherwise the decoding will have to stop until the next
+super-block begins.)
+
+
+2.0 IMPLEMENTATION
+
+This experimental version is a branch from standard WavPack 4.41 and will
+still encode standard WavPack audio in all available modes. The --blocksize
+command-line option still allows specification of the number of audio
+samples in each block. However, there is an added option --sub-blocks that
+specifies the number of sub-blocks contained in each super-block. This can
+be from 2 through 256, or the default value of 16 will be used is no value
+is specified. When this mode is specified, the resulting file will *not*
+be decodable with standard WavPack decoders. Higher values result in higher
+efficiency with small block sizes, however this will also result in longer
+audio gaps if data packets are missing during decoding. This trade-off must
+be considered in the overall design.
+
+There are several limitations of the current release of the code. Some are
+simply limitations in the implementation, while others are limitations that
+the new format imposes. I don't believe any of them are significant for
+those types of applications that might require very low latency.
+
+First, The current version does not support direct seeking during decode,
+however this is simply a limitation of this implementation and can easily
+be corrected. Also, the 32-bit CRC checks that are normally performed on
+each block have been eliminated. The code will still detect most decoding
+errors caused by corrupt data (and will mute until the end of the current
+super-block in those cases) but minor errors may go undetected. It is
+possible to use the md5 feature to detect whether an error occurred in an
+entire file and it would certainly be possible to add a per super-block or
+per sub-block CRC back in, however I wonder about the value of a check
+that detects an error in audio that has [presumably] already been
+presented to the user.
+
+Currently, mono and stereo files are supported, but multichannel files are
+not. This can also be easily corrected (it is a limitation caused by the
+design of the decoder software) although in a real low latency application
+it would probably be solved by using multiple instances of the encoder and
+decoder. Floating point audio or audio data samples containing more than
+24 bits are not possible, although I can't imagine a low latency application
+where this would be an issue (just like no PC would ever need more than
+640K of memory!)
+
+Finally, the -x modes of WavPack are not usable with --sub-blocks because
+they use forward prediction (and forward samples are not yet available).
+
+One other change in the behavior of this version is that the audio data is
+encoded and transmitted as soon as the required number of samples are
+available to the encoder (as specified by "blocksize"). This is in contrast
+to the standard version which waits until 1.5 blocks are available before
+encoding to avoid ever creating extremely small blocks at the end of the
+file.
+
+
+3.0 USING THE LIBRARY
+
+The library interface is identical to the standard WavPack API. The only
+difference is that there is a field in the WavpackConfig structure that is
+set to a value from 2 to 256 to enable the special block format. If this
+field is not set then the library will create fully compatible WavPack
+files. The decoder portion will automatically detect and decode standard
+and low-latency files.
+

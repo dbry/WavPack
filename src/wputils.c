@@ -1166,7 +1166,15 @@ WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id,
 
 // config->bitrate              hybrid bitrate in either bits/sample or kbps
 // config->shaping_weight       hybrid noise shaping coefficient override
-// config->block_samples        force samples per WavPack block (0 = use deflt)
+// config->block_samples        force samples per WavPack block (1-131072)
+//                               and is the point at which samples accumulated
+//                               by WavpackPackSamples() will be encoded and
+//                               dumped (leaving 0 uses default which varies
+//                               based on sample rate and number of channels)
+// config->sub-blocks           specify number of small sub-blocks for each
+//                               larger super-block; may be from 2 to 256
+//                               (this enables "low-latency" block format;
+//                               leave 0 to use regular compatible mode)
 // config->float_norm_exp       select floating-point data (127 for +/-1.0)
 // config->xmode                extra mode processing value override
 

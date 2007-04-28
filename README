@@ -1,14 +1,16 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2006 Conifer Software.               //
+//              Copyright (c) 1998 - 2007 Conifer Software.               //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
 
-This package contains all the source code required to build the WavPack
-command-line programs and the WavPack library and it has been tested on many
-platforms.
+This package contains all the source code required to build the "low latency"
+version of the WavPack command-line programs and the WavPack library and is
+specifically designed for applications requiring very low latency. Files
+created with this version (using the --sub-blocks option) cannot be decoded
+with standard WavPack decoders.
 
 On Windows there are solution and project files for Visual Studio 2005 and
 additional sourcecode to build the CoolEdit/Audition plugin and the winamp
@@ -23,7 +25,7 @@ To build everything on Linux, type:
 
 Notes:
 
-1. There are two documentation files contained in the distribution:
+1. There are three documentation files contained in the distribution:
 
    doc/library_use.txt    contains a detailed description of the API provided
                           by WavPack library appropriate for read and writing
@@ -33,10 +35,12 @@ Notes:
                           including details needed for parsing WavPack blocks
                           and interpreting the block header and flags
 
+   doc/low_latency.txt    contains specific information about this special
+                          version
+
    There is also a description of the WavPack algorithms in the soon to be
    published forth edition of David Salomon's book "Data Compression: The
-   Complete Reference". An early version of the section on WavPack can be
-   found here:
+   Complete Reference". The section on WavPack can be found here:
 
    www.wavpack.com/WavPack.pdf
 
@@ -83,8 +87,15 @@ Notes:
    VER4_ONLY       to only handle WavPack files from versions 4.0 onward
    WIN32           required for Win32 platform
 
-6. An alternate version of this library is available specifically designed
-   for "resource limited" CPUs or hardware decoding. This "tiny" decoder
-   library works with less than 32k of code and less than 4k of data.
+6. There are alternate versions of this library available specifically designed
+   for "resource limited" CPUs or hardware encoding and decoding. There is the
+   "tiny decoder" library which works with less than 32k of code and less than
+   4k of data and has assembly language optimizations for the ARM and Freescale
+   ColdFire CPUs.  The "tiny encoder" is also designed for embedded use and
+   handles the pure lossless, lossy, and hybrid lossless modes. Neither of the
+   "tiny" versions use any memory allocation functions nor do they require
+   floating-point arithmetic support. These "tiny" versions do not currently
+   have support for this "low latency" format, but it could certainly be added
+   without too much difficulty.
 
 7. Questions or comments should be directed to david@wavpack.com
