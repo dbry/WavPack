@@ -89,6 +89,8 @@ static const char *help =
 "          -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
 "                                           n = 24-9600 kbits/second (kbps)\n"
 "          --blocksize=n = specify block size in samples (n = 1 - 131072)\n"
+"                          (blocksize determines latency; for smaller values\n"
+"                           add --sub-blocks to minimize efficiency loss)\n"
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
 "          -cc = maximum hybrid compression (hurts lossy quality & decode speed)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
@@ -105,6 +107,11 @@ static const char *help =
 #if defined (WIN32)
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
+"          --sub-blocks[=n] = special format optimized for very short blocks\n"
+"                             (n = sub-blocks per super-block, 2-256, default=16,\n"
+"                              result is incompatible with standard decoders and\n"
+"                              cannot be used with -x mode or files containing more\n"
+"                              than 2 channels or greater than 24-bit resolution)\n"
 "          -m  = compute & store MD5 signature of raw audio data\n"
 "          -n  = calculate average and peak quantization noise (hybrid only)\n"
 #if !defined (WIN32)
@@ -205,6 +212,18 @@ int main (argc, argv) int argc; char **argv;
                 ask_help = 1;
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 config.flags |= CONFIG_OPTIMIZE_MONO;
+            else if (!strncmp (long_option, "sub-blocks", 10)) {        // --sub-blocks
+                if (*long_param) {
+                    config.sub_blocks = strtol (long_param, NULL, 10);
+
+                    if (config.sub_blocks < 2 || config.sub_blocks > 256) {
+                        error_line ("invalid sub-blocks parameter!");
+                        ++error_count;
+                    }
+                }
+                else
+                    config.sub_blocks = 16;
+            }
             else if (!strncmp (long_option, "blocksize", 9)) {          // --blocksize
                 config.block_samples = strtol (long_param, NULL, 10);
 

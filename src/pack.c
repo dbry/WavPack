@@ -1404,7 +1404,7 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     uint32_t flags = wps->wphdr.flags, sflags = wps->wphdr.flags;
     int32_t sample_count = wps->wphdr.block_samples, *orig_data = NULL;
 
-    if (!(flags & MONO_FLAG) && wpc->stream_version >= 0x410) {
+    if (!(flags & SUB_BLOCKS) && !(flags & MONO_FLAG) && wpc->stream_version >= 0x410) {
         int32_t lor = 0, diff = 0;
         int32_t *sptr, *dptr, i;
 
@@ -1461,45 +1461,47 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         wps->wphdr.flags = flags;
     }
 
-    if ((flags & FLOAT_DATA) || (flags & MAG_MASK) >> MAG_LSB >= 24) {
-        if ((!(flags & HYBRID_FLAG) || wpc->wvc_flag) && !(wpc->config.flags & CONFIG_SKIP_WVX)) {
-            orig_data = malloc (sizeof (f32) * ((flags & MONO_DATA) ? sample_count : sample_count * 2));
-            memcpy (orig_data, buffer, sizeof (f32) * ((flags & MONO_DATA) ? sample_count : sample_count * 2));
+    if (!(flags & SUB_BLOCKS)) {
+        if ((flags & FLOAT_DATA) || (flags & MAG_MASK) >> MAG_LSB >= 24) {
+            if ((!(flags & HYBRID_FLAG) || wpc->wvc_flag) && !(wpc->config.flags & CONFIG_SKIP_WVX)) {
+                orig_data = malloc (sizeof (f32) * ((flags & MONO_DATA) ? sample_count : sample_count * 2));
+                memcpy (orig_data, buffer, sizeof (f32) * ((flags & MONO_DATA) ? sample_count : sample_count * 2));
 
-            if (flags & FLOAT_DATA) {
-                wps->float_norm_exp = wpc->config.float_norm_exp;
+                if (flags & FLOAT_DATA) {
+                    wps->float_norm_exp = wpc->config.float_norm_exp;
 
-                if (!scan_float_data (wps, (f32 *) buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2)) {
-                    free (orig_data);
-                    orig_data = NULL;
+                    if (!scan_float_data (wps, (f32 *) buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2)) {
+                        free (orig_data);
+                        orig_data = NULL;
+                    }
+                }
+                else {
+                    if (!scan_int32_data (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2)) {
+                        free (orig_data);
+                        orig_data = NULL;
+                    }
                 }
             }
             else {
-                if (!scan_int32_data (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2)) {
-                    free (orig_data);
-                    orig_data = NULL;
-                }
-            }
-        }
-        else {
-            if (flags & FLOAT_DATA) {
-                wps->float_norm_exp = wpc->config.float_norm_exp;
+                if (flags & FLOAT_DATA) {
+                    wps->float_norm_exp = wpc->config.float_norm_exp;
 
-                if (scan_float_data (wps, (f32 *) buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2))
+                    if (scan_float_data (wps, (f32 *) buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2))
+                        wpc->lossy_blocks = TRUE;
+                }
+                else if (scan_int32_data (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2))
                     wpc->lossy_blocks = TRUE;
             }
-            else if (scan_int32_data (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2))
-                wpc->lossy_blocks = TRUE;
-        }
 
-        wps->num_terms = 0;
-    }
-    else {
-        scan_int32_quick (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2);
-
-        if (wps->shift != wps->int32_zeros + wps->int32_ones + wps->int32_dups) {
-            wps->shift = wps->int32_zeros + wps->int32_ones + wps->int32_dups;
             wps->num_terms = 0;
+        }
+        else {
+            scan_int32_quick (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2);
+
+            if (wps->shift != wps->int32_zeros + wps->int32_ones + wps->int32_dups) {
+                wps->shift = wps->int32_zeros + wps->int32_ones + wps->int32_dups;
+                wps->num_terms = 0;
+            }
         }
     }
 
@@ -1546,19 +1548,35 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
 
         if (data_count) {
             if (data_count != (uint32_t) -1) {
-                *cptr++ = ID_WVX_BITSTREAM | ID_LARGE;
-                *cptr++ = (data_count += 4) >> 1;
-                *cptr++ = data_count >> 9;
-                *cptr++ = data_count >> 17;
-                *cptr++ = wps->crc_x;
-                *cptr++ = wps->crc_x >> 8;
-                *cptr++ = wps->crc_x >> 16;
-                *cptr = wps->crc_x >> 24;
+                if ((data_count += 4) > 510) {
+                    *cptr++ = ID_WVX_BITSTREAM | ID_LARGE;
+                    *cptr++ = data_count >> 1;
+                    *cptr++ = data_count >> 9;
+                    *cptr++ = data_count >> 17;
+                    *cptr++ = wps->crc_x;
+                    *cptr++ = wps->crc_x >> 8;
+                    *cptr++ = wps->crc_x >> 16;
+                    *cptr = wps->crc_x >> 24;
 
-                if (wpc->wvc_flag)
-                    ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 4;
-                else
-                    ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
+                    if (wpc->wvc_flag)
+                        ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 4;
+                    else
+                        ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
+                }
+                else {
+                    *cptr++ = ID_WVX_BITSTREAM;
+                    *cptr++ = data_count >> 1;
+                    *cptr++ = wps->crc_x;
+                    *cptr++ = wps->crc_x >> 8;
+                    *cptr++ = wps->crc_x >> 16;
+                    *cptr++ = wps->crc_x >> 24;
+                    memmove (cptr, cptr + 2, data_count - 4);
+
+                    if (wpc->wvc_flag)
+                        ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 2;
+                    else
+                        ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 2;
+                }
             }
             else
                 return FALSE;
@@ -1745,11 +1763,21 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags, data_count, crc, crc2, i;
     uint32_t sample_count = wps->wphdr.block_samples;
-    int tcount, lossy = FALSE, m = 0;
+    int tcount, lossy = FALSE, m = 0, header;
     double noise_acc = 0.0, noise;
     struct decorr_pass *dpp;
     WavpackMetadata wpmd;
     int32_t *bptr;
+
+    if ((flags & SUB_BLOCKS) && !wpc->metacount &&
+        wpc->block_samples == sample_count && wps->sub_block_count) {
+            wps->sub_block_count--;
+            header = FALSE;
+        }
+        else {
+            wps->sub_block_count = wpc->config.sub_blocks - 1;
+            header = TRUE;
+        }
 
     crc = crc2 = 0xffffffff;
 
@@ -1784,93 +1812,101 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
         }
     }
 
-    wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
-    memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
+    if (header) {
+        wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+        memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
-    if (wpc->metacount) {
-        WavpackMetadata *wpmdp = wpc->metadata;
+        if (wpc->metacount) {
+            WavpackMetadata *wpmdp = wpc->metadata;
 
-        while (wpc->metacount) {
-            copy_metadata (wpmdp, wps->blockbuff, wps->blockend);
-            wpc->metabytes -= wpmdp->byte_length;
-            free_metadata (wpmdp++);
-            wpc->metacount--;
+            while (wpc->metacount) {
+                copy_metadata (wpmdp, wps->blockbuff, wps->blockend);
+                wpc->metabytes -= wpmdp->byte_length;
+                free_metadata (wpmdp++);
+                wpc->metacount--;
+            }
+
+            free (wpc->metadata);
+            wpc->metadata = NULL;
         }
 
-        free (wpc->metadata);
-        wpc->metadata = NULL;
-    }
+        if (!sample_count)
+            return TRUE;
 
-    if (!sample_count)
-        return TRUE;
-
-    write_decorr_terms (wps, &wpmd);
-    copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-    free_metadata (&wpmd);
-
-    write_decorr_weights (wps, &wpmd);
-    copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-    free_metadata (&wpmd);
-
-    write_decorr_samples (wps, &wpmd);
-    copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-    free_metadata (&wpmd);
-
-    write_entropy_vars (wps, &wpmd);
-    copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-    free_metadata (&wpmd);
-
-    if ((flags & SRATE_MASK) == SRATE_MASK && wpc->config.sample_rate != 44100) {
-        write_sample_rate (wpc, &wpmd);
+        write_decorr_terms (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
-    }
 
-    if (flags & HYBRID_FLAG) {
-        write_hybrid_profile (wps, &wpmd);
+        write_decorr_weights (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
-    }
 
-    if (flags & FLOAT_DATA) {
-        write_float_info (wps, &wpmd);
+        write_decorr_samples (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
-    }
 
-    if (flags & INT32_DATA) {
-        write_int32_info (wps, &wpmd);
+        write_entropy_vars (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
-    }
 
-    if ((flags & INITIAL_BLOCK) &&
-        (wpc->config.num_channels > 2 ||
-        wpc->config.channel_mask != 0x5 - wpc->config.num_channels)) {
-            write_channel_info (wpc, &wpmd);
+        if ((flags & SRATE_MASK) == SRATE_MASK && wpc->config.sample_rate != 44100) {
+            write_sample_rate (wpc, &wpmd);
             copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
             free_metadata (&wpmd);
-    }
+        }
 
-    if ((flags & INITIAL_BLOCK) && !wps->sample_index) {
-        write_config_info (wpc, &wpmd);
-        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-        free_metadata (&wpmd);
-    }
-
-    bs_open_write (&wps->wvbits, wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12, wps->blockend);
-
-    if (wpc->wvc_flag) {
-        wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
-        memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
-
-        if (flags & HYBRID_SHAPE) {
-            write_shaping_info (wps, &wpmd);
-            copy_metadata (&wpmd, wps->block2buff, wps->block2end);
+        if (flags & HYBRID_FLAG) {
+            write_hybrid_profile (wps, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
             free_metadata (&wpmd);
         }
 
-        bs_open_write (&wps->wvcbits, wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 12, wps->block2end);
+        if (flags & FLOAT_DATA) {
+            write_float_info (wps, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+            free_metadata (&wpmd);
+        }
+
+        if (flags & INT32_DATA) {
+            write_int32_info (wps, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+            free_metadata (&wpmd);
+        }
+
+        if ((flags & INITIAL_BLOCK) &&
+            (wpc->config.num_channels > 2 ||
+            wpc->config.channel_mask != 0x5 - wpc->config.num_channels)) {
+                write_channel_info (wpc, &wpmd);
+                copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+                free_metadata (&wpmd);
+        }
+
+        if ((flags & INITIAL_BLOCK) && !wps->sample_index) {
+            write_config_info (wpc, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+            free_metadata (&wpmd);
+        }
+
+        bs_open_write (&wps->wvbits, wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12, wps->blockend);
+
+        if (wpc->wvc_flag) {
+            wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+            memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
+
+            if (flags & HYBRID_SHAPE) {
+                write_shaping_info (wps, &wpmd);
+                copy_metadata (&wpmd, wps->block2buff, wps->block2end);
+                free_metadata (&wpmd);
+            }
+
+            bs_open_write (&wps->wvcbits, wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 12, wps->block2end);
+        }
+    }
+    else {
+        bs_open_write (&wps->wvbits, wps->blockbuff + 4, wps->blockend);
+
+        if (wpc->wvc_flag)
+            bs_open_write (&wps->wvcbits, wps->block2buff + 4, wps->block2end);
     }
 
     /////////////////////// handle lossless mono mode /////////////////////////
@@ -2150,38 +2186,76 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
     if (data_count) {
         if (data_count != (uint32_t) -1) {
-            uchar *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
+            uchar *cptr;
 
-            *cptr++ = ID_WV_BITSTREAM | ID_LARGE;
-            *cptr++ = data_count >> 1;
-            *cptr++ = data_count >> 9;
-            *cptr++ = data_count >> 17;
-            ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
+            if (header)
+                cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
+            else
+                cptr = wps->blockbuff;
+
+            if (data_count > 510) {
+                *cptr++ = ID_WV_BITSTREAM | ID_LARGE;
+                *cptr++ = data_count >> 1;
+                *cptr++ = data_count >> 9;
+                *cptr++ = data_count >> 17;
+
+                if (header)
+                    ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
+            }
+            else {
+                *cptr++ = ID_WV_BITSTREAM;
+                *cptr++ = data_count >> 1;
+                memmove (cptr, cptr + 2, data_count);
+
+                if (header)
+                    ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 2;
+            }
         }
         else
             return FALSE;
     }
 
-    ((WavpackHeader *) wps->blockbuff)->crc = crc;
+    if (header)
+        ((WavpackHeader *) wps->blockbuff)->crc = (flags & SUB_BLOCKS) ?
+            wps->wphdr.block_samples * wpc->config.sub_blocks : crc;
 
     if (wpc->wvc_flag) {
         data_count = bs_close_write (&wps->wvcbits);
 
-        if (data_count && lossy) {
+        if (!header || (data_count && lossy)) {
             if (data_count != (uint32_t) -1) {
-                uchar *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
+                uchar *cptr;
 
-                *cptr++ = ID_WVC_BITSTREAM | ID_LARGE;
-                *cptr++ = data_count >> 1;
-                *cptr++ = data_count >> 9;
-                *cptr++ = data_count >> 17;
-                ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 4;
+                if (header)
+                    cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
+                else
+                    cptr = wps->block2buff;
+
+                if (data_count > 510) {
+                    *cptr++ = ID_WVC_BITSTREAM | ID_LARGE;
+                    *cptr++ = data_count >> 1;
+                    *cptr++ = data_count >> 9;
+                    *cptr++ = data_count >> 17;
+
+                    if (header)
+                        ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 4;
+                }
+                else {
+                    *cptr++ = ID_WVC_BITSTREAM;
+                    *cptr++ = data_count >> 1;
+                    memmove (cptr, cptr + 2, data_count);
+
+                    if (header)
+                        ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 2;
+                }
             }
             else
                 return FALSE;
         }
 
-        ((WavpackHeader *) wps->block2buff)->crc = crc2;
+        if (header)
+            ((WavpackHeader *) wps->block2buff)->crc = (flags & SUB_BLOCKS) ?
+                wps->wphdr.block_samples * wpc->config.sub_blocks : crc2;
     }
     else if (lossy)
         wpc->lossy_blocks = TRUE;

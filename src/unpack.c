@@ -116,6 +116,7 @@ int unpack_init (WavpackContext *wpc)
 int init_wv_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     bs_open_read (&wps->wvbits, wpmd->data, (uchar *) wpmd->data + wpmd->byte_length);
+    reset_words (wps);
     return TRUE;
 }
 

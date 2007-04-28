@@ -162,7 +162,7 @@ typedef struct {
 typedef struct {
     float bitrate, shaping_weight;
     int bits_per_sample, bytes_per_sample;
-    int qmode, flags, xmode, num_channels, float_norm_exp;
+    int sub_blocks, flags, xmode, num_channels, float_norm_exp;
     int32_t block_samples, extra_flags, sample_rate, channel_mask;
     uchar md5_checksum [16], md5_read;
     int num_tag_strings;

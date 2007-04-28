@@ -185,6 +185,11 @@ void init_words (WavpackStream *wps)
         word_set_bitrate (wps);
 }
 
+void reset_words (WavpackStream *wps)
+{
+    wps->w.holding_zero = wps->w.holding_one = wps->w.zeros_acc = 0;
+}
+
 // Set up parameters for hybrid mode based on header flags and "bits" field.
 // This is currently only set up for the HYBRID_BITRATE mode in which the
 // allowed error varies with the residual level (from "slow_level"). The

@@ -1102,16 +1102,18 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
     uint32_t best_size = (uint32_t) -1, size;
     int log_limit, force_js = 0, force_ts = 0, pi, i;
 
-    for (i = 0; i < num_samples * 2; ++i)
-        if (samples [i])
-            break;
+    if (!(wps->wphdr.flags & SUB_BLOCKS)) {
+        for (i = 0; i < num_samples * 2; ++i)
+            if (samples [i])
+                break;
 
-    if (i == num_samples * 2) {
-        wps->wphdr.flags &= ~((uint32_t) JOINT_STEREO);
-        CLEAR (wps->decorr_passes);
-        wps->num_terms = 0;
-        init_words (wps);
-        return;
+        if (i == num_samples * 2) {
+            wps->wphdr.flags &= ~((uint32_t) JOINT_STEREO);
+            CLEAR (wps->decorr_passes);
+            wps->num_terms = 0;
+            init_words (wps);
+            return;
+        }
     }
 
 #ifdef LOG_LIMIT

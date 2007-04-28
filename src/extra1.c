@@ -468,15 +468,17 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
     uint32_t best_size = (uint32_t) -1, size;
     int log_limit, pi, i;
 
-    for (i = 0; i < num_samples; ++i)
-        if (samples [i])
-            break;
+    if (!(wps->wphdr.flags & SUB_BLOCKS)) {
+        for (i = 0; i < num_samples; ++i)
+            if (samples [i])
+                break;
 
-    if (i == num_samples) {
-        CLEAR (wps->decorr_passes);
-        wps->num_terms = 0;
-        init_words (wps);
-        return;
+        if (i == num_samples) {
+            CLEAR (wps->decorr_passes);
+            wps->num_terms = 0;
+            init_words (wps);
+            return;
+        }
     }
 
 #ifdef LOG_LIMIT

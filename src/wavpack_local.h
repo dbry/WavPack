@@ -161,9 +161,10 @@ typedef struct {
 
 #define IGNORED_FLAGS   0x18000000      // reserved, but ignore if encountered
 #define NEW_SHAPING     0x20000000      // use IIR filter for negative shaping
-#define UNKNOWN_FLAGS   0x80000000      // also reserved, but refuse decode if
-                                        //  encountered
+#define SUB_BLOCKS      0x80000000      // block may contain sub-blocks
+                                        // (for low-latency support)
 
+#define UNKNOWN_FLAGS   0x0             // currently no unknown flags
 #define MONO_DATA (MONO_FLAG | FALSE_STEREO)
 
 #define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
@@ -218,7 +219,7 @@ typedef struct {
 typedef struct {
     float bitrate, shaping_weight;
     int bits_per_sample, bytes_per_sample;
-    int qmode, flags, xmode, num_channels, float_norm_exp;
+    int sub_blocks, flags, xmode, num_channels, float_norm_exp;
     int32_t block_samples, extra_flags, sample_rate, channel_mask;
     uchar md5_checksum [16], md5_read;
     int num_tag_strings;
@@ -331,7 +332,7 @@ typedef struct {
     uchar *block2buff, *block2end;
     int32_t *sample_buffer;
 
-    int bits, num_terms, mute_error, joint_stereo, false_stereo, shift;
+    int bits, num_terms, mute_error, joint_stereo, false_stereo, shift, sub_block_count;
     int num_decorrs, num_passes, best_decorr, mask_decorr;
     uint32_t sample_index, crc, crc_x, crc_wvx;
     Bitstream wvbits, wvcbits, wvxbits;
