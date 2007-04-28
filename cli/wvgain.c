@@ -115,25 +115,25 @@ int main (argc, argv) int argc; char **argv;
     char selfname [MAX_PATH];
 
     if (GetModuleFileName (NULL, selfname, sizeof (selfname)) && filespec_name (selfname) &&
-	_strupr (filespec_name (selfname)) && strstr (filespec_name (selfname), "DEBUG")) {
-	    char **argv_t = argv;
-	    int argc_t = argc;
+        _strupr (filespec_name (selfname)) && strstr (filespec_name (selfname), "DEBUG")) {
+            char **argv_t = argv;
+            int argc_t = argc;
 
-	    debug_logging_mode = TRUE;
+            debug_logging_mode = TRUE;
 
-	    while (--argc_t)
-		error_line ("arg %d: %s", argc - argc_t, *++argv_t);
+            while (--argc_t)
+                error_line ("arg %d: %s", argc - argc_t, *++argv_t);
     }
 #else
     if (filespec_name (*argv))
-	if (strstr (filespec_name (*argv), "ebug") || strstr (filespec_name (*argv), "DEBUG")) {
-	    char **argv_t = argv;
-	    int argc_t = argc;
+        if (strstr (filespec_name (*argv), "ebug") || strstr (filespec_name (*argv), "DEBUG")) {
+            char **argv_t = argv;
+            int argc_t = argc;
 
-	    debug_logging_mode = TRUE;
+            debug_logging_mode = TRUE;
 
-	    while (--argc_t)
-		error_line ("arg %d: %s", argc - argc_t, *++argv_t);
+            while (--argc_t)
+                error_line ("arg %d: %s", argc - argc_t, *++argv_t);
     }
 #endif
 
@@ -141,46 +141,46 @@ int main (argc, argv) int argc; char **argv;
 
     while (--argc) {
 #if defined (WIN32)
-	if ((**++argv == '-' || **argv == '/') && (*argv)[1])
+        if ((**++argv == '-' || **argv == '/') && (*argv)[1])
 #else
-	if ((**++argv == '-') && (*argv)[1])
+        if ((**++argv == '-') && (*argv)[1])
 #endif
-	    while (*++*argv)
-		switch (**argv) {
-		    case 'A': case 'a':
-			album_mode = 1;
-			break;
+            while (*++*argv)
+                switch (**argv) {
+                    case 'A': case 'a':
+                        album_mode = 1;
+                        break;
 
-		    case 'C': case 'c':
-			clean_mode = 1;
-			break;
+                    case 'C': case 'c':
+                        clean_mode = 1;
+                        break;
 
-		    case 'D': case 'd':
-			display_mode = 1;
-			break;
+                    case 'D': case 'd':
+                        display_mode = 1;
+                        break;
 
 #if defined (WIN32)
-		    case 'L': case 'l':
-			SetPriorityClass (GetCurrentProcess(), IDLE_PRIORITY_CLASS);
-			break;
+                    case 'L': case 'l':
+                        SetPriorityClass (GetCurrentProcess(), IDLE_PRIORITY_CLASS);
+                        break;
 #endif
-		    case 'Q': case 'q':
-			quiet_mode = 1;
-			break;
+                    case 'Q': case 'q':
+                        quiet_mode = 1;
+                        break;
 
-		    case 'I': case 'i':
-			ignore_wvc = 1;
-			break;
+                    case 'I': case 'i':
+                        ignore_wvc = 1;
+                        break;
 
-		    case 'S': case 's':
-			show_mode = 1;
-			break;
+                    case 'S': case 's':
+                        show_mode = 1;
+                        break;
 
-		    default:
-			error_line ("illegal option: %c !", **argv);
-			++error_count;
-		}
-	else {
+                    default:
+                        error_line ("illegal option: %c !", **argv);
+                        ++error_count;
+                }
+        else {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
             matches [num_files] = malloc (strlen (*argv) + 10);
             strcpy (matches [num_files], *argv);
@@ -190,229 +190,229 @@ int main (argc, argv) int argc; char **argv;
                     strcat (matches [num_files], ".wv");
 
             num_files++;
-	}
+        }
     }
 
     // check for various command-line argument problems
 
     if (clean_mode && (album_mode || display_mode || show_mode)) {
-	error_line ("clean mode can't be used with album, show, or display mode!");
-	++error_count;
+        error_line ("clean mode can't be used with album, show, or display mode!");
+        ++error_count;
     }
     else if (show_mode && (album_mode || display_mode)) {
-	error_line ("show mode can't be used with album or display mode!");
-	++error_count;
+        error_line ("show mode can't be used with album or display mode!");
+        ++error_count;
     }
 
     if (!quiet_mode && !error_count)
-	fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
+        fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
 
     if (!num_files) {
-	printf ("%s", usage);
-	return 1;
+        printf ("%s", usage);
+        return 1;
     }
 
     if (error_count)
-	return 1;
+        return 1;
 
     setup_break ();
 
     for (file_index = 0; file_index < num_files; ++file_index) {
-	char *infilename = matches [file_index];
+        char *infilename = matches [file_index];
 
-	// If the single infile specification begins with a '@', then it
-	// actually points to a file that contains the names of the files
-	// to be converted. This was included for use by Wim Speekenbrink's
-	// frontends, but could be used for other purposes.
+        // If the single infile specification begins with a '@', then it
+        // actually points to a file that contains the names of the files
+        // to be converted. This was included for use by Wim Speekenbrink's
+        // frontends, but could be used for other purposes.
 
-	if (*infilename == '@') {
-	    FILE *list = fopen (infilename+1, "rt");
-	    int di, c;
+        if (*infilename == '@') {
+            FILE *list = fopen (infilename+1, "rt");
+            int di, c;
 
-	    for (di = file_index; di < num_files - 1; di++)
-		matches [di] = matches [di + 1];
+            for (di = file_index; di < num_files - 1; di++)
+                matches [di] = matches [di + 1];
 
-	    file_index--;
-	    num_files--;
+            file_index--;
+            num_files--;
 
-	    if (list == NULL) {
-		error_line ("file %s not found!", infilename+1);
-		free (infilename);
-		return 1;
-	    }
+            if (list == NULL) {
+                error_line ("file %s not found!", infilename+1);
+                free (infilename);
+                return 1;
+            }
 
-	    while ((c = getc (list)) != EOF) {
+            while ((c = getc (list)) != EOF) {
 
-		while (c == '\n')
-		    c = getc (list);
+                while (c == '\n')
+                    c = getc (list);
 
-		if (c != EOF) {
-		    char *fname = malloc (PATH_MAX);
-		    int ci = 0;
+                if (c != EOF) {
+                    char *fname = malloc (PATH_MAX);
+                    int ci = 0;
 
-		    do
-			fname [ci++] = c;
-		    while ((c = getc (list)) != '\n' && c != EOF && ci < PATH_MAX);
+                    do
+                        fname [ci++] = c;
+                    while ((c = getc (list)) != '\n' && c != EOF && ci < PATH_MAX);
 
-		    fname [ci++] = '\0';
-		    fname = realloc (fname, ci);
-		    matches = realloc (matches, ++num_files * sizeof (*matches));
+                    fname [ci++] = '\0';
+                    fname = realloc (fname, ci);
+                    matches = realloc (matches, ++num_files * sizeof (*matches));
 
-		    for (di = num_files - 1; di > file_index + 1; di--)
-			matches [di] = matches [di - 1];
+                    for (di = num_files - 1; di > file_index + 1; di--)
+                        matches [di] = matches [di - 1];
 
-		    matches [++file_index] = fname;
-		}
-	    }
+                    matches [++file_index] = fname;
+                }
+            }
 
-	    fclose (list);
-	    free (infilename);
-	}
+            fclose (list);
+            free (infilename);
+        }
 #if defined (WIN32)
-	else if (filespec_wild (infilename)) {
-	    FILE *list = fopen (infilename+1, "rt");
-	    intptr_t file;
-	    int di;
+        else if (filespec_wild (infilename)) {
+            FILE *list = fopen (infilename+1, "rt");
+            intptr_t file;
+            int di;
 
-	    for (di = file_index; di < num_files - 1; di++)
-		matches [di] = matches [di + 1];
+            for (di = file_index; di < num_files - 1; di++)
+                matches [di] = matches [di + 1];
 
-	    file_index--;
-	    num_files--;
+            file_index--;
+            num_files--;
 
-	    if ((file = _findfirst (infilename, &_finddata_t)) != (intptr_t) -1) {
-		do {
-		    if (!(_finddata_t.attrib & _A_SUBDIR)) {
-			matches = realloc (matches, ++num_files * sizeof (*matches));
+            if ((file = _findfirst (infilename, &_finddata_t)) != (intptr_t) -1) {
+                do {
+                    if (!(_finddata_t.attrib & _A_SUBDIR)) {
+                        matches = realloc (matches, ++num_files * sizeof (*matches));
 
-			for (di = num_files - 1; di > file_index + 1; di--)
-			    matches [di] = matches [di - 1];
+                        for (di = num_files - 1; di > file_index + 1; di--)
+                            matches [di] = matches [di - 1];
 
-			matches [++file_index] = malloc (strlen (infilename) + strlen (_finddata_t.name) + 10);
-			strcpy (matches [file_index], infilename);
-			*filespec_name (matches [file_index]) = '\0';
-			strcat (matches [file_index], _finddata_t.name);
-		    }
-		} while (_findnext (file, &_finddata_t) == 0);
+                        matches [++file_index] = malloc (strlen (infilename) + strlen (_finddata_t.name) + 10);
+                        strcpy (matches [file_index], infilename);
+                        *filespec_name (matches [file_index]) = '\0';
+                        strcat (matches [file_index], _finddata_t.name);
+                    }
+                } while (_findnext (file, &_finddata_t) == 0);
 
-		_findclose (file);
-	    }
+                _findclose (file);
+            }
 
-	    free (infilename);
-	}
+            free (infilename);
+        }
 #endif
     }
 
     // if we found any files to process, this is where we start
 
     if (num_files) {
-	float *track_gains, *track_peaks, album_gain;
-	float track_peak, album_peak = 0.0;
-	int i;
+        float *track_gains, *track_peaks, album_gain;
+        float track_peak, album_peak = 0.0;
+        int i;
 
-	track_gains = malloc (sizeof (*track_gains) * num_files);
-	track_peaks = malloc (sizeof (*track_peaks) * num_files);
+        track_gains = malloc (sizeof (*track_gains) * num_files);
+        track_peaks = malloc (sizeof (*track_peaks) * num_files);
 
-	// Loop through and analyze files in list. If we are in album mode we just keep
+        // Loop through and analyze files in list. If we are in album mode we just keep
         // track of everything and modify the tags in another pass. If we're not in
         // album mode then we can update the files here.
 
-	for (file_index = 0; !clean_mode && !show_mode && file_index < num_files; ++file_index) {
-	    if (check_break ())
-		break;
+        for (file_index = 0; !clean_mode && !show_mode && file_index < num_files; ++file_index) {
+            if (check_break ())
+                break;
 
-	    if (num_files > 1)
-		fprintf (stderr, "\n%s:\n", matches [file_index]);
+            if (num_files > 1)
+                fprintf (stderr, "\n%s:\n", matches [file_index]);
 
-	    result = analyze_file (matches [file_index], track_histogram, &track_peak);
+            result = analyze_file (matches [file_index], track_histogram, &track_peak);
 
-	    if (result != NO_ERROR) {
-		++error_count;
+            if (result != NO_ERROR) {
+                ++error_count;
 
-		if (album_mode || result == HARD_ERROR) {
-		    result = HARD_ERROR;
-		    break;
-		}
-		else
-		    continue;
-	    }
+                if (album_mode || result == HARD_ERROR) {
+                    result = HARD_ERROR;
+                    break;
+                }
+                else
+                    continue;
+            }
 
-	    track_gains [file_index] = calc_replaygain (track_histogram);
-	    track_peaks [file_index] = track_peak;
+            track_gains [file_index] = calc_replaygain (track_histogram);
+            track_peaks [file_index] = track_peak;
 
-	    if (!quiet_mode) {
-		error_line ("replaygain_track_gain = %+.2f dB", track_gains [file_index]);
-		error_line ("replaygain_track_peak = %.6f", track_peaks [file_index]);
-	    }
+            if (!quiet_mode) {
+                error_line ("replaygain_track_gain = %+.2f dB", track_gains [file_index]);
+                error_line ("replaygain_track_peak = %.6f", track_peaks [file_index]);
+            }
 
-	    if (album_mode) {
-		for (i = 0; i < HISTOGRAM_SLOTS; ++i)
-		    album_histogram [i] += track_histogram [i];
+            if (album_mode) {
+                for (i = 0; i < HISTOGRAM_SLOTS; ++i)
+                    album_histogram [i] += track_histogram [i];
 
-		if (track_peak > album_peak)
-		    album_peak = track_peak;
-	    }
-	    else if (!display_mode) {
-		result = update_file (matches [file_index], track_gains [file_index], track_peaks [file_index], 0, 0);
+                if (track_peak > album_peak)
+                    album_peak = track_peak;
+            }
+            else if (!display_mode) {
+                result = update_file (matches [file_index], track_gains [file_index], track_peaks [file_index], 0, 0);
 
-		if (result != NO_ERROR) {
-		    ++error_count;
+                if (result != NO_ERROR) {
+                    ++error_count;
 
-		    if (result == HARD_ERROR)
-			break;
-		}
-	    }
-	}
+                    if (result == HARD_ERROR)
+                        break;
+                }
+            }
+        }
 
-	if (result != HARD_ERROR) {
-	    album_gain = calc_replaygain (album_histogram);
+        if (result != HARD_ERROR) {
+            album_gain = calc_replaygain (album_histogram);
 
-	    if (album_mode && !quiet_mode && num_files > 1) {
-		error_line ("\nalbum results:");
-		error_line ("replaygain_album_gain = %+.2f dB", album_gain);
-		error_line ("replaygain_album_peak = %.6f", album_peak);
-	    }
-	}
+            if (album_mode && !quiet_mode && num_files > 1) {
+                error_line ("\nalbum results:");
+                error_line ("replaygain_album_gain = %+.2f dB", album_gain);
+                error_line ("replaygain_album_peak = %.6f", album_peak);
+            }
+        }
 
-	// If we are in album mode or clear mode, this is where we loop through and modify
+        // If we are in album mode or clear mode, this is where we loop through and modify
         // the tags (or just show existing stored values).
 
-	if (result != HARD_ERROR)
-	    for (file_index = 0; (clean_mode || album_mode || show_mode) && !display_mode && file_index < num_files; ++file_index) {
-		if (check_break ())
-		    break;
+        if (result != HARD_ERROR)
+            for (file_index = 0; (clean_mode || album_mode || show_mode) && !display_mode && file_index < num_files; ++file_index) {
+                if (check_break ())
+                    break;
 
-		if (num_files > 1)
-		    fprintf (stderr, "\n%s:\n", matches [file_index]);
+                if (num_files > 1)
+                    fprintf (stderr, "\n%s:\n", matches [file_index]);
 
                 if (show_mode)
                     result = show_file_info (matches [file_index], stdout);
                 else
                     result = update_file (matches [file_index], track_gains [file_index], track_peaks [file_index], album_gain, album_peak);
 
-		free (matches [file_index]);
+                free (matches [file_index]);
 
-		if (result != NO_ERROR) {
-		    ++error_count;
+                if (result != NO_ERROR) {
+                    ++error_count;
 
-		    if (result == HARD_ERROR)
-			break;
-		}
-	    }
+                    if (result == HARD_ERROR)
+                        break;
+                }
+            }
 
-	if (num_files > 1) {
-	    if (error_count)
-		fprintf (stderr, "\n **** warning: errors occurred in %d of %d files! ****\n", error_count, num_files);
-	    else if (!quiet_mode) {
-		fprintf (stderr, "\n **** %d files successfully processed ****\n", num_files);
-	    }
-	}
+        if (num_files > 1) {
+            if (error_count)
+                fprintf (stderr, "\n **** warning: errors occurred in %d of %d files! ****\n", error_count, num_files);
+            else if (!quiet_mode) {
+                fprintf (stderr, "\n **** %d files successfully processed ****\n", num_files);
+            }
+        }
 
-	free (matches);
+        free (matches);
     }
     else {
-	++error_count;
-	error_line ("nothing to do!");
+        ++error_count;
+        error_line ("nothing to do!");
     }
 
 #ifdef DEBUG_ALLOC
@@ -446,119 +446,119 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
     // use library to open WavPack file
 
     if (!ignore_wvc)
-	open_flags |= OPEN_WVC;
+        open_flags |= OPEN_WVC;
 
     open_flags |= OPEN_TAGS | OPEN_NORMALIZE;
 
     wpc = WavpackOpenFileInput (infilename, error, open_flags, 0);
 
     if (!wpc) {
-	error_line (error);
-	return SOFT_ERROR;
+        error_line (error);
+        return SOFT_ERROR;
     }
 
     wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
     num_channels = WavpackGetNumChannels (wpc);
 
     if (num_channels > 2) {
-	error_line ("can't handle multichannel files yet!");
-	return SOFT_ERROR;
+        error_line ("can't handle multichannel files yet!");
+        return SOFT_ERROR;
     }
 
     if (!quiet_mode)
-	fprintf (stderr, "analyzing %s%s,", *infilename == '-' ? "stdin" :
-	    FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
+        fprintf (stderr, "analyzing %s%s,", *infilename == '-' ? "stdin" :
+            FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
 
     window_samples = WavpackGetSampleRate (wpc) / 20;
     temp_buffer = malloc (window_samples * 8);
 
     if (!filter_init (WavpackGetSampleRate (wpc)))
-	result = SOFT_ERROR;
+        result = SOFT_ERROR;
 
     while (result == NO_ERROR) {
-	uint32_t samples_to_unpack, samples_unpacked;
-	int32_t level;
+        uint32_t samples_to_unpack, samples_unpacked;
+        int32_t level;
 
-	samples_to_unpack = window_samples;
-	samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
-	total_unpacked_samples += samples_unpacked;
+        samples_to_unpack = window_samples;
+        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
+        total_unpacked_samples += samples_unpacked;
 
-	if (samples_unpacked) {
-	    if (!(WavpackGetMode (wpc) & MODE_FLOAT))
-		switch (WavpackGetBytesPerSample (wpc)) {
-		    case 1:
-			float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 128.0);
-			break;
+        if (samples_unpacked) {
+            if (!(WavpackGetMode (wpc) & MODE_FLOAT))
+                switch (WavpackGetBytesPerSample (wpc)) {
+                    case 1:
+                        float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 128.0);
+                        break;
 
-		    case 2:
-			float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 32768.0);
-			break;
+                    case 2:
+                        float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 32768.0);
+                        break;
 
-		    case 3:
-			float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 8388608.0);
-			break;
+                    case 3:
+                        float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 8388608.0);
+                        break;
 
-		    case 4:
-			float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 2147483648.0);
-			break;
-		}
+                    case 4:
+                        float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 2147483648.0);
+                        break;
+                }
 
-	    if (num_channels == 1) {
-		int32_t *dst = temp_buffer + samples_unpacked * 2;
-		int32_t *src = temp_buffer + samples_unpacked;
-		uint32_t cnt = samples_unpacked;
+            if (num_channels == 1) {
+                int32_t *dst = temp_buffer + samples_unpacked * 2;
+                int32_t *src = temp_buffer + samples_unpacked;
+                uint32_t cnt = samples_unpacked;
 
-		while (cnt--) {
-		    *--dst = *--src;
-		    *--dst = *src;
-		}	
-	    }
+                while (cnt--) {
+                    *--dst = *--src;
+                    *--dst = *src;
+                }
+            }
 
-	    calc_stereo_peak ((float *) temp_buffer, samples_unpacked, peak);
-	    filter_stereo_samples ((float *) temp_buffer, samples_unpacked);
-	    level = (int32_t) floor (100 * calc_stereo_rms ((float *) temp_buffer, samples_unpacked));
+            calc_stereo_peak ((float *) temp_buffer, samples_unpacked, peak);
+            filter_stereo_samples ((float *) temp_buffer, samples_unpacked);
+            level = (int32_t) floor (100 * calc_stereo_rms ((float *) temp_buffer, samples_unpacked));
 
-	    if (level < 0)
-		histogram [0]++;
-	    else if (level >= HISTOGRAM_SLOTS)
-		histogram [HISTOGRAM_SLOTS - 1]++;
-	    else
-		histogram [level]++;
-	}
-	else
-	    break;
+            if (level < 0)
+                histogram [0]++;
+            else if (level >= HISTOGRAM_SLOTS)
+                histogram [HISTOGRAM_SLOTS - 1]++;
+            else
+                histogram [level]++;
+        }
+        else
+            break;
 
-	if (check_break ()) {
-	    fprintf (stderr, "^C\n");
-	    result = HARD_ERROR;
-	    break;
-	}
+        if (check_break ()) {
+            fprintf (stderr, "^C\n");
+            result = HARD_ERROR;
+            break;
+        }
 
-	if (WavpackGetProgress (wpc) != -1.0 &&
-	    progress != floor (WavpackGetProgress (wpc) * 100.0 + 0.5)) {
-		int nobs = progress == -1.0;
+        if (WavpackGetProgress (wpc) != -1.0 &&
+            progress != floor (WavpackGetProgress (wpc) * 100.0 + 0.5)) {
+                int nobs = progress == -1.0;
 
-		progress = WavpackGetProgress (wpc);
-		display_progress (progress);
-		progress = floor (progress * 100.0 + 0.5);
+                progress = WavpackGetProgress (wpc);
+                display_progress (progress);
+                progress = floor (progress * 100.0 + 0.5);
 
-		if (!quiet_mode)
-		    fprintf (stderr, "%s%3d%% done...",
-			nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
-	}
+                if (!quiet_mode)
+                    fprintf (stderr, "%s%3d%% done...",
+                        nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+        }
     }
 
     free (temp_buffer);
 
     if (result == NO_ERROR && WavpackGetNumSamples (wpc) != (uint32_t) -1 &&
-	total_unpacked_samples != WavpackGetNumSamples (wpc)) {
-	    error_line ("incorrect number of samples!");
-	    result = SOFT_ERROR;
+        total_unpacked_samples != WavpackGetNumSamples (wpc)) {
+            error_line ("incorrect number of samples!");
+            result = SOFT_ERROR;
     }
 
     if (result == NO_ERROR && WavpackGetNumErrors (wpc)) {
-	error_line ("crc errors detected in %d block(s)!", WavpackGetNumErrors (wpc));
-	result = SOFT_ERROR;
+        error_line ("crc errors detected in %d block(s)!", WavpackGetNumErrors (wpc));
+        result = SOFT_ERROR;
     }
 
     WavpackCloseFile (wpc);
@@ -579,86 +579,86 @@ static int update_file (char *infilename, float track_gain, float track_peak, fl
     wpc = WavpackOpenFileInput (infilename, error, OPEN_EDIT_TAGS, 0);
 
     if (!wpc) {
-	error_line (error);
-	return SOFT_ERROR;
+        error_line (error);
+        return SOFT_ERROR;
     }
 
     if (clean_mode) {
-	int items_removed = 0;
+        int items_removed = 0;
 
-	if (WavpackDeleteTagItem (wpc, "replaygain_track_gain"))
-	    ++items_removed;
+        if (WavpackDeleteTagItem (wpc, "replaygain_track_gain"))
+            ++items_removed;
 
-	if (WavpackDeleteTagItem (wpc, "replaygain_track_peak"))
-	    ++items_removed;
+        if (WavpackDeleteTagItem (wpc, "replaygain_track_peak"))
+            ++items_removed;
 
-	if (WavpackDeleteTagItem (wpc, "replaygain_album_gain"))
-	    ++items_removed;
+        if (WavpackDeleteTagItem (wpc, "replaygain_album_gain"))
+            ++items_removed;
 
-	if (WavpackDeleteTagItem (wpc, "replaygain_album_peak"))
-	    ++items_removed;
+        if (WavpackDeleteTagItem (wpc, "replaygain_album_peak"))
+            ++items_removed;
 
-	if (!quiet_mode && items_removed) {
-	    error_line ("%d ReplayGain values cleaned", items_removed);
-	    write_tag = TRUE;
-	}
-	else
-	    error_line ("no ReplayGain values found");
+        if (!quiet_mode && items_removed) {
+            error_line ("%d ReplayGain values cleaned", items_removed);
+            write_tag = TRUE;
+        }
+        else
+            error_line ("no ReplayGain values found");
     }
     else {
-	if ((WavpackGetMode (wpc) & (MODE_VALID_TAG | MODE_APETAG)) == MODE_VALID_TAG) {
-	    char title [40], artist [40], album [40], year [10], comment [40], track [10];
+        if ((WavpackGetMode (wpc) & (MODE_VALID_TAG | MODE_APETAG)) == MODE_VALID_TAG) {
+            char title [40], artist [40], album [40], year [10], comment [40], track [10];
 
-	    WavpackGetTagItem (wpc, "title", title, sizeof (title));
-	    WavpackGetTagItem (wpc, "artist", artist, sizeof (artist));
-	    WavpackGetTagItem (wpc, "album", album, sizeof (album));
-	    WavpackGetTagItem (wpc, "year", year, sizeof (year));
-	    WavpackGetTagItem (wpc, "comment", comment, sizeof (comment));
-	    WavpackGetTagItem (wpc, "track", track, sizeof (track));
-		
-	    if (title [0])
-		WavpackAppendTagItem (wpc, "Title", title, (int) strlen (title));
-		
-	    if (artist [0])
-		WavpackAppendTagItem (wpc, "Artist", artist, (int) strlen (artist));
-		
-	    if (album [0])
-		WavpackAppendTagItem (wpc, "Album", album, (int) strlen (album));
-		
-	    if (year [0])
-		WavpackAppendTagItem (wpc, "Year", year, (int) strlen (year));
-		
-	    if (comment [0])
-		WavpackAppendTagItem (wpc, "Comment", comment, (int) strlen (comment));
-		
-	    if (track [0])
-		WavpackAppendTagItem (wpc, "Track", track, (int) strlen (track));
-		
-	    error_line ("warning: ID3v1 tag converted to APEv2");
-	}
+            WavpackGetTagItem (wpc, "title", title, sizeof (title));
+            WavpackGetTagItem (wpc, "artist", artist, sizeof (artist));
+            WavpackGetTagItem (wpc, "album", album, sizeof (album));
+            WavpackGetTagItem (wpc, "year", year, sizeof (year));
+            WavpackGetTagItem (wpc, "comment", comment, sizeof (comment));
+            WavpackGetTagItem (wpc, "track", track, sizeof (track));
 
-	sprintf (value, "%+.2f dB", track_gain);
-	WavpackAppendTagItem (wpc, "replaygain_track_gain", value, (int) strlen (value));
+            if (title [0])
+                WavpackAppendTagItem (wpc, "Title", title, (int) strlen (title));
 
-	sprintf (value, "%.6f", track_peak);
-	WavpackAppendTagItem (wpc, "replaygain_track_peak", value, (int) strlen (value));
+            if (artist [0])
+                WavpackAppendTagItem (wpc, "Artist", artist, (int) strlen (artist));
 
-	if (album_mode) {
-	    sprintf (value, "%+.2f dB", album_gain);
-	    WavpackAppendTagItem (wpc, "replaygain_album_gain", value, (int) strlen (value));
-	    sprintf (value, "%.6f", album_peak);
-	    WavpackAppendTagItem (wpc, "replaygain_album_peak", value, (int) strlen (value));
-	}
+            if (album [0])
+                WavpackAppendTagItem (wpc, "Album", album, (int) strlen (album));
 
-	if (!quiet_mode)
-	    error_line ("%d ReplayGain values appended", album_mode ? 4 : 2);
+            if (year [0])
+                WavpackAppendTagItem (wpc, "Year", year, (int) strlen (year));
 
-	write_tag = TRUE;
+            if (comment [0])
+                WavpackAppendTagItem (wpc, "Comment", comment, (int) strlen (comment));
+
+            if (track [0])
+                WavpackAppendTagItem (wpc, "Track", track, (int) strlen (track));
+
+            error_line ("warning: ID3v1 tag converted to APEv2");
+        }
+
+        sprintf (value, "%+.2f dB", track_gain);
+        WavpackAppendTagItem (wpc, "replaygain_track_gain", value, (int) strlen (value));
+
+        sprintf (value, "%.6f", track_peak);
+        WavpackAppendTagItem (wpc, "replaygain_track_peak", value, (int) strlen (value));
+
+        if (album_mode) {
+            sprintf (value, "%+.2f dB", album_gain);
+            WavpackAppendTagItem (wpc, "replaygain_album_gain", value, (int) strlen (value));
+            sprintf (value, "%.6f", album_peak);
+            WavpackAppendTagItem (wpc, "replaygain_album_peak", value, (int) strlen (value));
+        }
+
+        if (!quiet_mode)
+            error_line ("%d ReplayGain values appended", album_mode ? 4 : 2);
+
+        write_tag = TRUE;
     }
 
     if (write_tag && !WavpackWriteTag (wpc)) {
-	error_line ("%s", WavpackGetErrorMessage (wpc));
-	return SOFT_ERROR;
+        error_line ("%s", WavpackGetErrorMessage (wpc));
+        return SOFT_ERROR;
     }
 
     WavpackCloseFile (wpc);
@@ -678,8 +678,8 @@ static int show_file_info (char *infilename, FILE *dst)
     wpc = WavpackOpenFileInput (infilename, error, OPEN_TAGS, 0);
 
     if (!wpc) {
-	error_line (error);
-	return SOFT_ERROR;
+        error_line (error);
+        return SOFT_ERROR;
     }
 
     fprintf (dst, "\nfile: %s\n", infilename);
@@ -720,11 +720,11 @@ static float calc_replaygain (uint32_t *histogram)
     int i;
 
     for (i = 0; i < HISTOGRAM_SLOTS; i++)
-	total_windows += histogram [i];
+        total_windows += histogram [i];
 
     while (i--)
-	if ((loud_count += histogram [i]) * 20 >= total_windows)
-	    break;
+        if ((loud_count += histogram [i]) * 20 >= total_windows)
+            break;
 
     unclipped_gain = (float)(64.54 - i / 100.0);
 
@@ -741,7 +741,7 @@ static float calc_replaygain (uint32_t *histogram)
 static void float_samples (float *dst, int32_t *src, uint32_t samcnt, float scale)
 {
     while (samcnt--)
-	*dst++ = *src++ * scale;
+        *dst++ = *src++ * scale;
 }
 
 // These are the filters used to calculate perceived loudness. The table data was copied
@@ -813,7 +813,7 @@ static struct rg_freqinfo freqinfos[] =
         { 0.96009142950541, -1.92018285901082, 0.96009142950541 },
         { 1., -1.91858953033784, 0.92177618768381 },
     },
-    
+
     {
         11025,
         { 0.58100494960553, -0.53174909058578, -0.14289799034253,  0.17520704835522,  0.02377945217615,  0.15558449135573, -0.25344790059353,  0.01628462406333,  0.06920467763959, -0.03721611395801, -0.00749618797172 },
@@ -930,12 +930,12 @@ static int filter_init (uint32_t sample_rate)
     int i, n = sizeof (freqinfos) / sizeof (freqinfos [0]);
 
     for (i = 0; i < n; ++i)
-	if (freqinfos [i].rate == sample_rate)
-	    break;
+        if (freqinfos [i].rate == sample_rate)
+            break;
 
     if (i == n) {
-	error_line ("sample rate of %d is not supported!", sample_rate);
-	return FALSE;
+        error_line ("sample rate of %d is not supported!", sample_rate);
+        return FALSE;
     }
 
     yule_coeff_a = freqinfos [i].AYule;
@@ -966,30 +966,30 @@ static void butter_filter_stereo_samples (float *samples, uint32_t samcnt)
     // from rattling around in there forever (slowing us down).
 
     for (j = -4; j < 0; ++j)
-	if (fabs (butter_hist_a [i + j]) > 1e-10 || fabs (butter_hist_b [i + j]) > 1e-10)
-	    break;
+        if (fabs (butter_hist_a [i + j]) > 1e-10 || fabs (butter_hist_b [i + j]) > 1e-10)
+            break;
 
     if (!j) {
-	memset (butter_hist_a, 0, sizeof (butter_hist_a));
-	memset (butter_hist_b, 0, sizeof (butter_hist_b));
+        memset (butter_hist_a, 0, sizeof (butter_hist_a));
+        memset (butter_hist_b, 0, sizeof (butter_hist_b));
     }
 
     while (samcnt--) {
-	left   = (butter_hist_b [i] = samples [0]) * butter_coeff_b [0];
-	right  = (butter_hist_b [i + 1] = samples [1]) * butter_coeff_b [0];
-	left  += butter_hist_b [i - 2] * butter_coeff_b [1] - butter_hist_a [i - 2] * butter_coeff_a [1];  
-	right += butter_hist_b [i - 1] * butter_coeff_b [1] - butter_hist_a [i - 1] * butter_coeff_a [1];  
-	left  += butter_hist_b [i - 4] * butter_coeff_b [2] - butter_hist_a [i - 4] * butter_coeff_a [2];  
-	right += butter_hist_b [i - 3] * butter_coeff_b [2] - butter_hist_a [i - 3] * butter_coeff_a [2];  
-	samples [0] = butter_hist_a [i] = (float) left;
-	samples [1] = butter_hist_a [i + 1] = (float) right;
-	samples += 2;
+        left   = (butter_hist_b [i] = samples [0]) * butter_coeff_b [0];
+        right  = (butter_hist_b [i + 1] = samples [1]) * butter_coeff_b [0];
+        left  += butter_hist_b [i - 2] * butter_coeff_b [1] - butter_hist_a [i - 2] * butter_coeff_a [1];
+        right += butter_hist_b [i - 1] * butter_coeff_b [1] - butter_hist_a [i - 1] * butter_coeff_a [1];
+        left  += butter_hist_b [i - 4] * butter_coeff_b [2] - butter_hist_a [i - 4] * butter_coeff_a [2];
+        right += butter_hist_b [i - 3] * butter_coeff_b [2] - butter_hist_a [i - 3] * butter_coeff_a [2];
+        samples [0] = butter_hist_a [i] = (float) left;
+        samples [1] = butter_hist_a [i + 1] = (float) right;
+        samples += 2;
 
-	if ((i += 2) == 256) {
-	    memcpy (butter_hist_a, butter_hist_a + 252, sizeof (butter_hist_a [0]) * 4);
-	    memcpy (butter_hist_b, butter_hist_b + 252, sizeof (butter_hist_b [0]) * 4);
-	    i = 4;
-	}
+        if ((i += 2) == 256) {
+            memcpy (butter_hist_a, butter_hist_a + 252, sizeof (butter_hist_a [0]) * 4);
+            memcpy (butter_hist_b, butter_hist_b + 252, sizeof (butter_hist_b [0]) * 4);
+            i = 4;
+        }
     }
 
     butter_hist_i = i;
@@ -1008,46 +1008,46 @@ static void yule_filter_stereo_samples (float *samples, uint32_t samcnt)
     // from rattling around in there forever (slowing us down).
 
     for (j = -20; j < 0; ++j)
-	if (fabs (yule_hist_a [i + j]) > 1e-10 || fabs (yule_hist_b [i + j]) > 1e-10)
-	    break;
+        if (fabs (yule_hist_a [i + j]) > 1e-10 || fabs (yule_hist_b [i + j]) > 1e-10)
+            break;
 
     if (!j) {
-	memset (yule_hist_a, 0, sizeof (yule_hist_a));
-	memset (yule_hist_b, 0, sizeof (yule_hist_b));
+        memset (yule_hist_a, 0, sizeof (yule_hist_a));
+        memset (yule_hist_b, 0, sizeof (yule_hist_b));
     }
 
     while (samcnt--) {
-	left   = (yule_hist_b [i] = samples [0]) * yule_coeff_b [0];
-	right  = (yule_hist_b [i + 1] = samples [1]) * yule_coeff_b [0];
-	left  += yule_hist_b [i - 2] * yule_coeff_b [1] - yule_hist_a [i - 2] * yule_coeff_a [1];  
-	right += yule_hist_b [i - 1] * yule_coeff_b [1] - yule_hist_a [i - 1] * yule_coeff_a [1];  
-	left  += yule_hist_b [i - 4] * yule_coeff_b [2] - yule_hist_a [i - 4] * yule_coeff_a [2];  
-	right += yule_hist_b [i - 3] * yule_coeff_b [2] - yule_hist_a [i - 3] * yule_coeff_a [2];  
-	left  += yule_hist_b [i - 6] * yule_coeff_b [3] - yule_hist_a [i - 6] * yule_coeff_a [3];  
-	right += yule_hist_b [i - 5] * yule_coeff_b [3] - yule_hist_a [i - 5] * yule_coeff_a [3];  
-	left  += yule_hist_b [i - 8] * yule_coeff_b [4] - yule_hist_a [i - 8] * yule_coeff_a [4];  
-	right += yule_hist_b [i - 7] * yule_coeff_b [4] - yule_hist_a [i - 7] * yule_coeff_a [4];  
-	left  += yule_hist_b [i - 10] * yule_coeff_b [5] - yule_hist_a [i - 10] * yule_coeff_a [5];  
-	right += yule_hist_b [i - 9] * yule_coeff_b [5] - yule_hist_a [i - 9] * yule_coeff_a [5];  
-	left  += yule_hist_b [i - 12] * yule_coeff_b [6] - yule_hist_a [i - 12] * yule_coeff_a [6];  
-	right += yule_hist_b [i - 11] * yule_coeff_b [6] - yule_hist_a [i - 11] * yule_coeff_a [6];  
-	left  += yule_hist_b [i - 14] * yule_coeff_b [7] - yule_hist_a [i - 14] * yule_coeff_a [7];  
-	right += yule_hist_b [i - 13] * yule_coeff_b [7] - yule_hist_a [i - 13] * yule_coeff_a [7];  
-	left  += yule_hist_b [i - 16] * yule_coeff_b [8] - yule_hist_a [i - 16] * yule_coeff_a [8];  
-	right += yule_hist_b [i - 15] * yule_coeff_b [8] - yule_hist_a [i - 15] * yule_coeff_a [8];  
-	left  += yule_hist_b [i - 18] * yule_coeff_b [9] - yule_hist_a [i - 18] * yule_coeff_a [9];  
-	right += yule_hist_b [i - 17] * yule_coeff_b [9] - yule_hist_a [i - 17] * yule_coeff_a [9];  
-	left  += yule_hist_b [i - 20] * yule_coeff_b [10] - yule_hist_a [i - 20] * yule_coeff_a [10];  
-	right += yule_hist_b [i - 19] * yule_coeff_b [10] - yule_hist_a [i - 19] * yule_coeff_a [10];  
-	samples [0] = yule_hist_a [i] = (float) left;
-	samples [1] = yule_hist_a [i + 1] = (float) right;
-	samples += 2;
+        left   = (yule_hist_b [i] = samples [0]) * yule_coeff_b [0];
+        right  = (yule_hist_b [i + 1] = samples [1]) * yule_coeff_b [0];
+        left  += yule_hist_b [i - 2] * yule_coeff_b [1] - yule_hist_a [i - 2] * yule_coeff_a [1];
+        right += yule_hist_b [i - 1] * yule_coeff_b [1] - yule_hist_a [i - 1] * yule_coeff_a [1];
+        left  += yule_hist_b [i - 4] * yule_coeff_b [2] - yule_hist_a [i - 4] * yule_coeff_a [2];
+        right += yule_hist_b [i - 3] * yule_coeff_b [2] - yule_hist_a [i - 3] * yule_coeff_a [2];
+        left  += yule_hist_b [i - 6] * yule_coeff_b [3] - yule_hist_a [i - 6] * yule_coeff_a [3];
+        right += yule_hist_b [i - 5] * yule_coeff_b [3] - yule_hist_a [i - 5] * yule_coeff_a [3];
+        left  += yule_hist_b [i - 8] * yule_coeff_b [4] - yule_hist_a [i - 8] * yule_coeff_a [4];
+        right += yule_hist_b [i - 7] * yule_coeff_b [4] - yule_hist_a [i - 7] * yule_coeff_a [4];
+        left  += yule_hist_b [i - 10] * yule_coeff_b [5] - yule_hist_a [i - 10] * yule_coeff_a [5];
+        right += yule_hist_b [i - 9] * yule_coeff_b [5] - yule_hist_a [i - 9] * yule_coeff_a [5];
+        left  += yule_hist_b [i - 12] * yule_coeff_b [6] - yule_hist_a [i - 12] * yule_coeff_a [6];
+        right += yule_hist_b [i - 11] * yule_coeff_b [6] - yule_hist_a [i - 11] * yule_coeff_a [6];
+        left  += yule_hist_b [i - 14] * yule_coeff_b [7] - yule_hist_a [i - 14] * yule_coeff_a [7];
+        right += yule_hist_b [i - 13] * yule_coeff_b [7] - yule_hist_a [i - 13] * yule_coeff_a [7];
+        left  += yule_hist_b [i - 16] * yule_coeff_b [8] - yule_hist_a [i - 16] * yule_coeff_a [8];
+        right += yule_hist_b [i - 15] * yule_coeff_b [8] - yule_hist_a [i - 15] * yule_coeff_a [8];
+        left  += yule_hist_b [i - 18] * yule_coeff_b [9] - yule_hist_a [i - 18] * yule_coeff_a [9];
+        right += yule_hist_b [i - 17] * yule_coeff_b [9] - yule_hist_a [i - 17] * yule_coeff_a [9];
+        left  += yule_hist_b [i - 20] * yule_coeff_b [10] - yule_hist_a [i - 20] * yule_coeff_a [10];
+        right += yule_hist_b [i - 19] * yule_coeff_b [10] - yule_hist_a [i - 19] * yule_coeff_a [10];
+        samples [0] = yule_hist_a [i] = (float) left;
+        samples [1] = yule_hist_a [i + 1] = (float) right;
+        samples += 2;
 
-	if ((i += 2) == 256) {
-	    memcpy (yule_hist_a, yule_hist_a + 236, sizeof (yule_hist_a [0]) * 20);
-	    memcpy (yule_hist_b, yule_hist_b + 236, sizeof (yule_hist_b [0]) * 20);
-	    i = 20;
-	}
+        if ((i += 2) == 256) {
+            memcpy (yule_hist_a, yule_hist_a + 236, sizeof (yule_hist_a [0]) * 20);
+            memcpy (yule_hist_b, yule_hist_b + 236, sizeof (yule_hist_b [0]) * 20);
+            i = 20;
+        }
     }
 
     yule_hist_i = i;
@@ -1068,21 +1068,21 @@ static void calc_stereo_peak (float *samples, uint32_t samcnt, float *peak_p)
     float peak = 0.0;
 
     while (samcnt--) {
-	if (samples [0] > peak)
-	    peak = samples [0];
-	else if (-samples [0] > peak)
-	    peak = -samples [0];
+        if (samples [0] > peak)
+            peak = samples [0];
+        else if (-samples [0] > peak)
+            peak = -samples [0];
 
-	if (samples [1] > peak)
-	    peak = samples [1];
-	else if (-samples [1] > peak)
-	    peak = -samples [1];
+        if (samples [1] > peak)
+            peak = samples [1];
+        else if (-samples [1] > peak)
+            peak = -samples [1];
 
-	samples += 2;
+        samples += 2;
     }
 
     if (peak > *peak_p)
-	*peak_p = peak;
+        *peak_p = peak;
 }
 
 // Calculate stereo rms level. Minimum value is about -100 dB for digital silence. The 90 dB
@@ -1094,8 +1094,8 @@ static double calc_stereo_rms (float *samples, uint32_t samcnt)
     double sum = 1e-16;
 
     while (cnt--) {
-	sum += samples [0] * samples [0] + samples [1] * samples [1];
-	samples += 2;
+        sum += samples [0] * samples [0] + samples [1] * samples [1];
+        samples += 2;
     }
 
     return 10 * log10 (sum / samcnt) + 90.0 - 3.0;
