@@ -107,11 +107,6 @@ static const char *help =
 #if defined (WIN32)
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
-"          --sub-blocks[=n] = special format optimized for very short blocks\n"
-"                             (n = sub-blocks per super-block, 2-256, default=16,\n"
-"                              result is incompatible with standard decoders and\n"
-"                              cannot be used with -x mode or files containing more\n"
-"                              than 2 channels or greater than 24-bit resolution)\n"
 "          -m  = compute & store MD5 signature of raw audio data\n"
 "          -n  = calculate average and peak quantization noise (hybrid only)\n"
 #if !defined (WIN32)
@@ -123,6 +118,11 @@ static const char *help =
 "          -q  = quiet (keep console output to a minimum)\n"
 "          -r  = generate new RIFF wav header (removing extra chunk info)\n"
 "          -sn = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)\n"
+"          --sub-blocks[=n] = special format optimized for very short blocks\n"
+"                             (n = sub-blocks per super-block, 2-256, default=16,\n"
+"                              result is incompatible with standard decoders and\n"
+"                              cannot be used with -x mode or files containing more\n"
+"                              than 2 channels or greater than 24-bit resolution)\n"
 "          -t  = copy input file's time stamp to output file(s)\n"
 "          -w \"Field=Value\" = write specified metadata to APEv2 tag\n"
 "          -x[n] = extra encode processing (optional n = 1 to 6, 1=default)\n"

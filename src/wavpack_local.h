@@ -582,6 +582,7 @@ void free_metadata (WavpackMetadata *wpmd);
 // words.c stuff
 
 void init_words (WavpackStream *wps);
+void reset_words (WavpackStream *wps);
 void word_set_bitrate (WavpackStream *wps);
 void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd);
 void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd);
