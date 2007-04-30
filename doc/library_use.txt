@@ -12,6 +12,8 @@
                           December 9, 2006
                             David Bryant
 
+                       updated: April 29, 2007
+
 1.0 INTRODUCTION
 
 This document describes the use of the WavPack library (libwavpack) from a
@@ -55,13 +57,13 @@ common case of CD audio).
 
 Return the WavPack library version in a packed integer. Bits 0-7 give the
 micro version, bits 8-15 give the minor version, and bits 16-23 give the
-major version. As of this writing the version is 4.40.0.
+major version. As of this writing the version is 4.41.0.
 
   const char *WavpackGetLibraryVersionString (void);
   -------------------------------------------------
 
 Return the WavPack library version as a string. As of this writing this is
-"4.40.0".
+"4.41.0".
 
   char *WavpackGetErrorMessage (WavpackContext *wpc);
   --------------------------------------------------
@@ -207,7 +209,7 @@ The advantage of this method is that the data doesn't necessarily need to be
 contained in a file. For example, the data might be streamed from somewhere or
 it may already be in memory because it is being parsed by another program. Also,
 this can be used in the situation where the application is handling disk I/O
-in a more efficient way that stdio, or the filename cannot be properly
+in a more efficient way than stdio, or the filename cannot be properly
 represented with an 8-bit string (i.e. Windows).
 
 The prototype for the WavpackStreamReader is in wavpack.h and an example
@@ -408,8 +410,35 @@ returned would be +/-32k. Floating point data can also be returned if the
 source was floating point data (and this can be optionally normalized to +/-1.0
 by using the appropriate flag in the call to WavpackOpenFileInput ()). The
 actual number of samples unpacked is returned, which should be equal to the
-number requested unless the end of fle is encountered or an error occurs. After
+number requested unless the end of file is encountered or an error occurs. If
 all samples have been unpacked then 0 will be returned.
+
+Note that if the WavPack file contains floating-point data (as indicated by
+the MODE_FLOAT bit being set in the value returned from WavpackGetMode())
+then 32-bit float values are returned in the buffer despite the defined type
+of the pointer. If integers are desired (e.g. for writing to a DAC) then
+this conversion must be performed by the caller, and it is important to keep
+in mind that clipping is probably required. Assuming that OPEN_NORMALIZE is
+used to ensure that the normalized range is +/- 1.0, then this C code sample
+will perform the conversion to 16-bit:
+
+    int32_t *lptr = buffer;
+
+    while (num_samples--) {
+        float fdata = * (float*) lptr;
+
+        if (fdata >= 1.0)
+            *lptr++ = 32767;
+        else if (fdata <= -1.0)
+            *lptr++ = -32768;
+        else
+            *lptr++ = floor (fdata * 32768.0);
+    }
+
+For highest quality when converting to 16-bit it would be advisable to also
+perform dithering and/or noise shaping, but that is beyond the scope of this
+document. For converting to 24-bit this would probably not be required.
+
 
   int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
   ------------------------------------------------------------
@@ -492,9 +521,10 @@ The basic procedure for creating WavPack files is this:
   6. flush final samples into blocks with WavpackFlushSamples()
   7. optionally write MD5 sum with WavpackStoreMD5Sum()
   8. optionally write RIFF trailer with WavpackAddWrapper()
-  9. optionally append metadata tag with functions in next section
-  10. optionally update number of samples with WavpackUpdateNumSamples()
-  11. close the context with WavpackCloseFile()
+  9. if MD5 sum or RIFF trailer written, call WavpackFlushSamples() again
+  10. optionally append metadata tag with functions in next section
+  11. optionally update number of samples with WavpackUpdateNumSamples()
+  12. close the context with WavpackCloseFile()
 
 Note that this does not show opening and closing the output files which is
 done by the application itself.
@@ -527,9 +557,15 @@ information:
  config->num_channels         self evident
  config->sample_rate          self evident
 
-This alone would create a default lossless WavPack file, identical to the one
-produced by using the command-line program without options. For optional
-configuration, the following fields and flags may be set: 
+Be particularly careful with the "channel_mask" field. If this is not set to
+the correct value (3 or 4) then everything will still appear to work
+correctly, but the resulting WavPack file will have undefined channel
+assignments. When this file is unpacked back to WAV it will then get a
+WAVEFORMATEXTENSIBLE header which some programs refuse to recognize.
+
+Specifying these 5 parameters alone would create a default lossless WavPack
+file, identical to the one produced by using the command-line program without
+options. For optional configuration, the following fields and flags may be set:
 
  config->flags:
  --------------
@@ -610,9 +646,9 @@ indicates the that user-supplied blockout function returned an error).
 Flush all accumulated samples into WavPack blocks. This is normally called after
 all samples have been sent to WavpackPackSamples(), but can also be called to
 terminate a WavPack block at a specific sample (in other words it is possible
-to continue after this operation). This is also called to dump non-audio blocks
-like those holding metadata for various purposes. A return of FALSE indicates an
-error.
+to continue after this operation). This also must be called to dump non-audio
+blocks like those holding metadata for MD5 sums or RIFF trailers. A return of
+FALSE indicates an error.
 
   void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block);
   ---------------------------------------------------------------------
@@ -629,7 +665,9 @@ packer when the -i option is used.
   -------------------------------------------------------------
 
 Store computed MD5 sum in WavPack metadata. Note that the user must compute the
-16 byte sum; it is not done here. A return of FALSE indicates an error.
+16 byte sum; it is not done here. It is also required that WavpackFlushSamples()
+be called after this to make sure the block containing the MD5 sum is actually
+written. A return of FALSE indicates an error.
 
   WavpackContext *WavpackCloseFile (WavpackContext *wpc);
   ------------------------------------------------------
@@ -651,13 +689,16 @@ the following functions are used:
 
 Add wrapper (currently RIFF only) to WavPack blocks. This should be called
 before sending any audio samples in the case of the RIFF header or after all
-samples have been sent (and flushed) for any RIFF trailer. If the exact
-contents of the RIFF header are not known because, for example, the file
-duration is uncertain or trailing chunks are possible, simply write a "dummy"
-header of the correct length. When all data has been written it will be
-possible to read the first block written and update the header directly. An
-example of this can be found in the Audition filter. A return of FALSE
-indicates an error.
+samples have been sent (and flushed) for any RIFF trailer. It is also
+required that WavpackFlushSamples() be called again after specifying a RIFF
+trailer to make sure it is actually written to the file.
+
+If the exact contents of the RIFF header are not known because, for example,
+the file duration is uncertain or trailing chunks are possible, simply write
+a "dummy" header of the correct length. When all data has been written it
+will be possible to read the first block written and update the header
+directly. An example of this can be found in the Audition filter. A return of
+FALSE indicates an error.
 
   void *WavpackGetWrapperLocation (void *first_block, uint32_t *size);
   -------------------------------------------------------------------

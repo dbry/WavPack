@@ -12,6 +12,8 @@
                           December 9, 2006
                             David Bryant
 
+                       updated: April 29, 2007
+
 1.0 INTRODUCTION
 
 A WavPack 4.0 file consists of a series of WavPack audio blocks. It may also
@@ -229,10 +231,10 @@ may be used):
     Genre
     Comment
     Cuesheet (note: may include replay gain info as remarks)
-    Replay_Track_Gain
-    Replay_Track_Peak
-    Replay_Album_Gain
-    Replay_Album_Peak
+    Replaygain_Track_Gain
+    Replaygain_Track_Peak
+    Replaygain_Album_Gain
+    Replaygain_Album_Peak
     Cover Art (Front)
     Cover Art (Back)
 
