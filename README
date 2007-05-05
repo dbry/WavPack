@@ -17,9 +17,14 @@ library to both read and write WavPack files.
 
 To build everything on Linux, type:
 
-1. ./configure
+1. ./configure [--enable-mmx]
 2. make
 3. make install (optionally, to install into /usr/local/bin)
+
+If you are using the code directly from SVN (rather than a distribution)
+then you will need to do a ./autogen.sh before the configure step. For
+processors that support MMX, use the --enable-mmx switch to utilize MMX
+intrinsics to speed up encoding of stereo 24-bit (and higher) audio.
 
 Notes:
 
@@ -33,10 +38,9 @@ Notes:
                           including details needed for parsing WavPack blocks
                           and interpreting the block header and flags
 
-   There is also a description of the WavPack algorithms in the soon to be
-   published forth edition of David Salomon's book "Data Compression: The
-   Complete Reference". An early version of the section on WavPack can be
-   found here:
+   There is also a description of the WavPack algorithms in the forth edition
+   of David Salomon's book "Data Compression: The Complete Reference". The
+   section on WavPack can be found here:
 
    www.wavpack.com/WavPack.pdf
 
@@ -83,8 +87,17 @@ Notes:
    VER4_ONLY       to only handle WavPack files from versions 4.0 onward
    WIN32           required for Win32 platform
 
-6. An alternate version of this library is available specifically designed
-   for "resource limited" CPUs or hardware decoding. This "tiny" decoder
-   library works with less than 32k of code and less than 4k of data.
+6. There are alternate versions of this library available specifically designed
+   for "resource limited" CPUs or hardware encoding and decoding. There is the
+   "tiny decoder" library which works with less than 32k of code and less than
+   4k of data and has assembly language optimizations for the ARM and Freescale
+   ColdFire CPUs.  The "tiny encoder" is also designed for embedded use and
+   handles the pure lossless, lossy, and hybrid lossless modes. Neither of the
+   "tiny" versions use any memory allocation functions nor do they require
+   floating-point arithmetic support.
+
+   For applications requiring very low latency, there is a special version of
+   the library that supports a variation on the regular WavPack block format
+   to facilitate this.
 
 7. Questions or comments should be directed to david@wavpack.com
