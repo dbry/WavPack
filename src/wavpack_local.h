@@ -49,16 +49,24 @@ typedef unsigned short  ushort;
 typedef unsigned int    uint;
 #endif
 
-// This structure is used to access the individual fields of 32-bit ieee
-// floating point numbers. This will not be compatible with compilers that
-// allocate bit fields from the most significant bits, although I'm not sure
-// how common that is.
+// Because the C99 specification states that "The order of allocation of
+// bit-ﬁelds within a unit (high-order to low-order or low-order to
+// high-order) is implementation-deﬁned" (6.7.2.1), I decided to change
+// the representation of floating-point values from a structure of
+// bit-fields to a 32-bit integer with access macros. Note that the WavPack
+// library doesn't use any floating-point math to implement compression of
+// floating-point data (although a little floating-point math is used in
+// high-level functions unrelated to the codec).
 
-typedef struct {
-    unsigned mantissa : 23;
-    unsigned exponent : 8;
-    unsigned sign : 1;
-} f32;
+typedef int32_t f32;
+
+#define get_mantissa(f)     ((f) & 0x7fffff)
+#define get_exponent(f)     (((f) >> 23) & 0xff)
+#define get_sign(f)         (((f) >> 31) & 0x1)
+
+#define set_mantissa(f,v)   (f) ^= (((f) ^ (v)) & 0x7fffff)
+#define set_exponent(f,v)   (f) ^= (((f) ^ ((v) << 23)) & 0x7f800000)
+#define set_sign(f,v)       (f) ^= (((f) ^ ((v) << 31)) & 0x80000000)
 
 #include <stdio.h>
 

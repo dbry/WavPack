@@ -49,29 +49,29 @@ int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
     wps->float_shift = wps->float_flags = 0;
 
     for (dp = values, count = num_values; count--; dp++) {
-        crc = crc * 27 + dp->mantissa * 9 + dp->exponent * 3 + dp->sign;
+        crc = crc * 27 + get_mantissa (*dp) * 9 + get_exponent (*dp) * 3 + get_sign (*dp);
 
-        if (dp->exponent > max_exp && dp->exponent < 255)
-            max_exp = dp->exponent;
+        if (get_exponent (*dp) > max_exp && get_exponent (*dp) < 255)
+            max_exp = get_exponent (*dp);
     }
 
     wps->crc_x = crc;
 
     for (dp = values, count = num_values; count--; dp++) {
-        if (dp->exponent == 255) {
+        if (get_exponent (*dp) == 255) {
             wps->float_flags |= FLOAT_EXCEPTIONS;
             value = 0x1000000;
             shift_count = 0;
         }
-        else if (dp->exponent) {
-            shift_count = max_exp - dp->exponent;
-            value = 0x800000 + dp->mantissa;
+        else if (get_exponent (*dp)) {
+            shift_count = max_exp - get_exponent (*dp);
+            value = 0x800000 + get_mantissa (*dp);
         }
         else {
             shift_count = max_exp ? max_exp - 1 : 0;
-            value = dp->mantissa;
+            value = get_mantissa (*dp);
 
-//          if (dp->mantissa)
+//          if (get_mantissa (*dp))
 //              denormals++;
         }
 
@@ -81,24 +81,24 @@ int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
             value = 0;
 
         if (!value) {
-            if (dp->exponent || dp->mantissa)
+            if (get_exponent (*dp) || get_mantissa (*dp))
                 ++false_zeros;
-            else if (dp->sign)
+            else if (get_sign (*dp))
                 ++neg_zeros;
         }
         else if (shift_count) {
             int32_t mask = (1 << shift_count) - 1;
 
-            if (!(dp->mantissa & mask))
+            if (!(get_mantissa (*dp) & mask))
                 shifted_zeros++;
-            else if ((dp->mantissa & mask) == mask)
+            else if ((get_mantissa (*dp) & mask) == mask)
                 shifted_ones++;
             else
                 shifted_both++;
         }
 
         ordata |= value;
-        * (int32_t *) dp = (dp->sign) ? -value : value;
+        * (int32_t *) dp = (get_sign (*dp)) ? -value : value;
     }
 
     wps->float_max_exp = max_exp;
@@ -149,10 +149,10 @@ void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
     f32 *dp;
 
     for (dp = values, count = num_values; count--; dp++) {
-        if (dp->exponent == 255) {
-            if (dp->mantissa) {
+        if (get_exponent (*dp) == 255) {
+            if (get_mantissa (*dp)) {
                 putbit_1 (&wps->wvxbits);
-                putbits (dp->mantissa, 23, &wps->wvxbits);
+                putbits (get_mantissa (*dp), 23, &wps->wvxbits);
             }
             else {
                 putbit_0 (&wps->wvxbits);
@@ -161,13 +161,13 @@ void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
             value = 0x1000000;
             shift_count = 0;
         }
-        else if (dp->exponent) {
-            shift_count = max_exp - dp->exponent;
-            value = 0x800000 + dp->mantissa;
+        else if (get_exponent (*dp)) {
+            shift_count = max_exp - get_exponent (*dp);
+            value = 0x800000 + get_mantissa (*dp);
         }
         else {
             shift_count = max_exp ? max_exp - 1 : 0;
-            value = dp->mantissa;
+            value = get_mantissa (*dp);
         }
 
         if (shift_count < 25)
@@ -177,31 +177,31 @@ void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
 
         if (!value) {
             if (wps->float_flags & FLOAT_ZEROS_SENT) {
-                if (dp->exponent || dp->mantissa) {
+                if (get_exponent (*dp) || get_mantissa (*dp)) {
                     putbit_1 (&wps->wvxbits);
-                    putbits (dp->mantissa, 23, &wps->wvxbits);
+                    putbits (get_mantissa (*dp), 23, &wps->wvxbits);
 
                     if (max_exp >= 25) {
-                        putbits (dp->exponent, 8, &wps->wvxbits);
+                        putbits (get_exponent (*dp), 8, &wps->wvxbits);
                     }
 
-                    putbit (dp->sign, &wps->wvxbits);
+                    putbit (get_sign (*dp), &wps->wvxbits);
                 }
                 else {
                     putbit_0 (&wps->wvxbits);
 
                     if (wps->float_flags & FLOAT_NEG_ZEROS)
-                        putbit (dp->sign, &wps->wvxbits);
+                        putbit (get_sign (*dp), &wps->wvxbits);
                 }
             }
         }
         else if (shift_count) {
             if (wps->float_flags & FLOAT_SHIFT_SENT) {
-                int32_t data = dp->mantissa & ((1 << shift_count) - 1);
+                int32_t data = get_mantissa (*dp) & ((1 << shift_count) - 1);
                 putbits (data, shift_count, &wps->wvxbits);
             }
             else if (wps->float_flags & FLOAT_SHIFT_SAME) {
-                putbit (dp->mantissa & 1, &wps->wvxbits);
+                putbit (get_mantissa (*dp) & 1, &wps->wvxbits);
             }
         }
     }
@@ -243,24 +243,24 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values)
 
     while (num_values--) {
         int shift_count = 0, exp = wps->float_max_exp;
-        f32 outval = { 0, 0, 0 };
+        f32 outval = 0;
         uint32_t temp;
 
         if (*values == 0) {
             if (wps->float_flags & FLOAT_ZEROS_SENT) {
                 if (getbit (&wps->wvxbits)) {
                     getbits (&temp, 23, &wps->wvxbits);
-                    outval.mantissa = temp;
+                    set_mantissa (outval, temp);
 
                     if (exp >= 25) {
                         getbits (&temp, 8, &wps->wvxbits);
-                        outval.exponent = temp;
+                        set_exponent (outval, temp);
                     }
 
-                    outval.sign = getbit (&wps->wvxbits);
+                    set_sign (outval, getbit (&wps->wvxbits));
                 }
                 else if (wps->float_flags & FLOAT_NEG_ZEROS)
-                    outval.sign = getbit (&wps->wvxbits);
+                    set_sign (outval, getbit (&wps->wvxbits));
             }
         }
         else {
@@ -268,16 +268,16 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values)
 
             if (*values < 0) {
                 *values = -*values;
-                outval.sign = 1;
+                set_sign (outval, 1);
             }
 
             if (*values == 0x1000000) {
                 if (getbit (&wps->wvxbits)) {
                     getbits (&temp, 23, &wps->wvxbits);
-                    outval.mantissa = temp;
+                    set_mantissa (outval, temp);
                 }
 
-                outval.exponent = 255;
+                set_exponent (outval, 255);
             }
             else {
                 if (exp)
@@ -296,12 +296,12 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values)
                     }
                 }
 
-                outval.mantissa = *values;
-                outval.exponent = exp;
+                set_mantissa (outval, *values);
+                set_exponent (outval, exp);
             }
         }
 
-        crc = crc * 27 + outval.mantissa * 9 + outval.exponent * 3 + outval.sign;
+        crc = crc * 27 + get_mantissa (outval) * 9 + get_exponent (outval) * 3 + get_sign (outval);
         * (f32 *) values++ = outval;
     }
 
@@ -312,14 +312,14 @@ static void float_values_nowvx (WavpackStream *wps, int32_t *values, int32_t num
 {
     while (num_values--) {
         int shift_count = 0, exp = wps->float_max_exp;
-        f32 outval = { 0, 0, 0 };
+        f32 outval = 0;
 
         if (*values) {
             *values <<= wps->float_shift;
 
             if (*values < 0) {
                 *values = -*values;
-                outval.sign = 1;
+                set_sign (outval, 1);
             }
 
             if (*values >= 0x1000000) {
@@ -338,8 +338,8 @@ static void float_values_nowvx (WavpackStream *wps, int32_t *values, int32_t num
                     *values |= ((1 << shift_count) - 1);
             }
 
-            outval.mantissa = *values;
-            outval.exponent = exp;
+            set_mantissa (outval, *values);
+            set_exponent (outval, exp);
         }
 
         * (f32 *) values++ = outval;
@@ -350,21 +350,21 @@ static void float_values_nowvx (WavpackStream *wps, int32_t *values, int32_t num
 
 void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp)
 {
-    f32 *fvalues = (f32 *) values, fzero = { 0, 0, 0 };
+    f32 *fvalues = (f32 *) values;
     int exp;
 
     if (!delta_exp)
         return;
 
     while (num_values--) {
-        if ((exp = fvalues->exponent) == 0 || exp + delta_exp <= 0)
-            *fvalues = fzero;
+        if ((exp = get_exponent (*fvalues)) == 0 || exp + delta_exp <= 0)
+            *fvalues = 0;
         else if (exp == 255 || (exp += delta_exp) >= 255) {
-            fvalues->exponent = 255;
-            fvalues->mantissa = 0;
+            set_exponent (*fvalues, 255);
+            set_mantissa (*fvalues, 0);
         }
         else
-            fvalues->exponent = exp;
+            set_exponent (*fvalues, exp);
 
         fvalues++;
     }
