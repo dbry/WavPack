@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "wavpack.h"
 #include "utils.h"
