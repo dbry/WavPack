@@ -651,7 +651,7 @@ int DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, ui
     return !ferror (hFile);
 }
 
-#if 1
+#ifdef WIN32
 
 int64_t DoGetFileSize (FILE *hFile)
 {
@@ -665,14 +665,14 @@ int64_t DoGetFileSize (FILE *hFile)
 
 #else
 
-uint32_t DoGetFileSize (FILE *hFile)
+int64_t DoGetFileSize (FILE *hFile)
 {
     struct stat statbuf;
 
     if (!hFile || fstat (fileno (hFile), &statbuf) || !(statbuf.st_mode & S_IFREG))
         return 0;
 
-    return statbuf.st_size;
+    return (int64_t) statbuf.st_size;
 }
 
 #endif
