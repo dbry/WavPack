@@ -1,3 +1,51 @@
+                       --------------------------
+                       Release 4.41 - May 6, 2006
+                       --------------------------
+
+ WavPack Library Source Code - 4.41
+ ----------------------------------
+  added: create wavpackdll.dll for Windows (not used yet)
+  fixed: corrupt floating-point audio on big-endian machines
+  fixed: put MSVC projects in their own subdir (fixed build problems)
+  fixed: limit RIFF data buffering to 16 MB to prevent out-of-memory crash
+  improved: attempt to mute errors when decoding corrupt legacy WavPack files
+  improved: overall performance enhancements of 10% to 30% (depending on mode)
+  added: MMX intrinsics for 24-bit (and higher) stereo encoding (thanks to
+         Joachim Henke)
+
+ wavpack.exe (command-line encoder) - 4.41
+ -----------------------------------------
+  fixed: corrupt floating-point audio on big-endian machines
+  improved: refuse to encode WAV files over 4 GB or with over 16 MB RIFF data
+  improved: overall performance enhancements of 10% to 30% (depending on mode)
+  added: MMX intrinsics for 24-bit (and higher) stereo encoding (thanks to
+         Joachim Henke)
+
+ wvunpack.exe (command-line decoder) - 4.41
+ ------------------------------------------
+  fixed: corrupt floating-point audio on big-endian machines
+  fixed: restore files mistakenly encoded with huge RIFF chunks
+  improved: attempt to mute errors when decoding corrupt legacy WavPack files
+  improved: overall performance enhancements of 10% to 30% (depending on mode)
+  added: --skip and --until commands to unpack specified range of audio data
+  added: MMX intrinsics for 24-bit (and higher) stereo encoding (thanks to
+         Joachim Henke)
+
+ wvgain.exe (command-line ReplayGain scanner) - 4.41
+ ---------------------------------------------------
+  improved: overall performance enhancements of 10% to 30% (depending on mode)
+  added: MMX intrinsics for 24-bit (and higher) stereo encoding (thanks to
+         Joachim Henke)
+
+ cool_wv4.flt (CoolEdit / Audition filter) - 2.8
+ -----------------------------------------------
+  fixed: read all RIFF metadata from files created in other applications
+  improved: attempt to mute errors when decoding corrupt legacy WavPack files
+  improved: overall performance enhancements of 10% to 30% (depending on mode)
+  added: MMX intrinsics for 24-bit (and higher) stereo encoding (thanks to
+         Joachim Henke)
+
+
                      -------------------------------
                      Release 4.40 - December 3, 2006
                      -------------------------------
