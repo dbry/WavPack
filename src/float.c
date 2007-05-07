@@ -43,7 +43,7 @@ int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
     int32_t false_zeros = 0, neg_zeros = 0;
     uint32_t ordata = 0, crc = 0xffffffff;
     int32_t count, value, shift_count;
-    uint max_exp = 0;
+    int max_exp = 0;
     f32 *dp;
 
     wps->float_shift = wps->float_flags = 0;
