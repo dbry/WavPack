@@ -20,6 +20,7 @@
 // Version 2.5 - Sept 1, 2005  (fixed encoder/decoder overflow on extra mode)
 // Version 2.6 - Nov 1, 2005   (updated to library version 4.3)
 // Version 2.7 - Dec 3, 2006   (updated to library version 4.40, added v.high mode)
+// Version 2.8 - May 6, 2007   (library ver 4.41, read RIFF header, not just trailer)
 
 #include <windows.h>
 #include <stdlib.h>
@@ -541,7 +542,6 @@ HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
         return WavpackCloseFile (wpc);
     }
 
-    WavpackFreeWrapper (wpc);
     *lplChunkSize = CHUNKSIZE;
     *lplSamprate = WavpackGetSampleRate (wpc);
     *lpwChannels = WavpackGetNumChannels (wpc);
@@ -1219,7 +1219,26 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
         in->special_data += sizeof (ChunkHeader);
         in->special_bytes -= sizeof (ChunkHeader);
 
-        if (!strncmp (ChunkHeader.ckID, "LIST", 4)) {
+        if (!strncmp (ChunkHeader.ckID, "RIFF", 4)) {
+            if (in->special_bytes < sizeof (in->listhdr.formType))
+                return 0;
+
+            in->special_bytes -= sizeof (in->listhdr.formType);
+            in->special_data += sizeof (in->listhdr.formType);
+            continue;
+        }
+        else if (!strncmp (ChunkHeader.ckID, "fmt ", 4)) {
+            if (in->special_bytes < ((ChunkHeader.ckSize + 1) & ~1))
+                return 0;
+
+            in->special_data += (ChunkHeader.ckSize + 1) & ~1;
+            in->special_bytes -= (ChunkHeader.ckSize + 1) & ~1;
+            continue;
+        }
+        else if (!strncmp (ChunkHeader.ckID, "data", 4)) {
+            continue;
+        }
+        else if (!strncmp (ChunkHeader.ckID, "LIST", 4)) {
             memcpy (&in->listhdr, &ChunkHeader, sizeof (ChunkHeader));
 
             if (in->special_bytes < sizeof (in->listhdr.formType))
