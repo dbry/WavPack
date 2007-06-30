@@ -1,13 +1,13 @@
-# wavpack 4.41.0 configure.ac
+# wavpack 4.41.1 configure.ac
 
-AC_INIT(wavpack, 4.41.0, bryant@wavpack.com)
-AM_INIT_AUTOMAKE(wavpack, 4.41.0, bryant@wavpack.com)
+AC_INIT(wavpack, 4.41.1, bryant@wavpack.com)
+AM_INIT_AUTOMAKE(wavpack, 4.41.1, bryant@wavpack.com)
 AC_CONFIG_SRCDIR([src/pack.c])
 AM_MAINTAINER_MODE
 
 LIBWAVPACK_MAJOR=4
 LIBWAVPACK_MINOR=41
-LIBWAVPACK_MICRO=0
+LIBWAVPACK_MICRO=1
 LIBWAVPACK_VERSION_STRING=$LIBWAVPACK_MAJOR.$LIBWAVPACK_MINOR.$LIBWAVPACK_MICRO"-low-latency"
 
 AC_DEFINE_UNQUOTED(LIBWAVPACK_MAJOR, $LIBWAVPACK_MAJOR, [libwavpack major version])

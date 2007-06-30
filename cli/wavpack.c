@@ -73,7 +73,6 @@ static const char *usage =
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
 "          -f  = fast mode (fast, but some compromise in compression ratio)\n"
 "          -h  = high quality (better compression ratio, but slower)\n"
-"          -x  = extra encode processing (no decoding speed penalty)\n"
 "          --help = complete help\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -112,8 +111,6 @@ static const char *help =
 #if !defined (WIN32)
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
-"          --optimize-mono = optimization for stereo files that are really mono\n"
-"                             (result may be incompatible with older decoders)\n"
 "          -p  = practical float storage (also 32-bit ints, not lossless)\n"
 "          -q  = quiet (keep console output to a minimum)\n"
 "          -r  = generate new RIFF wav header (removing extra chunk info)\n"
@@ -125,9 +122,6 @@ static const char *help =
 "                              than 2 channels or greater than 24-bit resolution)\n"
 "          -t  = copy input file's time stamp to output file(s)\n"
 "          -w \"Field=Value\" = write specified metadata to APEv2 tag\n"
-"          -x[n] = extra encode processing (optional n = 1 to 6, 1=default)\n"
-"                  -x1 to -x3 to choose best of predefined filters\n"
-"                  -x4 to -x6 to generate custom filters (very slow!)\n"
 "          -y  = yes to all warnings (use with caution!)\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -210,8 +204,6 @@ int main (argc, argv) int argc; char **argv;
 
             if (!strcmp (long_option, "help"))                          // --help
                 ask_help = 1;
-            else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
-                config.flags |= CONFIG_OPTIMIZE_MONO;
             else if (!strncmp (long_option, "sub-blocks", 10)) {        // --sub-blocks
                 if (*long_param) {
                     config.sub_blocks = strtol (long_param, NULL, 10);
@@ -259,19 +251,6 @@ int main (argc, argv) int argc; char **argv;
                         else
                             config.flags |= CONFIG_CREATE_WVC;
 
-                        break;
-
-                    case 'X': case 'x':
-                        config.xmode = strtol (++*argv, argv, 10);
-
-                        if (config.xmode < 0 || config.xmode > 6) {
-                            error_line ("extra mode only goes from 1 to 6!");
-                            ++error_count;
-                        }
-                        else
-                            config.flags |= CONFIG_EXTRA_MODE;
-
-                        --*argv;
                         break;
 
                     case 'F': case 'f':

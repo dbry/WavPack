@@ -180,14 +180,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\extra1.c"
-				>
-			</File>
-			<File
-				RelativePath=".\extra2.c"
-				>
-			</File>
-			<File
 				RelativePath=".\float.c"
 				>
 			</File>

@@ -332,12 +332,10 @@ typedef struct {
     uchar *block2buff, *block2end;
     int32_t *sample_buffer;
 
-    int bits, num_terms, mute_error, joint_stereo, false_stereo, shift, sub_block_count;
-    int num_decorrs, num_passes, best_decorr, mask_decorr;
+    int bits, num_terms, mute_error, shift, sub_block_count;
     uint32_t sample_index, crc, crc_x, crc_wvx;
     Bitstream wvbits, wvcbits, wvxbits;
     int init_done, wvc_skip;
-    float delta_decay;
 
     uchar int32_sent_bits, int32_zeros, int32_ones, int32_dups;
     uchar float_flags, float_shift, float_max_exp, float_norm_exp;

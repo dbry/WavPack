@@ -210,14 +210,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\src\extra1.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\extra2.c"
-				>
-			</File>
-			<File
 				RelativePath="..\src\float.c"
 				>
 			</File>

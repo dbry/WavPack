@@ -8,8 +8,6 @@ libwavpack_la_SOURCES = \
 	unpack3.c \
 	wputils.c \
 	words.c \
-	extra1.c \
-	extra2.c \
 	pack.c
 
 noinst_HEADERS = \

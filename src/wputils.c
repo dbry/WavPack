@@ -1156,13 +1156,9 @@ WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id,
 // o CONFIG_CREATE_WVC          create correction file
 // o CONFIG_OPTIMIZE_WVC        maximize bybrid compression (-cc option)
 // o CONFIG_CALC_NOISE          calc noise in hybrid mode
-// o CONFIG_EXTRA_MODE          extra processing mode (slow!)
 // o CONFIG_SKIP_WVX            no wvx stream for floats & large ints
 // o CONFIG_MD5_CHECKSUM        specify if you plan to store MD5 signature
 // o CONFIG_CREATE_EXE          specify if you plan to prepend sfx module
-// o CONFIG_OPTIMIZE_MONO       detect and optimize for mono files posing as
-//                               stereo (uses a more recent stream format that
-//                               is not compatible with decoders < 4.3)
 
 // config->bitrate              hybrid bitrate in either bits/sample or kbps
 // config->shaping_weight       hybrid noise shaping coefficient override
@@ -1175,8 +1171,6 @@ WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id,
 //                               larger super-block; may be from 2 to 256
 //                               (this enables "low-latency" block format;
 //                               leave 0 to use regular compatible mode)
-// config->float_norm_exp       select floating-point data (127 for +/-1.0)
-// config->xmode                extra mode processing value override
 
 // If the number of samples to be written is known then it should be passed
 // here. If the duration is not known then pass -1. In the case that the size
@@ -1198,19 +1192,24 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
     int num_chans = config->num_channels;
     int i;
 
-    if (config->sub_blocks) {
-        if (config->flags & CONFIG_EXTRA_MODE) {
-            strcpy (wpc->error_message, "can't use -x mode with sub-blocks!");
-            return FALSE;
-        }
+    if (config->float_norm_exp) {
+        strcpy (wpc->error_message, "low latency version does not support floating point!");
+        return FALSE;
+    }
 
+    if (config->flags & CONFIG_EXTRA_MODE) {
+        strcpy (wpc->error_message, "low latency version does not support -x mode!");
+        return FALSE;
+    }
+
+    if (config->bits_per_sample > 24) {
+        strcpy (wpc->error_message, "low latency version does not handle files over 24 bits!");
+        return FALSE;
+    }
+
+    if (config->sub_blocks) {
         if (config->num_channels > 2) {
             strcpy (wpc->error_message, "can't use sub-blocks with multichannel files!");
-            return FALSE;
-        }
-
-        if (config->bits_per_sample > 24) {
-            strcpy (wpc->error_message, "can't use sub-blocks with files over 24 bits or floating point!");
             return FALSE;
         }
     }
@@ -1279,7 +1278,7 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
     if (config->flags & CONFIG_CREATE_WVC)
         wpc->wvc_flag = TRUE;
 
-    wpc->stream_version = (config->flags & CONFIG_OPTIMIZE_MONO) ? MAX_STREAM_VERS : CUR_STREAM_VERS;
+    wpc->stream_version = CUR_STREAM_VERS;
 
     for (wpc->current_stream = 0; num_chans; wpc->current_stream++) {
         WavpackStream *wps = malloc (sizeof (WavpackStream));
@@ -1339,9 +1338,6 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
         strcpy (wpc->error_message, "too many channels!");
         return FALSE;
     }
-
-    if (config->flags & CONFIG_EXTRA_MODE)
-        wpc->config.xmode = config->xmode ? config->xmode : 1;
 
     return TRUE;
 }
