@@ -178,7 +178,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.4 \nCopyright (c) 2006 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.5a \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -501,6 +501,13 @@ int infoDlg (char *fn, HWND hwnd)
                 sprintf (string + strlen (string), "\nAlbum:  %s", value);
             }
 
+            if (WavpackGetTagItem (wpc, "genre", value, sizeof (value))) {
+                if (mode & MODE_APETAG)
+                     UTF8ToAnsi (value, sizeof (value));
+
+                sprintf (string + strlen (string), "\nGenre:  %s", value);
+            }
+
             if (WavpackGetTagItem (wpc, "comment", value, sizeof (value))) {
                 if (mode & MODE_APETAG)
                      UTF8ToAnsi (value, sizeof (value));
@@ -811,7 +818,7 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.4 "
+    "WavPack Player v2.5a "
 
 #ifdef __alpha
     "(AXP)"
