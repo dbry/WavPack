@@ -52,7 +52,7 @@ END
 // Dialog
 //
 
-WINAMP DIALOG DISCARDABLE  32, 32, 222, 108
+WINAMP DIALOG DISCARDABLE  32, 32, 217, 181
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "WavPack Configuration"
 FONT 8, "MS Sans Serif"
@@ -60,16 +60,23 @@ BEGIN
     CONTROL         "Use Correction Files (.wvc) For Lossless Hybrid Playback",
                     IDC_USEWVC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,10,
                     200,15
-    LTEXT           "ReplayGain Mode:",IDC_REPLAYGAIN_TEXT,15,35,65,10,
+    CONTROL         "Always Output 16-bit Audio",IDC_ALWAYS_16BIT,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,10,25,200,15
+    CONTROL         "Allow Multichannel",IDC_MULTICHANNEL,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,10,40,200,15
+    GROUPBOX        "ReplayGain Configuration",IDC_RG_GROUP,10,60,200,75
+    LTEXT           "ReplayGain Mode:",IDC_REPLAYGAIN_TEXT,20,75,65,10,
                     SS_CENTERIMAGE
-    COMBOBOX        IDC_REPLAYGAIN,85,35,110,60,CBS_DROPDOWNLIST | 
+    COMBOBOX        IDC_REPLAYGAIN,90,75,110,60,CBS_DROPDOWNLIST | 
                     WS_VSCROLL | WS_TABSTOP
-    LTEXT           "If Track Then Clips:",IDC_CLIPPING_TEXT,15,55,65,10,
+    LTEXT           "If Track Then Clips:",IDC_CLIPPING_TEXT,20,95,65,10,
                     SS_CENTERIMAGE
-    COMBOBOX        IDC_CLIPPING,85,55,110,55,CBS_DROPDOWNLIST | WS_VSCROLL | 
+    COMBOBOX        IDC_CLIPPING,90,94,110,55,CBS_DROPDOWNLIST | WS_VSCROLL | 
                     WS_TABSTOP
-    DEFPUSHBUTTON   "OK",IDOK,45,85,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,115,85,50,14
+    CONTROL         "Use 24-bit Output For ReplayGain",IDC_24BIT_RG,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,25,115,165,15
+    DEFPUSHBUTTON   "OK",IDOK,45,150,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,115,150,50,14
 END
 
 
@@ -84,9 +91,9 @@ BEGIN
     "WINAMP", DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 215
+        RIGHTMARGIN, 210
         TOPMARGIN, 7
-        BOTTOMMARGIN, 101
+        BOTTOMMARGIN, 174
     END
 END
 #endif    // APSTUDIO_INVOKED

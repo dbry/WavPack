@@ -28,18 +28,7 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 // post this to the main window at end of file (after playback as stopped)
 #define WM_WA_MPEG_EOF WM_USER+2
 
-#define MAX_NCH 2
-#define MAX_BPS 32
-
-//#define BPS (WavHdr.BitsPerSample > 16 ? 32 : 16)
-//#define NCH (WavHdr.NumChannels)
-
-//#define BPS ((wpc && (wpc->wphdr.flags & BYTES_3)) ? 32 : 16)
-//#define NCH ((wpc && (wpc->wphdr.flags & MONO_FLAG)) ? 1 : 2)
-
-#define BPS (WavpackGetBitsPerSample (wpc) <= 16 ? 16 : 32)
-#define NCH (WavpackGetReducedChannels (wpc))
-#define SAMPRATE (WavpackGetSampleRate (wpc))
+#define MAX_NCH 8
 
 WavpackContext *wpc;
 
@@ -48,25 +37,21 @@ char lastfn[MAX_PATH];  // currently playing file (used for getting info on the 
 int decode_pos_ms;      // current decoding position, in milliseconds
 int paused;             // are we paused?
 int seek_needed;        // if != -1, it is the point that the decode thread should seek to, in ms.
-char sample_buffer[576*MAX_NCH*(MAX_BPS/8)*2];  // sample buffer
+long sample_buffer[576*MAX_NCH*2];  // sample buffer
 
-#define IGNORE_WVC              0x1
+#define ALLOW_WVC              0x1
 #define REPLAYGAIN_TRACK        0x2
 #define REPLAYGAIN_ALBUM        0x4
 #define SOFTEN_CLIPPING         0x8
 #define PREVENT_CLIPPING        0x10
 
+#define ALWAYS_16BIT            0x20    // new flags added for version 2.5
+#define ALLOW_MULTICHANNEL      0x40
+#define REPLAYGAIN_24BIT        0x80
+
 int config_bits;        // all configuration goes here
-
-//WaveHeader WavHdr;    // standard wav header for sample rate, etc.
-//WavpackHeader WvpkHdr;// WavPack header for version, mode, etc.
-//M_Tag m_tag;          // ID3v1 or APEv2 Tag (if present)
-
 float play_gain;        // playback gain (for replaygain support)
 int soft_clipping;      // soft clipping active for playback
-
-//HANDLE input_file=INVALID_HANDLE_VALUE;       // input file handle
-//HANDLE wvc_file=INVALID_HANDLE_VALUE; // wvc file handle
 
 int killDecodeThread=0;                         // the kill switch for the decode thread
 HANDLE thread_handle=INVALID_HANDLE_VALUE;      // the handle to the decode thread
@@ -86,7 +71,7 @@ void config (HWND hwndParent)
     module = GetModuleHandle ("in_wv.dll");
     temp_config = (int) DialogBoxParam (module, "WinAmp", hwndParent, (DLGPROC) WavPackDlgProc, config_bits);
 
-    if (temp_config == config_bits || (temp_config & 0xffffffe0) ||
+    if (temp_config == config_bits || (temp_config & 0xffffff00) ||
         (temp_config & 6) == 6 || (temp_config & 0x18) == 0x18)
             return;
 
@@ -115,7 +100,9 @@ BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
         case WM_INITDIALOG:
             local_config = (int) lParam;
 
-            CheckDlgButton (hDlg, IDC_USEWVC, local_config & IGNORE_WVC);
+            CheckDlgButton (hDlg, IDC_USEWVC, local_config & ALLOW_WVC);
+            CheckDlgButton (hDlg, IDC_ALWAYS_16BIT, local_config & ALWAYS_16BIT);
+            CheckDlgButton (hDlg, IDC_MULTICHANNEL, local_config & ALLOW_MULTICHANNEL);
 
             SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_ADDSTRING, 0, (LPARAM) "disabled");
             SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_ADDSTRING, 0, (LPARAM) "use track gain");
@@ -127,9 +114,12 @@ BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
             SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_ADDSTRING, 0, (LPARAM) "scale track to prevent clips");
             SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_SETCURSEL, (local_config >> 3) & 3, 0);
 
+            CheckDlgButton (hDlg, IDC_24BIT_RG, local_config & REPLAYGAIN_24BIT);
+
             if (!(local_config & (REPLAYGAIN_TRACK | REPLAYGAIN_ALBUM))) {
                 EnableWindow (GetDlgItem (hDlg, IDC_CLIPPING_TEXT), FALSE);
                 EnableWindow (GetDlgItem (hDlg, IDC_CLIPPING), FALSE);
+                EnableWindow (GetDlgItem (hDlg, IDC_24BIT_RG), FALSE);
             }
 
             SetFocus (GetDlgItem (hDlg, IDC_USEWVC));
@@ -141,10 +131,12 @@ BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
                     if (SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_GETCURSEL, 0, 0)) {
                         EnableWindow (GetDlgItem (hDlg, IDC_CLIPPING_TEXT), TRUE);
                         EnableWindow (GetDlgItem (hDlg, IDC_CLIPPING), TRUE);
+                        EnableWindow (GetDlgItem (hDlg, IDC_24BIT_RG), TRUE);
                     }
                     else {
                         EnableWindow (GetDlgItem (hDlg, IDC_CLIPPING_TEXT), FALSE);
                         EnableWindow (GetDlgItem (hDlg, IDC_CLIPPING), FALSE);
+                        EnableWindow (GetDlgItem (hDlg, IDC_24BIT_RG), FALSE);
                     }
 
                     break;
@@ -153,10 +145,19 @@ BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
                     local_config = 0;
 
                     if (IsDlgButtonChecked (hDlg, IDC_USEWVC))
-                        local_config |= IGNORE_WVC;
+                        local_config |= ALLOW_WVC;
+
+                    if (IsDlgButtonChecked (hDlg, IDC_ALWAYS_16BIT))
+                        local_config |= ALWAYS_16BIT;
+
+                    if (IsDlgButtonChecked (hDlg, IDC_MULTICHANNEL))
+                        local_config |= ALLOW_MULTICHANNEL;
 
                     local_config |= SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_GETCURSEL, 0, 0) << 1;
                     local_config |= SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_GETCURSEL, 0, 0) << 3;
+
+                    if (IsDlgButtonChecked (hDlg, IDC_24BIT_RG))
+                        local_config |= REPLAYGAIN_24BIT;
 
                 case IDCANCEL:
                     EndDialog (hDlg, local_config);
@@ -268,19 +269,44 @@ int isourfile(char *fn)
 
 int play (char *fn)
 {
+    int num_chans, sample_rate, output_bps;
     char error [128];
     int maxlatency;
     int thread_id;
+    int open_flags;
 
 #ifdef DEBUG_CONSOLE
     sprintf (error, "play (%s)\n", fn);
     debug_write (error);
 #endif
 
-    wpc = WavpackOpenFileInput (fn, error, (config_bits & OPEN_WVC) | OPEN_TAGS | OPEN_2CH_MAX | OPEN_NORMALIZE, 23);
+    open_flags = OPEN_TAGS | OPEN_NORMALIZE;
+
+    if (config_bits & ALLOW_WVC)
+        open_flags |= OPEN_WVC;
+
+    if (!(config_bits & ALLOW_MULTICHANNEL))
+        open_flags |= OPEN_2CH_MAX;
+
+    wpc = WavpackOpenFileInput (fn, error, open_flags, 0);
 
     if (!wpc)           // error opening file, just return error
         return -1;
+
+    num_chans = WavpackGetReducedChannels (wpc);
+    sample_rate = WavpackGetSampleRate (wpc);
+    output_bps = WavpackGetBitsPerSample (wpc) > 16 ? 24 : 16;
+
+    if (config_bits & ALWAYS_16BIT)
+        output_bps = 16;
+    else if ((config_bits & (REPLAYGAIN_TRACK | REPLAYGAIN_ALBUM)) &&
+        (config_bits & REPLAYGAIN_24BIT))
+            output_bps = 24;
+ 
+    if (num_chans > MAX_NCH) {    // don't allow too many channels!
+        WavpackCloseFile (wpc);
+        return -1;
+    }
 
     play_gain = calculate_gain (wpc, &soft_clipping);
     strcpy (lastfn, fn);
@@ -289,7 +315,7 @@ int play (char *fn)
     decode_pos_ms = 0;
     seek_needed = -1;
 
-    maxlatency = mod.outMod->Open (SAMPRATE, NCH, BPS, -1, -1);
+    maxlatency = mod.outMod->Open (sample_rate, num_chans, output_bps, -1, -1);
 
     if (maxlatency < 0) { // error opening device
         wpc = WavpackCloseFile (wpc);
@@ -299,12 +325,12 @@ int play (char *fn)
     // dividing by 1000 for the first parameter of setinfo makes it
     // display 'H'... for hundred.. i.e. 14H Kbps.
 
-    mod.SetInfo (0, (SAMPRATE + 500) / 1000, NCH, 1);
+    mod.SetInfo (0, (sample_rate + 500) / 1000, num_chans, 1);
 
     // initialize vis stuff
 
-    mod.SAVSAInit (maxlatency, SAMPRATE);
-    mod.VSASetInfo (SAMPRATE, NCH);
+    mod.SAVSAInit (maxlatency, sample_rate);
+    mod.VSASetInfo (sample_rate, num_chans);
 
     mod.outMod->SetVolume (-666);       // set the output plug-ins default volume
 
@@ -374,12 +400,15 @@ void stop()
 
 int getlength()
 {
-    return (int)(WavpackGetNumSamples (wpc) * 1000.0 / SAMPRATE);
+    return (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc));
 }
 
 int getoutputtime()
 {
-    return decode_pos_ms + (mod.outMod->GetOutputTime () - mod.outMod->GetWrittenTime ());
+    if (seek_needed == -1)
+        return decode_pos_ms + (mod.outMod->GetOutputTime () - mod.outMod->GetWrittenTime ());
+    else
+        return seek_needed;
 }
 
 void setoutputtime (int time_in_ms)
@@ -410,8 +439,17 @@ int infoDlg (char *fn, HWND hwnd)
     char string [2048], chan_string [20], modes [80];
     WavpackContext *wpc;
     uchar md5_sum [16];
+    int open_flags;
 
-    wpc = WavpackOpenFileInput (fn, string, (config_bits & OPEN_WVC) | OPEN_TAGS | OPEN_2CH_MAX, 0);
+    open_flags = OPEN_TAGS | OPEN_NORMALIZE;
+
+    if (config_bits & ALLOW_WVC)
+        open_flags |= OPEN_WVC;
+
+    if (!(config_bits & ALLOW_MULTICHANNEL))
+        open_flags |= OPEN_2CH_MAX;
+
+    wpc = WavpackOpenFileInput (fn, string, open_flags, 0);
 
     if (wpc) {
         int mode = WavpackGetMode (wpc);
@@ -424,7 +462,7 @@ int infoDlg (char *fn, HWND hwnd)
             strcpy (chan_string, WavpackGetNumChannels (wpc) == 1 ? "1 (mono)" : "2 (stereo)");
 
         sprintf (string + strlen (string), "Source:  %d-bit %s at %d Hz \n", WavpackGetBitsPerSample (wpc),
-            (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints", SAMPRATE);
+            (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints", WavpackGetSampleRate (wpc));
 
         sprintf (string + strlen (string), "Channels:  %s\n", chan_string);
 
@@ -571,6 +609,7 @@ void getfileinfo (char *filename, char *title, int *length_in_ms)
     else {      // some other file
         WavpackContext *wpc;
         char error [128];
+        int open_flags;
 
         if (length_in_ms)
             *length_in_ms = -1000;
@@ -578,11 +617,19 @@ void getfileinfo (char *filename, char *title, int *length_in_ms)
         if (title)
             *title = 0;
 
-        wpc = WavpackOpenFileInput (filename, error, (config_bits & OPEN_WVC) | OPEN_TAGS | OPEN_2CH_MAX, 0);
+        open_flags = OPEN_TAGS | OPEN_NORMALIZE;
+
+        if (config_bits & ALLOW_WVC)
+            open_flags |= OPEN_WVC;
+
+        if (!(config_bits & ALLOW_MULTICHANNEL))
+            open_flags |= OPEN_2CH_MAX;
+
+        wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
 
         if (wpc) {
             if (length_in_ms)
-                *length_in_ms = (int)(WavpackGetNumSamples (wpc) * 1000.0 / SAMPRATE);
+                *length_in_ms = (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc));
 
             if (title && WavpackGetTagItem (wpc, "title", NULL, 0)) {
                 char art [128], ttl [128];
@@ -624,61 +671,23 @@ void eq_set (int on, char data [10], int preamp)
         // consuming to be useful :)
 }
 
-#define WORDS_ONLY
-
-static void format_samples (uchar *dst, int bps, long *src, unsigned long samcnt)
-{
-    long temp;
-
-    switch (bps) {
-        case 1:
-            while (samcnt--) {
-                temp = *src++;
-                dst [0] = 0;
-                dst [1] = (uchar)temp;
-                dst += 2;
-            }
-
-            break;
-
-        case 2:
-            while (samcnt--) {
-                dst [0] = (uchar)(temp = *src++);
-                dst [1] = (uchar)(temp >> 8);
-                dst += 2;
-            }
-
-            break;
-
-        case 3:
-            while (samcnt--) {
-                temp = *src++;
-                dst [0] = 0;
-                dst [1] = (uchar)temp;
-                dst [2] = (uchar)(temp >> 8);
-                dst [3] = (uchar)(temp >> 16);
-                dst += 4;
-            }
-
-            break;
-
-        case 4:
-            while (samcnt--) {
-                dst [0] = (uchar)(temp = *src++);
-                dst [1] = (uchar)(temp >> 8);
-                dst [2] = (uchar)(temp >> 16);
-                dst [3] = (uchar)(temp >> 24);
-                dst += 4;
-            }
-
-            break;
-    }
-}
-
 DWORD WINAPI __stdcall DecodeThread (void *b)
 {
+    float error [MAX_NCH];
+    int num_chans, sample_rate, output_bps;
     int done = 0;
 
+    memset (error, 0, sizeof (error));
+    num_chans = WavpackGetReducedChannels (wpc);
+    sample_rate = WavpackGetSampleRate (wpc);
+    output_bps = WavpackGetBitsPerSample (wpc) > 16 ? 24 : 16;
+
+    if (config_bits & ALWAYS_16BIT)
+        output_bps = 16;
+    else if ((config_bits & (REPLAYGAIN_TRACK | REPLAYGAIN_ALBUM)) &&
+        (config_bits & REPLAYGAIN_24BIT))
+            output_bps = 24;
+ 
     while (!*((int *)b) ) {
 
         if (seek_needed != -1) {
@@ -692,8 +701,8 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
 
             mod.outMod->Flush (decode_pos_ms = seek_position);
 
-            if (WavpackSeekSample (wpc, (int)(SAMPRATE / 1000.0 * seek_position))) {
-                decode_pos_ms = (int)(WavpackGetSampleIndex (wpc) * 1000.0 / SAMPRATE);
+            if (WavpackSeekSample (wpc, (int)(sample_rate / 1000.0 * seek_position))) {
+                decode_pos_ms = (int)(WavpackGetSampleIndex (wpc) * 1000.0 / sample_rate);
                 mod.outMod->Flush (decode_pos_ms);
                 continue;
             }
@@ -711,97 +720,110 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
 
             Sleep (10);
         }
-        else if (mod.outMod->CanWrite() >= ((576 * NCH * (BPS / 8)) << (mod.dsp_isactive () ? 1 : 0))) {
-            int tsamples = WavpackUnpackSamples (wpc, (long *) sample_buffer, 576) * NCH;
-            int tbytes = tsamples * (BPS/8);
+        else if (mod.outMod->CanWrite() >= ((576 * num_chans * (output_bps / 8)) << (mod.dsp_isactive () ? 1 : 0))) {
+            int tsamples = WavpackUnpackSamples (wpc, sample_buffer, 576) * num_chans;
+            int tbytes = tsamples * (output_bps/8);
 
             if (!tsamples)
                 done = 1;
             else {
-                format_samples ((uchar*) sample_buffer, WavpackGetBytesPerSample (wpc), (long *) sample_buffer, tsamples);
+                if (!(WavpackGetMode (wpc) & MODE_FLOAT)) {
+                    float scaler = (float) (1.0 / ((unsigned long) 1 << (WavpackGetBytesPerSample (wpc) * 8 - 1)));
+                    float *fptr = (float *) sample_buffer;
+                    long *lptr = sample_buffer;
+                    int cnt = tsamples;
 
-                if (BPS == 32) {
-                    if (WavpackGetMode (wpc) & MODE_FLOAT) {
-                        long *ptr = (long *) sample_buffer;
-                        int fcnt = tsamples;
+                    while (cnt--)
+                        *fptr++ = *lptr++ * scaler;
+                }
 
-                        while (fcnt--) {
-                            *ptr = (long) *(float *) ptr;
+                if (play_gain != 1.0) {
+                    float *fptr = (float *) sample_buffer;
+                    int cnt = tsamples;
+                    double outval;
 
-                            if (*ptr > 8388607)
-                                *ptr++ = 8388607 << 8;
-                            else if (*ptr < -8388608)
-                                *ptr = -8388608 << 8;
-                            else
-                                *ptr++ <<= 8;
+                    while (cnt--) {
+                        outval = *fptr * play_gain;
+
+                        if (soft_clipping) {
+                            if (outval > 0.75)
+                                outval = 1.0 - (0.0625 / (outval - 0.5));
+                            else if (outval < -0.75)
+                                outval = -1.0 - (0.0625 / (outval + 0.5));
                         }
+
+                        *fptr++ = (float) outval;
                     }
+                }
 
-                    // check for and handle required gain for 24-bit data
+                if (output_bps == 16) {
+                    float *fptr = (float *) sample_buffer;
+                    short *sptr = (short *) sample_buffer;
+                    int cnt = tsamples / num_chans, ch;
 
-                    if (play_gain != 1.0) {
-                        int *gain_ptr = (int *) sample_buffer;
-                        int gain_cnt = tsamples;
+                    while (cnt--)
+                        for (ch = 0; ch < num_chans; ++ch) {
+                            int dst;
 
-                        if (play_gain > 1.0)
-                            while (gain_cnt--) {
-                                float value = (float)(*gain_ptr * play_gain * (1/256.0));
+                            *fptr -= error [ch];
 
-                                if (soft_clipping && value > 6291456.0)
-                                    *gain_ptr = (int)(8388608.0 - (4398046511104.0 / (value - 4194304.0)));
-                                else if (soft_clipping && value < -6291456.0)
-                                    *gain_ptr = (int)(-8388608.0 - (4398046511104.0 / (value + 4194304.0)));
-                                else if (value > 8388607.0)
-                                    *gain_ptr = 8388607;
-                                else if (value < -8388608.0)
-                                    *gain_ptr = -8388608;
-                                else
-                                    *gain_ptr = (int) floor (value + 0.5);
+                            if (*fptr >= 1.0)
+                                dst = 32767;
+                            else if (*fptr <= -1.0)
+                                dst = -32768;
+                            else
+                                dst = (int) floor (*fptr * 32768.0);
 
-                                *gain_ptr++ <<= 8;
-                            }
+                            error [ch] = (float)(dst / 32768.0 - *fptr++);
+                            *sptr++ = dst;
+                        }
+                }
+                else if (output_bps == 24) {
+                    unsigned char *cptr = (unsigned char *) sample_buffer;
+                    float *fptr = (float *) sample_buffer;
+                    int cnt = tsamples;
+                    long outval;
+
+                    while (cnt--) {
+                        if (*fptr >= 1.0)
+                            outval = 8388607;
+                        else if (*fptr <= -1.0)
+                            outval = -8388608;
                         else
-                            while (gain_cnt--) {
-                                float value = (float)(*gain_ptr * play_gain * (1/256.0));
-                                *gain_ptr++ = (int) floor (value + 0.5) << 8;
-                            }
+                            outval = (int) floor (*fptr * 8388608.0);
+
+                        *cptr++ = (unsigned char) outval;
+                        *cptr++ = (unsigned char) (outval >> 8);
+                        *cptr++ = (unsigned char) (outval >> 16);
+                        fptr++;
                     }
                 }
-                else if (play_gain != 1.0) {
-                    short *gain_ptr = (short *) sample_buffer;
-                    int gain_cnt = tsamples;
+                else if (output_bps == 32) {
+                    float *fptr = (float *) sample_buffer;
+                    long *sptr = (long *) sample_buffer;
+                    int cnt = tsamples;
 
-                    if (play_gain > 1.0)
-                        while (gain_cnt--) {
-                            float value = *gain_ptr * play_gain;
+                    while (cnt--) {
+                        if (*fptr >= 1.0)
+                            *sptr++ = 8388607 << 8;
+                        else if (*fptr <= -1.0)
+                            *sptr++ = -8388608 << 8;
+                        else
+                            *sptr++ = ((int) floor (*fptr * 8388608.0)) << 8;
 
-                            if (soft_clipping && value > 24576.0)
-                                *gain_ptr++ = (short)(32768.0 - (67108864.0 / (value - 16384.0)));
-                            else if (soft_clipping && value < -24576.0)
-                                *gain_ptr++ = (short)(-32768.0 - (67108864.0 / (value + 16384.0)));
-                            else if (value > 32767.0)
-                                *gain_ptr++ = 32767;
-                            else if (value < -32768.0)
-                                *gain_ptr++ = -32768;
-                            else
-                                *gain_ptr++ = (short) floor (value + 0.5);
-                        }
-                    else
-                        while (gain_cnt--) {
-                            float value = *gain_ptr * play_gain;
-                            *gain_ptr++ = (short) floor (value + 0.5);
-                        }
+                        fptr++;
+                    }
                 }
 
-                mod.SAAddPCMData ((char *) sample_buffer, NCH, BPS, decode_pos_ms);
-                mod.VSAAddPCMData ((char *) sample_buffer, NCH, BPS, decode_pos_ms);
-                decode_pos_ms = (int)(WavpackGetSampleIndex (wpc) * 1000.0 / SAMPRATE);
+                mod.SAAddPCMData ((char *) sample_buffer, num_chans, output_bps, decode_pos_ms);
+                mod.VSAAddPCMData ((char *) sample_buffer, num_chans, output_bps, decode_pos_ms);
+                decode_pos_ms = (int)(WavpackGetSampleIndex (wpc) * 1000.0 / sample_rate);
 
                 if (mod.dsp_isactive())
                     tbytes = mod.dsp_dosamples ((short *) sample_buffer,
-                        tsamples / NCH, BPS, NCH, SAMPRATE) * (NCH * (BPS/8));
+                        tsamples / num_chans, output_bps, num_chans, sample_rate) * (num_chans * (output_bps/8));
 
-                mod.outMod->Write (sample_buffer, tbytes);
+                mod.outMod->Write ((char *) sample_buffer, tbytes);
             }
         }
         else {
