@@ -382,7 +382,7 @@ int WavpackGetMode (WavpackContext *wpc)
         if (wpc->config.flags & CONFIG_FLOAT_DATA)
             mode |= MODE_FLOAT;
 
-        if (wpc->config.flags & CONFIG_HIGH_FLAG) {
+        if (wpc->config.flags & (CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG)) {
             mode |= MODE_HIGH;
 
             if ((wpc->config.flags & CONFIG_VERY_HIGH_FLAG) ||
@@ -1190,7 +1190,7 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
     wpc->config.flags = config->flags;
 
     if (config->flags & CONFIG_VERY_HIGH_FLAG)
-        config->flags |= CONFIG_HIGH_FLAG;
+        wpc->config.flags |= CONFIG_HIGH_FLAG;
 
     if (config->float_norm_exp) {
         wpc->config.float_norm_exp = config->float_norm_exp;
