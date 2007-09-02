@@ -179,7 +179,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.5a \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.5a2 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -432,11 +432,14 @@ void setpan (int pan)
     mod.outMod->SetPan(pan);
 }
 
+static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide);
+static void AnsiToUTF8 (char *string, int len);
 static UTF8ToAnsi (char *string, int len);
 
 int infoDlg (char *fn, HWND hwnd)
 {
     char string [2048], chan_string [20], modes [80];
+    unsigned short w_string [2048];
     WavpackContext *wpc;
     uchar md5_sum [16];
     int open_flags;
@@ -519,36 +522,36 @@ int infoDlg (char *fn, HWND hwnd)
             }
 
             if (WavpackGetTagItem (wpc, "title", value, sizeof (value))) {
-                if (mode & MODE_APETAG)
-                     UTF8ToAnsi (value, sizeof (value));
+                if (!(mode & MODE_APETAG))
+                     AnsiToUTF8 (value, sizeof (value));
 
                 sprintf (string + strlen (string), "\nTitle:  %s", value);
             }
 
             if (WavpackGetTagItem (wpc, "artist", value, sizeof (value))) {
-                if (mode & MODE_APETAG)
-                     UTF8ToAnsi (value, sizeof (value));
+                if (!(mode & MODE_APETAG))
+                     AnsiToUTF8 (value, sizeof (value));
 
                 sprintf (string + strlen (string), "\nArtist:  %s", value);
             }
 
             if (WavpackGetTagItem (wpc, "album", value, sizeof (value))) {
-                if (mode & MODE_APETAG)
-                     UTF8ToAnsi (value, sizeof (value));
+                if (!(mode & MODE_APETAG))
+                     AnsiToUTF8 (value, sizeof (value));
 
                 sprintf (string + strlen (string), "\nAlbum:  %s", value);
             }
 
             if (WavpackGetTagItem (wpc, "genre", value, sizeof (value))) {
-                if (mode & MODE_APETAG)
-                     UTF8ToAnsi (value, sizeof (value));
+                if (!(mode & MODE_APETAG))
+                     AnsiToUTF8 (value, sizeof (value));
 
                 sprintf (string + strlen (string), "\nGenre:  %s", value);
             }
 
             if (WavpackGetTagItem (wpc, "comment", value, sizeof (value))) {
-                if (mode & MODE_APETAG)
-                     UTF8ToAnsi (value, sizeof (value));
+                if (!(mode & MODE_APETAG))
+                     AnsiToUTF8 (value, sizeof (value));
 
                 sprintf (string + strlen (string), "\nComment:  %s", value);
             }
@@ -562,7 +565,8 @@ int infoDlg (char *fn, HWND hwnd)
             strcat (string, "\n");
         }
 
-        MessageBox (hwnd, string, "WavPack File Info Box", MB_OK);
+        UTF8ToWideChar (string, w_string);
+        MessageBoxW (hwnd, w_string, L"WavPack File Info Box", MB_OK);
         wpc = WavpackCloseFile (wpc);
     }
     else
@@ -840,7 +844,7 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.5a "
+    "WavPack Player v2.5a2 "
 
 #ifdef __alpha
     "(AXP)"
@@ -883,39 +887,77 @@ __declspec (dllexport) In_Module * winampGetInModule2 ()
     return &mod;
 }
 
-typedef struct {
-    char *filename;
-    char *metadata;
-    char *ret;
-    int retlen;
-} extendedFileInfoStruct;
-
-__declspec (dllexport) int winampGetExtendedFileInfo (extendedFileInfoStruct exfinfo)
+__declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *metadata, char *ret, int retlen)
 {
     WavpackContext *wpc;
     char error [128];
     int retval = 0;
 
-    if (!exfinfo.filename || !*exfinfo.filename)
+#ifdef DEBUG_CONSOLE
+    sprintf (error, "winampGetExtendedFileInfo (%s)\n", metadata);
+    debug_write (error);
+#endif
+
+    if (!filename || !*filename)
         return retval;
 
-    wpc = WavpackOpenFileInput (exfinfo.filename, error, OPEN_TAGS, 0);
+    wpc = WavpackOpenFileInput (filename, error, OPEN_TAGS, 0);
 
     if (wpc) {
-        if (!_stricmp (exfinfo.metadata, "length")) {
+        if (!_stricmp (metadata, "length")) {
             char string [20];
 
             sprintf (string, "%d", (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc)));
 
-            if (strlen (string) < (uint) exfinfo.retlen) {
-                strcpy (exfinfo.ret, string);
+            if (strlen (string) < (uint) retlen) {
+                strcpy (ret, string);
                 retval = 1;
             }
         }
-        else if (WavpackGetTagItem (wpc, exfinfo.metadata, exfinfo.ret, exfinfo.retlen)) {
+        else if (WavpackGetTagItem (wpc, metadata, ret, retlen)) {
             if (WavpackGetMode (wpc) & MODE_APETAG)
-                UTF8ToAnsi (exfinfo.ret, exfinfo.retlen);
+                UTF8ToAnsi (ret, retlen);
 
+            retval = 1;
+        }
+    }
+
+    if (wpc)
+        WavpackCloseFile (wpc);
+
+    return retval;
+}
+
+__declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *metadata, wchar_t *ret, int retlen)
+{
+    char error [128], fn [MAX_PATH], res [256];
+    unsigned short w_res [256];
+    WavpackContext *wpc;
+    int retval = 0;
+
+#ifdef DEBUG_CONSOLE
+    sprintf (error, "winampGetExtendedFileInfoW (%s)\n", metadata);
+    debug_write (error);
+#endif
+
+    if (!filename || !*filename)
+        return retval;
+
+    WideCharToMultiByte (CP_ACP, 0, filename, -1, fn, MAX_PATH-1, NULL, NULL);
+
+    wpc = WavpackOpenFileInput (fn, error, OPEN_TAGS, 0);
+
+    if (wpc) {
+        if (!_stricmp (metadata, "length")) {
+            swprintf (ret, retlen, L"%d", (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc)));
+            retval = 1;
+        }
+        else if (WavpackGetTagItem (wpc, metadata, res, sizeof (res))) {
+            if (!(WavpackGetMode (wpc) & MODE_APETAG))
+                AnsiToUTF8 (res, sizeof (res));
+
+            UTF8ToWideChar (res, w_res);
+            wcsncpy (ret, w_res, retlen);
             retval = 1;
         }
     }
@@ -978,6 +1020,38 @@ static float calculate_gain (WavpackContext *wpc, int *pSoftClip)
         return 1.0;
 }
 
+// Convert the Unicode wide-format string into a UTF-8 string using no more
+// than the specified buffer length. The wide-format string must be NULL
+// terminated and the resulting string will be NULL terminated. The actual
+// number of characters converted (not counting terminator) is returned, which
+// may be less than the number of characters in the wide string if the buffer
+// length is exceeded.
+
+static int WideCharToUTF8 (const ushort *Wide, uchar *pUTF8, int len)
+{
+    const ushort *pWide = Wide;
+    int outndx = 0;
+
+    while (*pWide) {
+        if (*pWide < 0x80 && outndx + 1 < len)
+            pUTF8 [outndx++] = (uchar) *pWide++;
+        else if (*pWide < 0x800 && outndx + 2 < len) {
+            pUTF8 [outndx++] = (uchar) (0xc0 | ((*pWide >> 6) & 0x1f));
+            pUTF8 [outndx++] = (uchar) (0x80 | (*pWide++ & 0x3f));
+        }
+        else if (outndx + 3 < len) {
+            pUTF8 [outndx++] = (uchar) (0xe0 | ((*pWide >> 12) & 0xf));
+            pUTF8 [outndx++] = (uchar) (0x80 | ((*pWide >> 6) & 0x3f));
+            pUTF8 [outndx++] = (uchar) (0x80 | (*pWide++ & 0x3f));
+        }
+        else
+            break;
+    }
+
+    pUTF8 [outndx] = 0;
+    return (int)(pWide - Wide);
+}
+
 // Convert Unicode UTF-8 string to wide format. UTF-8 string must be NULL
 // terminated. Resulting wide string must be able to fit in provided space
 // and will also be NULL terminated. The number of characters converted will
@@ -1021,6 +1095,22 @@ static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide)
 
     pWide [chrcnt] = 0;
     return chrcnt;
+}
+
+// Convert a Ansi string into its Unicode UTF-8 format equivalent. The
+// conversion is done in-place so the maximum length of the string buffer must
+// be specified because the string may become longer or shorter. If the
+// resulting string will not fit in the specified buffer size then it is
+// truncated.
+
+static void AnsiToUTF8 (char *string, int len)
+{
+    int max_chars = (int) strlen (string);
+    ushort *temp = (ushort *) malloc ((max_chars + 1) * 2);
+
+    MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
+    WideCharToUTF8 (temp, (uchar *) string, len);
+    free (temp);
 }
 
 // Convert a Unicode UTF-8 format string into its Ansi equivalent. The
