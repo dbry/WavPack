@@ -4,16 +4,19 @@
 */
 
 #include <windows.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <mmreg.h>
 #include <msacm.h>
 #include <math.h>
+#include <sys/stat.h>
+#include <io.h>
 
 #include "in2.h"
 #include "wavpack.h"
 #include "resource.h"
 
-int GetBitsPerSample (WavpackContext *wpc);
+#define fileno _fileno
 
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 
@@ -179,7 +182,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.5a2 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.5a3 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -844,7 +847,7 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.5a2 "
+    "WavPack Player v2.5a3 "
 
 #ifdef __alpha
     "(AXP)"
@@ -886,6 +889,63 @@ __declspec (dllexport) In_Module * winampGetInModule2 ()
 {
     return &mod;
 }
+
+// This code provides an interface between the reader callback mechanism that
+// WavPack uses internally and the standard fstream C library.
+
+static int32_t read_bytes (void *id, void *data, int32_t bcount)
+{
+    return (int32_t) fread (data, 1, bcount, (FILE*) id);
+}
+
+static uint32_t get_pos (void *id)
+{
+    return ftell ((FILE*) id);
+}
+
+static int set_pos_abs (void *id, uint32_t pos)
+{
+    return fseek (id, pos, SEEK_SET);
+}
+
+static int set_pos_rel (void *id, int32_t delta, int mode)
+{
+    return fseek (id, delta, mode);
+}
+
+static int push_back_byte (void *id, int c)
+{
+    return ungetc (c, id);
+}
+
+static uint32_t get_length (void *id)
+{
+    FILE *file = id;
+    struct stat statbuf;
+
+    if (!file || fstat (fileno (file), &statbuf) || !(statbuf.st_mode & S_IFREG))
+        return 0;
+
+    return statbuf.st_size;
+}
+
+static int can_seek (void *id)
+{
+    FILE *file = id;
+    struct stat statbuf;
+
+    return file && !fstat (fileno (file), &statbuf) && (statbuf.st_mode & S_IFREG);
+}
+
+static int32_t write_bytes (void *id, void *data, int32_t bcount)
+{
+    return (int32_t) fwrite (data, 1, bcount, (FILE*) id);
+}
+
+static WavpackStreamReader freader = {
+    read_bytes, get_pos, set_pos_abs, set_pos_rel, push_back_byte, get_length, can_seek,
+    write_bytes
+};
 
 __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *metadata, char *ret, int retlen)
 {
@@ -930,10 +990,11 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
 
 __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *metadata, wchar_t *ret, int retlen)
 {
-    char error [128], fn [MAX_PATH], res [256];
+    char error [128], res [256];
     unsigned short w_res [256];
     WavpackContext *wpc;
     int retval = 0;
+    FILE *wv_id;
 
 #ifdef DEBUG_CONSOLE
     sprintf (error, "winampGetExtendedFileInfoW (%s)\n", metadata);
@@ -943,27 +1004,35 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
     if (!filename || !*filename)
         return retval;
 
-    WideCharToMultiByte (CP_ACP, 0, filename, -1, fn, MAX_PATH-1, NULL, NULL);
-
-    wpc = WavpackOpenFileInput (fn, error, OPEN_TAGS, 0);
-
-    if (wpc) {
-        if (!_stricmp (metadata, "length")) {
-            swprintf (ret, retlen, L"%d", (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc)));
-            retval = 1;
-        }
-        else if (WavpackGetTagItem (wpc, metadata, res, sizeof (res))) {
-            if (!(WavpackGetMode (wpc) & MODE_APETAG))
-                AnsiToUTF8 (res, sizeof (res));
-
-            UTF8ToWideChar (res, w_res);
-            wcsncpy (ret, w_res, retlen);
-            retval = 1;
-        }
+    if (!(wv_id = _wfopen (filename, L"rb"))) {
+#ifdef DEBUG_CONSOLE
+        debug_write ("failed opening file!\n");
+#endif
+        return retval;
     }
 
-    if (wpc)
-        WavpackCloseFile (wpc);
+    wpc = WavpackOpenFileInputEx (&freader, wv_id, NULL, error, OPEN_TAGS, 0);
+
+    if (!wpc) {
+        fclose (wv_id);
+        return retval;
+    }
+
+    if (!_stricmp (metadata, "length")) {
+        swprintf (ret, retlen, L"%d", (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc)));
+        retval = 1;
+    }
+    else if (WavpackGetTagItem (wpc, metadata, res, sizeof (res))) {
+        if (!(WavpackGetMode (wpc) & MODE_APETAG))
+            AnsiToUTF8 (res, sizeof (res));
+
+        UTF8ToWideChar (res, w_res);
+        wcsncpy (ret, w_res, retlen);
+        retval = 1;
+    }
+
+    WavpackCloseFile (wpc);
+    fclose (wv_id);
 
     return retval;
 }
