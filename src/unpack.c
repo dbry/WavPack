@@ -343,7 +343,7 @@ int read_int32_info (WavpackStream *wps, WavpackMetadata *wpmd)
 int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     int bytecnt = wpmd->byte_length, shift = 0;
-    char *byteptr = wpmd->data;
+    uchar *byteptr = wpmd->data;
     uint32_t mask = 0;
 
     if (!bytecnt || bytecnt > 5)

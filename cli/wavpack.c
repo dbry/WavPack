@@ -39,7 +39,10 @@
 #endif
 
 #ifdef WIN32
+#define stricmp(x,y) _stricmp(x,y)
 #define fileno _fileno
+#else
+#define stricmp(x,y) strcasecmp(x,y)
 #endif
 
 #ifdef DEBUG_ALLOC
@@ -91,6 +94,8 @@ static const char *help =
 "          --blocksize=n = specify block size in samples (n = 1 - 131072)\n"
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
 "          -cc = maximum hybrid compression (hurts lossy quality & decode speed)\n"
+"          --channel-order=C1,C2,C3,... = channel order if not MS standard\n"
+"            (FL,FR,FC,LFE,BL,BR,FLC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
 #if defined (WIN32)
 "          -e  = create self-extracting executable (needs wvselfx.exe)\n"
@@ -124,6 +129,13 @@ static const char *help =
 "          -y  = yes to all warnings (use with caution!)\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
+static const char *speakers [] = {
+    "FL", "FR", "FC", "LFE", "BL", "BR", "FLC", "FRC", "BC",
+    "SL", "SR", "TC", "TFL", "TFC", "TFR", "TBL", "TBC", "TBR"
+};
+
+#define NUM_SPEAKERS (sizeof (speakers) / sizeof (speakers [0]))
+
 // this global is used to indicate the special "debug" mode where extra debug messages
 // are displayed and all messages are logged to the file \wavpack.log
 
@@ -131,6 +143,9 @@ int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
     adobe_mode, ignore_length, new_riff_header, do_md5_checksum;
+
+static char channel_order [18], num_channels_order;
+static uint32_t channel_order_mask;
 
 #if defined (WIN32)
 static char *wvselfx_image;
@@ -141,7 +156,7 @@ static uint32_t wvselfx_size;
 
 static FILE *wild_fopen (char *filename, const char *mode);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
-static int pack_audio (WavpackContext *wpc, FILE *infile);
+static int pack_audio (WavpackContext *wpc, FILE *infile, char *new_order);
 static void display_progress (double file_progress);
 
 #define NO_ERROR 0L
@@ -211,6 +226,61 @@ int main (argc, argv) int argc; char **argv;
                 if (config.block_samples < 1 || config.block_samples > 131072) {
                     error_line ("invalid blocksize!");
                     ++error_count;
+                }
+            }
+            else if (!strncmp (long_option, "channel-order", 13)) {      // --channel-order
+                char name [6], channel_error = 0;
+                uint32_t mask = 0;
+                int chan, ci, si;
+
+                for (chan = 0; chan < sizeof (channel_order); ++chan) {
+
+                    if (!*long_param)
+                        break;
+
+                    for (ci = 0; isalpha (*long_param) && ci < sizeof (name) - 1; ci++)
+                        name [ci] = *long_param++;
+
+                    if (!ci) {
+                        channel_error = 1;
+                        break;
+                    } 
+
+                    name [ci] = 0;
+
+                    for (si = 0; si < NUM_SPEAKERS; ++si)
+                        if (!stricmp (name, speakers [si])) {
+                            if (mask & (1L << si))
+                                channel_error = 1;
+
+                            channel_order [chan] = si;
+                            mask |= (1L << si);
+                            break;
+                        }
+
+                    if (channel_error || si == NUM_SPEAKERS) {
+                        error_line ("unknown or repeated channel spec: %s!", name);
+                        channel_error = 1;
+                        break;
+                    } 
+
+                    if (*long_param && *long_param++ != ',') {
+                        channel_error = 1;
+                        break;
+                    } 
+                }
+
+                if (*long_param) {
+                    error_line ("too many channels specified!");
+                    ++error_count;
+                }
+                else if (channel_error) {
+                    error_line ("syntax error in channel order specification!");
+                    ++error_count;
+                }
+                else {
+                    channel_order_mask = mask;
+                    num_channels_order = chan;
                 }
             }
             else {
@@ -929,6 +999,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     uint32_t total_samples = 0, bcount;
     WavpackConfig loc_config = *config;
     RiffChunkHeader riff_chunk_header;
+    char *new_channel_order = NULL;
     write_id wv_file, wvc_file;
     ChunkHeader chunk_header;
     WaveHeader WaveHeader;
@@ -1181,9 +1252,49 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     loc_config.channel_mask = 0x5 - WaveHeader.NumChannels;
                 else
                     loc_config.channel_mask = (1 << WaveHeader.NumChannels) - 1;
+
+                if (num_channels_order) {
+                    int i, j;
+
+                    if (WaveHeader.NumChannels != num_channels_order) {
+                        error_line ("file does not have %d channel(s)!", num_channels_order);
+                        DoCloseHandle (infile);
+                        DoCloseHandle (wv_file.file);
+                        DoDeleteFile (outfilename);
+                        WavpackCloseFile (wpc);
+                        return SOFT_ERROR;
+                    }
+
+                    new_channel_order = malloc (num_channels_order);
+                    memcpy (new_channel_order, channel_order, num_channels_order);
+                    loc_config.channel_mask = channel_order_mask;
+
+                    for (i = 0; i < num_channels_order;) {
+                        for (j = 0; j < num_channels_order; ++j)
+                            if (new_channel_order [j] == i) {
+                                i++;
+                                break;
+                            }
+
+                        if (j == num_channels_order)
+                            for (j = 0; j < num_channels_order; ++j)
+                                if (new_channel_order [j] > i)
+                                    new_channel_order [j]--;
+                    }
+                }
             }
-            else
+            else {
                 loc_config.channel_mask = WaveHeader.ChannelMask;
+
+                if (num_channels_order) {
+                    error_line ("this WAV file already has channel order information!");
+                    DoCloseHandle (infile);
+                    DoCloseHandle (wv_file.file);
+                    DoDeleteFile (outfilename);
+                    WavpackCloseFile (wpc);
+                    return SOFT_ERROR;
+                }
+            }
 
             if (format == 3)
                 loc_config.float_norm_exp = 127;
@@ -1287,7 +1398,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // pack the audio portion of the file now
 
-    result = pack_audio (wpc, infile);
+    result = pack_audio (wpc, infile, new_channel_order);
 
     // if everything went well (and we're not ignoring length) try to read
     // anything else that might be appended to the audio data and write that
@@ -1529,9 +1640,12 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 // little-endian standard the executing processor's format is done and where
 // (if selected) the MD5 sum is calculated and displayed.
 
+static void reorder_channels (char *data, char *new_order, int num_chans,
+    int num_samples, int bytes_per_sample);
+
 #define INPUT_SAMPLES 65536
 
-static int pack_audio (WavpackContext *wpc, FILE *infile)
+static int pack_audio (WavpackContext *wpc, FILE *infile, char *new_order)
 {
     uint32_t samples_remaining, samples_read = 0;
     double progress = -1.0;
@@ -1561,6 +1675,10 @@ static int pack_audio (WavpackContext *wpc, FILE *infile)
         samples_remaining -= bytes_to_read / bytes_per_sample;
         DoReadFile (infile, input_buffer, bytes_to_read, &bytes_read);
         samples_read += sample_count = bytes_read / bytes_per_sample;
+
+        if (new_order)
+            reorder_channels (input_buffer, new_order, WavpackGetNumChannels (wpc),
+                sample_count, WavpackGetBytesPerSample (wpc));
 
         if (do_md5_checksum)
             MD5Update (&md5_context, input_buffer, bytes_read);
@@ -1660,6 +1778,29 @@ static int pack_audio (WavpackContext *wpc, FILE *infile)
     }
 
     return NO_ERROR;
+}
+
+static void reorder_channels (char *data, char *order, int num_chans,
+    int num_samples, int bytes_per_sample)
+{
+    char *temp = malloc (num_chans * bytes_per_sample);
+
+    while (num_samples--) {
+        char *start = data;
+        int chan;
+
+        for (chan = 0; chan < num_chans; ++chan) {
+            char *dst = temp + (order [chan] * bytes_per_sample);
+            int bc = bytes_per_sample;
+
+            while (bc--)
+                *dst++ = *data++;
+        }
+
+        memcpy (start, temp, num_chans * bytes_per_sample);
+    }
+
+    free (temp);
 }
 
 // Convert the Unicode wide-format string into a UTF-8 string using no more
