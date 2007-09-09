@@ -1044,6 +1044,7 @@ static void analyze_stereo (WavpackContext *wpc, int32_t *samples, int do_sample
 static void stereo_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
 {
     int shaping_weight, new = wps->wphdr.flags & NEW_SHAPING;
+    short *shaping_array = wps->dc.shaping_array;
     int32_t error [2], temp, cnt;
 
     scan_word (wps, rptr, wps->wphdr.block_samples, -1);
@@ -1052,7 +1053,11 @@ static void stereo_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
 
     if (wps->wphdr.flags & HYBRID_SHAPE) {
         while (cnt--) {
-            shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
+            if (shaping_array)
+                shaping_weight = *shaping_array++;
+            else
+                shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
+
             temp = -apply_weight (shaping_weight, error [0]);
 
             if (new && shaping_weight < 0 && temp) {
@@ -1064,7 +1069,9 @@ static void stereo_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
             else
                 lptr [0] += (error [0] = nosend_word (wps, rptr [0], 0) - rptr [0]) + temp;
 
-            shaping_weight = (wps->dc.shaping_acc [1] += wps->dc.shaping_delta [1]) >> 16;
+            if (!shaping_array)
+                shaping_weight = (wps->dc.shaping_acc [1] += wps->dc.shaping_delta [1]) >> 16;
+
             temp = -apply_weight (shaping_weight, error [1]);
 
             if (new && shaping_weight < 0 && temp) {
@@ -1080,8 +1087,10 @@ static void stereo_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
             rptr += 2;
         }
 
-        wps->dc.shaping_acc [0] -= wps->dc.shaping_delta [0] * wps->wphdr.block_samples;
-        wps->dc.shaping_acc [1] -= wps->dc.shaping_delta [1] * wps->wphdr.block_samples;
+        if (!shaping_array) {
+            wps->dc.shaping_acc [0] -= wps->dc.shaping_delta [0] * wps->wphdr.block_samples;
+            wps->dc.shaping_acc [1] -= wps->dc.shaping_delta [1] * wps->wphdr.block_samples;
+        }
     }
     else
         while (cnt--) {

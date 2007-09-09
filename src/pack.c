@@ -1093,6 +1093,11 @@ void pack_init (WavpackContext *wpc)
     CLEAR (wps->decorr_passes);
     CLEAR (wps->dc);
 
+    CLEAR (wps->analysis_pass);
+    wps->analysis_pass.term = 18;
+    wps->analysis_pass.delta = 2;
+    wps->analysis_pass.weight_A = wps->analysis_pass.weight_B = 1024;
+
     if (wpc->config.flags & CONFIG_AUTO_SHAPING)
         wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] =
             (wpc->config.sample_rate < 64000 || (wps->wphdr.flags & CROSS_DECORR)) ? -512L << 16 : 1024L << 16;
@@ -1503,6 +1508,64 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         }
     }
 
+    if (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) {
+        short *swptr = wps->dc.shaping_array = malloc (sample_count * sizeof (*swptr));
+        struct decorr_pass *ap = &wps->analysis_pass;
+        int32_t *bptr = buffer, temp, sam;
+        int sc = sample_count;
+
+        if (flags & MONO_DATA)
+            while (sc--) {
+                if (ap->term == 1)
+                    sam = ap->samples_A [0];
+                else if (ap->term == 18)
+                    sam = (3 * ap->samples_A [0] - ap->samples_A [1]) >> 1;
+                else
+                    sam = 2 * ap->samples_A [0] - ap->samples_A [1];
+
+                temp = *bptr - apply_weight (ap->weight_A, sam);
+                update_weight (ap->weight_A, ap->delta, sam, temp);
+                ap->samples_A [1] = ap->samples_A [0];
+                ap->samples_A [0] = *bptr++;
+
+                if (ap->weight_A < 256)
+                    *swptr++ = 1024;
+                else
+                    *swptr++ = 1536 - ap->weight_A * 2;
+            }
+        else
+            while (sc--) {
+                if (ap->term == 1)
+                    sam = ap->samples_A [0];
+                else if (ap->term == 18)
+                    sam = (3 * ap->samples_A [0] - ap->samples_A [1]) >> 1;
+                else
+                    sam = 2 * ap->samples_A [0] - ap->samples_A [1];
+
+                temp = *bptr - apply_weight (ap->weight_A, sam);
+                update_weight (ap->weight_A, ap->delta, sam, temp);
+                ap->samples_A [1] = ap->samples_A [0];
+                ap->samples_A [0] = *bptr++;
+
+                if (ap->term == 1)
+                    sam = ap->samples_B [0];
+                else if (ap->term == 18)
+                    sam = (3 * ap->samples_B [0] - ap->samples_B [1]) >> 1;
+                else
+                    sam = 2 * ap->samples_B [0] - ap->samples_B [1];
+
+                temp = *bptr - apply_weight (ap->weight_B, sam);
+                update_weight (ap->weight_B, ap->delta, sam, temp);
+                ap->samples_B [1] = ap->samples_B [0];
+                ap->samples_B [0] = *bptr++;
+
+                if (ap->weight_A + ap->weight_B < 512)
+                    *swptr++ = 1024;
+                else
+                    *swptr++ = 1536 - ap->weight_A - ap->weight_B;
+            }
+    }
+
     if (!wps->num_passes && !wps->num_terms) {
         wps->num_passes = 1;
 
@@ -1517,13 +1580,24 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     if (!pack_samples (wpc, buffer)) {
         wps->wphdr.flags = sflags;
 
+        if (wps->dc.shaping_array) {
+            free (wps->dc.shaping_array);
+            wps->dc.shaping_array = NULL;
+        }
+
         if (orig_data)
             free (orig_data);
 
         return FALSE;
     }
-    else
+    else {
         wps->wphdr.flags = sflags;
+
+        if (wps->dc.shaping_array) {
+            free (wps->dc.shaping_array);
+            wps->dc.shaping_array = NULL;
+        }
+    }
 
     if (orig_data) {
         uint32_t data_count;
@@ -1745,6 +1819,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags, data_count, crc, crc2, i;
     uint32_t sample_count = wps->wphdr.block_samples;
+    short *shaping_array = wps->dc.shaping_array;
     int tcount, lossy = FALSE, m = 0;
     double noise_acc = 0.0, noise;
     struct decorr_pass *dpp;
@@ -1933,11 +2008,16 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     else if ((flags & HYBRID_FLAG) && (flags & MONO_DATA))
         for (bptr = buffer, i = 0; i < sample_count; ++i) {
             int32_t code, temp;
+            int shaping_weight;
 
             crc2 += (crc2 << 1) + (code = *bptr++);
 
             if (flags & HYBRID_SHAPE) {
-                int shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
+                if (shaping_array)
+                    shaping_weight = *shaping_array++;
+                else
+                    shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
+
                 temp = -apply_weight (shaping_weight, wps->dc.error [0]);
 
                 if ((flags & NEW_SHAPING) && shaping_weight < 0 && temp) {
@@ -2007,7 +2087,11 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             crc2 += (crc2 << 3) + (left << 1) + left + (right = *bptr++);
 
             if (flags & HYBRID_SHAPE) {
-                shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
+                if (shaping_array)
+                    shaping_weight = *shaping_array++;
+                else
+                    shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
+
                 temp = -apply_weight (shaping_weight, wps->dc.error [0]);
 
                 if ((flags & NEW_SHAPING) && shaping_weight < 0 && temp) {
@@ -2020,7 +2104,9 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
                 else
                     wps->dc.error [0] = -(left += temp);
 
-                shaping_weight = (wps->dc.shaping_acc [1] += wps->dc.shaping_delta [1]) >> 16;
+                if (!shaping_array)
+                    shaping_weight = (wps->dc.shaping_acc [1] += wps->dc.shaping_delta [1]) >> 16;
+
                 temp = -apply_weight (shaping_weight, wps->dc.error [1]);
 
                 if ((flags & NEW_SHAPING) && shaping_weight < 0 && temp) {

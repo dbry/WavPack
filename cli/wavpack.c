@@ -97,6 +97,7 @@ static const char *help =
 "          --channel-order=C1,C2,C3,... = channel order if not MS standard\n"
 "            (FL,FR,FC,LFE,BL,BR,FLC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
+"          --dns = dynamic noise shaping (for hybrid lossy mode only)\n"
 #if defined (WIN32)
 "          -e  = create self-extracting executable (needs wvselfx.exe)\n"
 #endif
@@ -220,6 +221,8 @@ int main (argc, argv) int argc; char **argv;
                 ask_help = 1;
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 config.flags |= CONFIG_OPTIMIZE_MONO;
+            else if (!strcmp (long_option, "dns"))                      // --dns
+                config.flags |= CONFIG_DYNAMIC_SHAPING;
             else if (!strncmp (long_option, "blocksize", 9)) {          // --blocksize
                 config.block_samples = strtol (long_param, NULL, 10);
 
@@ -521,6 +524,12 @@ int main (argc, argv) int argc; char **argv;
             ++error_count;
         }
     }
+
+    if ((config.flags & CONFIG_DYNAMIC_SHAPING) &&
+        (!(config.flags & CONFIG_HYBRID_FLAG) || (config.flags & CONFIG_CREATE_WVC))) {
+            error_line ("dynamic noise shaping is for hybrid lossy mode only (no wvc)!");
+            ++error_count;
+        }
 
     if (!quiet_mode && !error_count)
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());

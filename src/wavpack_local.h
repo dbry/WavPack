@@ -176,7 +176,7 @@ typedef struct {
 
 #define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
 #define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
-#define CUR_STREAM_VERS     0x406       // stream version we are [normally] writing now
+#define CUR_STREAM_VERS     0x407       // stream version we are [normally] writing now
 
 
 //////////////////////////// WavPack Metadata /////////////////////////////////
@@ -248,6 +248,7 @@ typedef struct {
 #define CONFIG_AUTO_SHAPING     0x4000  // automatic noise shaping
 #define CONFIG_SHAPE_OVERRIDE   0x8000  // shaping mode specified
 #define CONFIG_JOINT_OVERRIDE   0x10000 // joint-stereo mode specified
+#define CONFIG_DYNAMIC_SHAPING  0x20000 // dynamic noise shaping
 #define CONFIG_CREATE_EXE       0x40000 // create executable
 #define CONFIG_CREATE_WVC       0x80000 // create correction file
 #define CONFIG_OPTIMIZE_WVC     0x100000 // maximize bybrid compression
@@ -352,9 +353,10 @@ typedef struct {
     struct {
         int32_t shaping_acc [2], shaping_delta [2], error [2];
         double noise_sum, noise_ave, noise_max;
+        short *shaping_array;
     } dc;
 
-    struct decorr_pass decorr_passes [MAX_NTERMS];
+    struct decorr_pass decorr_passes [MAX_NTERMS], analysis_pass;
     WavpackDecorrSpec *decorr_specs;
 } WavpackStream;
 

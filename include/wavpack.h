@@ -178,6 +178,7 @@ typedef struct {
 #define CONFIG_BITRATE_KBPS     0x2000  // bitrate is kbps, not bits / sample
 #define CONFIG_SHAPE_OVERRIDE   0x8000  // shaping mode specified
 #define CONFIG_JOINT_OVERRIDE   0x10000 // joint-stereo mode specified
+#define CONFIG_DYNAMIC_SHAPING  0x20000 // dynamic noise shaping
 #define CONFIG_CREATE_EXE       0x40000 // create executable
 #define CONFIG_CREATE_WVC       0x80000 // create correction file
 #define CONFIG_OPTIMIZE_WVC     0x100000 // maximize bybrid compression

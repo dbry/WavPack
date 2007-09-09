@@ -425,6 +425,7 @@ static void analyze_mono (WavpackContext *wpc, int32_t *samples, int do_samples)
 static void mono_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
 {
     int shaping_weight, new = wps->wphdr.flags & NEW_SHAPING;
+    short *shaping_array = wps->dc.shaping_array;
     int32_t error = 0, temp, cnt;
 
     scan_word (wps, rptr, wps->wphdr.block_samples, -1);
@@ -432,7 +433,11 @@ static void mono_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
 
     if (wps->wphdr.flags & HYBRID_SHAPE) {
         while (cnt--) {
-            shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
+            if (shaping_array)
+                shaping_weight = *shaping_array++;
+            else
+                shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
+
             temp = -apply_weight (shaping_weight, error);
 
             if (new && shaping_weight < 0 && temp) {
@@ -448,7 +453,8 @@ static void mono_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
             rptr++;
         }
 
-        wps->dc.shaping_acc [0] -= wps->dc.shaping_delta [0] * wps->wphdr.block_samples;
+        if (!shaping_array)
+            wps->dc.shaping_acc [0] -= wps->dc.shaping_delta [0] * wps->wphdr.block_samples;
     }
     else
         while (cnt--) {
