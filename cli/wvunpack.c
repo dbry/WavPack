@@ -215,6 +215,9 @@ int main (argc, argv) int argc; char **argv;
                     case 'L': case 'l':
                         SetPriorityClass (GetCurrentProcess(), IDLE_PRIORITY_CLASS);
                         break;
+
+                    case 'O': case 'o':  // ignore -o in Windows to be Linux compatible
+                        break;
 #else
                     case 'O': case 'o':
                         output_spec = 1;
