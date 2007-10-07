@@ -1398,6 +1398,7 @@ void write_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 // "wps->blockend" points to the end of the available space. A return value of
 // FALSE indicates an error.
 
+static void best_floating_line (short *values, int num_values, double *initial_y, double *slope, short *max_error);
 static int scan_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void scan_int32_quick (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
@@ -1509,9 +1510,10 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     }
 
     if (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) {
-        short *swptr = wps->dc.shaping_array = malloc (sample_count * sizeof (*swptr));
+        short *swptr = wps->dc.shaping_array = malloc (sample_count * sizeof (*swptr)), max_error;
         struct decorr_pass *ap = &wps->analysis_pass;
         int32_t *bptr = buffer, temp, sam;
+        double initial_y, slope;
         int sc = sample_count;
 
         if (flags & MONO_DATA)
@@ -1563,6 +1565,14 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
                     *swptr++ = 1024;
                 else
                     *swptr++ = 1536 - ap->weight_A - ap->weight_B;
+            }
+
+            if (wpc->wvc_flag) {
+                best_floating_line (wps->dc.shaping_array, sample_count, &initial_y, &slope, &max_error);
+                wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = (int32_t) floor (initial_y * 65536.0 + 0.5);
+                wps->dc.shaping_delta [0] = wps->dc.shaping_delta [1] = (int32_t) floor (slope * 65536.0 + 0.5);
+                free (wps->dc.shaping_array);
+                wps->dc.shaping_array = NULL;
             }
     }
 
@@ -2802,4 +2812,44 @@ double WavpackGetEncodedNoise (WavpackContext *wpc, double *peak)
         *peak = wps->dc.noise_max;
 
     return wps->dc.noise_sum;
+}
+
+// Given an array of integer data (in shorts), find the linear function that most closely
+// represents it (based on minimum sum of absolute errors). This is returned as a double
+// precision initial Y value plus slope. The function can also optionally compute and
+// return a maximum error value (as a short).
+
+void best_floating_line (short *values, int num_values, double *initial_y, double *slope, short *max_error)
+{
+    double left_sum = 0.0, right_sum = 0.0, center_x = (num_values - 1) / 2.0, center_y, m;
+    int i;
+
+    for (i = 0; i < num_values >> 1; ++i) {
+        right_sum += values [num_values - i - 1];
+        left_sum += values [i];
+    }
+
+    if (num_values & 1) {
+        right_sum += values [num_values >> 1] * 0.5;
+        left_sum += values [num_values >> 1] * 0.5;
+    }
+
+    center_y = (right_sum + left_sum) / num_values;
+    m = (right_sum - left_sum) / ((double) num_values * num_values) * 4.0;
+
+    if (initial_y)
+        *initial_y = center_y - m * center_x;
+
+    if (slope)
+        *slope = m;
+
+    if (max_error) {
+        double max = 0.0;
+
+        for (i = 0; i < num_values; ++i)
+            if (fabs (values [i] - (center_y + (i - center_x) * m)) > max)
+                max = fabs (values [i] - (center_y + (i - center_x) * m));
+
+        *max_error = floor (max + 0.5);
+    }
 }

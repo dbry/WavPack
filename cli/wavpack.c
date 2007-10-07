@@ -528,12 +528,6 @@ int main (argc, argv) int argc; char **argv;
         }
     }
 
-    if ((config.flags & CONFIG_DYNAMIC_SHAPING) &&
-        (!(config.flags & CONFIG_HYBRID_FLAG) || (config.flags & CONFIG_CREATE_WVC))) {
-            error_line ("dynamic noise shaping is for hybrid lossy mode only (no wvc)!");
-            ++error_count;
-        }
-
     if (!quiet_mode && !error_count)
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
 
