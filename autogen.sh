@@ -14,7 +14,7 @@ echo "Generating configuration files for $PACKAGE, please wait..."
 }
 
 for LIBTOOLIZE in libtoolize glibtoolize nope; do
-  $LIBTOOLIZE --version &> /dev/null && break
+	$LIBTOOLIZE --version > /dev/null 2>&1 && break
 done
 if test x$LIBTOOLIZE = xnope; then
 	echo
@@ -32,11 +32,10 @@ fi
 	DIE=1
 }
 
-[ $DIE -eq 1 ] && exit 1;
+[ $DIE -eq 1 ] && exit 1
 
 touch NEWS README AUTHORS ChangeLog
 aclocal
 $LIBTOOLIZE --copy --force
 automake --copy --add-missing --force
 autoconf --force
-
