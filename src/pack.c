@@ -1096,7 +1096,6 @@ void pack_init (WavpackContext *wpc)
     CLEAR (wps->analysis_pass);
     wps->analysis_pass.term = 18;
     wps->analysis_pass.delta = 2;
-    wps->analysis_pass.weight_A = wps->analysis_pass.weight_B = 1024;
 
     if (wpc->config.flags & CONFIG_AUTO_SHAPING)
         wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] =
@@ -1109,6 +1108,9 @@ void pack_init (WavpackContext *wpc)
 
         wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = weight << 16;
     }
+
+    if (wpc->config.flags & CONFIG_DYNAMIC_SHAPING)
+        wps->dc.shaping_data = malloc (wpc->max_samples * sizeof (*wps->dc.shaping_data));
 
     if (!wpc->config.xmode)
         wps->num_passes = 0;
@@ -1402,6 +1404,7 @@ static void best_floating_line (short *values, int num_values, double *initial_y
 static int scan_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void scan_int32_quick (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
+static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer);
 static int pack_samples (WavpackContext *wpc, int32_t *buffer);
 
 int pack_block (WavpackContext *wpc, int32_t *buffer)
@@ -1409,6 +1412,11 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags, sflags = wps->wphdr.flags;
     int32_t sample_count = wps->wphdr.block_samples, *orig_data = NULL;
+
+    if (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) {
+        dynamic_noise_shaping (wpc, buffer);
+        sample_count = wps->wphdr.block_samples;
+    }
 
     if (!(flags & MONO_FLAG) && wpc->stream_version >= 0x410) {
         int32_t lor = 0, diff = 0;
@@ -1509,12 +1517,130 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         }
     }
 
-    if (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) {
-        short *swptr = wps->dc.shaping_array = malloc (sample_count * sizeof (*swptr)), max_error;
-        struct decorr_pass *ap = &wps->analysis_pass;
-        int32_t *bptr = buffer, temp, sam;
-        double initial_y, final_y;
-        int sc = sample_count;
+    if (!wps->num_passes && !wps->num_terms) {
+        wps->num_passes = 1;
+
+        if (flags & MONO_DATA)
+            execute_mono (wpc, buffer, 1, 0);
+        else
+            execute_stereo (wpc, buffer, 1, 0);
+
+        wps->num_passes = 0;
+    }
+
+    if (!pack_samples (wpc, buffer)) {
+        wps->wphdr.flags = sflags;
+
+        if (orig_data)
+            free (orig_data);
+
+        return FALSE;
+    }
+    else
+        wps->wphdr.flags = sflags;
+
+    if (wps->dc.shaping_data) {
+        if (wps->dc.shaping_samples != sample_count)
+            memcpy (wps->dc.shaping_data, wps->dc.shaping_data + sample_count,
+                (wps->dc.shaping_samples - sample_count) * sizeof (*wps->dc.shaping_data));
+
+        wps->dc.shaping_samples -= sample_count;
+    }
+
+    if (orig_data) {
+        uint32_t data_count;
+        uchar *cptr;
+
+        if (wpc->wvc_flag)
+            cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
+        else
+            cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
+
+        bs_open_write (&wps->wvxbits, cptr + 8, wpc->wvc_flag ? wps->block2end : wps->blockend);
+
+        if (flags & FLOAT_DATA)
+            send_float_data (wps, (f32*) orig_data, (flags & MONO_DATA) ? sample_count : sample_count * 2);
+        else
+            send_int32_data (wps, orig_data, (flags & MONO_DATA) ? sample_count : sample_count * 2);
+
+        data_count = bs_close_write (&wps->wvxbits);
+        free (orig_data);
+
+        if (data_count) {
+            if (data_count != (uint32_t) -1) {
+                *cptr++ = ID_WVX_BITSTREAM | ID_LARGE;
+                *cptr++ = (data_count += 4) >> 1;
+                *cptr++ = data_count >> 9;
+                *cptr++ = data_count >> 17;
+                *cptr++ = wps->crc_x;
+                *cptr++ = wps->crc_x >> 8;
+                *cptr++ = wps->crc_x >> 16;
+                *cptr = wps->crc_x >> 24;
+
+                if (wpc->wvc_flag)
+                    ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 4;
+                else
+                    ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
+            }
+            else
+                return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer)
+{
+    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    int32_t sample_count = wps->wphdr.block_samples;
+    struct decorr_pass *ap = &wps->analysis_pass;
+    uint32_t flags = wps->wphdr.flags;
+    int32_t *bptr, temp, sam;
+    short *swptr;
+    int sc;
+
+    if (!ap->weight_A && !ap->weight_B && sample_count > 8) {
+        if (flags & MONO_DATA)
+            for (bptr = buffer + sample_count - 3, sc = sample_count - 2; sc--;) {
+                if (ap->term == 1)
+                    sam = bptr [1];
+                else if (ap->term == 18)
+                    sam = (3 * bptr [1] - bptr [2]) >> 1;
+                else
+                    sam = 2 * bptr [1] - bptr [2];
+
+                temp = *bptr-- - apply_weight (ap->weight_A, sam);
+                update_weight (ap->weight_A, ap->delta, sam, temp);
+            }
+        else
+            for (bptr = buffer + (sample_count - 3) * 2, sc = sample_count - 2; sc--;) {
+                if (ap->term == 1)
+                    sam = bptr [2];
+                else if (ap->term == 18)
+                    sam = (3 * bptr [2] - bptr [4]) >> 1;
+                else
+                    sam = 2 * bptr [2] - bptr [4];
+
+                temp = *bptr-- - apply_weight (ap->weight_A, sam);
+                update_weight (ap->weight_A, ap->delta, sam, temp);
+
+                if (ap->term == 1)
+                    sam = bptr [2];
+                else if (ap->term == 18)
+                    sam = (3 * bptr [2] - bptr [4]) >> 1;
+                else
+                    sam = 2 * bptr [2] - bptr [4];
+
+                temp = *bptr-- - apply_weight (ap->weight_B, sam);
+                update_weight (ap->weight_B, ap->delta, sam, temp);
+            }
+    }
+
+    if (sample_count > wps->dc.shaping_samples) {
+        sc = sample_count - wps->dc.shaping_samples;
+        swptr = wps->dc.shaping_data + wps->dc.shaping_samples;
+        bptr = buffer + wps->dc.shaping_samples * ((flags & MONO_DATA) ? 1 : 2);
 
         if (flags & MONO_DATA)
             while (sc--) {
@@ -1567,99 +1693,72 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
                     *swptr++ = 1536 - ap->weight_A - ap->weight_B;
             }
 
-            if (wpc->wvc_flag) {
-                best_floating_line (wps->dc.shaping_array, sample_count, &initial_y, &final_y, &max_error);
-
-                if (initial_y < -512) initial_y = -512;
-                else if (initial_y > 1024) initial_y = 1024;
-
-                if (final_y < -512) final_y = -512;
-                else if (final_y > 1024) final_y = 1024;
-
-                wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = (int32_t) floor (initial_y * 65536.0 + 0.5);
-
-                wps->dc.shaping_delta [0] = wps->dc.shaping_delta [1] =
-                    (int32_t) floor ((final_y - initial_y) / (sample_count - 1) * 65536.0 + 0.5);
-
-                free (wps->dc.shaping_array);
-                wps->dc.shaping_array = NULL;
-            }
+        wps->dc.shaping_samples = sample_count;
     }
 
-    if (!wps->num_passes && !wps->num_terms) {
-        wps->num_passes = 1;
+    if (wpc->wvc_flag) {
+        int max_allowed_error = 1000000 / wpc->ave_block_samples;
+        short max_error, trial_max_error;
+        double initial_y, final_y;
 
-        if (flags & MONO_DATA)
-            execute_mono (wpc, buffer, 1, 0);
-        else
-            execute_stereo (wpc, buffer, 1, 0);
+        if (max_allowed_error < 128)
+            max_allowed_error = 128;
 
-        wps->num_passes = 0;
-    }
+        best_floating_line (wps->dc.shaping_data, sample_count, &initial_y, &final_y, &max_error);
 
-    if (!pack_samples (wpc, buffer)) {
-        wps->wphdr.flags = sflags;
+        if (!wpc->current_stream && max_error > max_allowed_error && !wpc->config.block_samples) {
+            int min_samples = 0, max_samples = sample_count, trial_count;
+            double trial_initial_y, trial_final_y;
 
-        if (wps->dc.shaping_array) {
-            free (wps->dc.shaping_array);
-            wps->dc.shaping_array = NULL;
-        }
+            while (1) {
+                trial_count = (min_samples + max_samples) / 2;
 
-        if (orig_data)
-            free (orig_data);
+                best_floating_line (wps->dc.shaping_data, trial_count, &trial_initial_y,
+                    &trial_final_y, &trial_max_error);
 
-        return FALSE;
-    }
-    else {
-        wps->wphdr.flags = sflags;
-
-        if (wps->dc.shaping_array) {
-            free (wps->dc.shaping_array);
-            wps->dc.shaping_array = NULL;
-        }
-    }
-
-    if (orig_data) {
-        uint32_t data_count;
-        uchar *cptr;
-
-        if (wpc->wvc_flag)
-            cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
-        else
-            cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
-
-        bs_open_write (&wps->wvxbits, cptr + 8, wpc->wvc_flag ? wps->block2end : wps->blockend);
-
-        if (flags & FLOAT_DATA)
-            send_float_data (wps, (f32*) orig_data, (flags & MONO_DATA) ? sample_count : sample_count * 2);
-        else
-            send_int32_data (wps, orig_data, (flags & MONO_DATA) ? sample_count : sample_count * 2);
-
-        data_count = bs_close_write (&wps->wvxbits);
-        free (orig_data);
-
-        if (data_count) {
-            if (data_count != (uint32_t) -1) {
-                *cptr++ = ID_WVX_BITSTREAM | ID_LARGE;
-                *cptr++ = (data_count += 4) >> 1;
-                *cptr++ = data_count >> 9;
-                *cptr++ = data_count >> 17;
-                *cptr++ = wps->crc_x;
-                *cptr++ = wps->crc_x >> 8;
-                *cptr++ = wps->crc_x >> 16;
-                *cptr = wps->crc_x >> 24;
-
-                if (wpc->wvc_flag)
-                    ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 4;
+                if (trial_max_error < max_allowed_error) {
+                    max_error = trial_max_error;
+                    min_samples = trial_count;
+                    initial_y = trial_initial_y;
+                    final_y = trial_final_y;
+                }
                 else
-                    ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
-            }
-            else
-                return FALSE;
-        }
-    }
+                    max_samples = trial_count;
 
-    return TRUE;
+                if (min_samples > 10000 || max_samples - min_samples < 2)
+                    break;
+            }
+
+            sample_count = min_samples;
+        }
+
+        if (initial_y < -512) initial_y = -512;
+        else if (initial_y > 1024) initial_y = 1024;
+
+        if (final_y < -512) final_y = -512;
+        else if (final_y > 1024) final_y = 1024;
+#if 0
+        error_line ("%.2f sec, sample count = %5d, max error = %3d, range = %5d, %5d, actual = %5d, %5d",
+            (double) wps->sample_index / wpc->config.sample_rate, sample_count, max_error,
+            (int) floor (initial_y), (int) floor (final_y),
+            wps->dc.shaping_data [0], wps->dc.shaping_data [sample_count-1]);
+#endif
+        if (sample_count != wps->wphdr.block_samples)
+            wps->wphdr.block_samples = sample_count;
+
+        if (wpc->wvc_flag) {
+            wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = (int32_t) floor (initial_y * 65536.0 + 0.5);
+
+            wps->dc.shaping_delta [0] = wps->dc.shaping_delta [1] =
+                (int32_t) floor ((final_y - initial_y) / (sample_count - 1) * 65536.0 + 0.5);
+
+            wps->dc.shaping_array = NULL;
+        }
+        else
+            wps->dc.shaping_array = wps->dc.shaping_data;
+    }
+    else
+        wps->dc.shaping_array = wps->dc.shaping_data;
 }
 
 // Quickly scan a buffer of long integer data and determine whether any
@@ -2862,6 +2961,6 @@ void best_floating_line (short *values, int num_values, double *initial_y, doubl
             if (fabs (values [i] - (center_y + (i - center_x) * m)) > max)
                 max = fabs (values [i] - (center_y + (i - center_x) * m));
 
-        *max_error = floor (max + 0.5);
+        *max_error = (short) floor (max + 0.5);
     }
 }

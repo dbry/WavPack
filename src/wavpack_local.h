@@ -353,7 +353,8 @@ typedef struct {
     struct {
         int32_t shaping_acc [2], shaping_delta [2], error [2];
         double noise_sum, noise_ave, noise_max;
-        short *shaping_array;
+        short *shaping_data, *shaping_array;
+        int32_t shaping_samples;
     } dc;
 
     struct decorr_pass decorr_passes [MAX_NTERMS], analysis_pass;
@@ -408,7 +409,7 @@ typedef struct {
 
     uint32_t filelen, file2len, filepos, file2pos, total_samples, crc_errors, first_flags;
     int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, close_files;
-    uint32_t block_samples, max_samples, acc_samples, initial_index;
+    uint32_t block_samples, ave_block_samples, max_samples, acc_samples, initial_index;
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
 

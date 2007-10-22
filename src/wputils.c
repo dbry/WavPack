@@ -1334,6 +1334,7 @@ int WavpackPackInit (WavpackContext *wpc)
             wpc->block_samples *= 2;
     }
 
+    wpc->ave_block_samples = wpc->block_samples;
     wpc->max_samples = wpc->block_samples + (wpc->block_samples >> 1);
 
     for (wpc->current_stream = 0; wpc->streams [wpc->current_stream]; wpc->current_stream++) {
@@ -1590,6 +1591,9 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         result = pack_block (wpc, wps->sample_buffer);
         wps->blockbuff = wps->block2buff = NULL;
 
+        if (wps->wphdr.block_samples != block_samples)
+            block_samples = wps->wphdr.block_samples;
+
         if (!result) {
             strcpy (wpc->error_message, "output buffer overflowed!");
             break;
@@ -1625,6 +1629,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
     }
 
     wpc->current_stream = 0;
+    wpc->ave_block_samples = (wpc->ave_block_samples * 0x7 + block_samples + 0x4) >> 3;
     wpc->acc_samples -= block_samples;
     free (outbuff);
 
@@ -2265,6 +2270,11 @@ static void free_streams (WavpackContext *wpc)
         if (wpc->streams [si]->sample_buffer) {
             free (wpc->streams [si]->sample_buffer);
             wpc->streams [si]->sample_buffer = NULL;
+        }
+
+        if (wpc->streams [si]->dc.shaping_data) {
+            free (wpc->streams [si]->dc.shaping_data);
+            wpc->streams [si]->dc.shaping_data = NULL;
         }
 
         if (si) {
