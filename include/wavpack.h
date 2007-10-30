@@ -186,6 +186,7 @@ typedef struct {
 #define CONFIG_EXTRA_MODE       0x2000000 // extra processing mode
 #define CONFIG_SKIP_WVX         0x4000000 // no wvx stream w/ floats & big ints
 #define CONFIG_MD5_CHECKSUM     0x8000000 // store MD5 signature
+#define CONFIG_MERGE_BLOCKS     0x10000000 // merge blocks of equal redundancy (for lossyWAV)
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
 ////////////// Callbacks used for reading & writing WavPack streams //////////

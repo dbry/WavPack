@@ -257,12 +257,17 @@ typedef struct {
 #define CONFIG_EXTRA_MODE       0x2000000 // extra processing mode
 #define CONFIG_SKIP_WVX         0x4000000 // no wvx stream w/ floats & big ints
 #define CONFIG_MD5_CHECKSUM     0x8000000 // compute & store MD5 signature
+#define CONFIG_MERGE_BLOCKS     0x10000000 // merge blocks of equal redundancy (for lossyWAV)
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
 /*
- * These config flags are no longer used (or were never used) although there
- * may be WavPack files that have some of these bits set in the config
- * metadata structure, so be careful reusing them for something else.
+ * These config flags were never actually used, or are no longer used, or are
+ * used for something else now. They may be used in the future for what they
+ * say, or for something else. WavPack files in the wild *may* have some of
+ * these bit set in their config flags (with these older meanings), but only
+ * if the stream version is 0x410 or less than 0x407. Of course, this is not
+ * very important because once the file has been encoded, the config bits are
+ * just for information purposes (i.e., they do not affect decoding),
  *
 #define CONFIG_ADOBE_MODE       0x100   // "adobe" mode for 32-bit floats
 #define CONFIG_VERY_FAST_FLAG   0x400   // double fast
@@ -409,7 +414,7 @@ typedef struct {
 
     uint32_t filelen, file2len, filepos, file2pos, total_samples, crc_errors, first_flags;
     int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, close_files;
-    uint32_t block_samples, ave_block_samples, max_samples, acc_samples, initial_index;
+    uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, initial_index;
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
 

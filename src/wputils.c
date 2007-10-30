@@ -1317,21 +1317,27 @@ int WavpackPackInit (WavpackContext *wpc)
     if (wpc->metabytes > 4096)
         write_metadata_block (wpc);
 
-    if (wpc->config.block_samples)
-        wpc->block_samples = wpc->config.block_samples;
-    else {
-        if (wpc->config.flags & CONFIG_HIGH_FLAG)
-            wpc->block_samples = wpc->config.sample_rate;
-        else if (!(wpc->config.sample_rate % 2))
-            wpc->block_samples = wpc->config.sample_rate / 2;
+    if (wpc->config.flags & CONFIG_HIGH_FLAG)
+        wpc->block_samples = wpc->config.sample_rate;
+    else if (!(wpc->config.sample_rate % 2))
+        wpc->block_samples = wpc->config.sample_rate / 2;
+    else
+        wpc->block_samples = wpc->config.sample_rate;
+
+    while (wpc->block_samples * wpc->config.num_channels > 150000)
+        wpc->block_samples /= 2;
+
+    while (wpc->block_samples * wpc->config.num_channels < 40000)
+        wpc->block_samples *= 2;
+
+    if (wpc->config.block_samples) {
+        if (wpc->config.flags & CONFIG_MERGE_BLOCKS) {
+            wpc->block_boundary = wpc->config.block_samples;
+            wpc->block_samples /= wpc->config.block_samples;
+            wpc->block_samples *= wpc->config.block_samples;
+        }
         else
-            wpc->block_samples = wpc->config.sample_rate;
-
-        while (wpc->block_samples * wpc->config.num_channels > 150000)
-            wpc->block_samples /= 2;
-
-        while (wpc->block_samples * wpc->config.num_channels < 40000)
-            wpc->block_samples *= 2;
+            wpc->block_samples = wpc->config.block_samples;
     }
 
     wpc->ave_block_samples = wpc->block_samples;

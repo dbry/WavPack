@@ -1405,6 +1405,7 @@ static int scan_int32_data (WavpackStream *wps, int32_t *values, int32_t num_val
 static void scan_int32_quick (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer);
+static int scan_redundancy (int32_t *values, int32_t num_values);
 static int pack_samples (WavpackContext *wpc, int32_t *buffer);
 
 int pack_block (WavpackContext *wpc, int32_t *buffer)
@@ -1416,6 +1417,18 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     if (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) {
         dynamic_noise_shaping (wpc, buffer);
         sample_count = wps->wphdr.block_samples;
+    }
+
+    if (!wpc->current_stream && wpc->block_boundary && sample_count >= wpc->block_boundary * 2) {
+        int bc = sample_count / wpc->block_boundary, chans = (flags & MONO_DATA) ? 1 : 2;
+        int res = scan_redundancy (buffer, wpc->block_boundary * chans), i; 
+
+        for (i = 1; i < bc; ++i)
+            if (res != scan_redundancy (buffer + (i * wpc->block_boundary * chans),
+                wpc->block_boundary * chans)) {
+                    sample_count = wps->wphdr.block_samples = wpc->block_boundary * i;
+                    break;
+                }
     }
 
     if (!(flags & MONO_FLAG) && wpc->stream_version >= 0x410) {
@@ -1823,6 +1836,44 @@ static void scan_int32_quick (WavpackStream *wps, int32_t *values, int32_t num_v
         for (dp = values, count = num_values; count--; dp++)
             *dp >>= total_shift;
     }
+}
+
+static int scan_redundancy (int32_t *values, int32_t num_values)
+{
+    uint32_t ordata = 0, xordata = 0, anddata = ~0;
+    int redundant_bits = 0;
+    int32_t *dp, count;
+
+    for (dp = values, count = num_values; count--; dp++) {
+        xordata |= *dp ^ -(*dp & 1);
+        anddata &= *dp;
+        ordata |= *dp;
+
+        if ((ordata & 1) && !(anddata & 1) && (xordata & 2))
+            return 0;
+    }
+
+    if (!ordata || anddata == ~0 || !xordata)
+        return 0;
+
+    if (!(ordata & 1))
+        while (!(ordata & 1)) {
+            redundant_bits++;
+            ordata >>= 1;
+        }
+    else if (anddata & 1)
+        while (anddata & 1) {
+            redundant_bits = (redundant_bits + 1) | 0x40;
+            anddata >>= 1;
+        }
+    else if (!(xordata & 2))
+        while (!(xordata & 2)) {
+            redundant_bits = (redundant_bits + 1) | 0x80;
+            redundant_bits++;
+            xordata >>= 1;
+        }
+
+    return redundant_bits;
 }
 
 // Scan a buffer of long integer data and determine whether any redundancy in
