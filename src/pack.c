@@ -1093,6 +1093,10 @@ void pack_init (WavpackContext *wpc)
     CLEAR (wps->decorr_passes);
     CLEAR (wps->dc);
 
+    /* although we set the term and delta values here for clarity, they're
+     * actually hardcoded in the analysis function for speed
+     */
+
     CLEAR (wps->analysis_pass);
     wps->analysis_pass.term = 18;
     wps->analysis_pass.delta = 2;
@@ -1401,10 +1405,10 @@ void write_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 // FALSE indicates an error.
 
 static void best_floating_line (short *values, int num_values, double *initial_y, double *final_y, short *max_error);
+static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening_allowed);
 static int scan_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void scan_int32_quick (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
-static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer);
 static int scan_redundancy (int32_t *values, int32_t num_values);
 static int pack_samples (WavpackContext *wpc, int32_t *buffer);
 
@@ -1413,22 +1417,25 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags, sflags = wps->wphdr.flags;
     int32_t sample_count = wps->wphdr.block_samples, *orig_data = NULL;
+    int dynamic_shaping_done = FALSE;
 
-    if (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) {
-        dynamic_noise_shaping (wpc, buffer);
-        sample_count = wps->wphdr.block_samples;
-    }
+    if (!wpc->current_stream && !(flags & FLOAT_DATA) && (flags & MAG_MASK) >> MAG_LSB < 24) {
+        if ((wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !wpc->config.block_samples) {
+            dynamic_noise_shaping (wpc, buffer, TRUE);
+            sample_count = wps->wphdr.block_samples;
+            dynamic_shaping_done = TRUE;
+        }
+        else if (wpc->block_boundary && sample_count >= wpc->block_boundary * 2) {
+            int bc = sample_count / wpc->block_boundary, chans = (flags & MONO_DATA) ? 1 : 2;
+            int res = scan_redundancy (buffer, wpc->block_boundary * chans), i; 
 
-    if (!wpc->current_stream && wpc->block_boundary && sample_count >= wpc->block_boundary * 2) {
-        int bc = sample_count / wpc->block_boundary, chans = (flags & MONO_DATA) ? 1 : 2;
-        int res = scan_redundancy (buffer, wpc->block_boundary * chans), i; 
-
-        for (i = 1; i < bc; ++i)
-            if (res != scan_redundancy (buffer + (i * wpc->block_boundary * chans),
-                wpc->block_boundary * chans)) {
-                    sample_count = wps->wphdr.block_samples = wpc->block_boundary * i;
-                    break;
-                }
+            for (i = 1; i < bc; ++i)
+                if (res != scan_redundancy (buffer + (i * wpc->block_boundary * chans),
+                    wpc->block_boundary * chans)) {
+                        sample_count = wps->wphdr.block_samples = wpc->block_boundary * i;
+                        break;
+                    }
+        }
     }
 
     if (!(flags & MONO_FLAG) && wpc->stream_version >= 0x410) {
@@ -1530,6 +1537,9 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         }
     }
 
+    if ((wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !dynamic_shaping_done)
+        dynamic_noise_shaping (wpc, buffer, FALSE);
+
     if (!wps->num_passes && !wps->num_terms) {
         wps->num_passes = 1;
 
@@ -1603,7 +1613,7 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     return TRUE;
 }
 
-static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer)
+static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening_allowed)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     int32_t sample_count = wps->wphdr.block_samples;
@@ -1613,40 +1623,21 @@ static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer)
     short *swptr;
     int sc;
 
-    if (!ap->weight_A && !ap->weight_B && sample_count > 8) {
+    if (!wps->num_terms && sample_count > 8) {
         if (flags & MONO_DATA)
             for (bptr = buffer + sample_count - 3, sc = sample_count - 2; sc--;) {
-                if (ap->term == 1)
-                    sam = bptr [1];
-                else if (ap->term == 18)
-                    sam = (3 * bptr [1] - bptr [2]) >> 1;
-                else
-                    sam = 2 * bptr [1] - bptr [2];
-
+                sam = (3 * bptr [1] - bptr [2]) >> 1;
                 temp = *bptr-- - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, ap->delta, sam, temp);
+                update_weight (ap->weight_A, 2, sam, temp);
             }
         else
             for (bptr = buffer + (sample_count - 3) * 2, sc = sample_count - 2; sc--;) {
-                if (ap->term == 1)
-                    sam = bptr [2];
-                else if (ap->term == 18)
-                    sam = (3 * bptr [2] - bptr [4]) >> 1;
-                else
-                    sam = 2 * bptr [2] - bptr [4];
-
+                sam = (3 * bptr [2] - bptr [4]) >> 1;
                 temp = *bptr-- - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, ap->delta, sam, temp);
-
-                if (ap->term == 1)
-                    sam = bptr [2];
-                else if (ap->term == 18)
-                    sam = (3 * bptr [2] - bptr [4]) >> 1;
-                else
-                    sam = 2 * bptr [2] - bptr [4];
-
+                update_weight (ap->weight_A, 2, sam, temp);
+                sam = (3 * bptr [2] - bptr [4]) >> 1;
                 temp = *bptr-- - apply_weight (ap->weight_B, sam);
-                update_weight (ap->weight_B, ap->delta, sam, temp);
+                update_weight (ap->weight_B, 2, sam, temp);
             }
     }
 
@@ -1657,53 +1648,28 @@ static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer)
 
         if (flags & MONO_DATA)
             while (sc--) {
-                if (ap->term == 1)
-                    sam = ap->samples_A [0];
-                else if (ap->term == 18)
-                    sam = (3 * ap->samples_A [0] - ap->samples_A [1]) >> 1;
-                else
-                    sam = 2 * ap->samples_A [0] - ap->samples_A [1];
-
+                sam = (3 * ap->samples_A [0] - ap->samples_A [1]) >> 1;
                 temp = *bptr - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, ap->delta, sam, temp);
+                update_weight (ap->weight_A, 2, sam, temp);
                 ap->samples_A [1] = ap->samples_A [0];
                 ap->samples_A [0] = *bptr++;
-
-                if (ap->weight_A < 256)
-                    *swptr++ = 1024;
-                else
-                    *swptr++ = 1536 - ap->weight_A * 2;
+                *swptr++ = (ap->weight_A < 256) ? 1024 : 1536 - ap->weight_A * 2;
             }
         else
             while (sc--) {
-                if (ap->term == 1)
-                    sam = ap->samples_A [0];
-                else if (ap->term == 18)
-                    sam = (3 * ap->samples_A [0] - ap->samples_A [1]) >> 1;
-                else
-                    sam = 2 * ap->samples_A [0] - ap->samples_A [1];
-
+                sam = (3 * ap->samples_A [0] - ap->samples_A [1]) >> 1;
                 temp = *bptr - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, ap->delta, sam, temp);
+                update_weight (ap->weight_A, 2, sam, temp);
                 ap->samples_A [1] = ap->samples_A [0];
                 ap->samples_A [0] = *bptr++;
 
-                if (ap->term == 1)
-                    sam = ap->samples_B [0];
-                else if (ap->term == 18)
-                    sam = (3 * ap->samples_B [0] - ap->samples_B [1]) >> 1;
-                else
-                    sam = 2 * ap->samples_B [0] - ap->samples_B [1];
-
+                sam = (3 * ap->samples_B [0] - ap->samples_B [1]) >> 1;
                 temp = *bptr - apply_weight (ap->weight_B, sam);
-                update_weight (ap->weight_B, ap->delta, sam, temp);
+                update_weight (ap->weight_B, 2, sam, temp);
                 ap->samples_B [1] = ap->samples_B [0];
                 ap->samples_B [0] = *bptr++;
 
-                if (ap->weight_A + ap->weight_B < 512)
-                    *swptr++ = 1024;
-                else
-                    *swptr++ = 1536 - ap->weight_A - ap->weight_B;
+                *swptr++ = (ap->weight_A + ap->weight_B < 512) ? 1024 : 1536 - ap->weight_A - ap->weight_B;
             }
 
         wps->dc.shaping_samples = sample_count;
@@ -1719,7 +1685,7 @@ static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer)
 
         best_floating_line (wps->dc.shaping_data, sample_count, &initial_y, &final_y, &max_error);
 
-        if (!wpc->current_stream && max_error > max_allowed_error && !wpc->config.block_samples) {
+        if (shortening_allowed && max_error > max_allowed_error) {
             int min_samples = 0, max_samples = sample_count, trial_count;
             double trial_initial_y, trial_final_y;
 

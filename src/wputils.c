@@ -1331,7 +1331,7 @@ int WavpackPackInit (WavpackContext *wpc)
         wpc->block_samples *= 2;
 
     if (wpc->config.block_samples) {
-        if (wpc->config.flags & CONFIG_MERGE_BLOCKS) {
+        if ((wpc->config.flags & CONFIG_MERGE_BLOCKS) && wpc->block_samples > wpc->config.block_samples) {
             wpc->block_boundary = wpc->config.block_samples;
             wpc->block_samples /= wpc->config.block_samples;
             wpc->block_samples *= wpc->config.block_samples;
