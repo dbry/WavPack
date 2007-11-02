@@ -1425,7 +1425,7 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
             sample_count = wps->wphdr.block_samples;
             dynamic_shaping_done = TRUE;
         }
-        else if (wpc->block_boundary && sample_count >= wpc->block_boundary * 2) {
+        else if (wpc->block_boundary && sample_count >= (int32_t) wpc->block_boundary * 2) {
             int bc = sample_count / wpc->block_boundary, chans = (flags & MONO_DATA) ? 1 : 2;
             int res = scan_redundancy (buffer, wpc->block_boundary * chans), i; 
 

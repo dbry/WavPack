@@ -99,7 +99,7 @@ static const char *help =
 "          --channel-order=C1,C2,C3,... = channel order if not MS standard\n"
 "            (FL,FR,FC,LFE,BL,BR,FLC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
-"          --dns = dynamic noise shaping (for hybrid lossy mode only)\n"
+"          --dns = dynamic noise shaping (for hybrid mode only)\n"
 #if defined (WIN32)
 "          -e  = create self-extracting executable (needs wvselfx.exe)\n"
 #endif
