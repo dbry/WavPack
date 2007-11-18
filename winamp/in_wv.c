@@ -726,7 +726,7 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
             Sleep (10);
         }
         else if (mod.outMod->CanWrite() >= ((576 * num_chans * (curr.output_bits / 8)) << (mod.dsp_isactive () ? 1 : 0))) {
-            int tsamples = read_samples (&curr, 576);
+            int tsamples = read_samples (&curr, 576) * num_chans;
             int tbytes = tsamples * (curr.output_bits/8);
 
             if (tsamples) {
@@ -752,11 +752,162 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
     return 0;
 }
 
+/********* These functions provide the "transcoding" mode of winamp. *********/
+
+__declspec (dllexport) intptr_t winampGetExtendedRead_open (
+    const char *fn, int *size, int *bps, int *nch, int *srate)
+{
+    struct wpcnxt *cnxt = (struct wpcnxt *) malloc (sizeof (struct wpcnxt));
+    int num_chans, sample_rate, open_flags;
+    char error [128];
+
+#ifdef DEBUG_CONSOLE
+    sprintf (error, "Read_open (%s)\n", fn);
+    debug_write (error);
+#endif
+
+    if (!cnxt)
+        return 0;
+
+    open_flags = OPEN_NORMALIZE;
+
+    if (config_bits & ALLOW_WVC)
+        open_flags |= OPEN_WVC;
+
+    if (!(config_bits & ALLOW_MULTICHANNEL) || *nch == 2)
+        open_flags |= OPEN_2CH_MAX;
+
+    if (config_bits & (REPLAYGAIN_TRACK | REPLAYGAIN_ALBUM))
+        open_flags |= OPEN_TAGS;
+ 
+    cnxt->wpc = WavpackOpenFileInput (fn, error, open_flags, 0);
+
+    if (!cnxt->wpc) {           // error opening file, just return error
+        free (cnxt);
+        return 0;
+    }
+
+    num_chans = WavpackGetReducedChannels (cnxt->wpc);
+    sample_rate = WavpackGetSampleRate (cnxt->wpc);
+
+    if (*bps != 16 && *bps != 24 && *bps != 32) {
+        cnxt->output_bits = WavpackGetBitsPerSample (cnxt->wpc) > 16 ? 24 : 16;
+
+        if (config_bits & ALWAYS_16BIT)
+            cnxt->output_bits = 16;
+        else if ((config_bits & (REPLAYGAIN_TRACK | REPLAYGAIN_ALBUM)) &&
+            (config_bits & REPLAYGAIN_24BIT))
+                cnxt->output_bits = 24;
+    }
+    else
+        cnxt->output_bits = *bps;
+ 
+    if (num_chans > MAX_NCH) {    // don't allow too many channels!
+        WavpackCloseFile (cnxt->wpc);
+        free (cnxt);
+        return 0;
+    }
+
+    *nch = num_chans;
+    *srate = sample_rate;
+    *bps = cnxt->output_bits;
+    *size = WavpackGetNumSamples (cnxt->wpc) * (*bps / 8) * (*nch);
+  
+    cnxt->play_gain = calculate_gain (cnxt->wpc, &cnxt->soft_clipping);
+
+#ifdef DEBUG_CONSOLE
+    sprintf (error, "Read_open success! nch=%d, srate=%d, bps=%d, size=%d\n",
+        *nch, *srate, *bps, *size);
+    debug_write (error);
+#endif
+
+    return (intptr_t) cnxt;
+}
+
+__declspec (dllexport) intptr_t winampGetExtendedRead_getData (
+    intptr_t handle, char *dest, int len, int *killswitch)
+{
+    struct wpcnxt *cnxt = (struct wpcnxt *) handle;
+    int num_chans = WavpackGetReducedChannels (cnxt->wpc);
+    int bytes_per_sample = num_chans * cnxt->output_bits / 8;
+    int used = 0;
+
+#ifdef DEBUG_CONSOLE
+    char error [128];
+#endif
+
+    while (used < len && !*killswitch) {
+        int nsamples = (len - used) / bytes_per_sample, tsamples;
+
+        if (!nsamples)
+            break;
+        else if (nsamples > 576)
+            nsamples = 576;
+
+        tsamples = read_samples (cnxt, nsamples) * num_chans;
+
+        if (tsamples) {
+            int tbytes = tsamples * (cnxt->output_bits/8);
+
+            memcpy (dest + used, cnxt->sample_buffer, tbytes);
+            used += tbytes;
+        }
+        else
+            break;
+    }
+
+#ifdef DEBUG_CONSOLE
+    sprintf (error, "Read_getData (%d), actualy read %d\n", len, used);
+    debug_write (error);
+#endif
+
+    return used;
+}
+
+__declspec (dllexport) int winampGetExtendedRead_setTime (intptr_t handle, int millisecs)
+{
+    struct wpcnxt *cnxt = (struct wpcnxt *) handle;
+    int sample_rate = WavpackGetSampleRate (cnxt->wpc);
+
+    return WavpackSeekSample (cnxt->wpc, (int)(sample_rate / 1000.0 * millisecs));
+}
+
+__declspec (dllexport) void winampGetExtendedRead_close (intptr_t handle)
+{
+    struct wpcnxt *cnxt = (struct wpcnxt *) handle;
+
+#ifdef DEBUG_CONSOLE
+    char error [128];
+
+    sprintf (error, "Read_close ()\n");
+    debug_write (error);
+#endif
+
+    WavpackCloseFile (cnxt->wpc);
+    free (cnxt);
+}
+
+/* This is a generic function to read WavPack samples and convert them to a
+ * form usable by winamp. It includes conversion of any WavPack format
+ * (including ieee float) to 16, 24, or 32-bit integers (with noise shaping
+ * for the 16-bit case) and replay gain implementation (with optional soft
+ * clipping). It is used by both the regular "play" code and the newer
+ * transcoding functions.
+ *
+ * The num_samples parameter is the number of "composite" samples to
+ * convert and is limited currently to 576 samples for legacy reasons. The
+ * return value is the number of samples actually converted and will be
+ * equal to the number requested unless an error occurs or the end-of-file
+ * is encountered. The converted samples are stored (interleaved) at
+ * cnxt->sample_buffer[].
+ */
+
 static int read_samples (struct wpcnxt *cnxt, int num_samples)
 {
-    int num_chans = WavpackGetReducedChannels (cnxt->wpc), tsamples;
+    int num_chans = WavpackGetReducedChannels (cnxt->wpc), samples, tsamples;
 
-    tsamples = WavpackUnpackSamples (cnxt->wpc, cnxt->sample_buffer, num_samples) * num_chans;
+    samples = WavpackUnpackSamples (cnxt->wpc, cnxt->sample_buffer, num_samples);
+    tsamples = samples * num_chans;
 
     if (tsamples) {
         if (!(WavpackGetMode (cnxt->wpc) & MODE_FLOAT)) {
@@ -791,7 +942,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
         if (cnxt->output_bits == 16) {
             float *fptr = (float *) cnxt->sample_buffer;
             short *sptr = (short *) cnxt->sample_buffer;
-            int cnt = tsamples / num_chans, ch;
+            int cnt = samples, ch;
 
             while (cnt--)
                 for (ch = 0; ch < num_chans; ++ch) {
@@ -848,7 +999,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
         }
     }
 
-    return tsamples;
+    return samples;
 }
 
 
