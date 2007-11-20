@@ -1,0 +1,5 @@
+version 1.0.1:
+	* fix wavpack includes (xmixahlx)
+	* provide a tarball :)
+version 1.0:
+	* first release (kuniklo)

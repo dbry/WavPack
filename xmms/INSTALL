@@ -1,0 +1,8 @@
+Xmms-musepack plugin
+Required:
+	GTK-1.2 headers and libs
+	Glib-2.0 headers and libs
+	Xmms-1.2.10 headers and binaries
+To install:
+run "./configure && make" as user
+run "make install" as root
