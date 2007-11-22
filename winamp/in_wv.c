@@ -50,7 +50,7 @@ int decode_pos_ms;      // current decoding position, in milliseconds
 int paused;             // are we paused?
 int seek_needed;        // if != -1, it is the point that the decode thread should seek to, in ms.
 
-#define ALLOW_WVC              0x1
+#define ALLOW_WVC               0x1
 #define REPLAYGAIN_TRACK        0x2
 #define REPLAYGAIN_ALBUM        0x4
 #define SOFTEN_CLIPPING         0x8
@@ -188,7 +188,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.5a4 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.5a5 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -772,6 +772,7 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
     if (!cnxt)
         return 0;
 
+    memset (cnxt, 0, sizeof (struct wpcnxt));
     open_flags = OPEN_NORMALIZE;
 
     if (config_bits & ALLOW_WVC)
@@ -1010,7 +1011,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.5a4 "
+    "WavPack Player v2.5a5 "
 
 #ifdef __alpha
     "(AXP)"
