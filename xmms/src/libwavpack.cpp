@@ -35,8 +35,7 @@ static void wv_set_eq(int, float, float *);
 static int wv_get_time(void);
 static void wv_get_song_info(char *, char **, int *);
 static char *generate_title(const char *, WavpackContext *ctx);
-static double isSeek;
-static short paused;
+static int isSeek, paused;
 static bool killDecodeThread;
 static bool AudioError;
 static pthread_t thread_handle;
@@ -87,8 +86,10 @@ public:
     int16_t *output;
     int sample_rate;
     int num_channels;
+    int bytes_per_sample;
     WavpackContext *ctx;
     char error_buff[4096]; // TODO: fixme!
+    float shaping_error [8];
 
     WavpackDecoder(InputPlugin *mod) : mod(mod)
     {
@@ -115,7 +116,7 @@ public:
 
     bool attach(const char *filename)
     {
-        ctx = WavpackOpenFileInput(filename, error_buff, OPEN_TAGS | OPEN_WVC, 0);
+        ctx = WavpackOpenFileInput(filename, error_buff, OPEN_TAGS | OPEN_WVC | OPEN_NORMALIZE, 0);
 
         if (ctx == NULL) {
             return false;
@@ -123,8 +124,10 @@ public:
 
         sample_rate = WavpackGetSampleRate(ctx);
         num_channels = WavpackGetNumChannels(ctx);
+        bytes_per_sample = WavpackGetBytesPerSample(ctx);
         input = (int32_t *)calloc(BUFFER_SIZE, num_channels * sizeof(int32_t));
         output = (int16_t *)calloc(BUFFER_SIZE, num_channels * sizeof(int16_t));
+        memset (shaping_error, 0, sizeof (shaping_error));
         mod->set_info(generate_title(filename, ctx),
                       (int) (WavpackGetNumSamples(ctx) / sample_rate) * 1000,
                       (int) WavpackGetAverageBitrate(ctx, num_channels),
@@ -134,15 +137,51 @@ public:
 
     bool open_audio()
     {
-        return mod->output->open_audio(FMT_S16_LE, sample_rate, num_channels);
+        return mod->output->open_audio(FMT_S16_NE, sample_rate, num_channels);
     }
 
     void process_buffer(size_t num_samples)
     {
-        for (int i = 0; i < num_samples * num_channels; i++) {
-            output[i] = input[i];
+        int tsamples = num_samples * num_channels;
+
+        if (!(WavpackGetMode (ctx) & MODE_FLOAT)) {
+            float scaler = (float) (1.0 / ((unsigned int32_t) 1 << (bytes_per_sample * 8 - 1)));
+            float *fptr = (float *) input;
+            int32_t *lptr = input;
+            int cnt = tsamples;
+
+            while (cnt--)
+                *fptr++ = *lptr++ * scaler;
         }
-        mod->output->write_audio(output, num_samples * num_channels * sizeof(int16_t));
+
+        if (tsamples) {
+            float *fptr = (float *) input;
+            short *sptr = (short *) output;
+            int cnt = num_samples, ch;
+
+            while (cnt--)
+                for (ch = 0; ch < num_channels; ++ch) {
+                    int dst;
+
+                    *fptr -= shaping_error [ch];
+
+                    if (*fptr >= 1.0)
+                        dst = 32767;
+                    else if (*fptr <= -1.0)
+                        dst = -32768;
+                    else
+                        dst = (int) floor (*fptr * 32768.0);
+
+                    shaping_error [ch] = (float)(dst / 32768.0 - *fptr++);
+                    *sptr++ = dst;
+                }
+        }
+
+        if (EQ_on)
+            iir ((char *) output, tsamples * sizeof(int16_t));
+
+        mod->add_vis_pcm(mod->output->written_time(), FMT_S16_NE, num_channels, tsamples * sizeof(int16_t), output);
+        mod->output->write_audio(output, tsamples * sizeof(int16_t));
     }
 };
 
