@@ -110,6 +110,10 @@ wv_file_info_box(char *fn)
     gchar *tmp;
     gint time, minutes, seconds;
     ape_tag tag;
+    char    track_gain      [16];
+    char    track_peak      [16];
+    char    album_gain      [16];
+    char    album_peak      [16];
 
     assert(fn != NULL);
     char error_buff[4096]; // TODO: fixme!
@@ -121,6 +125,10 @@ wv_file_info_box(char *fn)
     int sample_rate = WavpackGetSampleRate(ctx);
     int num_channels = WavpackGetNumChannels(ctx);
     load_tag(&tag, ctx);
+    WavpackGetTagItem(ctx, "replaygain_track_gain", track_gain, sizeof(track_gain));
+    WavpackGetTagItem(ctx, "replaygain_track_peak", track_peak, sizeof(track_peak));
+    WavpackGetTagItem(ctx, "replaygain_album_gain", album_gain, sizeof(album_gain));
+    WavpackGetTagItem(ctx, "replaygain_album_peak", album_peak, sizeof(album_peak));
     DBG("opened %s at %d rate with %d channels\n", fn, sample_rate, num_channels);
 
     filename = g_strdup(fn);
@@ -329,28 +337,28 @@ wv_file_info_box(char *fn)
         gtk_box_pack_start(GTK_BOX(info_box), filesize_label, FALSE,
                            FALSE, 0);
 
-        peakTitle_label = gtk_label_new("");
-        gtk_misc_set_alignment(GTK_MISC(peakTitle_label), 0, 0);
-        gtk_label_set_justify(GTK_LABEL(peakTitle_label), GTK_JUSTIFY_LEFT);
-        gtk_box_pack_start(GTK_BOX(info_box), peakTitle_label, FALSE,
-                           FALSE, 0);
-
-        peakAlbum_label = gtk_label_new("");
-        gtk_misc_set_alignment(GTK_MISC(peakAlbum_label), 0, 0);
-        gtk_label_set_justify(GTK_LABEL(peakAlbum_label), GTK_JUSTIFY_LEFT);
-        gtk_box_pack_start(GTK_BOX(info_box), peakAlbum_label, FALSE,
-                           FALSE, 0);
-
         gainTitle_label = gtk_label_new("");
         gtk_misc_set_alignment(GTK_MISC(gainTitle_label), 0, 0);
         gtk_label_set_justify(GTK_LABEL(gainTitle_label), GTK_JUSTIFY_LEFT);
         gtk_box_pack_start(GTK_BOX(info_box), gainTitle_label, FALSE,
                            FALSE, 0);
 
+        peakTitle_label = gtk_label_new("");
+        gtk_misc_set_alignment(GTK_MISC(peakTitle_label), 0, 0);
+        gtk_label_set_justify(GTK_LABEL(peakTitle_label), GTK_JUSTIFY_LEFT);
+        gtk_box_pack_start(GTK_BOX(info_box), peakTitle_label, FALSE,
+                           FALSE, 0);
+
         gainAlbum_label = gtk_label_new("");
         gtk_misc_set_alignment(GTK_MISC(gainAlbum_label), 0, 0);
         gtk_label_set_justify(GTK_LABEL(gainAlbum_label), GTK_JUSTIFY_LEFT);
         gtk_box_pack_start(GTK_BOX(info_box), gainAlbum_label, FALSE,
+                           FALSE, 0);
+
+        peakAlbum_label = gtk_label_new("");
+        gtk_misc_set_alignment(GTK_MISC(peakAlbum_label), 0, 0);
+        gtk_label_set_justify(GTK_LABEL(peakAlbum_label), GTK_JUSTIFY_LEFT);
+        gtk_box_pack_start(GTK_BOX(info_box), peakAlbum_label, FALSE,
                            FALSE, 0);
 
         gtk_widget_show_all(window);
@@ -376,24 +384,19 @@ wv_file_info_box(char *fn)
     minutes = time / 60;
     seconds = time % 60;
 
-    label_set_text(version_label, "version %d", WavpackGetVersion(ctx));
-    label_set_text(bitrate_label, "average bitrate: %6.1f kbps", WavpackGetAverageBitrate(ctx, 0) / 1000);
-    label_set_text(rate_label, "samplerate: %d Hz", WavpackGetSampleRate(ctx));
-    label_set_text(bits_per_sample_label, "bits per sample: %d", WavpackGetBitsPerSample(ctx));
-    label_set_text(channel_label, "channels: %d", WavpackGetNumChannels(ctx));
-    label_set_text(length_label, "length: %d:%.2d", minutes, seconds);
-    label_set_text(filesize_label, "file size: %d Bytes", WavpackGetFileSize(ctx));
-    /*
-    label_set_text(peakTitle_label, "Title Peak: %5u", 100);
-    label_set_text(peakAlbum_label, "Album Peak: %5u", 100);
-    label_set_text(gainTitle_label, "Title Gain: %-+5.2f dB", 100.0);
-    label_set_text(gainAlbum_label, "Album Gain: %-+5.2f dB", 100.0);
-    */
-    label_set_text(peakTitle_label, "Title Peak: ?");
-    label_set_text(peakAlbum_label, "Album Peak: ?");
-    label_set_text(gainTitle_label, "Title Gain: ?");
-    label_set_text(gainAlbum_label, "Album Gain: ?");
+    label_set_text(version_label, "Version %d", WavpackGetVersion(ctx));
+    label_set_text(bitrate_label, "Average bitrate: %6.1f kbps", WavpackGetAverageBitrate(ctx, 0) / 1000);
+    label_set_text(rate_label, "Samplerate: %d Hz", WavpackGetSampleRate(ctx));
+    label_set_text(bits_per_sample_label, "Bits per sample: %d", WavpackGetBitsPerSample(ctx));
+    label_set_text(channel_label, "Channels: %d", WavpackGetNumChannels(ctx));
+    label_set_text(length_label, "Length: %d:%.2d", minutes, seconds);
+    label_set_text(filesize_label, "File size: %d Bytes", WavpackGetFileSize(ctx));
 
+    label_set_text(gainTitle_label, "Title gain: %s", track_gain);
+    label_set_text(peakTitle_label, "Title peak: %s", track_peak);
+    label_set_text(gainAlbum_label, "Album gain: %s", album_gain);
+    label_set_text(peakAlbum_label, "Album peak: %s", album_peak);
+    
     gtk_entry_set_text(GTK_ENTRY(title_entry), tag.title);
     gtk_entry_set_text(GTK_ENTRY(performer_entry), tag.artist);
     gtk_entry_set_text(GTK_ENTRY(album_entry), tag.album);

@@ -25,6 +25,7 @@ extern "C" {
 #define BUFFER_SIZE 256 // read buffer size, in samples
 
 extern "C" InputPlugin * get_iplugin_info(void);
+static float calculate_gain (WavpackContext *wpc);
 static void wv_load_config();
 static int wv_is_our_file(char *);
 static void wv_play(char *);
@@ -89,7 +90,7 @@ public:
     int bytes_per_sample;
     WavpackContext *ctx;
     char error_buff[4096]; // TODO: fixme!
-    float shaping_error [8];
+    float play_gain, shaping_error [8];
 
     WavpackDecoder(InputPlugin *mod) : mod(mod)
     {
@@ -132,6 +133,8 @@ public:
                       (int) (WavpackGetNumSamples(ctx) / sample_rate) * 1000,
                       (int) WavpackGetAverageBitrate(ctx, num_channels),
                       (int) sample_rate, num_channels);
+        play_gain = calculate_gain (ctx);
+        DBG("gain value = %g\n", play_gain);
         return true;
     }
 
@@ -152,6 +155,14 @@ public:
 
             while (cnt--)
                 *fptr++ = *lptr++ * scaler;
+        }
+
+        if (play_gain != 1.0) {
+            float *fptr = (float *) input;
+            int cnt = tsamples;
+
+            while (cnt--)
+                *fptr++ *= play_gain;
         }
 
         if (tsamples) {
@@ -455,4 +466,50 @@ wv_load_config()
     xmms_cfg_free(cfg);
 
     openedAudio = false;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// This function uses the ReplayGain mode selected by the user and the info //
+// stored in the specified tag to determine the gain value used to play the //
+// file. Note that the gain is in voltage scaling (not dB), so a value of   //
+// 1.0 (not 0.0) is unity gain.                                             //
+//////////////////////////////////////////////////////////////////////////////
+
+static float calculate_gain (WavpackContext *wpc)
+{
+    if (replaygainEnabled) {
+        float gain_value = 0.0, peak_value = 1.0;
+        char value [32];
+
+        if (albumReplaygainEnabled && WavpackGetTagItem (wpc, "replaygain_album_gain", value, sizeof (value))) {
+            gain_value = (float) atof (value);
+
+            if (WavpackGetTagItem (wpc, "replaygain_album_peak", value, sizeof (value)))
+                peak_value = (float) atof (value);
+        }
+        else if (WavpackGetTagItem (wpc, "replaygain_track_gain", value, sizeof (value))) {
+            gain_value = (float) atof (value);
+
+            if (WavpackGetTagItem (wpc, "replaygain_track_peak", value, sizeof (value)))
+                peak_value = (float) atof (value);
+        }
+        else
+            return 1.0;
+
+        // convert gain from dB to voltage (with +/- 20 dB limit)
+
+        if (gain_value > 20.0)
+            gain_value = 10.0;
+        else if (gain_value < -20.0)
+            gain_value = (float) 0.1;
+        else
+            gain_value = (float) pow (10.0, gain_value / 20.0);
+
+        if (peak_value * gain_value > 1.0 && clipPreventionEnabled)
+            gain_value = (float)(1.0 / peak_value);
+
+        return gain_value;
+    }
+    else
+        return 1.0;
 }
