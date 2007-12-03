@@ -188,7 +188,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.5a5 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.5a6 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -441,6 +441,7 @@ void setpan (int pan)
     mod.outMod->SetPan(pan);
 }
 
+static void generate_format_string (WavpackContext *wpc, char *string, int maxlen, int wide);
 static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide);
 static int WideCharToUTF8 (const ushort *Wide, uchar *pUTF8, int len);
 static void AnsiToUTF8 (char *string, int len);
@@ -448,10 +449,9 @@ static UTF8ToAnsi (char *string, int len);
 
 int infoDlg (char *fn, HWND hwnd)
 {
-    char string [2048], chan_string [20], modes [80];
+    char string [2048];
     unsigned short w_string [2048];
     WavpackContext *wpc;
-    uchar md5_sum [16];
     int open_flags;
 
     open_flags = OPEN_TAGS | OPEN_NORMALIZE;
@@ -467,55 +467,7 @@ int infoDlg (char *fn, HWND hwnd)
     if (wpc) {
         int mode = WavpackGetMode (wpc);
 
-        sprintf (string, "Encoder version:  %d\n", WavpackGetVersion (wpc));
-
-        if (WavpackGetNumChannels (wpc) > 2)
-            sprintf (chan_string, "%d (multichannel)", WavpackGetNumChannels (wpc));
-        else
-            strcpy (chan_string, WavpackGetNumChannels (wpc) == 1 ? "1 (mono)" : "2 (stereo)");
-
-        sprintf (string + strlen (string), "Source:  %d-bit %s at %d Hz \n", WavpackGetBitsPerSample (wpc),
-            (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints", WavpackGetSampleRate (wpc));
-
-        sprintf (string + strlen (string), "Channels:  %s\n", chan_string);
-
-        modes [0] = 0;
-
-        if (WavpackGetMode (wpc) & MODE_HYBRID)
-            strcat (modes, "hybrid ");
-
-        strcat (modes, (WavpackGetMode (wpc) & MODE_LOSSLESS) ? "lossless" : "lossy");
-
-        if (WavpackGetMode (wpc) & MODE_FAST)
-            strcat (modes, ", fast");
-        else if (WavpackGetMode (wpc) & MODE_VERY_HIGH)
-            strcat (modes, ", very high");
-        else if (WavpackGetMode (wpc) & MODE_HIGH)
-            strcat (modes, ", high");
-
-        if (WavpackGetMode (wpc) & MODE_EXTRA)
-            strcat (modes, ", extra");
-
-        if (WavpackGetMode (wpc) & MODE_SFX)
-            strcat (modes, ", sfx");
-
-        sprintf (string + strlen (string), "Modes:  %s\n", modes);
-
-        if (WavpackGetRatio (wpc) != 0.0) {
-            sprintf (string + strlen (string), "Average bitrate:  %d kbps \n", (int) ((WavpackGetAverageBitrate (wpc, TRUE) + 500.0) / 1000.0));
-            sprintf (string + strlen (string), "Overall ratio:  %.2f to 1 \n", 1.0 / WavpackGetRatio (wpc));
-        }
-
-        if (WavpackGetMD5Sum (wpc, md5_sum)) {
-            int i;
-
-            strcat (string, "Original md5:  ");
-
-            for (i = 0; i < 16; ++i)
-                sprintf (string + strlen (string), "%02x", md5_sum [i]);
-
-            strcat (string, " \n");
-        }
+        generate_format_string (wpc, string, sizeof (string), 1);
 
         if (WavpackGetMode (wpc) & MODE_VALID_TAG) {
             char value [128];
@@ -794,6 +746,12 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
     num_chans = WavpackGetReducedChannels (cnxt->wpc);
     sample_rate = WavpackGetSampleRate (cnxt->wpc);
 
+    if (num_chans > MAX_NCH) {
+        WavpackCloseFile (cnxt->wpc);
+        free (cnxt);
+        return 0;
+    }
+
     if (*bps != 16 && *bps != 24 && *bps != 32) {
         cnxt->output_bits = WavpackGetBitsPerSample (cnxt->wpc) > 16 ? 24 : 16;
 
@@ -1011,7 +969,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.5a5 "
+    "WavPack Player v2.5a6 "
 
 #ifdef __alpha
     "(AXP)"
@@ -1117,6 +1075,7 @@ static int metadata_we_can_write (const char *metadata);
 
 __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *metadata, char *ret, int retlen)
 {
+    int open_flags = OPEN_TAGS;
     WavpackContext *wpc;
     char error [128];
     int retval = 0;
@@ -1129,28 +1088,23 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
     if (!filename || !*filename)
         return retval;
 
-    wpc = WavpackOpenFileInput (filename, error, OPEN_TAGS, 0);
+    if (config_bits & ALLOW_WVC)
+        open_flags |= OPEN_WVC;
+
+    wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
 
     if (wpc) {
-        if (!_stricmp (metadata, "length")) {
-            char string [20];
-
-            sprintf (string, "%d", (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc)));
-
-            if (strlen (string) < (uint) retlen) {
-                strcpy (ret, string);
-                retval = 1;
-            }
+        if (!_stricmp (metadata, "formatinformation")) {
+            generate_format_string (wpc, ret, retlen, 0);
+            retval = 1;
+        }
+        else if (!_stricmp (metadata, "length")) {
+            _snprintf (ret, retlen, "%d", (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc)));
+            retval = 1;
         }
         else if (!_stricmp (metadata, "numsamples")) {
-            char string [20];
-
-            sprintf (string, "%d", WavpackGetNumSamples (wpc));
-
-            if (strlen (string) < (uint) retlen) {
-                strcpy (ret, string);
-                retval = 1;
-            }
+            _snprintf (ret, retlen, "%d", WavpackGetNumSamples (wpc));
+            retval = 1;
         }
         else if (WavpackGetTagItem (wpc, metadata, ret, retlen)) {
             if (WavpackGetMode (wpc) & MODE_APETAG)
@@ -1174,11 +1128,12 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
 
 __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *metadata, wchar_t *ret, int retlen)
 {
+    FILE *wv_id, *wvc_id = NULL;
     char error [128], res [256];
     unsigned short w_res [256];
+    int open_flags = OPEN_TAGS;
     WavpackContext *wpc;
     int retval = 0;
-    FILE *wv_id;
 
 #ifdef DEBUG_CONSOLE
     sprintf (error, "winampGetExtendedFileInfoW (%s)\n", metadata);
@@ -1195,14 +1150,43 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
         return retval;
     }
 
-    wpc = WavpackOpenFileInputEx (&freader, wv_id, NULL, error, OPEN_TAGS, 0);
+    if (config_bits & ALLOW_WVC) {
+        wchar_t *wvc_name = malloc (wcslen (filename) * 2 + 10);
+
+        if (wvc_name) {
+            wcscpy (wvc_name, filename);
+            wcscat (wvc_name, L"c");
+            wvc_id = _wfopen (wvc_name, L"rb");
+            free (wvc_name);
+        }
+    }
+
+    wpc = WavpackOpenFileInputEx (&freader, wv_id, wvc_id, error, open_flags, 0);
 
     if (!wpc) {
         fclose (wv_id);
+
+        if (wvc_id)
+            fclose (wvc_id);
+
         return retval;
     }
 
-    if (!_stricmp (metadata, "length")) {
+    if (!_stricmp (metadata, "formatinformation")) {
+        char *temp = malloc (retlen), *tp = temp;
+
+        if (temp) {
+            generate_format_string (wpc, temp, retlen, 0);
+
+            while (*tp)
+                *ret++ = *tp++;
+
+            *ret = 0;
+            retval = 1;
+            free (temp);
+        }
+    }
+    else if (!_stricmp (metadata, "length")) {
         swprintf (ret, retlen, L"%d", (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc)));
         retval = 1;
     }
@@ -1227,6 +1211,9 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
 
     WavpackCloseFile (wpc);
     fclose (wv_id);
+
+    if (wvc_id)
+        fclose (wvc_id);
 
     return retval;
 }
@@ -1331,6 +1318,13 @@ int __declspec (dllexport) winampWriteExtendedFileInfo (void)
     return 1;
 }
 
+// return 1 if you want winamp to show it's own file info dialogue, 0 if you want to show your own (via In_Module.InfoBox)
+// if returning 1, remember to implement winampGetExtendedFileInfo("formatinformation")!
+__declspec(dllexport) int winampUseUnifiedFileInfoDlg(const wchar_t * fn)
+{
+    return 1;
+}
+
 static const char *writable_metadata [] = {
     "track", "genre", "year", "comment", "artist", "album", "title", "albumartist",
     "composer", "publisher", "disc", "tool", "encoder", "bpm",
@@ -1352,6 +1346,74 @@ static int metadata_we_can_write (const char *metadata)
             return 1;
 
     return 0;
+}
+
+static void generate_format_string (WavpackContext *wpc, char *string, int maxlen, int wide)
+{
+    int mode = WavpackGetMode (wpc);
+    uchar md5_sum [16];
+    char modes [80];
+
+    _snprintf (string, maxlen, "WavPack encoder version:  %d\n", WavpackGetVersion (wpc));
+    while (*string && string++ && maxlen--);
+
+    _snprintf (string, maxlen, "Source:  %d-bit %s at %d Hz \n", WavpackGetBitsPerSample (wpc),
+        (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints", WavpackGetSampleRate (wpc));
+
+    while (*string && string++ && maxlen--);
+
+    if (WavpackGetNumChannels (wpc) > 2)
+        _snprintf (string, maxlen, "Channels: %d (multichannel)\n", WavpackGetNumChannels (wpc));
+    else
+        _snprintf (string, maxlen, "Channels: %s\n",
+            WavpackGetNumChannels (wpc) == 1 ? "1 (mono)" : "2 (stereo)");
+
+    while (*string && string++ && maxlen--);
+
+    modes [0] = 0;
+
+    if (WavpackGetMode (wpc) & MODE_HYBRID)
+        strcat (modes, "hybrid ");
+
+    strcat (modes, (WavpackGetMode (wpc) & MODE_LOSSLESS) ? "lossless" : "lossy");
+
+    if (WavpackGetMode (wpc) & MODE_FAST)
+        strcat (modes, ", fast");
+    else if (WavpackGetMode (wpc) & MODE_VERY_HIGH)
+        strcat (modes, wide ? ", very high" : ", v.high");
+    else if (WavpackGetMode (wpc) & MODE_HIGH)
+        strcat (modes, ", high");
+
+    if (WavpackGetMode (wpc) & MODE_EXTRA)
+        strcat (modes, ", extra");
+
+    if (WavpackGetMode (wpc) & MODE_SFX)
+        strcat (modes, ", sfx");
+
+    _snprintf (string, maxlen, "Modes:%s  %s\n", (wide || strlen (modes) < 24) ? "" : "\n", modes);
+    while (*string && string++ && maxlen--);
+
+    if (WavpackGetRatio (wpc) != 0.0) {
+        _snprintf (string, maxlen, "Average bitrate:  %d kbps \n", (int) ((WavpackGetAverageBitrate (wpc, TRUE) + 500.0) / 1000.0));
+        while (*string && string++ && maxlen--);
+        _snprintf (string, maxlen, "Overall ratio:  %.2f to 1 \n", 1.0 / WavpackGetRatio (wpc));
+        while (*string && string++ && maxlen--);
+    }
+
+    if (WavpackGetMD5Sum (wpc, md5_sum)) {
+        char md5s1 [17], md5s2 [17];
+        int i;
+
+        for (i = 0; i < 8; ++i) {
+            sprintf (md5s1 + i * 2, "%02x", md5_sum [i]);
+            sprintf (md5s2 + i * 2, "%02x", md5_sum [i+8]);
+        }
+
+        if (wide)
+            _snprintf (string, maxlen, "Original md5:  %s%s\n", md5s1, md5s2);
+        else
+            _snprintf (string, maxlen, "Original md5:\n  %s\n  %s\n", md5s1, md5s2);
+    }
 }
 
 
