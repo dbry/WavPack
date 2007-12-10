@@ -21,6 +21,7 @@
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 
 //#define DEBUG_CONSOLE
+#define UNICODE_METADATA
 
 // use CRT. Good. Useful. Portable.
 BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
@@ -42,8 +43,8 @@ static struct wpcnxt {
     float error [MAX_NCH];  // error term for noise shaping
     char lastfn[MAX_PATH];  // filename stored for comparisons only
     wchar_t w_lastfn[MAX_PATH];// w_filename stored for comparisons only
-    FILE *wv_id;            // file pointer when we use reader callbacks
-} curr, edit;
+    FILE *wv_id, *wvc_id;   // file pointer when we use reader callbacks
+} curr, edit, info;
 
 In_Module mod;          // the output module (declared near the bottom of this file)
 int decode_pos_ms;      // current decoding position, in milliseconds
@@ -188,7 +189,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.5a6 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.5a7 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -725,10 +726,7 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
         return 0;
 
     memset (cnxt, 0, sizeof (struct wpcnxt));
-    open_flags = OPEN_NORMALIZE;
-
-    if (config_bits & ALLOW_WVC)
-        open_flags |= OPEN_WVC;
+    open_flags = OPEN_NORMALIZE | OPEN_WVC;
 
     if (!(config_bits & ALLOW_MULTICHANNEL) || *nch == 2)
         open_flags |= OPEN_2CH_MAX;
@@ -969,7 +967,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.5a6 "
+    "WavPack Player v2.5a7 "
 
 #ifdef __alpha
     "(AXP)"
@@ -1076,7 +1074,6 @@ static int metadata_we_can_write (const char *metadata);
 __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *metadata, char *ret, int retlen)
 {
     int open_flags = OPEN_TAGS;
-    WavpackContext *wpc;
     char error [128];
     int retval = 0;
 
@@ -1088,51 +1085,57 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
     if (!filename || !*filename)
         return retval;
 
-    if (config_bits & ALLOW_WVC)
-        open_flags |= OPEN_WVC;
+    if (!info.wpc || strcmp (filename, info.lastfn)) {
+        if (info.wpc)
+            WavpackCloseFile (info.wpc);
 
-    wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
+        if (config_bits & ALLOW_WVC)
+            open_flags |= OPEN_WVC;
 
-    if (wpc) {
-        if (!_stricmp (metadata, "formatinformation")) {
-            generate_format_string (wpc, ret, retlen, 0);
-            retval = 1;
-        }
-        else if (!_stricmp (metadata, "length")) {
-            _snprintf (ret, retlen, "%d", (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc)));
-            retval = 1;
-        }
-        else if (!_stricmp (metadata, "numsamples")) {
-            _snprintf (ret, retlen, "%d", WavpackGetNumSamples (wpc));
-            retval = 1;
-        }
-        else if (WavpackGetTagItem (wpc, metadata, ret, retlen)) {
-            if (WavpackGetMode (wpc) & MODE_APETAG)
-                UTF8ToAnsi (ret, retlen);
+        info.wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
 
-            retval = 1;
-        }
-        else if (metadata_we_can_write (metadata)) {
-            if (retlen)
-                *ret = 0;
+        if (!info.wpc)
+            return 0;
 
-            retval = 1;
-        }
+        strcpy (info.lastfn, filename);
+        info.w_lastfn [0] = 0;
     }
 
-    if (wpc)
-        WavpackCloseFile (wpc);
+    if (!_stricmp (metadata, "formatinformation")) {
+        generate_format_string (info.wpc, ret, retlen, 0);
+        retval = 1;
+    }
+    else if (!_stricmp (metadata, "length")) {
+        _snprintf (ret, retlen, "%d", (int)(WavpackGetNumSamples (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
+        retval = 1;
+    }
+    else if (!_stricmp (metadata, "numsamples")) {
+        _snprintf (ret, retlen, "%d", WavpackGetNumSamples (info.wpc));
+        retval = 1;
+    }
+    else if (WavpackGetTagItem (info.wpc, metadata, ret, retlen)) {
+        if (WavpackGetMode (info.wpc) & MODE_APETAG)
+            UTF8ToAnsi (ret, retlen);
+
+        retval = 1;
+    }
+    else if (metadata_we_can_write (metadata)) {
+        if (retlen)
+            *ret = 0;
+
+        retval = 1;
+    }
 
     return retval;
 }
 
+#ifdef UNICODE_METADATA
+
 __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *metadata, wchar_t *ret, int retlen)
 {
-    FILE *wv_id, *wvc_id = NULL;
     char error [128], res [256];
     unsigned short w_res [256];
     int open_flags = OPEN_TAGS;
-    WavpackContext *wpc;
     int retval = 0;
 
 #ifdef DEBUG_CONSOLE
@@ -1143,40 +1146,53 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
     if (!filename || !*filename)
         return retval;
 
-    if (!(wv_id = _wfopen (filename, L"rb"))) {
-#ifdef DEBUG_CONSOLE
-        debug_write ("failed opening file!\n");
-#endif
-        return retval;
-    }
+    if (!info.wpc || wcscmp (filename, info.w_lastfn)) {
+        if (info.wpc) {
+            WavpackCloseFile (info.wpc);
 
-    if (config_bits & ALLOW_WVC) {
-        wchar_t *wvc_name = malloc (wcslen (filename) * 2 + 10);
+            if (info.wv_id)
+                fclose (info.wv_id);
 
-        if (wvc_name) {
-            wcscpy (wvc_name, filename);
-            wcscat (wvc_name, L"c");
-            wvc_id = _wfopen (wvc_name, L"rb");
-            free (wvc_name);
+            if (info.wvc_id)
+                fclose (info.wvc_id);
         }
-    }
 
-    wpc = WavpackOpenFileInputEx (&freader, wv_id, wvc_id, error, open_flags, 0);
+        memset (&info, 0, sizeof (info));
 
-    if (!wpc) {
-        fclose (wv_id);
+        if (!(info.wv_id = _wfopen (filename, L"rb")))
+            return retval;
 
-        if (wvc_id)
-            fclose (wvc_id);
+        if (config_bits & ALLOW_WVC) {
+            wchar_t *wvc_name = malloc (wcslen (filename) * 2 + 10);
 
-        return retval;
+            if (wvc_name) {
+                wcscpy (wvc_name, filename);
+                wcscat (wvc_name, L"c");
+                info.wvc_id = _wfopen (wvc_name, L"rb");
+                free (wvc_name);
+            }
+        }
+
+        info.wpc = WavpackOpenFileInputEx (&freader, info.wv_id, info.wvc_id, error, open_flags, 0);
+
+        if (!info.wpc) {
+            fclose (info.wv_id);
+
+            if (info.wvc_id)
+                fclose (info.wvc_id);
+
+            return retval;
+        }
+
+        wcscpy (info.w_lastfn, filename);
+        info.lastfn [0] = 0;
     }
 
     if (!_stricmp (metadata, "formatinformation")) {
         char *temp = malloc (retlen), *tp = temp;
 
         if (temp) {
-            generate_format_string (wpc, temp, retlen, 0);
+            generate_format_string (info.wpc, temp, retlen, 0);
 
             while (*tp)
                 *ret++ = *tp++;
@@ -1187,15 +1203,15 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
         }
     }
     else if (!_stricmp (metadata, "length")) {
-        swprintf (ret, retlen, L"%d", (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc)));
+        swprintf (ret, retlen, L"%d", (int)(WavpackGetNumSamples (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
         retval = 1;
     }
     else if (!_stricmp (metadata, "numsamples")) {
-        swprintf (ret, retlen, L"%d", WavpackGetNumSamples (wpc));
+        swprintf (ret, retlen, L"%d", WavpackGetNumSamples (info.wpc));
         retval = 1;
     }
-    else if (WavpackGetTagItem (wpc, metadata, res, sizeof (res))) {
-        if (!(WavpackGetMode (wpc) & MODE_APETAG))
+    else if (WavpackGetTagItem (info.wpc, metadata, res, sizeof (res))) {
+        if (!(WavpackGetMode (info.wpc) & MODE_APETAG))
             AnsiToUTF8 (res, sizeof (res));
 
         UTF8ToWideChar (res, w_res);
@@ -1209,14 +1225,10 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
         retval = 1;
     }
 
-    WavpackCloseFile (wpc);
-    fclose (wv_id);
-
-    if (wvc_id)
-        fclose (wvc_id);
-
     return retval;
 }
+
+#endif
 
 int __declspec (dllexport) winampSetExtendedFileInfo (
     const char *filename, const char *metadata, char *val)
@@ -1250,6 +1262,8 @@ int __declspec (dllexport) winampSetExtendedFileInfo (
         return WavpackDeleteTagItem (edit.wpc, metadata);
 }
 
+#ifdef UNICODE_METADATA
+
 int __declspec (dllexport) winampSetExtendedFileInfoW (
     const wchar_t *filename, const char *metadata, wchar_t *val)
 {
@@ -1274,12 +1288,8 @@ int __declspec (dllexport) winampSetExtendedFileInfoW (
         if (edit.wv_id)
             fclose (edit.wv_id);
 
-        if (!(edit.wv_id = _wfopen (filename, L"r+b"))) {
-#ifdef DEBUG_CONSOLE
-            debug_write ("failed opening file!\n");
-#endif
+        if (!(edit.wv_id = _wfopen (filename, L"r+b")))
             return 0;
-        }
 
         edit.wpc = WavpackOpenFileInputEx (&freader, edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
 
@@ -1297,6 +1307,8 @@ int __declspec (dllexport) winampSetExtendedFileInfoW (
     else
         return WavpackDeleteTagItem (edit.wpc, metadata);
 }
+
+#endif
 
 int __declspec (dllexport) winampWriteExtendedFileInfo (void)
 {
