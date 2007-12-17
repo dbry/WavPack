@@ -231,6 +231,103 @@ load_tag(ape_tag *tag, WavpackContext *ctx)
     WavpackGetTagItem(ctx, "Year", tag->year, sizeof(tag->year));
 }
 
+void
+update_tag(ape_tag *tag, char *filename) 
+{
+    WavpackContext *ctx;
+    char error_buff [80];
+
+    ctx = WavpackOpenFileInput (filename, error_buff, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+
+    if (!ctx) {
+        char text[256];
+
+        sprintf(text, "File \"%s\" not found or is read protected!\n",
+                filename);
+        xmms_show_message("File-Error", (gchar *) text, "Ok", FALSE, NULL,
+                          NULL);
+        return;
+    }
+
+    if (strlen (tag->album))
+        WavpackAppendTagItem (ctx, "Album", tag->album, strlen (tag->album));
+    else
+        WavpackDeleteTagItem (ctx, "Album");
+
+    if (strlen (tag->artist))
+        WavpackAppendTagItem (ctx, "Artist", tag->artist, strlen (tag->artist));
+    else
+        WavpackDeleteTagItem (ctx, "Artist");
+
+    if (strlen (tag->comment))
+        WavpackAppendTagItem (ctx, "Comment", tag->comment, strlen (tag->comment));
+    else
+        WavpackDeleteTagItem (ctx, "Comment");
+
+    if (strlen (tag->genre))
+        WavpackAppendTagItem (ctx, "Genre", tag->genre, strlen (tag->genre));
+    else
+        WavpackDeleteTagItem (ctx, "Genre");
+
+    if (strlen (tag->title))
+        WavpackAppendTagItem (ctx, "Title", tag->title, strlen (tag->title));
+    else
+        WavpackDeleteTagItem (ctx, "Title");
+
+    if (strlen (tag->track))
+        WavpackAppendTagItem (ctx, "Track", tag->track, strlen (tag->track));
+    else
+        WavpackDeleteTagItem (ctx, "Track");
+
+    if (strlen (tag->year))
+        WavpackAppendTagItem (ctx, "Year", tag->year, strlen (tag->year));
+    else
+        WavpackDeleteTagItem (ctx, "Year");
+
+    if (!WavpackWriteTag (ctx)) {
+        char text[256];
+
+        sprintf(text, "Couldn't write tag to \"%s\"!\n",
+                filename);
+        xmms_show_message("File-Error", (gchar *) text, "Ok", FALSE, NULL,
+                          NULL);
+    }
+
+    WavpackCloseFile (ctx);
+}
+
+void
+delete_tag(char *filename) 
+{
+    WavpackContext *ctx;
+    char error_buff [80];
+    char text [256];
+
+    ctx = WavpackOpenFileInput (filename, error_buff, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+
+    if (!ctx) {
+        sprintf(text, "File \"%s\" not found or is read protected!\n",
+                filename);
+        xmms_show_message("File-Error", (gchar *) text, "Ok", FALSE, NULL,
+                          NULL);
+        return;
+    }
+
+    while (WavpackGetTagItemIndexed (ctx, 0, text, sizeof (text)))
+        WavpackDeleteTagItem (ctx, text);
+
+    if (!WavpackWriteTag (ctx)) {
+        char text[256];
+
+        sprintf(text, "Couldn't write tag to \"%s\"!\n",
+                filename);
+        xmms_show_message("File-Error", (gchar *) text, "Ok", FALSE, NULL,
+                          NULL);
+    }
+
+    WavpackCloseFile (ctx);
+}
+
 static char *
 convertUTF8toLocale(char *utf8)
 {

@@ -24,6 +24,8 @@ extern "C" {
 #define DBG(format, args...) fprintf(stderr, format, ## args)
 
 void load_tag(ape_tag *tag, WavpackContext *ctx);
+void update_tag(ape_tag *tag, char *filename);
+void delete_tag(char *filename);
 gboolean clipPreventionEnabled;
 gboolean dynBitrateEnabled;
 gboolean replaygainEnabled;
@@ -49,10 +51,10 @@ wv_about_box()
 
     about_window =
         xmms_show_message(g_strdup_printf
-                          ("Wavpack Decoder Plugin %s", VERSION),
-                          ("Plugin code by \n" "Miles Egan\n"
+                          ("WavPack Decoder Plugin %s", VERSION),
+                          ("Plugin code by \n" "Miles Egan and David Bryant\n"
                            "Adapted from xmms-musepack plugin by Lefungus\n"
-                           "Visit the Wavpack site at http://www.wavpack.com/\n"),
+                           "Visit the WavPack site at http://www.wavpack.com/\n"),
                           ("Ok"), FALSE, NULL, NULL);
     gtk_signal_connect(GTK_OBJECT(about_window), "destroy",
                        GTK_SIGNAL_FUNC(gtk_widget_destroyed), &about_window);
@@ -75,7 +77,7 @@ label_set_text(GtkWidget * label, char *str, ...)
 static void
 remove_cb(GtkWidget * w, gpointer data)
 {
-    DeleteTag(filename);
+    delete_tag(filename);
     g_free(filename);
     gtk_widget_destroy(window);
 }
@@ -92,7 +94,7 @@ save_cb(GtkWidget * w, gpointer data)
     strcpy(Tag.track, gtk_entry_get_text(GTK_ENTRY(tracknumber_entry)));
     strcpy(Tag.year, gtk_entry_get_text(GTK_ENTRY(date_entry)));
     strcpy(Tag.genre, gtk_entry_get_text(GTK_ENTRY(genre_entry)));
-    WriteAPE2Tag(filename, &Tag);
+    update_tag (&Tag, filename);
     g_free(filename);
     gtk_widget_destroy(window);
 }
@@ -116,7 +118,7 @@ wv_file_info_box(char *fn)
     char    album_peak      [16];
 
     assert(fn != NULL);
-    char error_buff[4096]; // TODO: fixme!
+    char error_buff[80]; // TODO: fixme!
     WavpackContext *ctx = WavpackOpenFileInput(fn, error_buff, OPEN_TAGS | OPEN_WVC, 0);
     if (ctx == NULL) {
         printf("wavpack: Error opening file: \"%s: %s\"\n", fn, error_buff);
@@ -291,7 +293,7 @@ wv_file_info_box(char *fn)
         gtk_box_pack_start(GTK_BOX(bbox), cancel_button, TRUE, TRUE, 0);
         gtk_widget_grab_default(cancel_button);
 
-        info_frame = gtk_frame_new("Wavpack Info:");
+        info_frame = gtk_frame_new("WavPack Info:");
         gtk_box_pack_start(GTK_BOX(hbox), info_frame, FALSE, FALSE, 0);
 
         info_box = gtk_vbox_new(FALSE, 5);
@@ -384,7 +386,7 @@ wv_file_info_box(char *fn)
     minutes = time / 60;
     seconds = time % 60;
 
-    label_set_text(version_label, "Version %d", WavpackGetVersion(ctx));
+    label_set_text(version_label, "Version: %d", WavpackGetVersion(ctx));
     label_set_text(bitrate_label, "Average bitrate: %6.1f kbps", WavpackGetAverageBitrate(ctx, 0) / 1000);
     label_set_text(rate_label, "Samplerate: %d Hz", WavpackGetSampleRate(ctx));
     label_set_text(bits_per_sample_label, "Bits per sample: %d", WavpackGetBitsPerSample(ctx));
@@ -407,6 +409,7 @@ wv_file_info_box(char *fn)
     gtk_entry_set_text(GTK_ENTRY(filename_entry), fn);
     gtk_editable_set_position(GTK_EDITABLE(filename_entry), -1);
 
+    WavpackCloseFile (ctx);
     tmp = g_strdup_printf("File Info - %s", g_basename(fn));
     gtk_window_set_title(GTK_WINDOW(window), tmp);
     g_free(tmp);
@@ -470,7 +473,7 @@ wv_configure(void)
                        GTK_SIGNAL_FUNC(gtk_widget_destroyed),
                        &wv_configurewin);
     gtk_window_set_title(GTK_WINDOW(wv_configurewin),
-                         "Musepack Configuration");
+                         "WavPack Configuration");
     gtk_window_set_policy(GTK_WINDOW(wv_configurewin), FALSE, FALSE, FALSE);
     gtk_container_border_width(GTK_CONTAINER(wv_configurewin), 10);
 
