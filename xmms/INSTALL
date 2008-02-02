@@ -1,5 +1,6 @@
-Xmms-musepack plugin
+Xmms-wavpack plugin
 Required:
+        libwavpack-4.40 (or later) headers and libs
 	GTK-1.2 headers and libs
 	Glib-2.0 headers and libs
 	Xmms-1.2.10 headers and binaries
