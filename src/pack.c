@@ -38,7 +38,7 @@ int32_t dump_alloc (void);
 // 17 & 18 are special functions using the previous 2 samples, and negative
 // values indicate cross channel decorrelation (in stereo only).
 
-static WavpackDecorrSpec fast_specs [] = {
+static const WavpackDecorrSpec fast_specs [] = {
         { 1, 2,18,17 },  // 0
         { 1, 1,17,17 },  // 1
         { 0, 2,18,17 },  // 2
@@ -297,7 +297,7 @@ static WavpackDecorrSpec fast_specs [] = {
         { 0, 2,18,17 },  // 255
 };
 
-static WavpackDecorrSpec default_specs [] = {
+static const WavpackDecorrSpec default_specs [] = {
         { 1, 2,18,18, 2,17, 3 },         // 0
         { 0, 2,18,17,-1, 3, 2 },         // 1
         { 1, 1,17,18,18,-2, 2 },         // 2
@@ -556,7 +556,7 @@ static WavpackDecorrSpec default_specs [] = {
         { 0, 2,18,18,-2,18, 2 },         // 255
 };
 
-static WavpackDecorrSpec high_specs [] = {
+static const WavpackDecorrSpec high_specs [] = {
         { 1, 2,18,18,18,-2, 2, 3, 5,-1,17, 4 },  // 0
         { 0, 1,18,17,-2, 2,18, 3, 7, 2, 5, 4 },  // 1
         { 1, 2, 1,18, 3, 6,-2,18, 2, 3, 4, 5 },  // 2
@@ -815,7 +815,7 @@ static WavpackDecorrSpec high_specs [] = {
         { 0, 1,-1,18,18, 2,18, 3, 5,18, 2, 8 },  // 255
 };
 
-static WavpackDecorrSpec very_high_specs [] = {
+static const WavpackDecorrSpec very_high_specs [] = {
         { 1, 2,18,18, 2, 3,-2,18, 2, 4, 7, 5, 3, 6, 8,-1,18, 2 },        // 0
         { 0, 1,18,18,-1,18, 2, 3, 4, 6, 5, 7,18,-3, 8, 2,-1, 3 },        // 1
         { 1, 2, 1,18,-2, 4,18, 2, 3, 6,-1, 7, 5,-2,18, 8, 2, 4 },        // 2

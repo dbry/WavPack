@@ -527,7 +527,7 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
         wps->best_decorr = wps->mask_decorr = 0;
 
     for (pi = 0; pi < wps->num_passes;) {
-        WavpackDecorrSpec *wpds;
+        const WavpackDecorrSpec *wpds;
         int nterms, c, j;
 
         if (!pi)

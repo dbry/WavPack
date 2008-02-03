@@ -363,7 +363,7 @@ typedef struct {
     } dc;
 
     struct decorr_pass decorr_passes [MAX_NTERMS], analysis_pass;
-    WavpackDecorrSpec *decorr_specs;
+    const WavpackDecorrSpec *decorr_specs;
 } WavpackStream;
 
 // flags for float_flags:
