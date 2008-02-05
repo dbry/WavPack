@@ -1631,13 +1631,13 @@ static void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int sho
                 update_weight (ap->weight_A, 2, sam, temp);
             }
         else
-            for (bptr = buffer + (sample_count - 3) * 2, sc = sample_count - 2; sc--;) {
-                sam = (3 * bptr [2] - bptr [4]) >> 1;
-                temp = *bptr-- - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, 2, sam, temp);
+            for (bptr = buffer + (sample_count - 3) * 2 + 1, sc = sample_count - 2; sc--;) {
                 sam = (3 * bptr [2] - bptr [4]) >> 1;
                 temp = *bptr-- - apply_weight (ap->weight_B, sam);
                 update_weight (ap->weight_B, 2, sam, temp);
+                sam = (3 * bptr [2] - bptr [4]) >> 1;
+                temp = *bptr-- - apply_weight (ap->weight_A, sam);
+                update_weight (ap->weight_A, 2, sam, temp);
             }
     }
 
