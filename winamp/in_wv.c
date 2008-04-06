@@ -189,7 +189,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.5a7 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.5a8 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -618,9 +618,6 @@ void getfileinfo (char *filename, char *title, int *length_in_ms)
 
             wpc = WavpackCloseFile (wpc);
         }
-        else
-            MessageBox (NULL, error, "WavPack Player", MB_OK);
-
 
         if (title && !*title) {
             char *p = filename + strlen (filename);
@@ -967,7 +964,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.5a7 "
+    "WavPack Player v2.5a8 "
 
 #ifdef __alpha
     "(AXP)"
@@ -1085,6 +1082,11 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
     if (!filename || !*filename)
         return retval;
 
+    if (!_stricmp (metadata, "length")) {   /* even if no file, return a 1 and write "0" */
+        _snprintf (ret, retlen, "%d", 0);
+        retval = 1;
+    }
+
     if (!info.wpc || strcmp (filename, info.lastfn)) {
         if (info.wpc)
             WavpackCloseFile (info.wpc);
@@ -1095,7 +1097,7 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
         info.wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
 
         if (!info.wpc)
-            return 0;
+            return retval;
 
         strcpy (info.lastfn, filename);
         info.w_lastfn [0] = 0;
@@ -1145,6 +1147,11 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
 
     if (!filename || !*filename)
         return retval;
+
+    if (!_stricmp (metadata, "length")) {   /* even if no file, return a 1 and write "0" */
+        swprintf (ret, retlen, L"%d", 0);
+        retval = 1;
+    }
 
     if (!info.wpc || wcscmp (filename, info.w_lastfn)) {
         if (info.wpc) {
