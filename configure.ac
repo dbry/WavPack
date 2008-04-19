@@ -37,6 +37,7 @@ AC_C_BIGENDIAN(AC_DEFINE([HIGHFIRST], [1], [big-endian machine]))
 
 # Checks for programs.
 AC_PROG_CC
+AC_LIBTOOL_WIN32_DLL
 AC_PROG_LIBTOOL
 AC_PROG_INSTALL
 AM_PROG_CC_C_O
@@ -44,10 +45,11 @@ AM_PROG_CC_C_O
 AC_HEADER_STDC
 
 # Checks for libraries.
-AC_CHECK_LIB(m, log10, [], AC_MSG_ERROR(math library not found))
+AC_CHECK_LIBM
+AC_SUBST(LIBM)
 
 # Check if cross-compiling on mingw
-AC_MINGW32()
+AC_MINGW32
 
 if test "x$MINGW32" != "xyes" ; then
 # Check for iconv
@@ -56,7 +58,7 @@ if test "$with_iconv" = "no" ; then
     AC_MSG_ERROR([[Sorry, you can't deactivate iconv.]])
 else
     if test "$with_iconv" != "yes" -a "$with_iconv" != "" ; then
-       CPPFLAGS="${CPPFLAGS} -I$with_iconv/include"
+       ICONV_CFLAGS="${CPPFLAGS} -I$with_iconv/include"
        ICONV_LIBS="-L$with_iconv/lib"
     fi
 
@@ -67,13 +69,12 @@ else
 iconv_t cd = iconv_open ("","");
 iconv (cd, NULL, NULL, NULL, NULL);],[
             AC_MSG_RESULT(yes)
-            WITH_ICONV=1
-            ICONV=""],[
+            WITH_ICONV=1],[
             AC_MSG_RESULT(no)
             AC_MSG_CHECKING(for iconv in -liconv)
 
-            _ldflags="${LDFLAGS}"
-            _libs="${LIBS}"
+            old_ldflags="${LDFLAGS}"
+            old_libs="${LIBS}"
             LDFLAGS="${LDFLAGS} ${ICONV_LIBS}"
             LIBS="${LIBS} -liconv"
 
@@ -83,12 +84,13 @@ iconv_t cd = iconv_open ("","");
 iconv (cd, NULL, NULL, NULL, NULL);],[
                 AC_MSG_RESULT(yes)
                 WITH_ICONV=1
-                ICONV_LIBS="${ICONV_LIBS} -liconv"
-                ICONV="${ICONV_LIBS}"],[
-                AC_MSG_ERROR([[Can't find iconv libraries.]])])]),
-                AC_MSG_ERROR([[Can't find iconv headers.]]))
+                ICONV_LIBS="${ICONV_LIBS} -liconv"],[
+                AC_MSG_ERROR([[Can't find iconv libraries.]])])
+            LDFLAGS=$old_ldflags
+            LIBS=$old_libs
+            ]),
+            AC_MSG_ERROR([[Can't find iconv headers.]]))
 fi
-AC_SUBST(ICONV)
 AC_SUBST(ICONV_LIBS)
 fi
 

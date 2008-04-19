@@ -17,8 +17,8 @@ noinst_HEADERS = \
 	wavpack_local.h \
 	wavpack_version.h
 
-libwavpack_la_CFLAGS = $(AM_CFLAGS)
-libwavpack_la_LIBADD = $(AM_LDADD) -lm @ICONV_LIBS@ 
+libwavpack_la_CFLAGS = $(AM_CFLAGS) $(ICONV_CFLAGS)
+libwavpack_la_LIBADD = $(AM_LDADD) $(LIBM) $(ICONV_LIBS)
 libwavpack_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -export-symbols-regex '^Wavpack.*$$' -no-undefined
 
 MAINTAINERCLEANFILES = \

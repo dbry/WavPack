@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "wavpack.h"
 #include "utils.h"
