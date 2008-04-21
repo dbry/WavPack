@@ -1660,11 +1660,19 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
     little_endian_to_native (first_block, WavpackHeaderFormat);
     ((WavpackHeader *) first_block)->total_samples = WavpackGetSampleIndex (wpc);
 
+    /* note that since the RIFF wrapper will not necessarily be properly aligned,
+       we copy it into a newly allocated buffer before modifying it */
+
     if (wpc->riff_header_created) {
         if (WavpackGetWrapperLocation (first_block, &wrapper_size)) {
-            RiffChunkHeader *riffhdr = WavpackGetWrapperLocation (first_block, NULL);
-            ChunkHeader *datahdr = (ChunkHeader *)((char *) riffhdr + wrapper_size - sizeof (ChunkHeader));
             uint32_t data_size = WavpackGetSampleIndex (wpc) * WavpackGetNumChannels (wpc) * WavpackGetBytesPerSample (wpc);
+            RiffChunkHeader *riffhdr;
+            ChunkHeader *datahdr;
+            void *wrapper_buff;
+
+            riffhdr = wrapper_buff = malloc (wrapper_size);
+            memcpy (wrapper_buff, WavpackGetWrapperLocation (first_block, NULL), wrapper_size);
+            datahdr = (ChunkHeader *)((char *) riffhdr + wrapper_size - sizeof (ChunkHeader));
 
             if (!strncmp (riffhdr->ckID, "RIFF", 4)) {
                 little_endian_to_native (riffhdr, ChunkHeaderFormat);
@@ -1677,6 +1685,9 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
                 datahdr->ckSize = data_size;
                 native_to_little_endian (datahdr, ChunkHeaderFormat);
             }
+
+            memcpy (WavpackGetWrapperLocation (first_block, NULL), wrapper_buff, wrapper_size);
+            free (wrapper_buff);
         }
     }
 
