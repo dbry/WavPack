@@ -84,7 +84,8 @@ iconv_t cd = iconv_open ("","");
 iconv (cd, NULL, NULL, NULL, NULL);],[
                 AC_MSG_RESULT(yes)
                 WITH_ICONV=1
-                ICONV_LIBS="${ICONV_LIBS} -liconv"],[
+                ICONV_LIBS="${ICONV_LIBS} -liconv"
+                ICONV="-liconv"],[
                 AC_MSG_ERROR([[Can't find iconv libraries.]])])
             LDFLAGS=$old_ldflags
             LIBS=$old_libs
@@ -92,6 +93,7 @@ iconv (cd, NULL, NULL, NULL, NULL);],[
             AC_MSG_ERROR([[Can't find iconv headers.]]))
 fi
 AC_SUBST(ICONV_LIBS)
+AC_SUBST(ICONV)
 fi
 
 AC_ARG_ENABLE(mmx, [[  --enable-mmx            enable MMX optimizations [default=no]]])
