@@ -55,7 +55,7 @@ static void free_streams (WavpackContext *wpc);
 
 ///////////////////////////// local table storage ////////////////////////////
 
-const uint32_t sample_rates [] = { 6000, 8000, 9600, 11025, 12000, 16000, 22050,
+static const uint32_t sample_rates [] = { 6000, 8000, 9600, 11025, 12000, 16000, 22050,
     24000, 32000, 44100, 48000, 64000, 88200, 96000, 192000 };
 
 ///////////////////////////// executable code ////////////////////////////////
@@ -1768,7 +1768,7 @@ static void *find_metadata (void *wavpack_block, int desired_id, uint32_t *size)
         dp += meta_bc;
     }
 
-    return FALSE;
+    return NULL;
 }
 
 #endif
@@ -2325,7 +2325,7 @@ static void free_tag (M_Tag *m_tag)
 {
     if (m_tag->ape_tag_data) {
         free (m_tag->ape_tag_data);
-        m_tag->ape_tag_data = 0;
+        m_tag->ape_tag_data = NULL;
     }
 }
 
@@ -2590,7 +2590,7 @@ static int read_wvc_block (WavpackContext *wpc)
             if (wpc->reader->read_bytes (wpc->wvc_in, wps->block2buff + 32, wphdr.ckSize - 24) !=
                 wphdr.ckSize - 24 || (wphdr.flags & UNKNOWN_FLAGS)) {
                     free (wps->block2buff);
-                    wps->block2buff = 0;
+                    wps->block2buff = NULL;
                     wps->wvc_skip = TRUE;
                     wpc->crc_errors++;
                     return FALSE;
@@ -2895,14 +2895,14 @@ void WavpackNativeToLittleEndian (void *data, char *format)
     native_to_little_endian (data, format);
 }
 
-uint32_t WavpackGetLibraryVersion ()
+uint32_t WavpackGetLibraryVersion (void)
 {
     return (LIBWAVPACK_MAJOR<<16)
           |(LIBWAVPACK_MINOR<<8)
           |(LIBWAVPACK_MICRO<<0);
 }
 
-const char *WavpackGetLibraryVersionString ()
+const char *WavpackGetLibraryVersionString (void)
 {
     return LIBWAVPACK_VERSION_STRING;
 }

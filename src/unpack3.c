@@ -326,7 +326,7 @@ static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader *reader, void *id)
 // to be read from the file. This function is NOT supported for overlapped
 // operation.
 
-void bs_restore3 (Bitstream3 *bs)
+static void bs_restore3 (Bitstream3 *bs)
 {
     uint32_t bytes_to_read = (uint32_t)(bs->end - bs->ptr - 1), bytes_read;
 

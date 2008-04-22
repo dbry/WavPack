@@ -292,8 +292,8 @@ void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
 void WavpackLittleEndianToNative (void *data, char *format);
 void WavpackNativeToLittleEndian (void *data, char *format);
 
-uint32_t WavpackGetLibraryVersion ();
-const char *WavpackGetLibraryVersionString ();
+uint32_t WavpackGetLibraryVersion (void);
+const char *WavpackGetLibraryVersionString (void);
 
 #ifdef __cplusplus
 }

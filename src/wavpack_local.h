@@ -664,6 +664,7 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_VERY_HIGH  0x400
 #define MODE_MD5        0x800
 
+char *WavpackGetErrorMessage (WavpackContext *wpc);
 int WavpackGetVersion (WavpackContext *wpc);
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
 uint32_t WavpackGetNumSamples (WavpackContext *wpc);
@@ -678,6 +679,7 @@ int WavpackGetBytesPerSample (WavpackContext *wpc);
 int WavpackGetNumChannels (WavpackContext *wpc);
 int WavpackGetChannelMask (WavpackContext *wpc);
 int WavpackGetReducedChannels (WavpackContext *wpc);
+int WavpackGetFloatNormExp (WavpackContext *wpc);
 int WavpackGetMD5Sum (WavpackContext *wpc, uchar data [16]);
 uint32_t WavpackGetWrapperBytes (WavpackContext *wpc);
 uchar *WavpackGetWrapperData (WavpackContext *wpc);
@@ -707,6 +709,9 @@ void *WavpackGetWrapperLocation (void *first_block, uint32_t *size);
 
 void WavpackLittleEndianToNative (void *data, char *format);
 void WavpackNativeToLittleEndian (void *data, char *format);
+
+uint32_t WavpackGetLibraryVersion (void);
+const char *WavpackGetLibraryVersionString (void);
 
 ///////////////////////////// SIMD helper macros /////////////////////////////
 
