@@ -1488,21 +1488,28 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     WavpackUpdateNumSamples (wpc, block_buff);
 
                     if (WavpackGetWrapperLocation (block_buff, &wrapper_size)) {
-                        RiffChunkHeader *riffhdr = WavpackGetWrapperLocation (block_buff, NULL);
-                        ChunkHeader *datahdr = (ChunkHeader *)((char *) riffhdr + wrapper_size - sizeof (ChunkHeader));
-                        uint32_t data_size = WavpackGetSampleIndex (wpc) * WavpackGetNumChannels (wpc) * WavpackGetBytesPerSample (wpc);
+                        uchar *wrapper_location = WavpackGetWrapperLocation (block_buff, NULL);
+                        uchar *chunk_header = malloc (sizeof (ChunkHeader));
+                        uint32_t data_size = WavpackGetSampleIndex (wpc) * WavpackGetNumChannels (wpc) *
+                            WavpackGetBytesPerSample (wpc);
 
-                        if (!strncmp (riffhdr->ckID, "RIFF", 4)) {
-                            WavpackLittleEndianToNative (riffhdr, ChunkHeaderFormat);
-                            riffhdr->ckSize = wrapper_size + data_size - 8;
-                            WavpackNativeToLittleEndian (riffhdr, ChunkHeaderFormat);
+                        memcpy (chunk_header, wrapper_location, sizeof (ChunkHeader));
+
+                        if (!strncmp (chunk_header, "RIFF", 4)) {
+                            ((ChunkHeader *)chunk_header)->ckSize = wrapper_size + data_size - 8;
+                            WavpackNativeToLittleEndian (chunk_header, ChunkHeaderFormat);
                         }
 
-                        if (!strncmp (datahdr->ckID, "data", 4)) {
-                            WavpackLittleEndianToNative (datahdr, ChunkHeaderFormat);
-                            datahdr->ckSize = data_size;
-                            WavpackNativeToLittleEndian (datahdr, ChunkHeaderFormat);
+                        memcpy (wrapper_location, chunk_header, sizeof (ChunkHeader));
+                        memcpy (chunk_header, wrapper_location + wrapper_size - sizeof (ChunkHeader), sizeof (ChunkHeader));
+
+                        if (!strncmp (chunk_header, "data", 4)) {
+                            ((ChunkHeader *)chunk_header)->ckSize = data_size;
+                            WavpackNativeToLittleEndian (chunk_header, ChunkHeaderFormat);
                         }
+
+                        memcpy (wrapper_location + wrapper_size - sizeof (ChunkHeader), chunk_header, sizeof (ChunkHeader));
+                        free (chunk_header);
                     }
 
                     if (DoSetFilePositionAbsolute (wv_file.file, 0) ||

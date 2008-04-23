@@ -77,7 +77,7 @@ int32_t dump_alloc (void);
 
 ///////////////////////////// local table storage ////////////////////////////
 
-static const uint32_t bitset [] = {
+const uint32_t bitset [] = {
     1L << 0, 1L << 1, 1L << 2, 1L << 3,
     1L << 4, 1L << 5, 1L << 6, 1L << 7,
     1L << 8, 1L << 9, 1L << 10, 1L << 11,
@@ -88,7 +88,7 @@ static const uint32_t bitset [] = {
     1L << 28, 1L << 29, 1L << 30, 1L << 31
 };
 
-static const uint32_t bitmask [] = {
+const uint32_t bitmask [] = {
     (1L << 0) - 1, (1L << 1) - 1, (1L << 2) - 1, (1L << 3) - 1,
     (1L << 4) - 1, (1L << 5) - 1, (1L << 6) - 1, (1L << 7) - 1,
     (1L << 8) - 1, (1L << 9) - 1, (1L << 10) - 1, (1L << 11) - 1,
@@ -99,7 +99,7 @@ static const uint32_t bitmask [] = {
     (1L << 28) - 1, (1L << 29) - 1, (1L << 30) - 1, 0x7fffffff
 };
 
-static const char nbits_table [] = {
+const char nbits_table [] = {
     0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,     // 0 - 15
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,     // 16 - 31
     6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,     // 32 - 47
