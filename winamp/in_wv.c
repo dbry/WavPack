@@ -1068,6 +1068,21 @@ static WavpackStreamReader freader = {
 
 static int metadata_we_can_write (const char *metadata);
 
+static void close_context (struct wpcnxt *cxt)
+{
+    if (cxt->wpc) {
+        WavpackCloseFile (cxt->wpc);
+
+        if (cxt->wv_id)
+            fclose (cxt->wv_id);
+
+        if (cxt->wvc_id)
+            fclose (cxt->wvc_id);
+    }
+
+    memset (cxt, 0, sizeof (*cxt));
+}
+
 __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *metadata, char *ret, int retlen)
 {
     int open_flags = OPEN_TAGS;
@@ -1088,8 +1103,7 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
     }
 
     if (!info.wpc || strcmp (filename, info.lastfn)) {
-        if (info.wpc)
-            WavpackCloseFile (info.wpc);
+        close_context (&info);
 
         if (config_bits & ALLOW_WVC)
             open_flags |= OPEN_WVC;
@@ -1154,17 +1168,7 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
     }
 
     if (!info.wpc || wcscmp (filename, info.w_lastfn)) {
-        if (info.wpc) {
-            WavpackCloseFile (info.wpc);
-
-            if (info.wv_id)
-                fclose (info.wv_id);
-
-            if (info.wvc_id)
-                fclose (info.wvc_id);
-        }
-
-        memset (&info, 0, sizeof (info));
+        close_context (&info);
 
         if (!(info.wv_id = _wfopen (filename, L"rb")))
             return retval;
@@ -1334,6 +1338,7 @@ int __declspec (dllexport) winampWriteExtendedFileInfo (void)
         edit.wv_id = NULL;
     }
 
+    close_context (&info);      // make sure we re-read info on any open files
     return 1;
 }
 
