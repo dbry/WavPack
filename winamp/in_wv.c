@@ -1070,15 +1070,14 @@ static int metadata_we_can_write (const char *metadata);
 
 static void close_context (struct wpcnxt *cxt)
 {
-    if (cxt->wpc) {
+    if (cxt->wpc)
         WavpackCloseFile (cxt->wpc);
 
-        if (cxt->wv_id)
-            fclose (cxt->wv_id);
+    if (cxt->wv_id)
+        fclose (cxt->wv_id);
 
-        if (cxt->wvc_id)
-            fclose (cxt->wvc_id);
-    }
+    if (cxt->wvc_id)
+        fclose (cxt->wvc_id);
 
     memset (cxt, 0, sizeof (*cxt));
 }
