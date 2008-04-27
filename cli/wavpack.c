@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2007 Conifer Software.               //
+//              Copyright (c) 1998 - 2008 Conifer Software.               //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -62,7 +62,7 @@ static char *strdup (const char *s)
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2007 Conifer Software.  All Rights Reserved.\n\n"
+" Copyright (c) 1998 - 2008 Conifer Software.  All Rights Reserved.\n\n"
 " *** This is an experimental alpha version and should be used for ***\n"
 " *** testing only. Please do not use it for important archiving!! ***\n\n";
 
@@ -85,55 +85,76 @@ static const char *usage =
 
 static const char *help =
 #if defined (WIN32)
-" Usage:   WAVPACK [-options] [@]infile[.wav]|- [[@]outfile[.wv]|outpath|-]\n"
-"             (default is lossless; infile may contain wildcards: ?,*)\n\n"
+" Usage:\n"
+"    WAVPACK [-options] [@]infile[.wav]|- [[@]outfile[.wv]|outpath|-]\n"
+"      (default operation is lossless; infile may contain wildcards: ?,*)\n\n"
 #else
-" Usage:   WAVPACK [-options] [@]infile[.wav]|- [...] [-o [@]outfile[.wv]|outpath|-]\n"
-"             (default is lossless; infile(s) may contain wildcards: ?,*)\n\n"
+" Usage:\n"
+"    WAVPACK [-options] [@]infile[.wav]|- [...] [-o [@]outfile[.wv]|outpath|-]\n"
+"      (default operation is lossless; infile(s) may contain wildcards: ?,*)\n\n"
 #endif
-" Options: -a  = Adobe Audition (CoolEdit) mode for 32-bit floats\n"
-"          -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
-"                                           n = 24-9600 kbits/second (kbps)\n"
-"          --blocksize=n = specify block size in samples (n = 1 - 131072)\n"
-"          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
-"          -cc = maximum hybrid compression (hurts lossy quality & decode speed)\n"
-"          --channel-order=C1,C2,C3,... = channel order if not MS standard\n"
-"            (FL,FR,FC,LFE,BL,BR,FLC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR)\n"
-"          -d  = delete source file if successful (use with caution!)\n"
-"          --dns = dynamic noise shaping (for hybrid mode only)\n"
+" Options:\n"
+"    -a                      Adobe Audition (CoolEdit) mode for 32-bit floats\n"
+"    -bn                     enable hybrid compression\n"
+"                              n = 2.0 to 23.9 bits/sample, or\n"
+"                              n = 24-9600 kbits/second (kbps)\n"
+"                              add -c to add correction file (.wvc)\n"
+"    --blocksize=n           specify block size in samples (max = 131072 and\n"
+"                               min = 16 with --merge-blocks, otherwise 128)\n"
+"    -c                      hybrid lossless mode (use with -b to create\n"
+"                             correction file (.wvc) in hybrid mode)\n"
+"    -cc                     maximum hybrid lossless compression (but degrades\n"
+"                             decode speed and may result in lower quality)\n"
+"    --channel-order=<list>  specify channel order (comma separated) if not\n"
+"                             Microsoft standard (which is FL,FR,FC,LFE,BL,BR,\n"
+"                             LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR)\n"
+"    -d                      delete source file if successful (use with caution!)\n"
 #if defined (WIN32)
-"          -e  = create self-extracting executable (needs wvselfx.exe)\n"
+"    -e                      create self-extracting executable with .exe\n"
+"                             extension, requires wvself.exe in path\n"
 #endif
-"          -f  = fast mode (fast, but some compromise in compression ratio)\n"
-"          -h  = high quality (better compression ratio, but slower)\n"
-"          -hh = very high quality (best compression, but slowest and NOT\n"
-"                                   recommended for portable hardware use)\n"
-"          --help = extended help display\n"
-"          -i  = ignore length in wav header (no pipe output allowed)\n"
-"          -jn = joint-stereo override (0 = left/right, 1 = mid/side)\n"
+"    -f                      fast mode (faster encode and decode, but some\n"
+"                             compromise in compression ratio)\n"
+"    -h                      high quality (better compression ratio, but slower\n"
+"                             encode and decode than default mode)\n"
+"    -hh                     very high quality (best compression, but slowest\n"
+"                             and NOT recommended for portable hardware use)\n"
+"    --help                  this extended help display\n"
+"    -i                      ignore length in wav header (no pipe output allowed)\n"
+"    -jn                     joint-stereo override (0 = left/right, 1 = mid/side)\n"
 #if defined (WIN32)
-"          -l  = run at low priority (for smoother multitasking)\n"
+"    -l                      run at lower priority for smoother multitasking\n"
 #endif
-"          -m  = compute & store MD5 signature of raw audio data\n"
-"          --merge-blocks = merge consecutive blocks with equal redundancy\n"
-"            (this is only useful for files generated by lossyWAV program)\n"
-"          -n  = calculate average and peak quantization noise (hybrid only)\n"
+"    -m                      compute & store MD5 signature of raw audio data\n"
+"    --merge-blocks          merge consecutive blocks with equal redundancy\n"
+"                             (used with --blocksize option and is useful for\n"
+"                             files generated by the lossyWAV program or\n"
+"                             decoded HDCD files)\n"
+"    -n                      calculate average and peak quantization noise\n"
+"                             (for hybrid mode only, reference fullscale sine)\n"
 #if !defined (WIN32)
-"          -o FILENAME | PATH = specify output filename or path\n"
+"    -o FILENAME | PATH      specify output filename or path\n"
 #endif
-"          --optimize-mono = optimization for stereo files that are really mono\n"
+"    --optimize-mono         optimization for stereo files that are really mono\n"
 "                             (result may be incompatible with older decoders)\n"
-"          -p  = practical float storage (also 32-bit ints, not lossless)\n"
-"          -q  = quiet (keep console output to a minimum)\n"
-"          -r  = generate new RIFF wav header (removing extra chunk info)\n"
-"          -sn = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)\n"
-"          -t  = copy input file's time stamp to output file(s)\n"
-"          -w \"Field=Value\" = write specified metadata to APEv2 tag\n"
-"          -x[n] = extra encode processing (optional n = 1 to 6, 1=default)\n"
-"                  -x1 to -x3 to choose best of predefined filters\n"
-"                  -x4 to -x6 to generate custom filters (very slow!)\n"
-"          -y  = yes to all warnings (use with caution!)\n\n"
-" Web:     Visit www.wavpack.com for latest version and info\n";
+"    -p                      practical float storage (also affects 32-bit\n"
+"                             integers, no longer technically lossless)\n"
+"    -q                      quiet (keep console output to a minimum)\n"
+"    -r                      generate a new RIFF wav header (removes any\n"
+"                             extra chunk info from existing header)\n"
+"    -sn                     override default noise shaping where n is a float\n"
+"                             value between -1.0 and 1.0, or the letter 'd' (for\n"
+"                             dynamic noise shaping); negative values move noise\n"
+"                             lower in freq, positive values move noise higher\n"
+"                             in freq, use '0' for no shaping (white noise)\n"
+"    -t                      copy input file's time stamp to output file(s)\n"
+"    -w \"Field=Value\"        write specified metadata to APEv2 tag\n"
+"    -x[n]                   extra encode processing (optional n = 1 to 6, 1=default)\n"
+"                             -x1 to -x3 to choose best of predefined filters\n"
+"                             -x4 to -x6 to generate custom filters (very slow!)\n"
+"    -y                      yes to all warnings (use with caution!)\n\n"
+" Web:\n"
+"     Visit www.wavpack.com for latest version and complete information\n";
 
 static const char *speakers [] = {
     "FL", "FR", "FC", "LFE", "BL", "BR", "FLC", "FRC", "BC",
@@ -227,13 +248,13 @@ int main (argc, argv) int argc; char **argv;
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 config.flags |= CONFIG_OPTIMIZE_MONO;
             else if (!strcmp (long_option, "dns"))                      // --dns
-                config.flags |= CONFIG_DYNAMIC_SHAPING;
+                error_line ("warning: --dns option deprecated, see -s option");
             else if (!strcmp (long_option, "merge-blocks"))             // --merge-blocks
                 config.flags |= CONFIG_MERGE_BLOCKS;
             else if (!strncmp (long_option, "blocksize", 9)) {          // --blocksize
                 config.block_samples = strtol (long_param, NULL, 10);
 
-                if (config.block_samples < 1 || config.block_samples > 131072) {
+                if (config.block_samples < 16 || config.block_samples > 131072) {
                     error_line ("invalid blocksize!");
                     ++error_count;
                 }
@@ -431,20 +452,30 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'S': case 's':
-                        config.shaping_weight = (float) strtod (++*argv, argv);
+                        if (*++*argv == 'D' || **argv == 'd')
+                            config.flags |= CONFIG_DYNAMIC_SHAPING;
+                        else if (isdigit (**argv) || **argv == '-' || **argv == '.' || **argv == '+') {
+                            config.shaping_weight = (float) strtod (*argv, argv);
 
-                        if (!config.shaping_weight) {
-                            config.flags |= CONFIG_SHAPE_OVERRIDE;
-                            config.flags &= ~CONFIG_HYBRID_SHAPE;
+                            if (!config.shaping_weight) {
+                                config.flags |= CONFIG_SHAPE_OVERRIDE;
+                                config.flags &= ~CONFIG_HYBRID_SHAPE;
+                            }
+                            else if (config.shaping_weight >= -1.0 && config.shaping_weight <= 1.0)
+                                config.flags |= (CONFIG_HYBRID_SHAPE | CONFIG_SHAPE_OVERRIDE);
+                            else {
+                                error_line ("-s-1.0 to -s1.0 or -sd only!");
+                                ++error_count;
+                            }
+
+                            --*argv;
                         }
-                        else if (config.shaping_weight >= -1.0 && config.shaping_weight <= 1.0)
-                            config.flags |= (CONFIG_HYBRID_SHAPE | CONFIG_SHAPE_OVERRIDE);
                         else {
-                            error_line ("-s-1.00 to -s1.00 only!");
+                            error_line ("-s-1.0 to -s1.0 or -sd only!");
                             ++error_count;
+                            --*argv;
                         }
 
-                        --*argv;
                         break;
 
                     case 'W': case 'w':
@@ -534,8 +565,14 @@ int main (argc, argv) int argc; char **argv;
         }
     }
 
-    if ((config.flags & CONFIG_MERGE_BLOCKS) && !config.block_samples) {
-        error_line ("--merge-blocks only makes sense when --blocksize is specified!");
+    if (config.flags & CONFIG_MERGE_BLOCKS) {
+        if (!config.block_samples) {
+            error_line ("--merge-blocks only makes sense when --blocksize is specified!");
+            ++error_count;
+        }
+    }
+    else if (config.block_samples && config.block_samples < 128) {
+        error_line ("minimum blocksize is 128 when --merge-blocks is not specified!");
         ++error_count;
     }
 

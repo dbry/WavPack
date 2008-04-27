@@ -1101,9 +1101,14 @@ void pack_init (WavpackContext *wpc)
     wps->analysis_pass.term = 18;
     wps->analysis_pass.delta = 2;
 
-    if (wpc->config.flags & CONFIG_AUTO_SHAPING)
-        wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] =
-            (wpc->config.sample_rate < 64000 || (wps->wphdr.flags & CROSS_DECORR)) ? -512L << 16 : 1024L << 16;
+    if (wpc->config.flags & CONFIG_AUTO_SHAPING) {
+        if (wpc->config.flags & CONFIG_OPTIMIZE_WVC)
+            wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = -512L << 16;
+        else if (wpc->config.sample_rate >= 64000)
+            wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = 1024L << 16;
+        else
+            wpc->config.flags |= CONFIG_DYNAMIC_SHAPING;
+    }
     else {
         int32_t weight = (int32_t) floor (wpc->config.shaping_weight * 1024.0 + 0.5);
 
