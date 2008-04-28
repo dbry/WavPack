@@ -189,7 +189,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.5a8 \nCopyright (c) 2007 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.5b \nCopyright (c) 2008 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -964,7 +964,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.5a8 "
+    "WavPack Player v2.5b "
 
 #ifdef __alpha
     "(AXP)"
@@ -1012,43 +1012,68 @@ __declspec (dllexport) In_Module * winampGetInModule2 ()
 
 static int32_t read_bytes (void *id, void *data, int32_t bcount)
 {
-    return (int32_t) fread (data, 1, bcount, (FILE*) id);
+    FILE *file = id ? *(FILE**)id : NULL;
+
+    if (file)
+        return (int32_t) fread (data, 1, bcount, file);
+    else
+        return 0;
 }
 
 static uint32_t get_pos (void *id)
 {
-    return ftell ((FILE*) id);
+    FILE *file = id ? *(FILE**)id : NULL;
+
+    if (file)
+        return ftell (file);
+    else
+        return -1;
 }
 
 static int set_pos_abs (void *id, uint32_t pos)
 {
-    return fseek (id, pos, SEEK_SET);
+    FILE *file = id ? *(FILE**)id : NULL;
+
+    if (file)
+        return fseek (file, pos, SEEK_SET);
+    else
+        return 0;
 }
 
 static int set_pos_rel (void *id, int32_t delta, int mode)
 {
-    return fseek (id, delta, mode);
+    FILE *file = id ? *(FILE**)id : NULL;
+
+    if (file)
+        return fseek (file, delta, mode);
+    else
+        return -1;
 }
 
 static int push_back_byte (void *id, int c)
 {
-    return ungetc (c, id);
+    FILE *file = id ? *(FILE**)id : NULL;
+
+    if (file)
+        return ungetc (c, file);
+    else
+        return EOF;
 }
 
 static uint32_t get_length (void *id)
 {
-    FILE *file = id;
+    FILE *file = id ? *(FILE**)id : NULL;
     struct stat statbuf;
 
     if (!file || fstat (fileno (file), &statbuf) || !(statbuf.st_mode & S_IFREG))
         return 0;
-
-    return statbuf.st_size;
+    else
+        return statbuf.st_size;
 }
 
 static int can_seek (void *id)
 {
-    FILE *file = id;
+    FILE *file = id ? *(FILE**)id : NULL;
     struct stat statbuf;
 
     return file && !fstat (fileno (file), &statbuf) && (statbuf.st_mode & S_IFREG);
@@ -1056,7 +1081,12 @@ static int can_seek (void *id)
 
 static int32_t write_bytes (void *id, void *data, int32_t bcount)
 {
-    return (int32_t) fwrite (data, 1, bcount, (FILE*) id);
+    FILE *file = id ? *(FILE**)id : NULL;
+
+    if (file)
+        return (int32_t) fwrite (data, 1, bcount, file);
+    else
+        return 0;
 }
 
 static WavpackStreamReader freader = {
@@ -1166,7 +1196,7 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
         retval = 1;
     }
 
-    if (!info.wpc || wcscmp (filename, info.w_lastfn)) {
+    if (!info.wpc || wcscmp (filename, info.w_lastfn) || !_stricmp (metadata, "formatinformation")) {
         close_context (&info);
 
         if (!(info.wv_id = _wfopen (filename, L"rb")))
@@ -1183,14 +1213,11 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
             }
         }
 
-        info.wpc = WavpackOpenFileInputEx (&freader, info.wv_id, info.wvc_id, error, open_flags, 0);
+        info.wpc = WavpackOpenFileInputEx (&freader, &info.wv_id,
+            info.wvc_id ? &info.wvc_id : NULL, error, open_flags, 0);
 
         if (!info.wpc) {
-            fclose (info.wv_id);
-
-            if (info.wvc_id)
-                fclose (info.wvc_id);
-
+            close_context (&info);
             return retval;
         }
 
@@ -1233,6 +1260,21 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
             *ret = 0;
 
         retval = 1;
+    }
+
+    // This is a little ugly, but since the WavPack library has read the tags off the
+    // files, we can close the files (but not the WavPack context) now so that we don't
+    // leave handles open. We may access the file again for the "formatinformation"
+    // field, so we reopen the file if we get that one.
+
+    if (info.wv_id) {
+        fclose (info.wv_id);
+        info.wv_id = NULL;
+    }
+
+    if (info.wvc_id) {
+        fclose (info.wvc_id);
+        info.wvc_id = NULL;
     }
 
     return retval;
@@ -1301,7 +1343,7 @@ int __declspec (dllexport) winampSetExtendedFileInfoW (
         if (!(edit.wv_id = _wfopen (filename, L"r+b")))
             return 0;
 
-        edit.wpc = WavpackOpenFileInputEx (&freader, edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+        edit.wpc = WavpackOpenFileInputEx (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
 
         if (!edit.wpc) {
             fclose (edit.wv_id);
