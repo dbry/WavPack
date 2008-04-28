@@ -18,6 +18,7 @@
 #include <string.h>
 #include <math.h>
 
+//#define USE_OVERHEAD
 #define LOG_LIMIT 6912
 //#define EXTRA_DUMP
 
@@ -793,6 +794,18 @@ static void decorr_stereo_buffer (WavpackExtraInfo *info, int32_t *samples, int3
         decorr_stereo_pass_quick (samples, outsamples, num_samples, &dp, 1);
 }
 
+static int log2overhead (int first_term, int num_terms)
+{
+#ifdef USE_OVERHEAD
+    if (first_term > MAX_TERM)
+        return (8 + num_terms * 3) << 11;
+    else
+        return (4 + num_terms * 3) << 11;
+#else
+    return 0;
+#endif
+}
+
 static void recurse_stereo (WavpackContext *wpc, WavpackExtraInfo *info, int depth, int delta, uint32_t input_bits)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
@@ -825,6 +838,9 @@ static void recurse_stereo (WavpackContext *wpc, WavpackExtraInfo *info, int dep
         info->dps [depth].delta = delta;
         decorr_stereo_buffer (info, samples, outsamples, wps->wphdr.block_samples, depth);
         bits = log2buffer (outsamples, wps->wphdr.block_samples * 2, info->log_limit);
+
+        if (bits != (uint32_t) -1)
+            bits += log2overhead (info->dps [0].term, depth + 1);
 
         if (bits < info->best_bits) {
             info->best_bits = bits;
@@ -889,6 +905,9 @@ static void delta_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
 
         bits = log2buffer (info->sampleptrs [i], wps->wphdr.block_samples * 2, info->log_limit);
 
+        if (bits != (uint32_t) -1)
+            bits += log2overhead (wps->decorr_passes [0].term, i);
+
         if (bits < info->best_bits) {
             lower = TRUE;
             info->best_bits = bits;
@@ -910,6 +929,9 @@ static void delta_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
         }
 
         bits = log2buffer (info->sampleptrs [i], wps->wphdr.block_samples * 2, info->log_limit);
+
+        if (bits != (uint32_t) -1)
+            bits += log2overhead (wps->decorr_passes [0].term, i);
 
         if (bits < info->best_bits) {
             info->best_bits = bits;
@@ -951,6 +973,9 @@ static void sort_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
                 decorr_stereo_buffer (info, info->sampleptrs [i], info->sampleptrs [i+1], wps->wphdr.block_samples, i);
 
             bits = log2buffer (info->sampleptrs [i], wps->wphdr.block_samples * 2, info->log_limit);
+
+            if (bits != (uint32_t) -1)
+                bits += log2overhead (wps->decorr_passes [0].term, i);
 
             if (bits < info->best_bits) {
                 reversed = TRUE;
@@ -1007,6 +1032,7 @@ static void analyze_stereo (WavpackContext *wpc, int32_t *samples, int do_sample
             decorr_stereo_pass_quick (info.sampleptrs [i], info.sampleptrs [i + 1], wps->wphdr.block_samples, info.dps + i, 1);
 
     info.best_bits = log2buffer (info.sampleptrs [info.nterms], wps->wphdr.block_samples * 2, 0) * 1;
+    info.best_bits += log2overhead (info.dps [0].term, i);
     memcpy (info.sampleptrs [info.nterms + 1], info.sampleptrs [i], wps->wphdr.block_samples * 8);
 
     if (wpc->config.extra_flags & EXTRA_BRANCHES)
@@ -1246,6 +1272,8 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
             else
                 break;
         }
+
+        size += log2overhead (wpds->terms [0], nterms);
 
         if (size < best_size) {
             memcpy (best_buffer, temp_buffer [j&1], buf_size);
