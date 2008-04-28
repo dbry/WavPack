@@ -1131,16 +1131,30 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
         retval = 1;
     }
 
-    if (!info.wpc || strcmp (filename, info.lastfn)) {
+    if (!info.wpc || strcmp (filename, info.lastfn) || !_stricmp (metadata, "formatinformation")) {
         close_context (&info);
 
-        if (config_bits & ALLOW_WVC)
-            open_flags |= OPEN_WVC;
-
-        info.wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
-
-        if (!info.wpc)
+        if (!(info.wv_id = fopen (filename, "rb")))
             return retval;
+
+        if (config_bits & ALLOW_WVC) {
+            char *wvc_name = malloc (strlen (filename) + 10);
+
+            if (wvc_name) {
+                strcpy (wvc_name, filename);
+                strcat (wvc_name, "c");
+                info.wvc_id = fopen (wvc_name, "rb");
+                free (wvc_name);
+            }
+        }
+
+        info.wpc = WavpackOpenFileInputEx (&freader, &info.wv_id,
+            info.wvc_id ? &info.wvc_id : NULL, error, open_flags, 0);
+
+        if (!info.wpc) {
+            close_context (&info);
+            return retval;
+        }
 
         strcpy (info.lastfn, filename);
         info.w_lastfn [0] = 0;
@@ -1169,6 +1183,21 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
             *ret = 0;
 
         retval = 1;
+    }
+
+    // This is a little ugly, but since the WavPack library has read the tags off the
+    // files, we can close the files (but not the WavPack context) now so that we don't
+    // leave handles open. We may access the file again for the "formatinformation"
+    // field, so we reopen the file if we get that one.
+
+    if (info.wv_id) {
+        fclose (info.wv_id);
+        info.wv_id = NULL;
+    }
+
+    if (info.wvc_id) {
+        fclose (info.wvc_id);
+        info.wvc_id = NULL;
     }
 
     return retval;
