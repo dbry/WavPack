@@ -63,8 +63,8 @@ static char *strdup (const char *s)
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
 " Copyright (c) 1998 - 2008 Conifer Software.  All Rights Reserved.\n\n"
-" *** This is an experimental alpha version and should be used for ***\n"
-" *** testing only. Please do not use it for important archiving!! ***\n\n";
+" *** This is an experimental beta version and should be used for ***\n"
+" *** testing only. Please do not use it for important archiving! ***\n\n";
 
 static const char *usage =
 #if defined (WIN32)
@@ -98,7 +98,7 @@ static const char *help =
 "    -bn                     enable hybrid compression\n"
 "                              n = 2.0 to 23.9 bits/sample, or\n"
 "                              n = 24-9600 kbits/second (kbps)\n"
-"                              add -c to add correction file (.wvc)\n"
+"                              add -c to create correction file (.wvc)\n"
 "    --blocksize=n           specify block size in samples (max = 131072 and\n"
 "                               min = 16 with --merge-blocks, otherwise 128)\n"
 "    -c                      hybrid lossless mode (use with -b to create\n"
@@ -143,7 +143,7 @@ static const char *help =
 "    -r                      generate a new RIFF wav header (removes any\n"
 "                             extra chunk info from existing header)\n"
 "    -sn                     override default noise shaping where n is a float\n"
-"                             value between -1.0 and 1.0, or the letter 'd' (for\n"
+"                             value between -1.0 and 1.0 or the letter 'd' (for\n"
 "                             dynamic noise shaping); negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
