@@ -732,10 +732,11 @@ typedef int __v4hi __attribute__ ((__mode__ (__V4HI__)));
 #define _m_pxor(m1, m2) (__m64) __builtin_ia32_pxor ((__di) m1, (__di) m2)
 #else
 typedef int __m64 __attribute__ ((__vector_size__ (8)));
-#define _m_paddsw(m1, m2) __builtin_ia32_paddsw (m1, m2)
+typedef short __m64_16 __attribute__ ((__vector_size__ (8)));
+#define _m_paddsw(m1, m2) (__m64) __builtin_ia32_paddsw ((__m64_16) m1, (__m64_16) m2)
 #define _m_pand(m1, m2) __builtin_ia32_pand (m1, m2)
 #define _m_pandn(m1, m2) __builtin_ia32_pandn (m1, m2)
-#define _m_pmaddwd(m1, m2) __builtin_ia32_pmaddwd (m1, m2)
+#define _m_pmaddwd(m1, m2) __builtin_ia32_pmaddwd ((__m64_16) m1, (__m64_16) m2)
 #define _m_por(m1, m2) __builtin_ia32_por (m1, m2)
 #define _m_pxor(m1, m2) __builtin_ia32_pxor (m1, m2)
 #endif
