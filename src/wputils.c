@@ -2036,7 +2036,7 @@ double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc)
         double output_time = (double) wpc->total_samples / wpc->config.sample_rate;
         double input_size = (double) wpc->filelen + (count_wvc ? wpc->file2len : 0);
 
-        if (output_time >= 1.0 && input_size >= 1.0)
+        if (output_time >= 0.1 && input_size >= 1.0)
             return input_size * 8.0 / output_time;
     }
 
