@@ -21,8 +21,10 @@
 // Version 2.6 - Nov 1, 2005   (updated to library version 4.3)
 // Version 2.7 - Dec 3, 2006   (updated to library version 4.40, added v.high mode)
 // Version 2.8 - May 6, 2007   (library ver 4.41, read RIFF header, not just trailer)
+// Version 2.9 - May 24, 2008  (library ver 4.50, add About, make "extra" into slider)
 
 #include <windows.h>
+#include <commctrl.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -47,7 +49,7 @@
 #define OPTIONS_NOISESHAPE      0x200   // floats noiseshaped to ints
 #define OPTIONS_DITHER          0x400   // floats dithered to ints
 #define OPTIONS_NORMALIZE       0x800   // floats normalized to type 3 std
-#define OPTIONS_EXTRA           0x1000  // extra processing mode
+#define OPTIONS_EXTRA           0x1000  // extra processing mode (version 2.9+, range = 0-6, else 0-1)
 #define OPTIONS_VERY_HIGH       0x8000  // "very high" mode specified
 #define OPTIONS_BITRATE         0xfff00000 // hybrid bits/sample (5.7 fixed pt)
 
@@ -211,9 +213,9 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
     else if (dwOptions & OPTIONS_FAST)
         config.flags |= CONFIG_FAST_FLAG;
 
-    if (dwOptions & OPTIONS_EXTRA) {
+    if (dwOptions & (OPTIONS_EXTRA * 7)) {
         config.flags |= CONFIG_EXTRA_MODE;
-        config.xmode = 3;
+        config.xmode = (dwOptions & (OPTIONS_EXTRA * 7)) / OPTIONS_EXTRA;
     }
 
     if (dwOptions & OPTIONS_HYBRID) {
@@ -707,7 +709,8 @@ DWORD PASCAL FilterGetOptions (HWND hWnd, HINSTANCE hInst, long lSamprate, WORD 
             iCurrentMode = IDC_LOSSLESS;
     }
 
-    iCurrentFlags = dwOptions & (OPTIONS_NOISESHAPE | OPTIONS_DITHER | OPTIONS_WVC | OPTIONS_NORMALIZE | OPTIONS_EXTRA);
+    iCurrentFlags = dwOptions & (OPTIONS_NOISESHAPE | OPTIONS_DITHER | OPTIONS_WVC |
+                OPTIONS_NORMALIZE | (OPTIONS_EXTRA * 7));
 
     if (dwOptions & OPTIONS_FLOAT20)
         iCurrentFloatBits = IDC_FLOAT20;
@@ -771,7 +774,8 @@ DWORD PASCAL FilterGetOptions (HWND hWnd, HINSTANCE hInst, long lSamprate, WORD 
     else if (iCurrentFloatBits == IDC_FLOAT24)
         dwOptions |= OPTIONS_FLOAT24;
 
-    dwOptions |= iCurrentFlags & (OPTIONS_NOISESHAPE | OPTIONS_DITHER | OPTIONS_WVC | OPTIONS_NORMALIZE | OPTIONS_EXTRA);
+    dwOptions |= iCurrentFlags & (OPTIONS_NOISESHAPE | OPTIONS_DITHER | OPTIONS_WVC |
+                OPTIONS_NORMALIZE | (OPTIONS_EXTRA * 7));
 
     return dwOptions;
 }
@@ -819,7 +823,10 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
             CheckDlgButton (hDlg, IDC_NOISESHAPE, iCurrentFlags & OPTIONS_NOISESHAPE);
             CheckDlgButton (hDlg, IDC_DITHER, iCurrentFlags & OPTIONS_DITHER);
             CheckDlgButton (hDlg, IDC_NORMALIZE, iCurrentFlags & OPTIONS_NORMALIZE);
-            CheckDlgButton (hDlg, IDC_EXTRA, iCurrentFlags & OPTIONS_EXTRA);
+
+            SendDlgItemMessage (hDlg, IDC_EXTRA_SLIDER, TBM_SETRANGE, 0, MAKELONG (0, 6));
+            SendDlgItemMessage (hDlg, IDC_EXTRA_SLIDER, TBM_SETPOS, 1,
+                                (iCurrentFlags & (OPTIONS_EXTRA * 7)) / OPTIONS_EXTRA);
 
             SetFocus (GetDlgItem (hDlg, iCurrentMode));
 
@@ -890,8 +897,10 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
                     if (IsDlgButtonChecked (hDlg, IDC_DITHER))
                         iCurrentFlags |= OPTIONS_DITHER;
 
-                    if (IsDlgButtonChecked (hDlg, IDC_EXTRA))
-                        iCurrentFlags |= OPTIONS_EXTRA;
+                    i = SendDlgItemMessage (hDlg, IDC_EXTRA_SLIDER, TBM_GETPOS, 0, 0);
+
+                    if (i >= 0 && i <= 6)
+                        iCurrentFlags |= OPTIONS_EXTRA * i;
 
                     GetWindowText (GetDlgItem (hDlg, IDC_BITRATE), str, sizeof (str));
 
@@ -904,6 +913,12 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
                 case IDCANCEL:
                     EndDialog (hDlg, FALSE);
                     return TRUE;
+
+                case IDABOUT:
+                    MessageBox (hDlg,
+                        "WavPack Filter Version 2.9b\n"
+                        "Copyright (c) 2008 Conifer Software  ", "About WavPack Filter", MB_OK);
+                    break;
             }
 
             break;

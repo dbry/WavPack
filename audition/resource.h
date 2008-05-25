@@ -1,7 +1,8 @@
 //{{NO_DEPENDENCIES}}
-// Microsoft Developer Studio generated include file.
+// Microsoft Visual C++ generated include file.
 // Used by wavpack.rc
 //
+#define IDABOUT                         3
 #define IDC_MODE_GROUP                  1000
 #define IDC_LOSSLESS                    1001
 #define IDC_LOSSLESS_HIGH               1002
@@ -23,7 +24,7 @@
 #define IDC_NOISESHAPE                  1023
 #define IDC_DITHER                      1024
 #define IDC_EXTRA_GROUP                 1025
-#define IDC_EXTRA                       1026
+#define IDC_EXTRA_SLIDER                1027
 
 // Next default values for new objects
 // 
@@ -31,7 +32,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        105
 #define _APS_NEXT_COMMAND_VALUE         40002
-#define _APS_NEXT_CONTROL_VALUE         1027
+#define _APS_NEXT_CONTROL_VALUE         1028
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
