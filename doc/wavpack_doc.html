@@ -108,15 +108,16 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 4.41</div>
+				<div class="pageHeader">Using WavPack Version 4.50</div>
 			</div>
 			<div class="pageMenu">
-				<a href="index.html">Back to home page</a> - 
+				<a href="index.html">Home</a> - 
 				<a href="#linux">Linux</a> -
 				<a href="#wavpack">WavPack options</a> - 
 				<a href="#wvunpack">WvUnpack options</a> - 
 				<a href="#wvgain">WvGain options</a> - 
 				<a href="#usage">Usage Guide</a> - 
+				<a href="#noncd">Non-CD</a> - 
 				<a href="#plugins">Plugins</a>
 			</div>
 			<br/>
@@ -128,7 +129,9 @@ a:hover {
 					there are few restrictions. The files may be any resolution from 8 to 32 bits; they may be 
 					mono, stereo, or multichannel; they may even be ieee floating point data. The programs 
 					are full 32-bit executables and therefore must only be used under Windows (for real DOS 
-					applications or with Windows 3.1 use WavPack 3.4 instead). For version 4.31 an additional
+					applications it is possible to use the old WavPack 3.4 instead, but more recent versions
+     of WavPack have been built for DOS by the author of Mpxplay and are available
+     <a href="http://www.freewebtown.com/mpxplay/">here</a>). For version 4.31 an additional
 				 utility called WvGain was added to apply ReplayGain information to WavPack files. The
      programs are initiated from the MS-DOS command line prompt with the following syntax:
 				<p>
@@ -243,12 +246,15 @@ a:hover {
 				</p>
 
 				<p>
-     <b><tt>--blocksize=n = specify block size in samples (n = 1 - 131072)</tt></b>
+     <b><tt>--blocksize=n = specify block size in samples (n = 128 - 131072)</tt></b>
 				</p>
 				<p>
      WavPack normally determines the optimum number of samples to place into each
-     WavPack block, however this option allows it to be directly specified. Probably
-     only for advanced users.
+     WavPack block, however this option allows it to be directly specified. The most likely
+     use for this option would be to improve the handling of audio files that have a
+     variable number of redundant MSBs. For example, the output of the lossyWAV program or
+     the output of a software HDCD decoder. This option is also often combined with the
+     <b>--merge-blocks</b> option (which also reduces the minimum allowed block size to 16 samples).
 				</p>
 
 				<p>
@@ -276,13 +282,40 @@ a:hover {
 				</p>
 				<p>
 					Normally, when the -c option is used to create a correction file in the hybrid mode, 
-					WavPack attempts to optimize for the quality of the lossy file and let the combined 
+					WavPack attempts to optimize for the quality of the lossy file and lets the combined 
 					lossless compression of the two files fall where it may. This option tells WavPack 
 					to optimize for the overall compression ratio instead, even if this means some 
-					possible degradation of lossy quality (and this can also have a small effect on
-					lossless decompression speed). Keep in mind the effect of this option is not too 
-					significant either way.
+					possible degradation of lossy quality (for example, dynamic noise shaping is not
+     used in this mode). This can also have an effect on lossless decompression speed
+     (however it does not effect lossy decoding). Keep in mind the effect of this option
+     is not too significant either way.
 				</p>
+
+				<p>
+     <b><tt>--channel-order=&lt;list&gt; = specify non-standard channel ordering)</tt></b>
+				</p>
+				<p>
+     For multichannel audio WAV files, WavPack assumes that they are in the standard
+     Microsoft order. However, some programs generate different channel orders (especially
+     those that do not generate WAVEFORMATEXTENSIBLE headers). For those files, this command
+     allows the user to override the Microsoft order and specify a list of channels from
+     this list (which is in Microsoft order): FL,FR,FC,LFE,BL,BR,LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR.
+    </p>
+    <p>
+     Note that this operation reorders the channels <i>before</i> encoding, so if the
+     resulting WavPack file is subsequently unpacked it will <b>not</b> recreate the
+     identical WAV file (because the channels will now be in the correct order). If you want
+     the unpacked file to be identical to the original simply do not use this command (although
+     this means that the resulting WavPack file will not have the correct channel information
+     and so won't play correctly in multichannel software, and also means that the compression
+     might not be as good because the "wrong" channels will be paired in stereo).
+    </p>
+    <p>
+     If this option is used then it might be a good idea to add the <b>-r</b> option also to generate a
+     valid WAVEFORMATEXTENSIBLE header with the correct channel information. In fact, one could even
+     pipe the output of WavPack directly to WvUnpack for the sole purpose of reordering WAV files
+     and adding the correct WAV headers!
+    </p>
 				<p>
 					<b><tt>-d = delete source file if successful (use with caution!)</tt></b>
 				</p>
@@ -388,6 +421,31 @@ a:hover {
 					of FLAC, OptimFROG, Shntool, and get_id3(). They can also be used by WvUnpack during
 					decompression to verify the data integrity of lossless files.
 				</p>
+
+				<p>
+					<b><tt>--merge-blocks = merge consecutive blocks of equal redundancy</tt></b>
+				</p>
+				<p>
+     This option is only valid when generating lossless files and is only used with the
+     <b>--blocksize</b> command. WavPack will always scan each block of audio data before
+     compressing to determine the actual number of valid bits that need to be stored because,
+     for various reasons, this is not always the same as the number of bits present. In some
+     situations there can be many redundant bits, as for example in the output of the
+     lossyWAV program or the output of software HDCD decoders. In these cases it may be
+     advantagous to use a specific block size (or simply a small block size), but WavPack
+     does not work very well with very small block sizes because of its relatively large
+     block header.
+    </p>
+    <p>
+     The <b>--merge-blocks</b> option takes care of this situation by allowing WavPack to
+     merge consecutive blocks with the same number of bits to remove. For example, if a
+     blocksize of 512 is specified, and 10 512-sample blocks in a row all have exactly
+     the same number of redundant bits, then these 10 blocks will be combined in to a
+     single block of 5120 samples (which is much more efficient for WavPack). When the
+     <b>--merge-blocks</b> option is specified the minimum block size that <b>--blocksize</b>
+     will accept is reduced from 128 to 16 samples.
+    </p>
+
 				<p>
 					<b><tt>-n = calculate average and peak quantization noise (hybrid only)</tt></b>
 				</p>
@@ -443,16 +501,27 @@ a:hover {
 				 generated by CoolEdit or Audition because they are not properly normalized.
 				</p>
 				<p>
-					<b><tt>-sn = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)</tt></b>
+					<b><tt>-sn = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off, d = dns)</tt></b>
 				</p>
 				<p>
 					WavPack uses first-order noise shaping to improve the perceived quality of lossy 
 					files and to improve the hybrid lossless compression ratio. Normally WavPack will 
-					choose the noise shaping most appropriate for the application, but this option 
-					allows the user to override the default. The parameter range is +/- 1.0, where 
+					choose the noise shaping most appropriate for the application (based on the source
+     sampling rate and whether the -cc option is specified), but this option allows the
+     user to override the default. The parameter range is +/- 1.0, where 
 					positive values shift the noise higher in frequency and negative values shift the 
 					noise lower in frequency. Values very close to -1.0 are clipped to prevent problems
-					associated with very high gain near DC.
+					associated with very high gain near DC and the value zero results in no noise shaping
+     at all (i.e., white noise).
+				</p>
+				<p>
+     For version 4.50 an option for dynamic noise shaping was added (specified with the
+     letter 'd'). This feature causes the noise shaping to continuously adjust to the
+     spectral characteristics of the source signal and results in significantly improved
+     subjective quality on samples that previously caused difficulty with WavPack's lossy
+     mode (particularly material with loud high-frequency transients). This mode is used
+     by default except for high sampling rates (>= 64 kHz) or when the -cc option is
+     specified (because it can adversely effect compression ratio).
 				</p>
 				<p>
 					<b><tt>-t = copy input file's time stamp to output file(s)</tt></b>
@@ -478,7 +547,7 @@ a:hover {
 					<b><tt>-x[n] = extra encode processing (optional n = 1-6, 1 = default)</tt></b>
 				</p>
 				<p>
-					Like previous versions of WavPack (and many other compressors), WavPack 4.40 normally 
+					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 4.50 normally 
 					works "symmetrically" in that encoding and decoding operate at about the same rate
 					(regardless of the mode used). However, WavPack has an option to work
 					"asymmetrically", so that extra processing can be done during encoding to
@@ -768,7 +837,8 @@ a:hover {
 					operate at the most common bitrate of 128 kbps (with CD audio, at least). The 
 					lowest bitrate that I recommend for WavPack lossy is 256 kbps which can provide 
 					transparent reproduction for most non-critical listening situations and is roughly
-					equivalent to MP3 at 160 kbps. Above 256 kbps the quality of WavPack's lossy mode 
+					equivalent to LAME MP3 encoding somewhere between 160 kbps and 192 kbps (CBR). Above
+     256 kbps the quality of WavPack's lossy mode 
 					increases rapidly, with added quantization noise (which is the only artifact) 
 					dropping by about 1 dB for every 15 kbps. At 320 kbps the quality is difficult 
 					for even critical listeners to distinguish from the original, and at 384 kbps 
@@ -796,6 +866,55 @@ a:hover {
  	 320 kbps    -hb320x3       -hb320x         -b320x3
  	 384 kbps    -b384x3        -hb384x         -fb384x3
 				</pre>
+				</div>
+			</div>
+
+			<br/>
+			<div class="box" id="noncd">
+				<div class="boxHeader">Non-CD</div>
+				<div class="boxContent">
+    <p>
+     WavPack hybrid mode is also well suited to other sampling rates, bitdepths, and channel
+     configurations. For generating bitrates lower than the minimum of 196 kbps that applies
+     to CD audio, it is necessary to resample the audio to lower sampling rates and/or convert
+     to mono. Note that conventional lossy codecs accomplish the same thing by lowpass
+     filtering the source.
+    </p>
+    <p>
+     For high-resolution audio (e.g., 24-bit/96-kHz) WavPack hybrid makes a very good choice. The
+     reasoning here is that standard lossless encoding achieves relatively poor compression on
+     this type of material because the additonal 8 bits are essentially noise and cannot be
+     further compressed. In addition, conventional lossy codecs like MP3 or AAC are based on
+     psychoacoustic models of hearing that presume that CD audio quality (16-bit/44-kHz) is
+     "perfect", and therefore discard everything outside of that range.
+    </p>
+    <p>
+     When used at around 1024 kbps, WavPack hybrid preserves the full bandwidth and dynamic
+     range of 24/96 sources. It accomplishes this by moving most of the quantization noise up
+     above the audible audio band using first-order noise shaping in much the same way that DSD
+     does. In fact, at normally loud listening levels, the added quantization noise remains
+     completely inaudble, <i>even without the masking effect of the material itself!</i> While
+     1024 kbps may seem high at first, keep in mind that this is right in the range of some
+     losslessly compressed CD-quality music, and is approximately 1/3 of the bitrate required to
+     losslessly compress the same 24/96 material! 
+    </p> 
+    <p>
+     WavPack also handles multichannel audio like 5.1 and 7.1 channel configurations, and these
+     can be stored in lossless and hybrid modes (including hybrid lossless). With all the
+     combinations of sampling rates and numbers of channels it might become confusing to
+     determine a desirable bitrate. This is an ideal application of the alternate form of the
+     <b>-b</b> option which accepts a number of bits per sample rather than kilobits per second.
+     When using this form a reasonable starting point of experimentation is 4 bits per sample
+     (-b4). Except for extreme cases this will produce transparent results (it is equivalent to
+     about 350 kbps for CD audio). Note that the compression algorithms are identical when using
+     this form; it is simply an alternate way of specifying the bitrate.
+    </p>
+    <p>
+     Representative samples ranging from 24 kbps to 1024 kbps are found in the "hybrid_bitrates"
+     directory of the WavPack Test Suite which is currently hosted
+     <a href="http://www.rarewares.org/wavpack/test_suite.zip">here</a>), but can always be found
+     on the WavPack website.
+    </p>
 				</div>
 			</div>
 
