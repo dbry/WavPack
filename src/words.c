@@ -349,6 +349,9 @@ int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
     uchar *endptr = byteptr + wpmd->byte_length;
 
     if (wps->wphdr.flags & HYBRID_BITRATE) {
+        if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+            return FALSE;
+
         wps->w.c [0].slow_level = exp2s (byteptr [0] + (byteptr [1] << 8));
         byteptr += 2;
 
@@ -357,6 +360,9 @@ int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
             byteptr += 2;
         }
     }
+
+    if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+        return FALSE;
 
     wps->w.bitrate_acc [0] = (int32_t)(byteptr [0] + (byteptr [1] << 8)) << 16;
     byteptr += 2;
@@ -367,6 +373,9 @@ int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
     }
 
     if (byteptr < endptr) {
+        if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+            return FALSE;
+
         wps->w.bitrate_delta [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
         byteptr += 2;
 

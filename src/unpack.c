@@ -229,6 +229,9 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
     }
 
     if (wps->wphdr.version == 0x402 && (wps->wphdr.flags & HYBRID_FLAG)) {
+        if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+            return FALSE;
+
         wps->dc.error [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
         byteptr += 2;
 
@@ -240,6 +243,9 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
 
     while (dpp-- > wps->decorr_passes && byteptr < endptr)
         if (dpp->term > MAX_TERM) {
+            if (byteptr + (wps->wphdr.flags & MONO_DATA ? 4 : 8) > endptr)
+                return FALSE;
+
             dpp->samples_A [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
             dpp->samples_A [1] = exp2s ((short)(byteptr [2] + (byteptr [3] << 8)));
             byteptr += 4;
@@ -251,6 +257,9 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
             }
         }
         else if (dpp->term < 0) {
+            if (byteptr + 4 > endptr)
+                return FALSE;
+
             dpp->samples_A [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
             dpp->samples_B [0] = exp2s ((short)(byteptr [2] + (byteptr [3] << 8)));
             byteptr += 4;
@@ -259,6 +268,9 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
             int m = 0, cnt = dpp->term;
 
             while (cnt--) {
+                if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+                    return FALSE;
+
                 dpp->samples_A [m] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
                 byteptr += 2;
 
