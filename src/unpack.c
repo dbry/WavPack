@@ -361,14 +361,17 @@ int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
     if (!bytecnt || bytecnt > 5)
         return FALSE;
 
-    wpc->config.num_channels = *byteptr++;
+    if (!wpc->config.num_channels) {
+        wpc->config.num_channels = *byteptr++;
 
-    while (--bytecnt) {
-        mask |= (uint32_t) *byteptr++ << shift;
-        shift += 8;
+        while (--bytecnt) {
+            mask |= (uint32_t) *byteptr++ << shift;
+            shift += 8;
+        }
+
+        wpc->config.channel_mask = mask;
     }
 
-    wpc->config.channel_mask = mask;
     return TRUE;
 }
 
