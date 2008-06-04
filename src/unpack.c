@@ -64,6 +64,11 @@ int unpack_init (WavpackContext *wpc)
     CLEAR (wps->dc);
     CLEAR (wps->w);
 
+    if (!(wps->wphdr.flags & MONO_FLAG) && (wpc->reduced_channels == 1 || wpc->config.num_channels == 1)) {
+        wps->mute_error = TRUE;
+        return FALSE;
+    }
+
     if (wps->wphdr.flags & UNKNOWN_FLAGS) {
         wps->mute_error = TRUE;
         return FALSE;
@@ -473,7 +478,11 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
         sample_count = wps->wphdr.block_index + wps->wphdr.block_samples - wps->sample_index;
 
     if (wps->mute_error) {
-        memset (buffer, 0, sample_count * (flags & MONO_FLAG ? 4 : 8));
+        if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))
+            memset (buffer, 0, sample_count * 4);
+        else
+            memset (buffer, 0, sample_count * 8);
+
         wps->sample_index += sample_count;
         return sample_count;
     }
