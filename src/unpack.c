@@ -70,7 +70,7 @@ int unpack_init (WavpackContext *wpc)
             return FALSE;
     }
 
-    if (wps->wphdr.flags & UNKNOWN_FLAGS) {
+    if ((wps->wphdr.flags & UNKNOWN_FLAGS) || (wps->wphdr.flags & MONO_DATA) == MONO_DATA) {
         wps->mute_error = TRUE;
         return FALSE;
     }
