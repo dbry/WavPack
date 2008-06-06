@@ -662,7 +662,7 @@ static int unpack_file (char *infilename, char *outfilename)
 
     if (skip.value_is_valid) {
         if (skip.value_is_time)
-            skip_sample_index = (uint32_t) skip.value * WavpackGetSampleRate (wpc);
+            skip_sample_index = (uint32_t) (skip.value * WavpackGetSampleRate (wpc));
         else
             skip_sample_index = (uint32_t) skip.value;
 
