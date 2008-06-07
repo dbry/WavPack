@@ -1379,6 +1379,10 @@ void write_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
     *byteptr++ = (char) (wpc->config.flags >> 8);
     *byteptr++ = (char) (wpc->config.flags >> 16);
     *byteptr++ = (char) (wpc->config.flags >> 24);
+
+    if (wpc->config.flags & CONFIG_EXTRA_MODE)
+        *byteptr++ = (char) wpc->config.xmode;
+
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
 

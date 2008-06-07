@@ -1316,11 +1316,22 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     else if (WavpackGetMode (wpc) & MODE_HIGH)
         strcat (modes, ", high");
 
-    if (WavpackGetMode (wpc) & MODE_EXTRA)
+    if (WavpackGetMode (wpc) & MODE_EXTRA) {
         strcat (modes, ", extra");
+
+        if (WavpackGetMode (wpc) & MODE_XMODE) {
+            char xmode[3] = "-0";
+
+            xmode [1] = ((WavpackGetMode (wpc) & MODE_XMODE) >> 12) + '0';
+            strcat (modes, xmode);
+        }
+    }
 
     if (WavpackGetMode (wpc) & MODE_SFX)
         strcat (modes, ", sfx");
+
+    if (WavpackGetMode (wpc) & MODE_DNS)
+        strcat (modes, ", dns");
 
     fprintf (dst, "modalities:        %s\n", modes);
 

@@ -401,7 +401,10 @@ int read_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
         wpc->config.flags &= 0xff;
         wpc->config.flags |= (int32_t) *byteptr++ << 8;
         wpc->config.flags |= (int32_t) *byteptr++ << 16;
-        wpc->config.flags |= (int32_t) *byteptr << 24;
+        wpc->config.flags |= (int32_t) *byteptr++ << 24;
+
+        if (bytecnt >= 4 && (wpc->config.flags & CONFIG_EXTRA_MODE))
+            wpc->config.xmode = *byteptr;
     }
 
     return TRUE;

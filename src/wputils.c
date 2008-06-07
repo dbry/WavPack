@@ -362,6 +362,8 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 // MODE_VERY_HIGH:  file was created in the "very high" mode (or in
 //                  the "high" mode prior to 4.4)
 // MODE_MD5:  file contains an MD5 checksum
+// MODE_XMODE:  level used for extra mode (1-6, 0=unknown)
+// MODE_DNS:  dynamic noise shaping
 
 int WavpackGetMode (WavpackContext *wpc)
 {
@@ -394,13 +396,17 @@ int WavpackGetMode (WavpackContext *wpc)
             mode |= MODE_FAST;
 
         if (wpc->config.flags & CONFIG_EXTRA_MODE)
-            mode |= MODE_EXTRA;
+            mode |= (MODE_EXTRA | (wpc->config.xmode << 12));
 
         if (wpc->config.flags & CONFIG_CREATE_EXE)
             mode |= MODE_SFX;
 
         if (wpc->config.flags & CONFIG_MD5_CHECKSUM)
             mode |= MODE_MD5;
+
+        if ((wpc->config.flags & CONFIG_HYBRID_FLAG) && (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) &&
+            wpc->streams [0] && wpc->streams [0]->wphdr.version >= 0x407)
+                mode |= MODE_DNS;
 
 #ifndef NO_TAGS
         if (valid_tag (&wpc->m_tag)) {

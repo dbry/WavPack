@@ -658,11 +658,13 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_VALID_TAG  0x10
 #define MODE_HIGH       0x20
 #define MODE_FAST       0x40
-#define MODE_EXTRA      0x80
+#define MODE_EXTRA      0x80    // extra mode used, see MODE_XMODE for possible level
 #define MODE_APETAG     0x100
 #define MODE_SFX        0x200
 #define MODE_VERY_HIGH  0x400
 #define MODE_MD5        0x800
+#define MODE_XMODE      0x7000  // mask for extra level (1-6, 0=unknown)
+#define MODE_DNS        0x8000
 
 char *WavpackGetErrorMessage (WavpackContext *wpc);
 int WavpackGetVersion (WavpackContext *wpc);
