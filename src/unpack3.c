@@ -55,6 +55,7 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
     WavpackStream3 *wps;
     WaveHeader3 wavhdr;
 
+    CLEAR (wavhdr);
     wpc->stream3 = wps = (WavpackStream3 *) malloc (sizeof (WavpackStream3));
     CLEAR (*wps);
 
@@ -110,6 +111,11 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
                     if (ChunkHeader.ckSize > sizeof (wavhdr)) {
                         uint32_t bytes_to_skip = (ChunkHeader.ckSize + 1 - sizeof (wavhdr)) & ~1L;
 
+                        if (bytes_to_skip > 1024 * 1024) {
+                            strcpy (error, "not a valid WavPack file!");
+                            return WavpackCloseFile (wpc);
+                        }
+
                         if (wpc->open_flags & OPEN_WRAPPER) {
                             wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + bytes_to_skip);
                             wpc->reader->read_bytes (wpc->wv_in, wpc->wrapper_data + wpc->wrapper_bytes, bytes_to_skip);
@@ -122,14 +128,15 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
                         }
                     }
                 }
-                else if (!strncmp (ChunkHeader.ckID, "data", 4)) {
-                    wpc->total_samples = ChunkHeader.ckSize / wavhdr.NumChannels /
-                        ((wavhdr.BitsPerSample > 16) ? 3 : 2);
-
+                else if (!strncmp (ChunkHeader.ckID, "data", 4))
                     break;
-                }
                 else if ((ChunkHeader.ckSize + 1) & ~1L) {
                     uint32_t bytes_to_skip = (ChunkHeader.ckSize + 1) & ~1L;
+
+                    if (bytes_to_skip > 1024 * 1024) {
+                        strcpy (error, "not a valid WavPack file!");
+                        return WavpackCloseFile (wpc);
+                    }
 
                     if (wpc->open_flags & OPEN_WRAPPER) {
                         wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + bytes_to_skip);
@@ -149,6 +156,17 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
         strcpy (error, "not a valid WavPack file!");
         return WavpackCloseFile (wpc);
     }
+
+    if (wavhdr.FormatTag != 1 || !wavhdr.NumChannels || wavhdr.NumChannels > 2 ||
+        !wavhdr.SampleRate || wavhdr.BitsPerSample < 16 || wavhdr.BitsPerSample > 24 ||
+        wavhdr.BlockAlign / wavhdr.NumChannels > 3 || wavhdr.BlockAlign % wavhdr.NumChannels ||
+        wavhdr.BlockAlign / wavhdr.NumChannels < (wavhdr.BitsPerSample + 7) / 8) {
+            strcpy (error, "not a valid WavPack file!");
+            return WavpackCloseFile (wpc);
+    }
+
+    wpc->total_samples = ChunkHeader.ckSize / wavhdr.NumChannels /
+        ((wavhdr.BitsPerSample > 16) ? 3 : 2);
 
     if (wpc->reader->read_bytes (wpc->wv_in, &wphdr, 10) != 10) {
         strcpy (error, "not a valid WavPack file!");
@@ -1814,6 +1832,9 @@ static int32_t FASTCALL get_word1 (WavpackStream3 *wps, int chan)
     k = (wps->w1.ave_level [0] [chan] + (wps->w1.ave_level [0] [chan] >> 3) + 0x40) >> 7;
     k = count_bits (k);
 
+    if (k & ~31)
+        return WORD_EOF;
+
     if (ones_count == 0) {
         getbits (&avalue, k, &wps->wvbits);
         avalue &= bitmask [k];
@@ -1822,6 +1843,9 @@ static int32_t FASTCALL get_word1 (WavpackStream3 *wps, int chan)
         tmp1 = bitset [k];
         k = (wps->w1.ave_level [1] [chan] + (wps->w1.ave_level [1] [chan] >> 4) + 0x20) >> 6;
         k = count_bits (k);
+
+        if (k & ~31)
+            return WORD_EOF;
 
         if (ones_count == 1) {
             getbits (&avalue, k, &wps->wvbits);
@@ -1839,6 +1863,10 @@ static int32_t FASTCALL get_word1 (WavpackStream3 *wps, int chan)
             else {
                 k = (wps->w1.ave_level [2] [chan] + 0x10) >> 5;
                 k = count_bits (k);
+
+                if (k & ~31)
+                    return WORD_EOF;
+
                 getbits (&avalue, k, &wps->wvbits);
                 avalue = (avalue & bitmask [k]) + (bitset [k] * (ones_count - 2));
             }
@@ -1893,7 +1921,7 @@ static int32_t FASTCALL get_old_word1 (WavpackStream3 *wps, int chan)
 
     for (bc = 0; bc < 32 && getbit (&wps->wvbits); ++bc);
 
-    if (bc == 32)
+    if (bc == 32 || (k & ~31))
         return WORD_EOF;
 
     avalue = (avalue & bitmask [k]) + bitset [k] * bc;
