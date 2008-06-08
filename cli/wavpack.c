@@ -62,9 +62,7 @@ static char *strdup (const char *s)
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2008 Conifer Software.  All Rights Reserved.\n\n"
-" *** This is an experimental beta version and should be used for ***\n"
-" *** testing only. Please do not use it for important archiving! ***\n\n";
+" Copyright (c) 1998 - 2008 Conifer Software.  All Rights Reserved.\n\n";
 
 static const char *usage =
 #if defined (WIN32)
@@ -247,6 +245,10 @@ int main (argc, argv) int argc; char **argv;
                 ask_help = 1;
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 config.flags |= CONFIG_OPTIMIZE_MONO;
+            else if (!strcmp (long_option, "dns")) {                    // --dns
+                error_line ("warning: --dns deprecated, use --use-dns");
+                ++error_count;
+            }
             else if (!strcmp (long_option, "use-dns"))                  // --use-dns
                 config.flags |= CONFIG_DYNAMIC_SHAPING;
             else if (!strcmp (long_option, "merge-blocks"))             // --merge-blocks
