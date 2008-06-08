@@ -109,6 +109,7 @@ static const char *help =
 "                             Microsoft standard (which is FL,FR,FC,LFE,BL,BR,\n"
 "                             LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR)\n"
 "    -d                      delete source file if successful (use with caution!)\n"
+"    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 #if defined (WIN32)
 "    -e                      create self-extracting executable with .exe\n"
 "                             extension, requires wvself.exe in path\n"
@@ -143,8 +144,7 @@ static const char *help =
 "    -r                      generate a new RIFF wav header (removes any\n"
 "                             extra chunk info from existing header)\n"
 "    -sn                     override default noise shaping where n is a float\n"
-"                             value between -1.0 and 1.0 or the letter 'd' (for\n"
-"                             dynamic noise shaping); negative values move noise\n"
+"                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
 "    -t                      copy input file's time stamp to output file(s)\n"
@@ -247,8 +247,8 @@ int main (argc, argv) int argc; char **argv;
                 ask_help = 1;
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 config.flags |= CONFIG_OPTIMIZE_MONO;
-            else if (!strcmp (long_option, "dns"))                      // --dns
-                error_line ("warning: --dns option deprecated, see -s option");
+            else if (!strcmp (long_option, "use-dns"))                  // --use-dns
+                config.flags |= CONFIG_DYNAMIC_SHAPING;
             else if (!strcmp (long_option, "merge-blocks"))             // --merge-blocks
                 config.flags |= CONFIG_MERGE_BLOCKS;
             else if (!strncmp (long_option, "blocksize", 9)) {          // --blocksize
@@ -452,30 +452,20 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'S': case 's':
-                        if (*++*argv == 'D' || **argv == 'd')
-                            config.flags |= CONFIG_DYNAMIC_SHAPING;
-                        else if (isdigit (**argv) || **argv == '-' || **argv == '.' || **argv == '+') {
-                            config.shaping_weight = (float) strtod (*argv, argv);
+                        config.shaping_weight = (float) strtod (++*argv, argv);
 
-                            if (!config.shaping_weight) {
-                                config.flags |= CONFIG_SHAPE_OVERRIDE;
-                                config.flags &= ~CONFIG_HYBRID_SHAPE;
-                            }
-                            else if (config.shaping_weight >= -1.0 && config.shaping_weight <= 1.0)
-                                config.flags |= (CONFIG_HYBRID_SHAPE | CONFIG_SHAPE_OVERRIDE);
-                            else {
-                                error_line ("-s-1.0 to -s1.0 or -sd only!");
-                                ++error_count;
-                            }
-
-                            --*argv;
+                        if (!config.shaping_weight) {
+                            config.flags |= CONFIG_SHAPE_OVERRIDE;
+                            config.flags &= ~CONFIG_HYBRID_SHAPE;
                         }
+                        else if (config.shaping_weight >= -1.0 && config.shaping_weight <= 1.0)
+                            config.flags |= (CONFIG_HYBRID_SHAPE | CONFIG_SHAPE_OVERRIDE);
                         else {
-                            error_line ("-s-1.0 to -s1.0 or -sd only!");
+                            error_line ("-s-1.00 to -s1.00 only!");
                             ++error_count;
-                            --*argv;
                         }
 
+                        --*argv;
                         break;
 
                     case 'W': case 'w':
@@ -557,10 +547,14 @@ int main (argc, argv) int argc; char **argv;
             error_line ("--merge-blocks option is for lossless mode only!");
             ++error_count;
         }
+        if ((config.flags & CONFIG_SHAPE_OVERRIDE) && (config.flags & CONFIG_DYNAMIC_SHAPING)) {
+            error_line ("-s and --use-dns options are mutually exclusive!");
+            ++error_count;
+        }
     }
     else {
-        if (config.flags & (CONFIG_CALC_NOISE | CONFIG_SHAPE_OVERRIDE | CONFIG_CREATE_WVC)) {
-            error_line ("-s, -n and -c options are for hybrid mode (-b) only!");
+        if (config.flags & (CONFIG_CALC_NOISE | CONFIG_SHAPE_OVERRIDE | CONFIG_CREATE_WVC | CONFIG_DYNAMIC_SHAPING)) {
+            error_line ("-c, -n, -s, and --use-dns options are for hybrid mode (-b) only!");
             ++error_count;
         }
     }
