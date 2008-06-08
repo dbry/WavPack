@@ -13,6 +13,7 @@
                             David Bryant
 
                        updated: April 29, 2007
+                       updated: June 7, 2008
 
 1.0 INTRODUCTION
 
@@ -57,13 +58,13 @@ common case of CD audio).
 
 Return the WavPack library version in a packed integer. Bits 0-7 give the
 micro version, bits 8-15 give the minor version, and bits 16-23 give the
-major version. As of this writing the version is 4.41.0.
+major version. As of this writing the version is 4.50.0.
 
   const char *WavpackGetLibraryVersionString (void);
   -------------------------------------------------
 
 Return the WavPack library version as a string. As of this writing this is
-"4.41.0".
+"4.50.0".
 
   char *WavpackGetErrorMessage (WavpackContext *wpc);
   --------------------------------------------------
@@ -256,7 +257,15 @@ MODE_FAST:
 
 MODE_EXTRA:
  The file was originally created with the  "extra" mode (this is really only
- useful for reporting to the user)
+ useful for reporting to the user). The MODE_XMODE below can sometimes allow
+ determination of the exact extra mode level.
+
+MODE_XMODE:
+ If the MODE_EXTRA bit above is set, this 3-bit field can sometimes allow the
+ determination of the exact extra mode parameter specified by the user if the
+ file was encoded with version 4.50 or later. If these three bits are zero
+ then the extra mode level is unknown, otherwise is represents the extra mode
+ level from 1-6.
 
 MODE_APETAG:
  The file contains a valid APEv2 tag (OPEN_TAGS must be set in the "open" call
@@ -275,6 +284,11 @@ MODE_VERY_HIGH:
 
 MODE_MD5:
  The file contains an MD5 checksum.
+
+MODE_DNS
+ The hybrid file was encoded with the dynamic noise shaping feature which was
+ introduced in the 4.50 version of WavPack.
+
 
   int WavpackGetNumChannels (WavpackContext *wpc);
   -----------------------------------------------
@@ -580,6 +594,9 @@ options. For optional configuration, the following fields and flags may be set:
                                shaping_weight != 0.0)
  o CONFIG_SHAPE_OVERRIDE      override default hybrid noise shaping
                                (set CONFIG_HYBRID_SHAPE and shaping_weight)
+ o CONFIG_DYNAMIC_SHAPING     force dynamic noise shaping even when WavPack
+                               would not use it (no need to set any of the
+                               other shaping flags when using this one)
  o CONFIG_FAST_FLAG           "fast" compression mode (same as -f)
  o CONFIG_HIGH_FLAG           "high" compression mode (same as -h)
  o CONFIG_VERY_HIGH_FLAG      "very high" compression mode (same as -hh)

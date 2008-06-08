@@ -1,3 +1,45 @@
+                       ---------------------------
+                       Release 4.50 - June 8, 2008
+                       ---------------------------
+
+ WavPack Library Source Code - 4.50
+ ----------------------------------
+  added: dynamic noise shaping for improved hybrid quality
+  added: option to merge blocks of similar redundancy
+  added: ability to store and retrieve extra mode level
+  fixed: alignment fault on some big-endian machines
+  improved: allow bitrate to be calculated for files down to 1/10 second
+  improved: decoding of corrupt files (prevents heap overrun crashes)
+
+ wavpack.exe (command-line encoder) - 4.50
+ -----------------------------------------
+  added: dynamic noise shaping for improved hybrid quality
+  added: --channel-order option to reorder nonconforming multichannel files
+  added: --merge-blocks option to optimize storage of LossyWAV output files
+  added: ignore -o on Windows for compatibility with Linux version
+  fixed: alignment fault on some big-endian machines
+
+ wvunpack.exe (command-line decoder) - 4.50
+ ------------------------------------------
+  fixed: don't ignore fractions of seconds in --skip option
+  added: show extra level and dns status for newer files (-ss command)
+  added: ignore -o on Windows for compatibility with Linux version
+  improved: decoding of corrupt files (prevents heap overrun crashes)
+  improved: allow bitrate to be displayed for files down to 1/10 second
+
+ in_wv.dll (winamp plugin) - 2.5
+ -------------------------------
+  improved: decoding of corrupt files (prevents heap overrun crashes)
+
+ cool_wv4.flt (CoolEdit / Audition filter) - 2.9
+ -----------------------------------------------
+  added: about box
+  added: dynamic noise shaping for improved hybrid quality
+  improved: show bitrate for files as short as 1/10 second
+  improved: decoding of corrupt files (prevents heap overrun crashes)
+  improved: replace "extra processing" switch with a slider (0-6)
+
+
                        --------------------------
                        Release 4.41 - May 6, 2007
                        --------------------------
