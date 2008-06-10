@@ -916,7 +916,7 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
 
                 case IDABOUT:
                     MessageBox (hDlg,
-                        "WavPack Filter Version 2.9b\n"
+                        "WavPack Filter Version 2.9\n"
                         "Copyright (c) 2008 Conifer Software  ", "About WavPack Filter", MB_OK);
                     break;
             }

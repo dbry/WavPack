@@ -189,7 +189,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.5b \nCopyright (c) 2008 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.5 \nCopyright (c) 2008 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -964,7 +964,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.5b "
+    "WavPack Player v2.5 "
 
 #ifdef __alpha
     "(AXP)"
