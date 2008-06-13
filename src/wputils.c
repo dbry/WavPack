@@ -907,17 +907,17 @@ static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int si
     char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
     int i;
 
-    for (i = 0; i < m_tag->ape_tag_hdr.item_count; ++i) {
+    for (i = 0; i < m_tag->ape_tag_hdr.item_count && q - p > 8; ++i) {
         int vsize, flags, isize;
 
         vsize = * (int32_t *) p; p += 4;
         flags = * (int32_t *) p; p += 4;
-        isize = (int) strlen (p);
+        isize = (int) strnlen (p, q - p);
 
         little_endian_to_native (&vsize, "L");
         little_endian_to_native (&flags, "L");
 
-        if (p + isize + vsize + 1 > q)
+        if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
             break;
 
         if (isize && vsize && !stricmp (item, p) && !(flags & 6)) {
@@ -1025,17 +1025,17 @@ static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int si
     char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
     int i;
 
-    for (i = 0; i < m_tag->ape_tag_hdr.item_count && index >= 0; ++i) {
+    for (i = 0; i < m_tag->ape_tag_hdr.item_count && index >= 0 && q - p > 8; ++i) {
         int vsize, flags, isize;
 
         vsize = * (int32_t *) p; p += 4;
         flags = * (int32_t *) p; p += 4;
-        isize = (int) strlen (p);
+        isize = (int) strnlen (p, q - p);
 
         little_endian_to_native (&vsize, "L");
         little_endian_to_native (&flags, "L");
 
-        if (p + isize + vsize + 1 > q)
+        if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
             break;
 
         if (isize && vsize && !(flags & 6) && !index--) {
@@ -2774,6 +2774,7 @@ static uint32_t find_sample (WavpackContext *wpc, void *infile, uint32_t header_
 
 static int load_tag (WavpackContext *wpc)
 {
+    int ape_tag_length, ape_tag_items;
     M_Tag *m_tag = &wpc->m_tag;
 
     CLEAR (*m_tag);
@@ -2797,17 +2798,20 @@ static int load_tag (WavpackContext *wpc)
                     m_tag->ape_tag_hdr.length < (1024 * 1024) &&
                     (m_tag->ape_tag_data = malloc (m_tag->ape_tag_hdr.length)) != NULL) {
 
+                        ape_tag_items = m_tag->ape_tag_hdr.item_count;
+                        ape_tag_length = m_tag->ape_tag_hdr.length;
+
                         if (m_tag->id3_tag.tag_id [0] == 'T')
                             m_tag->tag_file_pos = -(int32_t)sizeof (ID3_Tag);
                         else
                             m_tag->tag_file_pos = 0;
 
-                        m_tag->tag_file_pos -= m_tag->ape_tag_hdr.length + sizeof (APE_Tag_Hdr);
+                        m_tag->tag_file_pos -= ape_tag_length + sizeof (APE_Tag_Hdr);
                         wpc->reader->set_pos_rel (wpc->wv_in, m_tag->tag_file_pos, SEEK_END);
-                        memset (m_tag->ape_tag_data, 0, m_tag->ape_tag_hdr.length);
+                        memset (m_tag->ape_tag_data, 0, ape_tag_length);
 
-                        if (wpc->reader->read_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (APE_Tag_Hdr)) != sizeof (APE_Tag_Hdr) ||
-                            strncmp (m_tag->ape_tag_hdr.ID, "APETAGEX", 8)) {
+                        if (wpc->reader->read_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (APE_Tag_Hdr)) !=
+                            sizeof (APE_Tag_Hdr) || strncmp (m_tag->ape_tag_hdr.ID, "APETAGEX", 8)) {
                                 free (m_tag->ape_tag_data);
                                 CLEAR (*m_tag);
                                 return FALSE;       // something's wrong...
@@ -2815,16 +2819,15 @@ static int load_tag (WavpackContext *wpc)
 
                         little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
 
-                        if (m_tag->ape_tag_hdr.version != 2000 || !m_tag->ape_tag_hdr.item_count ||
-                            m_tag->ape_tag_hdr.length < sizeof (m_tag->ape_tag_hdr) ||
-                            m_tag->ape_tag_hdr.length > (1024 * 1024)) {
+                        if (m_tag->ape_tag_hdr.version != 2000 || m_tag->ape_tag_hdr.item_count != ape_tag_items ||
+                            m_tag->ape_tag_hdr.length != ape_tag_length) {
                                 free (m_tag->ape_tag_data);
                                 CLEAR (*m_tag);
                                 return FALSE;       // something's wrong...
                         }
 
-                        if (wpc->reader->read_bytes (wpc->wv_in, m_tag->ape_tag_data, m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr)) !=
-                            m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr)) {
+                        if (wpc->reader->read_bytes (wpc->wv_in, m_tag->ape_tag_data,
+                            ape_tag_length - sizeof (APE_Tag_Hdr)) != ape_tag_length - sizeof (APE_Tag_Hdr)) {
                                 free (m_tag->ape_tag_data);
                                 CLEAR (*m_tag);
                                 return FALSE;       // something's wrong...
