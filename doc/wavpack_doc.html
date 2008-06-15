@@ -324,20 +324,6 @@ a:hover {
 					Self explanatory.
 				</p>
 				<p>
-					<b><tt>--use-dns = force use of dynamic noise shaping (hybrid only)</tt></b>
-				</p>
-				<p>
-     For version 4.50, dynamic noise shaping was added to the WavPack hybrid mode. This feature
-     causes the noise shaping to continuously adjust to the spectral characteristics of the source
-     signal and results in significantly improved subjective quality on samples that previously caused
-     difficulty with WavPack's lossy mode (particularly material with loud high-frequency transients).
-     This feature is used by default except for high sampling rates (>= 64 kHz) or when the -cc option
-     is specified (because it can adversely effect compression ratio), however the <b>--use-dns</b> option
-     allows the user to force the use of dynamic noise shaping even when it would not normally be used.
-     This option should not be specified with the <b>-s</b> option which overrides the default with fixed
-     noise shaping.
-				</p>
-				<p>
 					<b><tt>-e = create self-extracting executable (needs wvselfx.exe)</tt></b>
 				</p>
 				<p>
@@ -535,6 +521,20 @@ a:hover {
 				</p>
 				<p>
 					Self explanatory.
+				</p>
+				<p>
+					<b><tt>--use-dns = force use of dynamic noise shaping (hybrid only)</tt></b>
+				</p>
+				<p>
+     For version 4.50, dynamic noise shaping was added to the WavPack hybrid mode. This feature
+     causes the noise shaping to continuously adjust to the spectral characteristics of the source
+     signal and results in significantly improved subjective quality on samples that previously caused
+     difficulty with WavPack's lossy mode (particularly material with loud high-frequency transients).
+     This feature is used by default except for high sampling rates (>= 64 kHz) or when the -cc option
+     is specified (because it can adversely effect compression ratio), however the <b>--use-dns</b> option
+     allows the user to force the use of dynamic noise shaping even when it would not normally be used.
+     This option should not be specified with the <b>-s</b> option which overrides the default with fixed
+     noise shaping.
 				</p>
 				<p>
 					<b><tt> -w "Field=Value" = write specified metadata to APEv2 tag</tt></b>
@@ -881,18 +881,19 @@ a:hover {
 				<div class="boxHeader">Non-CD</div>
 				<div class="boxContent">
     <p>
-     WavPack hybrid mode is also well suited to other sampling rates, bitdepths, and channel
-     configurations. For generating bitrates lower than the minimum of 196 kbps that applies
-     to CD audio, it is necessary to resample the audio to lower sampling rates and/or convert
-     to mono. Note that conventional lossy codecs accomplish the same thing by lowpass
-     filtering the source.
+     In addition to regular CD audio data, WavPack hybrid mode is also well suited to other
+     sampling rates, bitdepths, and channel configurations. For generating bitrates lower
+     than the minimum of 196 kbps that applies to CD audio, it is necessary to resample the
+     audio to lower sampling rates and/or convert to mono using an external program. Note that
+     conventional lossy codecs accomplish the same thing by lowpass filtering the source when
+     used for low bitrates.
     </p>
     <p>
-     For high-resolution audio (e.g., 24-bit/96-kHz) WavPack hybrid makes a very good choice. The
-     reasoning here is that standard lossless encoding achieves relatively poor compression on
-     this type of material because the additonal 8 bits are essentially noise and cannot be
+     For high-resolution audio (e.g., 24-bit/96-kHz) WavPack hybrid makes a particularly logical
+     choice. The reasoning here is that standard lossless encoding achieves relatively poor compression
+     on this type of material because the additional 8 bits are essentially noise and cannot be
      further compressed. In addition, conventional lossy codecs like MP3 or AAC are based on
-     psychoacoustic models of hearing that presume that CD audio quality (16-bit/44-kHz) is
+     psychoacoustic models of hearing that presume CD audio quality (16-bit/44-kHz) to be
      "perfect", and therefore discard everything outside of that range.
     </p>
     <p>
@@ -919,8 +920,8 @@ a:hover {
     <p>
      Representative samples ranging from 24 kbps to 1024 kbps are found in the "hybrid_bitrates"
      directory of the WavPack Test Suite which is currently hosted
-     <a href="http://www.rarewares.org/wavpack/test_suite.zip">here</a>), but can always be found
-     on the WavPack website.
+     <a href="http://www.rarewares.org/wavpack/test_suite.zip">here</a>, but which can always
+     be found on the WavPack website.
     </p>
 				</div>
 			</div>
