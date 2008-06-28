@@ -903,19 +903,16 @@ int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int s
 
 static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int size)
 {
-    char *p = m_tag->ape_tag_data;
-    char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
+    unsigned char *p = m_tag->ape_tag_data;
+    unsigned char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
     int i;
 
     for (i = 0; i < m_tag->ape_tag_hdr.item_count && q - p > 8; ++i) {
         int vsize, flags, isize;
 
-        vsize = * (int32_t *) p; p += 4;
-        flags = * (int32_t *) p; p += 4;
-        isize = (int) strnlen (p, q - p);
-
-        little_endian_to_native (&vsize, "L");
-        little_endian_to_native (&flags, "L");
+        vsize = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
+        flags = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
+        for (isize = 0; p[isize] && p + isize < q; ++isize);
 
         if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
             break;
@@ -1021,19 +1018,16 @@ int WavpackGetTagItemIndexed (WavpackContext *wpc, int index, char *item, int si
 
 static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int size)
 {
-    char *p = m_tag->ape_tag_data;
-    char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
+    unsigned char *p = m_tag->ape_tag_data;
+    unsigned char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
     int i;
 
     for (i = 0; i < m_tag->ape_tag_hdr.item_count && index >= 0 && q - p > 8; ++i) {
         int vsize, flags, isize;
 
-        vsize = * (int32_t *) p; p += 4;
-        flags = * (int32_t *) p; p += 4;
-        isize = (int) strnlen (p, q - p);
-
-        little_endian_to_native (&vsize, "L");
-        little_endian_to_native (&flags, "L");
+        vsize = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
+        flags = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
+        for (isize = 0; p[isize] && p + isize < q; ++isize);
 
         if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
             break;
@@ -1817,18 +1811,23 @@ int WavpackAppendTagItem (WavpackContext *wpc, const char *item, const char *val
 
     if (m_tag->ape_tag_hdr.ID [0] == 'A') {
         int new_item_len = vsize + isize + 9, flags = 0;
-        char *p;
+        unsigned char *p;
 
         m_tag->ape_tag_hdr.item_count++;
         m_tag->ape_tag_hdr.length += new_item_len;
         p = m_tag->ape_tag_data = realloc (m_tag->ape_tag_data, m_tag->ape_tag_hdr.length);
         p += m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr) - new_item_len;
-        native_to_little_endian (&vsize, "L");
-        native_to_little_endian (&flags, "L");
-        * (int32_t *) p = vsize; p += 4;
-        * (int32_t *) p = flags; p += 4;
-        little_endian_to_native (&vsize, "L");
-        little_endian_to_native (&flags, "L");
+
+        *p++ = (unsigned char) vsize;
+        *p++ = (unsigned char) (vsize >> 8);
+        *p++ = (unsigned char) (vsize >> 16);
+        *p++ = (unsigned char) (vsize >> 24);
+
+        *p++ = (unsigned char) flags;
+        *p++ = (unsigned char) (flags >> 8);
+        *p++ = (unsigned char) (flags >> 16);
+        *p++ = (unsigned char) (flags >> 24);
+
         strcpy (p, item);
         p += isize + 1;
         memcpy (p, value, vsize);
@@ -1844,25 +1843,22 @@ int WavpackDeleteTagItem (WavpackContext *wpc, const char *item)
     M_Tag *m_tag = &wpc->m_tag;
 
     if (m_tag->ape_tag_hdr.ID [0] == 'A') {
-        char *p = m_tag->ape_tag_data;
-        char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
+        unsigned char *p = m_tag->ape_tag_data;
+        unsigned char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
         int i;
 
         for (i = 0; i < m_tag->ape_tag_hdr.item_count; ++i) {
             int vsize, flags, isize;
 
-            vsize = * (int32_t *) p; p += 4;
-            flags = * (int32_t *) p; p += 4;
-            isize = (int) strlen (p);
+            vsize = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
+            flags = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
+            for (isize = 0; p[isize] && p + isize < q; ++isize);
 
-            little_endian_to_native (&vsize, "L");
-            little_endian_to_native (&flags, "L");
-
-            if (p + isize + vsize + 1 > q)
+            if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
                 break;
 
             if (isize && vsize && !stricmp (item, p)) {
-                char *d = p - 8;
+                unsigned char *d = p - 8;
 
                 p += isize + vsize + 1;
 

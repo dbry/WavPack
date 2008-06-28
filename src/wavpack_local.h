@@ -92,7 +92,7 @@ typedef struct {
     int32_t tag_file_pos;
     ID3_Tag id3_tag;
     APE_Tag_Hdr ape_tag_hdr;
-    char *ape_tag_data;
+    unsigned char *ape_tag_data;
 } M_Tag;
 
 // RIFF / wav header formats (these occur at the beginning of both wav files
