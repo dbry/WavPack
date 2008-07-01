@@ -1565,8 +1565,14 @@ static void UTF8ToAnsi (char *string, int len)
     memset(temp, 0, len);
     old_locale = setlocale (LC_CTYPE, "");
     iconv_t converter = iconv_open ("", "UTF-8");
-    err = iconv (converter, &inp, &insize, &outp, &outsize);
-    iconv_close (converter);
+
+    if (converter != (iconv_t) -1) {
+        err = iconv (converter, &inp, &insize, &outp, &outsize);
+        iconv_close (converter);
+    }
+    else
+        err = -1;
+
     setlocale (LC_CTYPE, old_locale);
 
     if (err == -1) {
