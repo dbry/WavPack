@@ -1,3 +1,18 @@
+                       -----------------------------
+                       Release 4.50.1 - July 3, 2008
+                       -----------------------------
+
+ WavPack Library Source Code - 4.50.1
+ ------------------------------------
+  fixed: alignment fault when manipulating APEv2 tags (non-x86 only)
+  fixed: build on UNIX via elimination of non-standard strnlen()
+
+ wavpack.exe (command-line encoder) - 4.50.1
+ wvunpack.exe (command-line decoder) - 4.50.1
+ --------------------------------------------
+  fixed: checking return value of iconv_open() prevents core dump on Solaris
+
+
                        ----------------------------
                        Release 4.50 - June 13, 2008
                        ----------------------------

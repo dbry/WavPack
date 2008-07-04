@@ -1918,10 +1918,11 @@ static void AnsiToUTF8 (char *string, int len)
     size_t outsize = len - 1;
     int err = 0;
     char *old_locale;
+    iconv_t converter;
 
     memset(temp, 0, len);
     old_locale = setlocale (LC_CTYPE, "");
-    iconv_t converter = iconv_open ("UTF-8", "");
+    converter = iconv_open ("UTF-8", "");
 
     if (converter != (iconv_t) -1) {
         err = iconv (converter, &inp, &insize, &outp, &outsize);
