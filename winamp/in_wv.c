@@ -189,7 +189,7 @@ void about (HWND hwndParent)
     sprintf (string, "alloc_count = %d", dump_alloc ());
     MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.5 \nCopyright (c) 2008 Conifer Software ", "About WavPack Player", MB_OK);
+    MessageBox (hwndParent,"WavPack Player Version 2.6b \nCopyright (c) 2008 Conifer Software ", "About WavPack Player", MB_OK);
 #endif
 }
 
@@ -964,7 +964,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.5 "
+    "WavPack Player v2.6b "
 
 #ifdef __alpha
     "(AXP)"
@@ -1168,6 +1168,10 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
         _snprintf (ret, retlen, "%d", (int)(WavpackGetNumSamples (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
         retval = 1;
     }
+    else if (!_stricmp (metadata, "lossless")) {
+        _snprintf (ret, retlen, "%d", (WavpackGetMode (info.wpc) & MODE_LOSSLESS) ? 1 : 0);
+        retval = 1;
+    }
     else if (!_stricmp (metadata, "numsamples")) {
         _snprintf (ret, retlen, "%d", WavpackGetNumSamples (info.wpc));
         retval = 1;
@@ -1270,6 +1274,10 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
     }
     else if (!_stricmp (metadata, "length")) {
         swprintf (ret, retlen, L"%d", (int)(WavpackGetNumSamples (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
+        retval = 1;
+    }
+    else if (!_stricmp (metadata, "lossless")) {
+        swprintf (ret, retlen, L"%d", (WavpackGetMode (info.wpc) & MODE_LOSSLESS) ? 1 : 0);
         retval = 1;
     }
     else if (!_stricmp (metadata, "numsamples")) {
@@ -1421,7 +1429,7 @@ __declspec(dllexport) int winampUseUnifiedFileInfoDlg(const wchar_t * fn)
 
 static const char *writable_metadata [] = {
     "track", "genre", "year", "comment", "artist", "album", "title", "albumartist",
-    "composer", "publisher", "disc", "tool", "encoder", "bpm",
+    "composer", "publisher", "disc", "tool", "encoder", "bpm", "category",
     "replaygain_track_gain", "replaygain_track_peak",
     "replaygain_album_gain", "replaygain_album_peak"
 };
