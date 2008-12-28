@@ -429,15 +429,26 @@ typedef struct {
 
 #define CLEAR(destin) memset (&destin, 0, sizeof (destin));
 
-// these macros implement the weight application and update operations
-// that are at the heart of the decorrelation loops
+// These macros implement the weight application and update operations
+// that are at the heart of the decorrelation loops. Note that there are
+// sometimes two and even three versions of each macro. Theses should be
+// equivalent and produce identical results, but some may perform better
+// or worse on a given architecture.
 
+#if 1   // PERFCOND - apply decorrelation weight when no 32-bit overflow possible
 #define apply_weight_i(weight, sample) ((weight * sample + 512) >> 10)
+#else
+#define apply_weight_i(weight, sample) ((((weight * sample) >> 8) + 2) >> 2)
+#endif
 
+#if 1   // PERFCOND - apply decorrelation weight when 32-bit overflow is possible
 #define apply_weight_f(weight, sample) (((((sample & 0xffff) * weight) >> 9) + \
     (((sample & ~0xffff) >> 9) * weight) + 1) >> 1)
+#else
+#define apply_weight_f(weight, sample) ((int32_t)floor(((double) weight * sample + 512.0) / 1024.0))
+#endif
 
-#if 1   // PERFCOND
+#if 1   // PERFCOND - universal version that checks input magnitude (or simply uses 64-bit ints)
 #define apply_weight(weight, sample) (sample != (short) sample ? \
     apply_weight_f (weight, sample) : apply_weight_i (weight, sample))
 #else
