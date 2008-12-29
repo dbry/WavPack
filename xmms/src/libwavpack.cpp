@@ -343,7 +343,11 @@ convertUTF8toLocale(char *utf8)
     size_t in_left = strlen(utf8);
     size_t out_left = 2 * in_left + 1;
     char *buf = (char *)g_malloc(out_left);
+#if 1
     char *in = utf8;
+#else
+    const char *in = (const char *) utf8;   // some systems (freeBSD?) require const here
+#endif
     char *out = buf;
 
     memset(buf, 0, out_left);
