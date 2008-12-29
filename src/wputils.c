@@ -2371,7 +2371,7 @@ static uint32_t read_next_header (WavpackStreamReader *reader, void *id, Wavpack
         sp = buffer;
 
         if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
-            !(*++sp & 1) && sp [2] < 16 && !sp [3] && (sp [2] || sp [1] || *sp > 24) && sp [5] == 4 &&
+            !(*++sp & 1) && sp [2] < 16 && !sp [3] && (sp [2] || sp [1] || *sp >= 24) && sp [5] == 4 &&
             sp [4] >= (MIN_STREAM_VERS & 0xff) && sp [4] <= (MAX_STREAM_VERS & 0xff) && sp [18] < 3 && !sp [19]) {
                 memcpy (wphdr, buffer, sizeof (*wphdr));
                 little_endian_to_native (wphdr, WavpackHeaderFormat);
@@ -2670,7 +2670,7 @@ static uint32_t find_header (WavpackStreamReader *reader, void *id, uint32_t fil
 
         while (sp + 32 <= ep)
             if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
-                !(*++sp & 1) && sp [2] < 16 && !sp [3] && (sp [2] || sp [1] || *sp > 24) && sp [5] == 4 &&
+                !(*++sp & 1) && sp [2] < 16 && !sp [3] && (sp [2] || sp [1] || *sp >= 24) && sp [5] == 4 &&
                 sp [4] >= (MIN_STREAM_VERS & 0xff) && sp [4] <= (MAX_STREAM_VERS & 0xff) && sp [18] < 3 && !sp [19]) {
                     memcpy (wphdr, sp - 4, sizeof (*wphdr));
                     little_endian_to_native (wphdr, WavpackHeaderFormat);
