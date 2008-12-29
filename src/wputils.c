@@ -1806,7 +1806,7 @@ int WavpackAppendTagItem (WavpackContext *wpc, const char *item, const char *val
         m_tag->ape_tag_hdr.version = 2000;
         m_tag->ape_tag_hdr.length = sizeof (m_tag->ape_tag_hdr);
         m_tag->ape_tag_hdr.item_count = 0;
-        m_tag->ape_tag_hdr.flags = 0x80000000;
+        m_tag->ape_tag_hdr.flags = 0x80000000;  // we will include header on tags we originate
     }
 
     if (m_tag->ape_tag_hdr.ID [0] == 'A') {
@@ -1899,10 +1899,15 @@ static int write_tag_blockout (WavpackContext *wpc)
     int result = TRUE;
 
     if (m_tag->ape_tag_hdr.ID [0] == 'A' && m_tag->ape_tag_hdr.item_count) {
-        m_tag->ape_tag_hdr.flags |= 0x20000000;
-        native_to_little_endian (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
-        result = wpc->blockout (wpc->wv_out, &m_tag->ape_tag_hdr, sizeof (m_tag->ape_tag_hdr));
-        little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
+
+        // only write header if it's specified in the flags
+
+        if (m_tag->ape_tag_hdr.flags & 0x80000000) {
+            m_tag->ape_tag_hdr.flags |= 0x20000000;
+            native_to_little_endian (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
+            result = wpc->blockout (wpc->wv_out, &m_tag->ape_tag_hdr, sizeof (m_tag->ape_tag_hdr));
+            little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
+        }
 
         if (m_tag->ape_tag_hdr.length > sizeof (m_tag->ape_tag_hdr))
             result = wpc->blockout (wpc->wv_out, m_tag->ape_tag_data, m_tag->ape_tag_hdr.length - sizeof (m_tag->ape_tag_hdr));
@@ -1927,7 +1932,12 @@ static int write_tag_reader (WavpackContext *wpc)
 
     if (m_tag->ape_tag_hdr.ID [0] == 'A' && m_tag->ape_tag_hdr.item_count &&
         m_tag->ape_tag_hdr.length > sizeof (m_tag->ape_tag_hdr))
-            tag_size = m_tag->ape_tag_hdr.length + sizeof (m_tag->ape_tag_hdr);
+            tag_size = m_tag->ape_tag_hdr.length;
+
+    // only write header if it's specified in the flags
+
+    if (m_tag->ape_tag_hdr.flags & 0x80000000)
+        tag_size += sizeof (m_tag->ape_tag_hdr);
 
     result = (wpc->open_flags & OPEN_EDIT_TAGS) && wpc->reader->can_seek (wpc->wv_in) &&
         !wpc->reader->set_pos_rel (wpc->wv_in, m_tag->tag_file_pos, SEEK_END);
@@ -1941,10 +1951,13 @@ static int write_tag_reader (WavpackContext *wpc)
     }
 
     if (result && tag_size) {
-        m_tag->ape_tag_hdr.flags |= 0x20000000;
-        native_to_little_endian (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
-        result = (wpc->reader->write_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (m_tag->ape_tag_hdr)) == sizeof (m_tag->ape_tag_hdr));
-        little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
+        if (m_tag->ape_tag_hdr.flags & 0x80000000) {
+            m_tag->ape_tag_hdr.flags |= 0x20000000;
+            native_to_little_endian (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
+            result = (wpc->reader->write_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (m_tag->ape_tag_hdr)) == sizeof (m_tag->ape_tag_hdr));
+            little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
+        }
+
         result = (wpc->reader->write_bytes (wpc->wv_in, m_tag->ape_tag_data, m_tag->ape_tag_hdr.length - sizeof (m_tag->ape_tag_hdr)) == sizeof (m_tag->ape_tag_hdr));
         m_tag->ape_tag_hdr.flags &= ~0x20000000;
         native_to_little_endian (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
@@ -2802,24 +2815,33 @@ static int load_tag (WavpackContext *wpc)
                         else
                             m_tag->tag_file_pos = 0;
 
-                        m_tag->tag_file_pos -= ape_tag_length + sizeof (APE_Tag_Hdr);
+                        m_tag->tag_file_pos -= ape_tag_length;
+
+                        // if the footer claims there is a header present also, we will read that and use it
+                        // instead of the footer (after verifying it, of course) for enhanced robustness
+
+                        if (m_tag->ape_tag_hdr.flags & 0x80000000)
+                            m_tag->tag_file_pos -= sizeof (APE_Tag_Hdr);
+
                         wpc->reader->set_pos_rel (wpc->wv_in, m_tag->tag_file_pos, SEEK_END);
                         memset (m_tag->ape_tag_data, 0, ape_tag_length);
 
-                        if (wpc->reader->read_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (APE_Tag_Hdr)) !=
-                            sizeof (APE_Tag_Hdr) || strncmp (m_tag->ape_tag_hdr.ID, "APETAGEX", 8)) {
-                                free (m_tag->ape_tag_data);
-                                CLEAR (*m_tag);
-                                return FALSE;       // something's wrong...
-                        }
+                        if (m_tag->ape_tag_hdr.flags & 0x80000000) {
+                            if (wpc->reader->read_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (APE_Tag_Hdr)) !=
+                                sizeof (APE_Tag_Hdr) || strncmp (m_tag->ape_tag_hdr.ID, "APETAGEX", 8)) {
+                                    free (m_tag->ape_tag_data);
+                                    CLEAR (*m_tag);
+                                    return FALSE;       // something's wrong...
+                            }
 
-                        little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
+                            little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
 
-                        if (m_tag->ape_tag_hdr.version != 2000 || m_tag->ape_tag_hdr.item_count != ape_tag_items ||
-                            m_tag->ape_tag_hdr.length != ape_tag_length) {
-                                free (m_tag->ape_tag_data);
-                                CLEAR (*m_tag);
-                                return FALSE;       // something's wrong...
+                            if (m_tag->ape_tag_hdr.version != 2000 || m_tag->ape_tag_hdr.item_count != ape_tag_items ||
+                                m_tag->ape_tag_hdr.length != ape_tag_length) {
+                                    free (m_tag->ape_tag_data);
+                                    CLEAR (*m_tag);
+                                    return FALSE;       // something's wrong...
+                            }
                         }
 
                         if (wpc->reader->read_bytes (wpc->wv_in, m_tag->ape_tag_data,
