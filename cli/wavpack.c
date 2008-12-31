@@ -141,6 +141,10 @@ static const char *help =
 "    -q                      quiet (keep console output to a minimum)\n"
 "    -r                      generate a new RIFF wav header (removes any\n"
 "                             extra chunk info from existing header)\n"
+"    --raw-pcm               input data is raw pcm (44100 Hz, 16-bit, 2-ch)\n"
+"    --raw-pcm=sr,bps,ch     input data is raw pcm with specified sample rate,\n"
+"                             sample bit depth, and number of channels\n"
+"                             (specify 32f for 32-bit floating point data)\n"
 "    -sn                     override default noise shaping where n is a float\n"
 "                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
@@ -167,7 +171,7 @@ static const char *speakers [] = {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
-    adobe_mode, ignore_length, new_riff_header, do_md5_checksum;
+    adobe_mode, ignore_length, new_riff_header, do_md5_checksum, raw_pcm;
 
 static char channel_order [18], num_channels_order;
 static uint32_t channel_order_mask;
@@ -253,6 +257,51 @@ int main (argc, argv) int argc; char **argv;
                 config.flags |= CONFIG_DYNAMIC_SHAPING;
             else if (!strcmp (long_option, "merge-blocks"))             // --merge-blocks
                 config.flags |= CONFIG_MERGE_BLOCKS;
+            else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
+                int params [] = { 44100, 16, 2 };
+                int pi, fp = 0;
+
+                for (pi = 0; *long_param && pi < 3; ++pi) {
+                    if (isdigit (*long_param))
+                        params [pi] = strtol (long_param, &long_param, 10);
+
+                    if ((*long_param == 'f' || *long_param == 'F') && pi == 1) {
+                        long_param++;
+                        fp = 1;
+                    }
+
+                    if (*long_param == ',')
+                        long_param++;
+                    else
+                        break;
+                }
+
+                if (*long_param) {
+                    error_line ("syntax error in raw PCM specification!");
+                    ++error_count;
+                }
+                else if (params [0] < 1 || params [0] > 192000 ||
+                    params [1] < 1 || params [1] > 32 || (fp && params [1] != 32) ||
+                    params [2] < 1 || params [2] > 16) {
+                        error_line ("argument range error in raw PCM specification!");
+                        ++error_count;
+                }
+                else {
+                    config.channel_mask = 0x5 - (config.num_channels = 2);
+                    config.sample_rate = params [0];
+                    config.bits_per_sample = params [1];
+                    config.bytes_per_sample = (params [1] + 7) / 8;
+                    config.num_channels = params [2];
+
+                    if (config.num_channels <= 2)
+                        config.channel_mask = 0x5 - config.num_channels;
+                    else
+                        config.channel_mask = (1 << config.num_channels) - 1;
+
+                    config.float_norm_exp = fp ? 127 : 0;
+                    raw_pcm = 1;            
+                }
+            }
             else if (!strncmp (long_option, "blocksize", 9)) {          // --blocksize
                 config.block_samples = strtol (long_param, NULL, 10);
 
@@ -491,7 +540,7 @@ int main (argc, argv) int argc; char **argv;
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
-                    strcat (matches [num_files], ".wav");
+                    strcat (matches [num_files], raw_pcm ? ".raw" : ".wav");
 
             num_files++;
         }
@@ -520,7 +569,7 @@ int main (argc, argv) int argc; char **argv;
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
-                    strcat (matches [num_files], ".wav");
+                    strcat (matches [num_files], raw_pcm ? ".raw" : ".wav");
 
             num_files++;
         }
@@ -1086,7 +1135,20 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     infilesize = DoGetFileSize (infile);
 
-    if (infilesize >= 4294967296LL && !ignore_length) {
+    if (raw_pcm) {
+        if (infilesize) {
+            int sample_size = loc_config.bytes_per_sample * loc_config.num_channels;
+
+            total_samples = infilesize / sample_size;
+
+            if (infilesize % sample_size)
+                error_line ("warning: raw pcm infile length does not divide evenly, %d bytes will be discarded",
+                    infilesize % sample_size);
+        }
+        else
+            total_samples = -1;
+    }
+    else if (infilesize >= 4294967296LL && !ignore_length) {
         error_line ("can't handle .WAV files larger than 4 GB (non-standard)!");
         WavpackCloseFile (wpc);
         return SOFT_ERROR;
@@ -1175,7 +1237,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // if not in "raw" mode, read (and copy to output) initial RIFF form header
 
-    if (1) {
+    if (!raw_pcm) {
         if ((!DoReadFile (infile, &riff_chunk_header, sizeof (RiffChunkHeader), &bcount) ||
             bcount != sizeof (RiffChunkHeader) || strncmp (riff_chunk_header.ckID, "RIFF", 4) ||
             strncmp (riff_chunk_header.formType, "WAVE", 4))) {
@@ -1200,7 +1262,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // if not in "raw" mode, loop through all elements of the RIFF wav header
     // (until the data chuck) and copy them to the output file
 
-    while (1) {
+    while (!raw_pcm) {
 
         if (!DoReadFile (infile, &chunk_header, sizeof (ChunkHeader), &bcount) ||
             bcount != sizeof (ChunkHeader)) {
@@ -1302,36 +1364,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     loc_config.channel_mask = 0x5 - WaveHeader.NumChannels;
                 else
                     loc_config.channel_mask = (1 << WaveHeader.NumChannels) - 1;
-
-                if (num_channels_order) {
-                    int i, j;
-
-                    if (WaveHeader.NumChannels != num_channels_order) {
-                        error_line ("file does not have %d channel(s)!", num_channels_order);
-                        DoCloseHandle (infile);
-                        DoCloseHandle (wv_file.file);
-                        DoDeleteFile (outfilename);
-                        WavpackCloseFile (wpc);
-                        return SOFT_ERROR;
-                    }
-
-                    new_channel_order = malloc (num_channels_order);
-                    memcpy (new_channel_order, channel_order, num_channels_order);
-                    loc_config.channel_mask = channel_order_mask;
-
-                    for (i = 0; i < num_channels_order;) {
-                        for (j = 0; j < num_channels_order; ++j)
-                            if (new_channel_order [j] == i) {
-                                i++;
-                                break;
-                            }
-
-                        if (j == num_channels_order)
-                            for (j = 0; j < num_channels_order; ++j)
-                                if (new_channel_order [j] > i)
-                                    new_channel_order [j]--;
-                    }
-                }
             }
             else {
                 loc_config.channel_mask = WaveHeader.ChannelMask;
@@ -1391,6 +1423,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 return SOFT_ERROR;
             }
 
+            loc_config.bytes_per_sample = WaveHeader.BlockAlign / WaveHeader.NumChannels;
+            loc_config.num_channels = WaveHeader.NumChannels;
+            loc_config.sample_rate = WaveHeader.SampleRate;
             break;
         }
         else {          // just copy unknown chunks to output file
@@ -1420,9 +1455,35 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
-    loc_config.bytes_per_sample = WaveHeader.BlockAlign / WaveHeader.NumChannels;
-    loc_config.num_channels = WaveHeader.NumChannels;
-    loc_config.sample_rate = WaveHeader.SampleRate;
+    if (num_channels_order) {
+        int i, j;
+
+        if (loc_config.num_channels != num_channels_order) {
+            error_line ("file does not have %d channel(s)!", num_channels_order);
+            DoCloseHandle (infile);
+            DoCloseHandle (wv_file.file);
+            DoDeleteFile (outfilename);
+            WavpackCloseFile (wpc);
+            return SOFT_ERROR;
+        }
+
+        new_channel_order = malloc (num_channels_order);
+        memcpy (new_channel_order, channel_order, num_channels_order);
+        loc_config.channel_mask = channel_order_mask;
+
+        for (i = 0; i < num_channels_order;) {
+            for (j = 0; j < num_channels_order; ++j)
+                if (new_channel_order [j] == i) {
+                    i++;
+                    break;
+                }
+
+            if (j == num_channels_order)
+                for (j = 0; j < num_channels_order; ++j)
+                    if (new_channel_order [j] > i)
+                        new_channel_order [j]--;
+        }
+    }
 
     if (!WavpackSetConfiguration (wpc, &loc_config, total_samples)) {
         error_line ("%s", WavpackGetErrorMessage (wpc));
@@ -1454,7 +1515,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // anything else that might be appended to the audio data and write that
     // to the WavPack metadata as "wrapper"
 
-    if (result == NO_ERROR && !ignore_length) {
+    if (result == NO_ERROR && !ignore_length && !raw_pcm) {
         uchar buff [16];
 
         while (DoReadFile (infile, buff, sizeof (buff), &bcount) && bcount)
@@ -1507,10 +1568,10 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // At this point we're done writing to the output files. However, in some
     // situations we might have to back up and re-write the initial blocks.
-    // Currently the only case is if we're ignoring length.
+    // Currently the only case is if we're ignoring length or inputting raw pcm data.
 
     if (result == NO_ERROR && WavpackGetNumSamples (wpc) != WavpackGetSampleIndex (wpc)) {
-        if (ignore_length) {
+        if (raw_pcm || ignore_length) {
             char *block_buff = malloc (wv_file.first_block_size);
             uint32_t wrapper_size;
 
@@ -1582,11 +1643,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
                 free (block_buff);
             }
-
-            if (result == NO_ERROR)
-                error_line ("warning: length was %s by %d samples, corrected",
-                    WavpackGetSampleIndex (wpc) < total_samples ? "short" : "long",
-                    abs (total_samples - WavpackGetSampleIndex (wpc)));
         }
         else {
             error_line ("couldn't read all samples, file may be corrupt!!");
@@ -1724,7 +1780,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, char *new_order)
         uint32_t bytes_to_read, bytes_read = 0;
         uint sample_count;
 
-        if (ignore_length || samples_remaining > INPUT_SAMPLES)
+        if (raw_pcm || ignore_length || samples_remaining > INPUT_SAMPLES)
             bytes_to_read = INPUT_SAMPLES * bytes_per_sample;
         else
             bytes_to_read = samples_remaining * bytes_per_sample;
@@ -1738,7 +1794,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, char *new_order)
                 sample_count, WavpackGetBytesPerSample (wpc));
 
         if (do_md5_checksum)
-            MD5Update (&md5_context, input_buffer, bytes_read);
+            MD5Update (&md5_context, input_buffer, sample_count * bytes_per_sample);
 
         if (!sample_count)
             break;
