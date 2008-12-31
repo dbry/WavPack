@@ -644,7 +644,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                     offset += 2;
                 }
 
-                if ((wps->wphdr.flags & FINAL_BLOCK) || wpc->num_streams == MAX_STREAMS || offset == num_channels)
+                if ((wps->wphdr.flags & FINAL_BLOCK) || wpc->current_stream == MAX_STREAMS - 1 || offset == num_channels)
                     break;
                 else
                     wpc->current_stream++;
@@ -655,11 +655,6 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         }
         else
             unpack_samples (wpc, buffer, samples_to_unpack);
-
-        if (!(wps->wphdr.flags & FINAL_BLOCK) && wpc->num_streams == MAX_STREAMS) {
-            strcpy (wpc->error_message, "too many channels!");
-            break;
-        }
 
         if (file_done) {
             strcpy (wpc->error_message, "can't read all of last block!");
