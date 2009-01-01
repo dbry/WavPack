@@ -103,9 +103,13 @@ static const char *help =
 "                             correction file (.wvc) in hybrid mode)\n"
 "    -cc                     maximum hybrid lossless compression (but degrades\n"
 "                             decode speed and may result in lower quality)\n"
-"    --channel-order=<list>  specify channel order (comma separated) if not\n"
+"    --channel-order=<list>  specify (comma separated) channel order if not\n"
 "                             Microsoft standard (which is FL,FR,FC,LFE,BL,BR,\n"
-"                             LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR)\n"
+"                             LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR);\n"
+"                             specify '...' to indicate that channels are not\n"
+"                             assigned to specific speakers, or terminate list\n"
+"                             with '...' to indicate that any channels beyond\n"
+"                             those specified are unassigned\n"
 "    -d                      delete source file if successful (use with caution!)\n"
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 #if defined (WIN32)
@@ -173,7 +177,7 @@ int debug_logging_mode;
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
     adobe_mode, ignore_length, new_riff_header, do_md5_checksum, raw_pcm;
 
-static char channel_order [18], num_channels_order;
+static char channel_order [18], num_channels_order, channel_order_undefined;
 static uint32_t channel_order_mask;
 
 #if defined (WIN32)
@@ -287,7 +291,6 @@ int main (argc, argv) int argc; char **argv;
                         ++error_count;
                 }
                 else {
-                    config.channel_mask = 0x5 - (config.num_channels = 2);
                     config.sample_rate = params [0];
                     config.bits_per_sample = params [1];
                     config.bytes_per_sample = (params [1] + 7) / 8;
@@ -319,6 +322,15 @@ int main (argc, argv) int argc; char **argv;
 
                     if (!*long_param)
                         break;
+
+                    if (*long_param == '.') {
+                        if (*++long_param == '.' && *++long_param == '.' && !*++long_param)
+                            channel_order_undefined = 1;
+                        else
+                            channel_error = 1;
+
+                        break;
+                    }
 
                     for (ci = 0; isalpha (*long_param) && ci < sizeof (name) - 1; ci++)
                         name [ci] = *long_param++;
@@ -352,12 +364,12 @@ int main (argc, argv) int argc; char **argv;
                     } 
                 }
 
-                if (*long_param) {
-                    error_line ("too many channels specified!");
+                if (channel_error) {
+                    error_line ("syntax error in channel order specification!");
                     ++error_count;
                 }
-                else if (channel_error) {
-                    error_line ("syntax error in channel order specification!");
+                else if (*long_param) {
+                    error_line ("too many channels specified!");
                     ++error_count;
                 }
                 else {
@@ -1368,7 +1380,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             else {
                 loc_config.channel_mask = WaveHeader.ChannelMask;
 
-                if (num_channels_order) {
+                if (num_channels_order || channel_order_undefined) {
                     error_line ("this WAV file already has channel order information!");
                     DoCloseHandle (infile);
                     DoCloseHandle (wv_file.file);
@@ -1455,33 +1467,41 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
-    if (num_channels_order) {
+    if (num_channels_order || channel_order_undefined) {
         int i, j;
 
-        if (loc_config.num_channels != num_channels_order) {
-            error_line ("file does not have %d channel(s)!", num_channels_order);
-            DoCloseHandle (infile);
-            DoCloseHandle (wv_file.file);
-            DoDeleteFile (outfilename);
-            WavpackCloseFile (wpc);
-            return SOFT_ERROR;
-        }
+        if (loc_config.num_channels < num_channels_order ||
+            (loc_config.num_channels > num_channels_order && !channel_order_undefined)) {
+                error_line ("file does not have %d channel(s)!", num_channels_order);
+                DoCloseHandle (infile);
+                DoCloseHandle (wv_file.file);
+                DoDeleteFile (outfilename);
+                WavpackCloseFile (wpc);
+                return SOFT_ERROR;
+            }
 
-        new_channel_order = malloc (num_channels_order);
-        memcpy (new_channel_order, channel_order, num_channels_order);
         loc_config.channel_mask = channel_order_mask;
 
-        for (i = 0; i < num_channels_order;) {
-            for (j = 0; j < num_channels_order; ++j)
-                if (new_channel_order [j] == i) {
-                    i++;
-                    break;
-                }
+        if (num_channels_order) {
+            new_channel_order = malloc (loc_config.num_channels);
 
-            if (j == num_channels_order)
+            for (i = 0; i < loc_config.num_channels; ++i)
+                new_channel_order [i] = i;
+
+            memcpy (new_channel_order, channel_order, num_channels_order);
+
+            for (i = 0; i < num_channels_order;) {
                 for (j = 0; j < num_channels_order; ++j)
-                    if (new_channel_order [j] > i)
-                        new_channel_order [j]--;
+                    if (new_channel_order [j] == i) {
+                        i++;
+                        break;
+                    }
+
+                if (j == num_channels_order)
+                    for (j = 0; j < num_channels_order; ++j)
+                        if (new_channel_order [j] > i)
+                            new_channel_order [j]--;
+            }
         }
     }
 
