@@ -215,6 +215,10 @@
 				RelativePath=".\wputils.c"
 				>
 			</File>
+			<File
+				RelativePath=".\tags.c"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

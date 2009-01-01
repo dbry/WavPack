@@ -703,12 +703,6 @@ uint32_t WavpackGetFileSize (WavpackContext *wpc);
 double WavpackGetRatio (WavpackContext *wpc);
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc);
 double WavpackGetInstantBitrate (WavpackContext *wpc);
-int WavpackGetNumTagItems (WavpackContext *wpc);
-int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int size);
-int WavpackGetTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
-int WavpackAppendTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
-int WavpackDeleteTagItem (WavpackContext *wpc, const char *item);
-int WavpackWriteTag (WavpackContext *wpc);
 
 WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
@@ -725,6 +719,18 @@ void WavpackNativeToLittleEndian (void *data, char *format);
 
 uint32_t WavpackGetLibraryVersion (void);
 const char *WavpackGetLibraryVersionString (void);
+
+// tags.c
+
+int WavpackGetNumTagItems (WavpackContext *wpc);
+int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int size);
+int WavpackGetTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
+int WavpackAppendTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
+int WavpackDeleteTagItem (WavpackContext *wpc, const char *item);
+int WavpackWriteTag (WavpackContext *wpc);
+int load_tag (WavpackContext *wpc);
+void free_tag (M_Tag *m_tag);
+int valid_tag (M_Tag *m_tag);
 
 ///////////////////////////// SIMD helper macros /////////////////////////////
 

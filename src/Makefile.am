@@ -10,7 +10,8 @@ libwavpack_la_SOURCES = \
 	words.c \
 	extra1.c \
 	extra2.c \
-	pack.c
+	pack.c \
+	tags.c
 
 noinst_HEADERS = \
 	unpack3.h \
