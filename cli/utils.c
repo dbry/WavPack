@@ -342,15 +342,21 @@ char yna (void)
                 fprintf (stderr, "%c", 7);
         }
         else if (key == 'Y' || key == 'y') {
+#ifdef WIN32
             fprintf (stderr, "%c\b", key);
+#endif
             choice = 'y';
         }
         else if (key == 'N' || key == 'n') {
+#ifdef WIN32
             fprintf (stderr, "%c\b", key);
+#endif
             choice = 'n';
         }
         else if (key == 'A' || key == 'a') {
+#ifdef WIN32
             fprintf (stderr, "%c\b", key);
+#endif
             choice = 'a';
         }
         else
