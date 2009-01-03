@@ -1386,9 +1386,10 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
     if (WavpackGetMode (wpc) & MODE_VALID_TAG) {
         int ape_tag = WavpackGetMode (wpc) & MODE_APETAG;
+        int num_binary_items = WavpackGetNumBinaryTagItems (wpc);
         int num_items = WavpackGetNumTagItems (wpc), i;
 
-        fprintf (dst, "%s tag items:   %d\n\n", ape_tag ? "APEv2" : "ID3v1", num_items);
+        fprintf (dst, "%s tag items:   %d\n\n", ape_tag ? "APEv2" : "ID3v1", num_items + num_binary_items);
 
         for (i = 0; i < num_items; ++i) {
             int item_len, value_len, j;
@@ -1414,6 +1415,48 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
                 fprintf (dst, "%s = %s\n", item, value);
 
             free (value);
+            free (item);
+        }
+
+        for (i = 0; i < num_binary_items; ++i) {
+            int item_len, value_len, j;
+            char *item;
+
+            item_len = WavpackGetBinaryTagItemIndexed (wpc, i, NULL, 0);
+            item = malloc (item_len + 1);
+            WavpackGetBinaryTagItemIndexed (wpc, i, item, item_len + 1);
+            value_len = WavpackGetBinaryTagItem (wpc, item, NULL, 0);
+            fprintf (dst, "%s = <%d byte binary item>\n", item, value_len);
+
+#if 0   // debug binary tag reading
+            {
+                char md5_string [] = "00000000000000000000000000000000";
+                uchar md5_result [16];
+                MD5_CTX md5_context;
+                char *value;
+                int i, j;
+
+                MD5Init (&md5_context);
+                value = malloc (value_len);
+                value_len = WavpackGetBinaryTagItem (wpc, item, value, value_len);
+
+                for (i = 0; i < value_len; ++i)
+                    if (!value [i]) {
+                        MD5Update (&md5_context, (unsigned char *) value + i + 1, value_len - i - 1);
+                        MD5Final (md5_result, &md5_context);
+                        for (j = 0; j < 16; ++j)
+                            sprintf (md5_string + (j * 2), "%02x", md5_result [j]);
+                        fprintf (dst, "    %d byte string >>%s<<\n", i, value);
+                        fprintf (dst, "    %d bytes binary data >>%s<<\n", value_len - i - 1, md5_string);
+                        break;
+                    }
+
+                if (i == value_len)
+                    fprintf (dst, "    no NULL found in binary value (or value not readable)\n");
+
+                free (value);
+            }
+#endif
             free (item);
         }
     }
