@@ -274,7 +274,11 @@ double WavpackGetInstantBitrate (WavpackContext *wpc);
 int WavpackGetNumTagItems (WavpackContext *wpc);
 int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int size);
 int WavpackGetTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
+int WavpackGetNumBinaryTagItems (WavpackContext *wpc);
+int WavpackGetBinaryTagItem (WavpackContext *wpc, const char *item, char *value, int size);
+int WavpackGetBinaryTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
 int WavpackAppendTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
+int WavpackAppendBinaryTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
 int WavpackDeleteTagItem (WavpackContext *wpc, const char *item);
 int WavpackWriteTag (WavpackContext *wpc);
 

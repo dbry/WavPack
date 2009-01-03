@@ -88,6 +88,11 @@ typedef struct {
 
 #define APE_Tag_Hdr_Format "8LLLL"
 
+#define APE_TAG_TYPE_TEXT       0x0
+#define APE_TAG_TYPE_BINARY     0x1
+#define APE_TAG_THIS_IS_HEADER  0x20000000
+#define APE_TAG_CONTAINS_HEADER 0x80000000
+
 typedef struct {
     int32_t tag_file_pos;
     ID3_Tag id3_tag;
@@ -725,7 +730,11 @@ const char *WavpackGetLibraryVersionString (void);
 int WavpackGetNumTagItems (WavpackContext *wpc);
 int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int size);
 int WavpackGetTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
+int WavpackGetNumBinaryTagItems (WavpackContext *wpc);
+int WavpackGetBinaryTagItem (WavpackContext *wpc, const char *item, char *value, int size);
+int WavpackGetBinaryTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
 int WavpackAppendTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
+int WavpackAppendBinaryTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
 int WavpackDeleteTagItem (WavpackContext *wpc, const char *item);
 int WavpackWriteTag (WavpackContext *wpc);
 int load_tag (WavpackContext *wpc);

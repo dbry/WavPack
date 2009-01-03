@@ -34,10 +34,11 @@ int32_t dump_alloc (void);
 
 #ifndef NO_TAGS
 
-static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int size);
+static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int size, int type);
 static int get_id3_tag_item (M_Tag *m_tag, const char *item, char *value, int size);
-static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int size);
+static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int size, int type);
 static int get_id3_tag_item_indexed (M_Tag *m_tag, int index, char *item, int size);
+static int append_ape_tag_item (WavpackContext *wpc, const char *item, const char *value, int vsize, int type);
 static int write_tag_blockout (WavpackContext *wpc);
 static int write_tag_reader (WavpackContext *wpc);
 static void tagcpy (char *dest, char *src, int tag_size);
@@ -52,6 +53,19 @@ int WavpackGetNumTagItems (WavpackContext *wpc)
     int i = 0;
 
     while (WavpackGetTagItemIndexed (wpc, i, NULL, 0))
+        ++i;
+
+    return i;
+}
+
+// Count and return the total number of binary tag items in the specified file. This applies
+// only to APEv2 tags and was implemented as a separate function to avoid breaking the old API.
+
+int WavpackGetNumBinaryTagItems (WavpackContext *wpc)
+{
+    int i = 0;
+
+    while (WavpackGetBinaryTagItemIndexed (wpc, i, NULL, 0))
         ++i;
 
     return i;
@@ -78,9 +92,30 @@ int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int s
         *value = 0;
 
     if (m_tag->ape_tag_hdr.ID [0] == 'A')
-        return get_ape_tag_item (m_tag, item, value, size);
+        return get_ape_tag_item (m_tag, item, value, size, APE_TAG_TYPE_TEXT);
     else if (m_tag->id3_tag.tag_id [0] == 'T')
         return get_id3_tag_item (m_tag, item, value, size);
+    else
+        return 0;
+}
+
+// Attempt to get the specified binary item from the specified file's APEv2
+// tag. The "size" parameter specifies the amount of space available at "value".
+// If the desired item will not fit in this space then nothing will be copied
+// and 0 will be returned, otherwise the actual size will be returned. If this
+// function is called with a NULL "value" pointer (or a zero "length") then only
+// the actual length of the value data is returned and can be used to determine
+// the actual memory to be allocated beforehand.
+
+int WavpackGetBinaryTagItem (WavpackContext *wpc, const char *item, char *value, int size)
+{
+    M_Tag *m_tag = &wpc->m_tag;
+
+    if (value && size)
+        *value = 0;
+
+    if (m_tag->ape_tag_hdr.ID [0] == 'A')
+        return get_ape_tag_item (m_tag, item, value, size, APE_TAG_TYPE_BINARY);
     else
         return 0;
 }
@@ -95,7 +130,8 @@ int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int s
 // index). If this function is called with a NULL "value" pointer (or a
 // zero "length") then only the actual length of the item name is returned
 // (not counting the terminating NULL). This can be used to determine the
-// actual memory to be allocated beforehand.
+// actual memory to be allocated beforehand. For binary tag values use the
+// otherwise identical WavpackGetBinaryTagItemIndexed ();
 
 int WavpackGetTagItemIndexed (WavpackContext *wpc, int index, char *item, int size)
 {
@@ -105,65 +141,52 @@ int WavpackGetTagItemIndexed (WavpackContext *wpc, int index, char *item, int si
         *item = 0;
 
     if (m_tag->ape_tag_hdr.ID [0] == 'A')
-        return get_ape_tag_item_indexed (m_tag, index, item, size);
+        return get_ape_tag_item_indexed (m_tag, index, item, size, APE_TAG_TYPE_TEXT);
     else if (m_tag->id3_tag.tag_id [0] == 'T')
         return get_id3_tag_item_indexed (m_tag, index, item, size);
     else
         return 0;
 }
 
-// Limited functionality to append APEv2 tags to WavPack files when they are
-// created has been added for version 4.2. This function is used to append the
-// specified field to the tag being created. If no tag has been started, then
-// an empty one will be allocated first. When finished, use WavpackWriteTag()
-// to write the completed tag to the file. Note that ID3 tags are not
-// supported and that no editing of existing tags is allowed (there are several
-// fine libraries available for this). A size parameter is included so that
-// values containing multiple (NULL separated) strings can be written.
+int WavpackGetBinaryTagItemIndexed (WavpackContext *wpc, int index, char *item, int size)
+{
+    M_Tag *m_tag = &wpc->m_tag;
+
+    if (item && size)
+        *item = 0;
+
+    if (m_tag->ape_tag_hdr.ID [0] == 'A')
+        return get_ape_tag_item_indexed (m_tag, index, item, size, APE_TAG_TYPE_BINARY);
+    else
+        return 0;
+}
+
+// These two functions are used to append APEv2 tags to WavPack files; one is
+// for text values (UTF-8 encoded) and the other is for binary values. If no tag
+// has been started, then an empty one will be allocated first. When finished,
+// use WavpackWriteTag() to write the completed tag to the file. The purpose of
+// the passed size parameter is obvious for binary values, but might not be for
+// text values. Keep in mind that APEv2 text values can have multiple values
+// that are NULL separated, so the size is required to know the extent of the
+// value (although the final terminating NULL is not included in the passed
+// size). If the specified item already exists, it will be replaced with the
+// new value. ID3v1 tags are not supported.
 
 int WavpackAppendTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize)
 {
-    M_Tag *m_tag = &wpc->m_tag;
-    int isize = (int) strlen (item);
-
     while (WavpackDeleteTagItem (wpc, item));
-
-    if (!m_tag->ape_tag_hdr.ID [0]) {
-        strncpy (m_tag->ape_tag_hdr.ID, "APETAGEX", sizeof (m_tag->ape_tag_hdr.ID));
-        m_tag->ape_tag_hdr.version = 2000;
-        m_tag->ape_tag_hdr.length = sizeof (m_tag->ape_tag_hdr);
-        m_tag->ape_tag_hdr.item_count = 0;
-        m_tag->ape_tag_hdr.flags = 0x80000000;  // we will include header on tags we originate
-    }
-
-    if (m_tag->ape_tag_hdr.ID [0] == 'A') {
-        int new_item_len = vsize + isize + 9, flags = 0;
-        unsigned char *p;
-
-        m_tag->ape_tag_hdr.item_count++;
-        m_tag->ape_tag_hdr.length += new_item_len;
-        p = m_tag->ape_tag_data = realloc (m_tag->ape_tag_data, m_tag->ape_tag_hdr.length);
-        p += m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr) - new_item_len;
-
-        *p++ = (unsigned char) vsize;
-        *p++ = (unsigned char) (vsize >> 8);
-        *p++ = (unsigned char) (vsize >> 16);
-        *p++ = (unsigned char) (vsize >> 24);
-
-        *p++ = (unsigned char) flags;
-        *p++ = (unsigned char) (flags >> 8);
-        *p++ = (unsigned char) (flags >> 16);
-        *p++ = (unsigned char) (flags >> 24);
-
-        strcpy (p, item);
-        p += isize + 1;
-        memcpy (p, value, vsize);
-
-        return TRUE;
-    }
-    else
-        return FALSE;
+    return append_ape_tag_item (wpc, item, value, vsize, APE_TAG_TYPE_TEXT);
 }
+
+int WavpackAppendBinaryTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize)
+{
+    while (WavpackDeleteTagItem (wpc, item));
+    return append_ape_tag_item (wpc, item, value, vsize, APE_TAG_TYPE_BINARY);
+}
+
+// Delete the specified tag item from the APEv2 tag on the specified WavPack file
+// (fields cannot be deleted from ID3v1 tags). A return value of TRUE indicates
+// that the item was found and successfully deleted.
 
 int WavpackDeleteTagItem (WavpackContext *wpc, const char *item)
 {
@@ -265,13 +288,13 @@ int load_tag (WavpackContext *wpc)
                         // if the footer claims there is a header present also, we will read that and use it
                         // instead of the footer (after verifying it, of course) for enhanced robustness
 
-                        if (m_tag->ape_tag_hdr.flags & 0x80000000)
+                        if (m_tag->ape_tag_hdr.flags & APE_TAG_CONTAINS_HEADER)
                             m_tag->tag_file_pos -= sizeof (APE_Tag_Hdr);
 
                         wpc->reader->set_pos_rel (wpc->wv_in, m_tag->tag_file_pos, SEEK_END);
                         memset (m_tag->ape_tag_data, 0, ape_tag_length);
 
-                        if (m_tag->ape_tag_hdr.flags & 0x80000000) {
+                        if (m_tag->ape_tag_hdr.flags & APE_TAG_CONTAINS_HEADER) {
                             if (wpc->reader->read_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (APE_Tag_Hdr)) !=
                                 sizeof (APE_Tag_Hdr) || strncmp (m_tag->ape_tag_hdr.ID, "APETAGEX", 8)) {
                                     free (m_tag->ape_tag_data);
@@ -344,7 +367,7 @@ void free_tag (M_Tag *m_tag)
 
 ////////////////////////// local static functions /////////////////////////////
 
-static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int size)
+static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int size, int type)
 {
     unsigned char *p = m_tag->ape_tag_data;
     unsigned char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
@@ -360,12 +383,20 @@ static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int si
         if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
             break;
 
-        if (isize && vsize && !stricmp (item, p) && !(flags & 6)) {
+        if (isize && vsize && !stricmp (item, p) && ((flags & 6) >> 1) == type) {
 
             if (!value || !size)
                 return vsize;
 
-            if (vsize < size) {
+            if (type == APE_TAG_TYPE_BINARY) {
+                if (vsize <= size) {
+                    memcpy (value, p + isize + 1, vsize);
+                    return vsize;
+                }
+                else
+                    return 0;
+            }
+            else if (vsize < size) {
                 memcpy (value, p + isize + 1, vsize);
                 value [vsize] = 0;
                 return vsize;
@@ -427,7 +458,7 @@ static int get_id3_tag_item (M_Tag *m_tag, const char *item, char *value, int si
         return 0;
 }
 
-static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int size)
+static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int size, int type)
 {
     unsigned char *p = m_tag->ape_tag_data;
     unsigned char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
@@ -443,7 +474,7 @@ static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int si
         if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
             break;
 
-        if (isize && vsize && !(flags & 6) && !index--) {
+        if (isize && vsize && ((flags & 6) >> 1) == type && !index--) {
 
             if (!item || !size)
                 return isize;
@@ -510,6 +541,48 @@ static int get_id3_tag_item_indexed (M_Tag *m_tag, int index, char *item, int si
         return 0;
 }
 
+static int append_ape_tag_item (WavpackContext *wpc, const char *item, const char *value, int vsize, int type)
+{
+    M_Tag *m_tag = &wpc->m_tag;
+    int isize = (int) strlen (item);
+
+    if (!m_tag->ape_tag_hdr.ID [0]) {
+        strncpy (m_tag->ape_tag_hdr.ID, "APETAGEX", sizeof (m_tag->ape_tag_hdr.ID));
+        m_tag->ape_tag_hdr.version = 2000;
+        m_tag->ape_tag_hdr.length = sizeof (m_tag->ape_tag_hdr);
+        m_tag->ape_tag_hdr.item_count = 0;
+        m_tag->ape_tag_hdr.flags = APE_TAG_CONTAINS_HEADER;  // we will include header on tags we originate
+    }
+
+    if (m_tag->ape_tag_hdr.ID [0] == 'A') {
+        int new_item_len = vsize + isize + 9, flags = type << 1;
+        unsigned char *p;
+
+        m_tag->ape_tag_hdr.item_count++;
+        m_tag->ape_tag_hdr.length += new_item_len;
+        p = m_tag->ape_tag_data = realloc (m_tag->ape_tag_data, m_tag->ape_tag_hdr.length);
+        p += m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr) - new_item_len;
+
+        *p++ = (unsigned char) vsize;
+        *p++ = (unsigned char) (vsize >> 8);
+        *p++ = (unsigned char) (vsize >> 16);
+        *p++ = (unsigned char) (vsize >> 24);
+
+        *p++ = (unsigned char) flags;
+        *p++ = (unsigned char) (flags >> 8);
+        *p++ = (unsigned char) (flags >> 16);
+        *p++ = (unsigned char) (flags >> 24);
+
+        strcpy (p, item);
+        p += isize + 1;
+        memcpy (p, value, vsize);
+
+        return TRUE;
+    }
+    else
+        return FALSE;
+}
+
 static int write_tag_blockout (WavpackContext *wpc)
 {
     M_Tag *m_tag = &wpc->m_tag;
@@ -519,8 +592,8 @@ static int write_tag_blockout (WavpackContext *wpc)
 
         // only write header if it's specified in the flags
 
-        if (m_tag->ape_tag_hdr.flags & 0x80000000) {
-            m_tag->ape_tag_hdr.flags |= 0x20000000;
+        if (m_tag->ape_tag_hdr.flags & APE_TAG_CONTAINS_HEADER) {
+            m_tag->ape_tag_hdr.flags |= APE_TAG_THIS_IS_HEADER;
             native_to_little_endian (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
             result = wpc->blockout (wpc->wv_out, &m_tag->ape_tag_hdr, sizeof (m_tag->ape_tag_hdr));
             little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
@@ -529,7 +602,7 @@ static int write_tag_blockout (WavpackContext *wpc)
         if (m_tag->ape_tag_hdr.length > sizeof (m_tag->ape_tag_hdr))
             result = wpc->blockout (wpc->wv_out, m_tag->ape_tag_data, m_tag->ape_tag_hdr.length - sizeof (m_tag->ape_tag_hdr));
 
-        m_tag->ape_tag_hdr.flags &= ~0x20000000;
+        m_tag->ape_tag_hdr.flags &= ~APE_TAG_THIS_IS_HEADER;    // this is NOT header
         native_to_little_endian (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
         result = wpc->blockout (wpc->wv_out, &m_tag->ape_tag_hdr, sizeof (m_tag->ape_tag_hdr));
         little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
@@ -553,7 +626,7 @@ static int write_tag_reader (WavpackContext *wpc)
 
     // only write header if it's specified in the flags
 
-    if (m_tag->ape_tag_hdr.flags & 0x80000000)
+    if (m_tag->ape_tag_hdr.flags & APE_TAG_CONTAINS_HEADER)
         tag_size += sizeof (m_tag->ape_tag_hdr);
 
     result = (wpc->open_flags & OPEN_EDIT_TAGS) && wpc->reader->can_seek (wpc->wv_in) &&
@@ -568,15 +641,15 @@ static int write_tag_reader (WavpackContext *wpc)
     }
 
     if (result && tag_size) {
-        if (m_tag->ape_tag_hdr.flags & 0x80000000) {
-            m_tag->ape_tag_hdr.flags |= 0x20000000;
+        if (m_tag->ape_tag_hdr.flags & APE_TAG_CONTAINS_HEADER) {
+            m_tag->ape_tag_hdr.flags |= APE_TAG_THIS_IS_HEADER;
             native_to_little_endian (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
             result = (wpc->reader->write_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (m_tag->ape_tag_hdr)) == sizeof (m_tag->ape_tag_hdr));
             little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
         }
 
         result = (wpc->reader->write_bytes (wpc->wv_in, m_tag->ape_tag_data, m_tag->ape_tag_hdr.length - sizeof (m_tag->ape_tag_hdr)) == sizeof (m_tag->ape_tag_hdr));
-        m_tag->ape_tag_hdr.flags &= ~0x20000000;
+        m_tag->ape_tag_hdr.flags &= ~APE_TAG_THIS_IS_HEADER;    // this is NOT header
         native_to_little_endian (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
         result = (wpc->reader->write_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (m_tag->ape_tag_hdr)) == sizeof (m_tag->ape_tag_hdr));
         little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
