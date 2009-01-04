@@ -154,7 +154,11 @@ static const char *help =
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
 "    -t                      copy input file's time stamp to output file(s)\n"
-"    -w \"Field=Value\"        write specified metadata to APEv2 tag\n"
+"    -w \"Field=Value\"        write specified text metadata to APEv2 tag\n"
+"    -w \"Field=@file.ext\"    write specified text metadata from file to APEv2\n"
+"                             tag, normally used for embedded cuesheets\n"
+"    -ww \"Field=@file.ext\"   write the specified binary metadata file to APEv2\n"
+"                             tag, normally used for cover art\n"
 "    -x[n]                   extra encode processing (optional n = 1 to 6, 1=default)\n"
 "                             -x1 to -x3 to choose best of predefined filters\n"
 "                             -x4 to -x6 to generate custom filters (very slow!)\n"
@@ -180,6 +184,18 @@ static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
 static char channel_order [18], num_channels_order, channel_order_undefined;
 static uint32_t channel_order_mask;
 
+// These two statics are used to keep track of tags that the user specifies on the
+// command line. The "num_tag_strings" and "tag_strings" fields in the WavpackConfig
+// structure are no longer used for anything (they should not have been there in
+// the first place).
+
+static int num_tag_items;
+
+static struct tag_item {
+    char *item, *value, *ext;
+    int vsize, binary;
+} *tag_items;
+
 #if defined (WIN32)
 static char *wvselfx_image;
 static uint32_t wvselfx_size;
@@ -191,6 +207,7 @@ static FILE *wild_fopen (char *filename, const char *mode);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
 static int pack_audio (WavpackContext *wpc, FILE *infile, char *new_order);
 static void display_progress (double file_progress);
+static void AnsiToUTF8 (char *string, int len);
 
 #define NO_ERROR 0L
 #define SOFT_ERROR 1
@@ -532,7 +549,7 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'W': case 'w':
-                        tag_next_arg = 1;
+                        ++tag_next_arg;
                         break;
 
                     default:
@@ -540,9 +557,27 @@ int main (argc, argv) int argc; char **argv;
                         ++error_count;
                 }
         else if (tag_next_arg) {
+            char *cp = strchr (*argv, '=');
+
+            if (cp && cp > *argv) {
+                int i = num_tag_items;
+
+                tag_items = realloc (tag_items, ++num_tag_items * sizeof (*tag_items));
+                tag_items [i].item = malloc (cp - *argv + 1);
+                memcpy (tag_items [i].item, *argv, cp - *argv);
+                tag_items [i].item [cp - *argv] = 0;
+                tag_items [i].vsize = strlen (cp + 1);
+                tag_items [i].value = malloc (tag_items [i].vsize + 1);
+                strcpy (tag_items [i].value, cp + 1);
+                tag_items [i].binary = (tag_next_arg == 2);
+                tag_items [i].ext = NULL;
+            }
+            else {
+                error_line ("error in tag spec: %s !", *argv);
+                ++error_count;
+            }
+
             tag_next_arg = 0;
-            config.tag_strings = realloc (config.tag_strings, ++config.num_tag_strings * sizeof (*config.tag_strings));
-            config.tag_strings [config.num_tag_strings - 1] = *argv;
         }
 #if defined (WIN32)
         else if (!num_files) {
@@ -636,64 +671,84 @@ int main (argc, argv) int argc; char **argv;
     if (!quiet_mode && !error_count)
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
 
-    // loop through any tag specification strings and check for file access
+    // Loop through any tag specification strings and check for file access, convert text
+    // strings to UTF-8, and otherwise prepare for writing to APE tags. This is done here
+    // rather than after encoding so that any errors can be reported to the user now.
 
-    for (i = 0; i < config.num_tag_strings; ++i) {
-        char *cp = strchr (config.tag_strings [i], '='), *string = NULL;
+    for (i = 0; i < num_tag_items; ++i) {
+        if (*tag_items [i].value == '@') {
+            char *fn = tag_items [i].value + 1, *new_value = NULL;
+            FILE *file = wild_fopen (fn, "rb");
 
-        if (cp && cp > config.tag_strings [i]) {
-            int item_len = (int)(cp - config.tag_strings [i]);
+            // if the file is not found, try using any input and output directories that the
+            // user may have specified on the command line
 
-            if (cp [1] == '@') {
-                FILE *file = wild_fopen (cp+2, "rb");
+            if (!file && num_files && filespec_name (matches [0]) && *matches [0] != '-') {
+                char *temp = malloc (strlen (matches [0]) + PATH_MAX);
 
-                if (!file && num_files && filespec_name (matches [0]) && *matches [0] != '-') {
-                    char *temp = malloc (strlen (matches [0]) + PATH_MAX);
+                strcpy (temp, matches [0]);
+                strcpy (filespec_name (temp), fn);
+                file = wild_fopen (temp, "rb");
+                free (temp);
+            }
 
-                    strcpy (temp, matches [0]);
-                    strcpy (filespec_name (temp), cp+2);
-                    file = wild_fopen (temp, "rb");
-                    free (temp);
-                }
+            if (!file && outfilename && filespec_name (outfilename) && *outfilename != '-') {
+                char *temp = malloc (strlen (outfilename) + PATH_MAX);
 
-                if (!file && outfilename && filespec_name (outfilename) && *outfilename != '-') {
-                    char *temp = malloc (strlen (outfilename) + PATH_MAX);
+                strcpy (temp, outfilename);
+                strcpy (filespec_name (temp), fn);
+                file = wild_fopen (temp, "rb");
+                free (temp);
+            }
 
-                    strcpy (temp, outfilename);
-                    strcpy (filespec_name (temp), cp+2);
-                    file = wild_fopen (temp, "rb");
-                    free (temp);
-                }
+            if (file) {
+                uint32_t bcount;
 
-                if (file) {
-                    uint32_t bcount, file_len;
+                tag_items [i].vsize = (int) DoGetFileSize (file);
 
-                    file_len = (uint32_t) DoGetFileSize (file);
+                if (filespec_ext (fn))
+                    tag_items [i].ext = strdup (filespec_ext (fn));
 
-                    if (file_len < 1048576 && (string = malloc (item_len + file_len + 2)) != NULL) {
-                        memcpy (string, config.tag_strings [i], item_len + 1);
+                if (tag_items [i].vsize < 1048576) {
+                    new_value = malloc (tag_items [i].vsize + 1);
 
-                        if (!DoReadFile (file, string + item_len + 1, file_len, &bcount) || bcount != file_len) {
-                            free (string);
-                            string = NULL;
+                    if (!DoReadFile (file, new_value, tag_items [i].vsize, &bcount) ||
+                        bcount != tag_items [i].vsize) {
+                            free (new_value);
+                            new_value = NULL;
                         }
                         else
-                            string [item_len + file_len + 1] = 0;
-                    }
-
-                    DoCloseHandle (file);
+                            new_value [tag_items [i].vsize] = 0;
                 }
+
+                DoCloseHandle (file);
             }
-            else
-                string = config.tag_strings [i];
+
+            if (!new_value) {
+                error_line ("error in tag spec: %s !", tag_items [i].value);
+                ++error_count;
+            }
+            else {
+                free (tag_items [i].value);
+                tag_items [i].value = new_value;
+            }
         }
 
-        if (!string) {
-            error_line ("error in tag spec: %s !", config.tag_strings [i]);
-            ++error_count;
+        if (tag_items [i].binary) {
+            int isize = strlen (tag_items [i].item);
+            int esize = strlen (tag_items [i].ext);
+
+            tag_items [i].value = realloc (tag_items [i].value, isize + esize + 1 + tag_items [i].vsize);
+            memmove (tag_items [i].value + isize + esize + 1, tag_items [i].value, tag_items [i].vsize);
+            strcpy (tag_items [i].value, tag_items [i].item);
+            strcat (tag_items [i].value, tag_items [i].ext);
+            tag_items [i].vsize += isize + esize + 1;
         }
-        else
-            config.tag_strings [i] = string;
+        else if (tag_items [i].vsize) {
+            tag_items [i].value = realloc (tag_items [i].value, tag_items [i].vsize * 2 + 1);
+            AnsiToUTF8 (tag_items [i].value, tag_items [i].vsize * 2 + 1);
+            tag_items [i].vsize = strlen (tag_items [i].value);
+        }
     }
 
     if (error_count) {
@@ -1102,8 +1157,6 @@ static FILE *wild_fopen (char *filename, const char *mode)
 // "outfilename". If "out2filename" is specified, then the "correction"
 // file would go there. The files are opened and closed in this function
 // and the "config" structure specifies the mode of compression.
-
-static void AnsiToUTF8 (char *string, int len);
 
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
@@ -1559,26 +1612,16 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // if still no errors, check to see if we need to create & write a tag
     // (which is NOT stored in regular WavPack blocks)
 
-    if (result == NO_ERROR && config->num_tag_strings) {
+    if (result == NO_ERROR && num_tag_items) {
         int i;
 
-        for (i = 0; i < config->num_tag_strings; ++i) {
-            int item_len = (int)(strchr (config->tag_strings [i], '=') - config->tag_strings [i]);
-            int value_len = (int) strlen (config->tag_strings [i]) - item_len - 1;
-
-            if (value_len) {
-                char *item = malloc (item_len + 1);
-                char *value = malloc (value_len * 2 + 1);
-
-                strncpy (item, config->tag_strings [i], item_len);
-                item [item_len] = 0;
-                strcpy (value, config->tag_strings [i] + item_len + 1);
-                AnsiToUTF8 (value, value_len * 2 + 1);
-                WavpackAppendTagItem (wpc, item, value, (int) strlen (value));
-                free (value);
-                free (item);
+        for (i = 0; i < num_tag_items; ++i)
+            if (tag_items [i].vsize) {
+                if (tag_items [i].binary) 
+                    WavpackAppendBinaryTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
+                else
+                    WavpackAppendTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
             }
-        }
 
         if (!WavpackWriteTag (wpc)) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
