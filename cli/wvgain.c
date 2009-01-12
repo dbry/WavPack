@@ -20,6 +20,9 @@
 #include <windows.h>
 #include <io.h>
 #else
+#if defined(__OS2__)
+#include <io.h>
+#endif
 #include <sys/stat.h>
 #include <sys/param.h>
 #include <locale.h>
@@ -106,6 +109,9 @@ static void display_progress (double file_progress);
 
 int main (argc, argv) int argc; char **argv;
 {
+#ifdef __EMX__ /* OS/2 */
+    _wildcard (&argc, &argv);
+#endif
     int  error_count = 0;
     char **matches = NULL;
     int result = NO_ERROR;

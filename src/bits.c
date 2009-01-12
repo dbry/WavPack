@@ -24,6 +24,9 @@
 #if defined(WIN32)
 #include <io.h>
 #else
+#if defined(__OS2__)
+#include <io.h>
+#endif
 #include <unistd.h>
 #endif
 

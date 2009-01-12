@@ -14,6 +14,9 @@
 #include <windows.h>
 #include <io.h>
 #else
+#if defined(__OS2__)
+#include <io.h>
+#endif
 #include <sys/stat.h>
 #include <sys/param.h>
 #include <locale.h>
@@ -128,6 +131,9 @@ static void display_progress (double file_progress);
 
 int main (argc, argv) int argc; char **argv;
 {
+#ifdef __EMX__ /* OS/2 */
+    _wildcard (&argc, &argv);
+#endif
     int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, ask_help = 0;
     char outpath, **matches = NULL, *outfilename = NULL;
     int result;
@@ -824,6 +830,9 @@ static int unpack_file (char *infilename, char *outfilename)
             outfile = stdout;
 #if defined(WIN32)
             _setmode (fileno (stdout), O_BINARY);
+#endif
+#if defined(__OS2__)
+            setmode (fileno (stdout), O_BINARY);
 #endif
 
             if (!quiet_mode)

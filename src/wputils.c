@@ -24,7 +24,7 @@
 #include <math.h>
 #include <sys/stat.h>
 
-#ifdef WIN32
+#if defined (WIN32) || defined (__OS2__)
 #include <io.h>
 #endif
 
@@ -164,6 +164,9 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
         wv_id = stdin;
 #if defined(WIN32)
         _setmode (fileno (stdin), O_BINARY);
+#endif
+#if defined(__OS2__)
+        setmode (fileno (stdin), O_BINARY);
 #endif
     }
     else if ((wv_id = fopen (infilename, file_mode)) == NULL) {

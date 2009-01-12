@@ -14,6 +14,9 @@
 #include <windows.h>
 #include <io.h>
 #else
+#if defined(__OS2__)
+#include <io.h>
+#endif
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <locale.h>
@@ -219,6 +222,9 @@ static void AnsiToUTF8 (char *string, int len);
 
 int main (argc, argv) int argc; char **argv;
 {
+#ifdef __EMX__ /* OS/2 */
+    _wildcard (&argc, &argv);
+#endif
     int delete_source = 0, error_count = 0, tag_next_arg = 0, output_spec = 0, ask_help = 0;
     char *outfilename = NULL, *out2filename = NULL;
     char **matches = NULL;
@@ -1191,6 +1197,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 #if defined(WIN32)
         _setmode (fileno (stdin), O_BINARY);
 #endif
+#if defined(__OS2__)
+        setmode (fileno (stdin), O_BINARY);
+#endif
     }
     else if ((infile = fopen (infilename, "rb")) == NULL) {
         error_line ("can't open file %s!", infilename);
@@ -1270,6 +1279,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         wv_file.file = stdout;
 #if defined(WIN32)
         _setmode (fileno (stdout), O_BINARY);
+#endif
+#if defined(__OS2__)
+        setmode (fileno (stdout), O_BINARY);
 #endif
     }
     else if ((wv_file.file = fopen (outfilename, "w+b")) == NULL) {
