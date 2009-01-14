@@ -1428,7 +1428,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         }
 
         for (i = 0; i < num_binary_items; ++i) {
-            int item_len, value_len, j;
+            int item_len, value_len;
             char *item;
 
             item_len = WavpackGetBinaryTagItemIndexed (wpc, i, NULL, 0);

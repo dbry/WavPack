@@ -44,6 +44,7 @@
 
 #ifdef WIN32
 #define stricmp(x,y) _stricmp(x,y)
+#define strdup(x) _strdup(x)
 #define fileno _fileno
 #else
 #define stricmp(x,y) strcasecmp(x,y)
@@ -572,7 +573,7 @@ int main (argc, argv) int argc; char **argv;
                 tag_items [i].item = malloc (cp - *argv + 1);
                 memcpy (tag_items [i].item, *argv, cp - *argv);
                 tag_items [i].item [cp - *argv] = 0;
-                tag_items [i].vsize = strlen (cp + 1);
+                tag_items [i].vsize = (int) strlen (cp + 1);
                 tag_items [i].value = malloc (tag_items [i].vsize + 1);
                 strcpy (tag_items [i].value, cp + 1);
                 tag_items [i].binary = (tag_next_arg == 2);
@@ -741,8 +742,8 @@ int main (argc, argv) int argc; char **argv;
         }
 
         if (tag_items [i].binary) {
-            int isize = strlen (tag_items [i].item);
-            int esize = strlen (tag_items [i].ext);
+            int isize = (int) strlen (tag_items [i].item);
+            int esize = (int) strlen (tag_items [i].ext);
 
             tag_items [i].value = realloc (tag_items [i].value, isize + esize + 1 + tag_items [i].vsize);
             memmove (tag_items [i].value + isize + esize + 1, tag_items [i].value, tag_items [i].vsize);
@@ -752,8 +753,8 @@ int main (argc, argv) int argc; char **argv;
         }
         else if (tag_items [i].vsize) {
             tag_items [i].value = realloc (tag_items [i].value, tag_items [i].vsize * 2 + 1);
-            AnsiToUTF8 (tag_items [i].value, tag_items [i].vsize * 2 + 1);
-            tag_items [i].vsize = strlen (tag_items [i].value);
+            AnsiToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
+            tag_items [i].vsize = (int) strlen (tag_items [i].value);
         }
     }
 
@@ -1213,7 +1214,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         if (infilesize) {
             int sample_size = loc_config.bytes_per_sample * loc_config.num_channels;
 
-            total_samples = infilesize / sample_size;
+            total_samples = (int) (infilesize / sample_size);
 
             if (infilesize % sample_size)
                 error_line ("warning: raw pcm infile length does not divide evenly, %d bytes will be discarded",
