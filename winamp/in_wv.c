@@ -20,6 +20,7 @@
 
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 
+#define PLUGIN_VERSION "2.6b"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 
@@ -68,7 +69,14 @@ HANDLE thread_handle=INVALID_HANDLE_VALUE;      // the handle to the decode thre
 
 DWORD WINAPI __stdcall DecodeThread(void *b);   // the decode thread procedure
 
+HMODULE hResources;								// module handle for resources to use
+
 static BOOL CALLBACK WavPackDlgProc (HWND, UINT, WPARAM, LPARAM);
+
+static void configure_resources (void)
+{
+    hResources = GetModuleHandle ("in_wv.dll");
+}
 
 void config (HWND hwndParent)
 {
@@ -78,14 +86,17 @@ void config (HWND hwndParent)
     HANDLE confile;
     DWORD result;
 
-    module = GetModuleHandle ("in_wv.dll");
-    temp_config = (int) DialogBoxParam (module, "WinAmp", hwndParent, (DLGPROC) WavPackDlgProc, config_bits);
+	if (!hResources)
+		configure_resources ();
+
+    temp_config = (int) DialogBoxParam (hResources, "WinAmp", hwndParent, (DLGPROC) WavPackDlgProc, config_bits);
 
     if (temp_config == config_bits || (temp_config & 0xffffff00) ||
         (temp_config & 6) == 6 || (temp_config & 0x18) == 0x18)
             return;
 
     config_bits = temp_config;
+    module = GetModuleHandle ("in_wv.dll");
 
     if (module && GetModuleFileName (module, dllname, sizeof (dllname))) {
         dllname [strlen (dllname) - 2] = 'a';
@@ -104,6 +115,7 @@ void config (HWND hwndParent)
 
 BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	char tempstr [128];
     static int local_config;
 
     switch (message) {
@@ -114,14 +126,26 @@ BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
             CheckDlgButton (hDlg, IDC_ALWAYS_16BIT, local_config & ALWAYS_16BIT);
             CheckDlgButton (hDlg, IDC_MULTICHANNEL, local_config & ALLOW_MULTICHANNEL);
 
-            SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_ADDSTRING, 0, (LPARAM) "disabled");
-            SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_ADDSTRING, 0, (LPARAM) "use track gain");
-            SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_ADDSTRING, 0, (LPARAM) "use album gain");
+			if (LoadString (hResources, IDS_DISABLED, tempstr, sizeof (tempstr)))
+				SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_ADDSTRING, 0, (LPARAM) tempstr);
+
+			if (LoadString (hResources, IDS_USE_TRACK, tempstr, sizeof (tempstr)))
+				SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_ADDSTRING, 0, (LPARAM) tempstr);
+
+			if (LoadString (hResources, IDS_USE_ALBUM, tempstr, sizeof (tempstr)))
+				SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_ADDSTRING, 0, (LPARAM) tempstr);
+
             SendDlgItemMessage (hDlg, IDC_REPLAYGAIN, CB_SETCURSEL, (local_config >> 1) & 3, 0);
 
-            SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_ADDSTRING, 0, (LPARAM) "just clip peaks");
-            SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_ADDSTRING, 0, (LPARAM) "softly clip peaks");
-            SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_ADDSTRING, 0, (LPARAM) "scale track to prevent clips");
+			if (LoadString (hResources, IDS_JUST_CLIP, tempstr, sizeof (tempstr)))
+				SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_ADDSTRING, 0, (LPARAM) tempstr);
+
+			if (LoadString (hResources, IDS_SOFT_CLIP, tempstr, sizeof (tempstr)))
+				SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_ADDSTRING, 0, (LPARAM) tempstr);
+
+			if (LoadString (hResources, IDS_PREVENT_CLIP, tempstr, sizeof (tempstr)))
+				SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_ADDSTRING, 0, (LPARAM) tempstr);
+
             SendDlgItemMessage (hDlg, IDC_CLIPPING, CB_SETCURSEL, (local_config >> 3) & 3, 0);
 
             CheckDlgButton (hDlg, IDC_24BIT_RG, local_config & REPLAYGAIN_24BIT);
@@ -184,13 +208,22 @@ extern long dump_alloc (void);
 
 void about (HWND hwndParent)
 {
+	char about_title [128], about_string [256], about_format [256];
+
+	if (!hResources)
+		configure_resources ();
+
+	if (!LoadString (hResources, IDS_ABOUT, about_title, sizeof (about_title)) ||
+	    !LoadString (hResources, IDS_FORMAT, about_format, sizeof (about_format)))
+			return;
+
 #ifdef DEBUG_ALLOC
-    char string [80];
-    sprintf (string, "alloc_count = %d", dump_alloc ());
-    MessageBox (hwndParent, string, "About WavPack Player", MB_OK);
+    sprintf (about_string, "alloc_count = %d", dump_alloc ());
 #else
-    MessageBox (hwndParent,"WavPack Player Version 2.6b \nCopyright (c) 2008 Conifer Software ", "About WavPack Player", MB_OK);
+	sprintf (about_string, about_format, PLUGIN_VERSION, 2009);
 #endif
+
+    MessageBox (hwndParent, about_string, about_title, MB_OK);
 }
 
 void init() { /* any one-time initialization goes here (configuration reading, etc) */
@@ -533,7 +566,7 @@ int infoDlg (char *fn, HWND hwnd)
         wpc = WavpackCloseFile (wpc);
     }
     else
-        MessageBox (hwnd, string, "WavPack Player", MB_OK);
+        MessageBox (hwnd, string, "WavPack Decoder", MB_OK);
 
     return 0;
 }
@@ -960,22 +993,15 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
     return samples;
 }
 
+static char description [128], file_extensions [128];
 
 In_Module mod =
 {
     IN_VER,
-    "WavPack Player v2.6b "
-
-#ifdef __alpha
-    "(AXP)"
-#else
-    "(x86)"
-#endif
-    ,
+    description,
     0,          // hMainWindow
     0,          // hDllInstance
-    "WV\0WavPack File (*.WV)\0"
-    ,
+	file_extensions,
     1,          // is_seekable
     1,          // uses output
     config,
@@ -1004,6 +1030,29 @@ In_Module mod =
 
 __declspec (dllexport) In_Module * winampGetInModule2 ()
 {
+	char tmp [64], *tmp_ptr = tmp, *fex_ptr = file_extensions;
+
+	if (!hResources)
+		configure_resources ();
+
+	if (LoadString (hResources, IDS_DESCRIPTION, tmp, sizeof (tmp)))
+		sprintf (description, tmp, PLUGIN_VERSION);
+	else
+		sprintf (description, "WavPack Decoder %s", PLUGIN_VERSION);
+
+	if (!LoadString (hResources, IDS_FILETYPE, tmp, sizeof (tmp)))
+		strcpy (tmp, "WavPack File (*.WV)");
+
+	*fex_ptr++ = 'W';
+	*fex_ptr++ = 'V';
+	*fex_ptr++ = 0;
+
+	while (*tmp_ptr)
+		*fex_ptr++ = *tmp_ptr++;
+
+	*fex_ptr++ = 0;
+	*fex_ptr++ = 0;
+
     return &mod;
 }
 
@@ -1453,52 +1502,99 @@ static int metadata_we_can_write (const char *metadata)
 static void generate_format_string (WavpackContext *wpc, char *string, int maxlen, int wide)
 {
     int mode = WavpackGetMode (wpc);
+	char str_floats [32] = "floats";
+	char str_ints [32] = "ints";
+	char str_hybrid [32] = "hybrid";
+	char str_lossless [32] = "lossless";
+	char str_lossy [32] = "lossy";
+	char str_fast [32] = ", fast";
+	char str_high [32] = ", high";
+	char str_vhigh [32] = ", v.high";
+	char str_extra [32] = ", extra";
+	char str_modes [32] = "Modes";
+	char str_bitrate [32] = "Average bitrate";
+	char str_ratio [32] = "Overall ratio";
+	char str_kbps [32] = "kbps";
+	char str_md5 [32] = "Original md5";
     uchar md5_sum [16];
-    char modes [80];
+    char modes [256];
+	char fmt [256];
 
-    _snprintf (string, maxlen, "WavPack encoder version:  %d\n", WavpackGetVersion (wpc));
-    while (*string && string++ && maxlen--);
+	if (!hResources)
+		configure_resources ();
 
-    _snprintf (string, maxlen, "Source:  %d-bit %s at %d Hz \n", WavpackGetBitsPerSample (wpc),
-        (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints", WavpackGetSampleRate (wpc));
+	LoadString (hResources, IDS_FLOATS, str_floats, sizeof (str_floats));
+	LoadString (hResources, IDS_INTS, str_ints, sizeof (str_ints));
+	LoadString (hResources, IDS_HYBRID, str_hybrid, sizeof (str_hybrid));
+	LoadString (hResources, IDS_LOSSLESS, str_lossless, sizeof (str_lossless));
+	LoadString (hResources, IDS_LOSSY, str_lossy, sizeof (str_lossy));
+	LoadString (hResources, IDS_FAST, str_fast, sizeof (str_fast));
+	LoadString (hResources, IDS_HIGH, str_high, sizeof (str_high));
+	LoadString (hResources, IDS_VHIGH, str_vhigh, sizeof (str_vhigh));
+	LoadString (hResources, IDS_EXTRA, str_extra, sizeof (str_extra));
+	LoadString (hResources, IDS_MODES, str_modes, sizeof (str_modes));
+	LoadString (hResources, IDS_BITRATE, str_bitrate, sizeof (str_bitrate));
+	LoadString (hResources, IDS_RATIO, str_ratio, sizeof (str_ratio));
+	LoadString (hResources, IDS_KBPS, str_kbps, sizeof (str_kbps));
+	LoadString (hResources, IDS_MD5, str_md5, sizeof (str_md5));
 
-    while (*string && string++ && maxlen--);
+	if (LoadString (hResources, IDS_ENCODER_VERSION, fmt, sizeof (fmt))) {
+		_snprintf (string, maxlen, fmt, WavpackGetVersion (wpc));
+		while (*string && string++ && maxlen--);
+	}
 
-    if (WavpackGetNumChannels (wpc) > 2)
-        _snprintf (string, maxlen, "Channels: %d (multichannel)\n", WavpackGetNumChannels (wpc));
-    else
-        _snprintf (string, maxlen, "Channels: %s\n",
-            WavpackGetNumChannels (wpc) == 1 ? "1 (mono)" : "2 (stereo)");
+	if (LoadString (hResources, IDS_SOURCE, fmt, sizeof (fmt))) {
+		_snprintf (string, maxlen, fmt, WavpackGetBitsPerSample (wpc),
+			(WavpackGetMode (wpc) & MODE_FLOAT) ? str_floats : str_ints, WavpackGetSampleRate (wpc));
 
-    while (*string && string++ && maxlen--);
+		while (*string && string++ && maxlen--);
+	}
+
+    if (WavpackGetNumChannels (wpc) > 2) {
+		if (LoadString (hResources, IDS_MULTICHANNEL, fmt, sizeof (fmt))) {
+			_snprintf (string, maxlen, fmt, WavpackGetNumChannels (wpc));
+			while (*string && string++ && maxlen--);
+		}
+	}
+    else if (WavpackGetNumChannels (wpc) == 2) {
+		if (LoadString (hResources, IDS_STEREO, fmt, sizeof (fmt))) {
+			_snprintf (string, maxlen, fmt);
+			while (*string && string++ && maxlen--);
+		}
+	}
+	else
+		if (LoadString (hResources, IDS_MONO, fmt, sizeof (fmt))) {
+			_snprintf (string, maxlen, fmt);
+			while (*string && string++ && maxlen--);
+		}
 
     modes [0] = 0;
 
-    if (WavpackGetMode (wpc) & MODE_HYBRID)
-        strcat (modes, "hybrid ");
+    if (WavpackGetMode (wpc) & MODE_HYBRID) {
+        strcat (modes, str_hybrid);
+        strcat (modes, " ");
+	}
 
-    strcat (modes, (WavpackGetMode (wpc) & MODE_LOSSLESS) ? "lossless" : "lossy");
+    strcat (modes, (WavpackGetMode (wpc) & MODE_LOSSLESS) ? str_lossless : str_lossy);
 
     if (WavpackGetMode (wpc) & MODE_FAST)
-        strcat (modes, ", fast");
+        strcat (modes, str_fast);
     else if (WavpackGetMode (wpc) & MODE_VERY_HIGH)
-        strcat (modes, wide ? ", very high" : ", v.high");
+        strcat (modes, str_vhigh);
     else if (WavpackGetMode (wpc) & MODE_HIGH)
-        strcat (modes, ", high");
+        strcat (modes, str_high);
 
     if (WavpackGetMode (wpc) & MODE_EXTRA)
-        strcat (modes, ", extra");
+        strcat (modes, str_extra);
 
-    if (WavpackGetMode (wpc) & MODE_SFX)
-        strcat (modes, ", sfx");
-
-    _snprintf (string, maxlen, "Modes:%s  %s\n", (wide || strlen (modes) < 24) ? "" : "\n", modes);
+    _snprintf (string, maxlen, "%s:%s  %s\n", str_modes, (wide || strlen (modes) < 24) ? "" : "\n", modes);
     while (*string && string++ && maxlen--);
 
     if (WavpackGetRatio (wpc) != 0.0) {
-        _snprintf (string, maxlen, "Average bitrate:  %d kbps \n", (int) ((WavpackGetAverageBitrate (wpc, TRUE) + 500.0) / 1000.0));
+        _snprintf (string, maxlen, "%s:  %d %s \n", str_bitrate,
+			(int) ((WavpackGetAverageBitrate (wpc, TRUE) + 500.0) / 1000.0), str_kbps);
         while (*string && string++ && maxlen--);
-        _snprintf (string, maxlen, "Overall ratio:  %.2f to 1 \n", 1.0 / WavpackGetRatio (wpc));
+        _snprintf (string, maxlen, "%s:  %.2f : 1 \n", str_ratio, 1.0 / WavpackGetRatio (wpc));
         while (*string && string++ && maxlen--);
     }
 
@@ -1512,9 +1608,9 @@ static void generate_format_string (WavpackContext *wpc, char *string, int maxle
         }
 
         if (wide)
-            _snprintf (string, maxlen, "Original md5:  %s%s\n", md5s1, md5s2);
+            _snprintf (string, maxlen, "%s:  %s%s\n", str_md5, md5s1, md5s2);
         else
-            _snprintf (string, maxlen, "Original md5:\n  %s\n  %s\n", md5s1, md5s2);
+            _snprintf (string, maxlen, "%s:\n  %s\n  %s\n", str_md5, md5s1, md5s2);
     }
 }
 
