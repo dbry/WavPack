@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 9.00
-# Visual C++ Express 2005
+# Visual Studio 2005
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libwavpack", "src\libwavpack.vcproj", "{5CCCB9CF-0384-458F-BA08-72B73866840F}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wavpack", "wavpackexe\wavpack.vcproj", "{52FA010A-59B2-4CCB-8E32-9852E7253C71}"
@@ -14,6 +14,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "audition", "audition\audition.vcproj", "{FDF08D60-E2B8-4C79-8244-9FF1DC360072}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wavpackdll", "wavpackdll\wavpackdll.vcproj", "{1A87F412-BA74-4DBB-9F77-FD55C042FB63}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "winamp_lng", "winamp\winamp_lng\winamp_lng.vcproj", "{310B5608-E3D1-481D-BD8F-2F18FD9A3E07}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -49,6 +51,10 @@ Global
 		{1A87F412-BA74-4DBB-9F77-FD55C042FB63}.Debug|Win32.Build.0 = Debug|Win32
 		{1A87F412-BA74-4DBB-9F77-FD55C042FB63}.Release|Win32.ActiveCfg = Release|Win32
 		{1A87F412-BA74-4DBB-9F77-FD55C042FB63}.Release|Win32.Build.0 = Release|Win32
+		{310B5608-E3D1-481D-BD8F-2F18FD9A3E07}.Debug|Win32.ActiveCfg = Debug|Win32
+		{310B5608-E3D1-481D-BD8F-2F18FD9A3E07}.Debug|Win32.Build.0 = Debug|Win32
+		{310B5608-E3D1-481D-BD8F-2F18FD9A3E07}.Release|Win32.ActiveCfg = Release|Win32
+		{310B5608-E3D1-481D-BD8F-2F18FD9A3E07}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

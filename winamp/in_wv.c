@@ -75,7 +75,12 @@ static BOOL CALLBACK WavPackDlgProc (HWND, UINT, WPARAM, LPARAM);
 
 static void configure_resources (void)
 {
-    hResources = GetModuleHandle ("in_wv.dll");
+	HMODULE lang_resources = LoadLibrary ("in_wv.lng");
+
+	if (lang_resources)
+		hResources = GetModuleHandle ("in_wv.lng");
+	else
+		hResources = GetModuleHandle ("in_wv.dll");
 }
 
 void config (HWND hwndParent)
