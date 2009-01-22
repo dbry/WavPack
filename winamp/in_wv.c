@@ -73,13 +73,24 @@ HMODULE hResources;								// module handle for resources to use
 
 static BOOL CALLBACK WavPackDlgProc (HWND, UINT, WPARAM, LPARAM);
 
+// static const GUID InWvLangGuid =
+// { 0x6de2e465, 0x690e, 0x4df1, { 0xb6, 0xe2, 0x2a, 0x9b, 0x33, 0xed, 0x3d, 0xbb } };
+static const char *InWvLangGuid = "{6DE2E465-690E-4df1-B6E2-2A9B33ED3DBB}";
+
 static void configure_resources (void)
 {
-	HMODULE lang_resources = LoadLibrary ("in_wv.lng");
-
-	if (lang_resources)
+	char CheckGuid [64];
+	
+	if (!hResources) {
 		hResources = GetModuleHandle ("in_wv.lng");
-	else
+
+		if (hResources)
+		    if (!LoadString (hResources, IDS_GUID, CheckGuid, sizeof (CheckGuid)) ||
+				_stricmp (InWvLangGuid, CheckGuid))
+					hResources = NULL;
+	}
+
+	if (!hResources)
 		hResources = GetModuleHandle ("in_wv.dll");
 }
 
@@ -1318,10 +1329,14 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
         if (temp) {
             generate_format_string (info.wpc, temp, retlen, 0);
 
-            while (*tp)
-                *ret++ = *tp++;
+            if (!MultiByteToWideChar (CP_THREAD_ACP, MB_PRECOMPOSED, temp, -1, ret, retlen) &&
+                !MultiByteToWideChar (CP_ACP, MB_PRECOMPOSED, temp, -1, ret, retlen)) {
+                    while (*tp)
+                        *ret++ = *tp++;
 
-            *ret = 0;
+                    *ret = 0;
+            }
+
             retval = 1;
             free (temp);
         }

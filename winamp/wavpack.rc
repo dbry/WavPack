@@ -111,6 +111,11 @@ BEGIN
     IDS_FILETYPE            "WavPack Files (*.WV)"
 END
 
+STRINGTABLE 
+BEGIN
+    IDS_GUID                "{6DE2E465-690E-4df1-B6E2-2A9B33ED3DBB}"
+END
+
 #endif    // Neutral (Default) resources
 /////////////////////////////////////////////////////////////////////////////
 
