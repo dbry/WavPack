@@ -771,9 +771,17 @@ typedef short __m64_16 __attribute__ ((__vector_size__ (8)));
 
 #define _m_paddd(m1, m2) __builtin_ia32_paddd (m1, m2)
 #define _m_pcmpeqd(m1, m2) __builtin_ia32_pcmpeqd (m1, m2)
-#define _m_pslldi(m1, m2) __builtin_ia32_pslld (m1, m2)
-#define _m_psradi(m1, m2) __builtin_ia32_psrad (m1, m2)
-#define _m_psrldi(m1, m2) __builtin_ia32_psrld (m1, m2)
+
+#if (__GNUC__ == 4 && __GNUC_MINOR__ >= 4) || __GNUC__ > 4
+#	define _m_pslldi(m1, m2) __builtin_ia32_pslldi ((__m64)m1, m2)
+#	define _m_psradi(m1, m2) __builtin_ia32_psradi ((__m64)m1, m2)
+#	define _m_psrldi(m1, m2) __builtin_ia32_psrldi ((__m64)m1, m2)
+#else
+#	define _m_pslldi(m1, m2) __builtin_ia32_pslld (m1, m2)
+#	define _m_psradi(m1, m2) __builtin_ia32_psrad (m1, m2)
+#	define _m_psrldi(m1, m2) __builtin_ia32_psrld (m1, m2)
+#endif
+
 #define _m_psubd(m1, m2) __builtin_ia32_psubd (m1, m2)
 #define _m_punpckhdq(m1, m2) __builtin_ia32_punpckhdq (m1, m2)
 #define _m_punpckldq(m1, m2) __builtin_ia32_punpckldq (m1, m2)
