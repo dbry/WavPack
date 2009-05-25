@@ -21,6 +21,7 @@
 #include <io.h>
 #else
 #if defined(__OS2__)
+#define INCL_DOS
 #include <io.h>
 #endif
 #include <sys/stat.h>
@@ -73,7 +74,7 @@ static const char *usage =
 "          -c  = clean ReplayGain values from all files (no analysis)\n"
 "          -d  = display calculated values only (no files are modified)\n"
 "          -i  = ignore .wvc file (forces hybrid lossy)\n"
-#if defined (WIN32)
+#if defined (WIN32) || defined (__OS2__)
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
 "          -s  = show stored values only (no analysis)\n"
@@ -168,6 +169,10 @@ int main (argc, argv) int argc; char **argv;
 #if defined (WIN32)
                     case 'L': case 'l':
                         SetPriorityClass (GetCurrentProcess(), IDLE_PRIORITY_CLASS);
+                        break;
+#elif defined (__OS2__)
+                    case 'L': case 'l':
+                        DosSetPriority (0, PRTYC_IDLETIME, 0, 0);
                         break;
 #endif
                     case 'Q': case 'q':

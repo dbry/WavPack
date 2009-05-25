@@ -15,6 +15,7 @@
 #include <io.h>
 #else
 #if defined(__OS2__)
+#define INCL_DOS
 #include <io.h>
 #endif
 #include <sys/param.h>
@@ -129,7 +130,7 @@ static const char *help =
 "    --help                  this extended help display\n"
 "    -i                      ignore length in wav header (no pipe output allowed)\n"
 "    -jn                     joint-stereo override (0 = left/right, 1 = mid/side)\n"
-#if defined (WIN32)
+#if defined (WIN32) || defined (__OS2__)
 "    -l                      run at lower priority for smoother multitasking\n"
 #endif
 "    -m                      compute & store MD5 signature of raw audio data\n"
@@ -466,11 +467,17 @@ int main (argc, argv) int argc; char **argv;
                     case 'E': case 'e':
                         config.flags |= CONFIG_CREATE_EXE;
                         break;
-
+#endif
+#if defined (WIN32)
                     case 'L': case 'l':
                         SetPriorityClass (GetCurrentProcess(), IDLE_PRIORITY_CLASS);
                         break;
-
+#elif defined (__OS2__)
+                    case 'L': case 'l':
+                        DosSetPriority (0, PRTYC_IDLETIME, 0, 0);
+                        break;
+#endif
+#if defined (WIN32)
                     case 'O': case 'o':  // ignore -o in Windows to be Linux compatible
                         break;
 #else

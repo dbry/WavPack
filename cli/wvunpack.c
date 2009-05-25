@@ -15,6 +15,7 @@
 #include <io.h>
 #else
 #if defined(__OS2__)
+#define INCL_DOS
 #include <io.h>
 #endif
 #include <sys/stat.h>
@@ -79,7 +80,7 @@ static const char *usage =
 "          -d  = delete source file if successful (use with caution!)\n"
 "          --help = this help display\n"
 "          -i  = ignore .wvc file (forces hybrid lossy decompression)\n"
-#if defined (WIN32)
+#if defined (WIN32) || defined (__OS2__)
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
 "          -m  = calculate and display MD5 signature; verify if lossless\n"
@@ -221,7 +222,12 @@ int main (argc, argv) int argc; char **argv;
                     case 'L': case 'l':
                         SetPriorityClass (GetCurrentProcess(), IDLE_PRIORITY_CLASS);
                         break;
-
+#elif defined (__OS2__)
+                    case 'L': case 'l':
+                        DosSetPriority (0, PRTYC_IDLETIME, 0, 0);
+                        break;
+#endif
+#if defined (WIN32)
                     case 'O': case 'o':  // ignore -o in Windows to be Linux compatible
                         break;
 #else
