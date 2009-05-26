@@ -140,6 +140,8 @@ static const char *help =
 "                             decoded HDCD files)\n"
 "    -n                      calculate average and peak quantization noise\n"
 "                             (for hybrid mode only, reference fullscale sine)\n"
+"    --no-utf8-convert       don't recode passed tags from local encoding to\n"
+"                             UTF-8, assume they are in UTF-8 already.\n"
 #if !defined (WIN32)
 "    -o FILENAME | PATH      specify output filename or path\n"
 #endif
@@ -184,7 +186,7 @@ static const char *speakers [] = {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
-    adobe_mode, ignore_length, new_riff_header, do_md5_checksum, raw_pcm;
+    adobe_mode, ignore_length, new_riff_header, do_md5_checksum, raw_pcm, no_utf8_convert;
 
 static char channel_order [18], num_channels_order, channel_order_undefined;
 static uint32_t channel_order_mask;
@@ -286,6 +288,8 @@ int main (argc, argv) int argc; char **argv;
                 config.flags |= CONFIG_DYNAMIC_SHAPING;
             else if (!strcmp (long_option, "merge-blocks"))             // --merge-blocks
                 config.flags |= CONFIG_MERGE_BLOCKS;
+            else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
+                no_utf8_convert = 1;
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
                 int params [] = { 44100, 16, 2 };
                 int pi, fp = 0;
@@ -760,7 +764,10 @@ int main (argc, argv) int argc; char **argv;
         }
         else if (tag_items [i].vsize) {
             tag_items [i].value = realloc (tag_items [i].value, tag_items [i].vsize * 2 + 1);
-            AnsiToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
+
+            if (!no_utf8_convert)
+                AnsiToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
+
             tag_items [i].vsize = (int) strlen (tag_items [i].value);
         }
     }

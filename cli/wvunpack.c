@@ -84,6 +84,7 @@ static const char *usage =
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
 "          -m  = calculate and display MD5 signature; verify if lossless\n"
+"          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
 "          -q  = quiet (keep console output to a minimum)\n"
 #if !defined (WIN32)
 "          -o FILENAME | PATH = specify output filename or path\n"
@@ -106,7 +107,7 @@ static const char *usage =
 
 int debug_logging_mode;
 
-static char overwrite_all, delete_source, raw_decode, extract_cuesheet,
+static char overwrite_all, delete_source, raw_decode, extract_cuesheet, no_utf8_convert,
     summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode;
 
 static int num_files, file_index, outbuf_k;
@@ -178,6 +179,8 @@ int main (argc, argv) int argc; char **argv;
 
             if (!strcmp (long_option, "help"))                          // --help
                 ask_help = 1;
+            else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
+                no_utf8_convert = 1;
             else if (!strncmp (long_option, "skip", 4)) {               // --skip
                 parse_sample_time_index (&skip, long_param);
 
@@ -1532,7 +1535,10 @@ static void dump_UTF8_string (char *string, FILE *dst)
         }
 
         *p = 0;
-        UTF8ToAnsi (temp, len * 2);
+
+        if (!no_utf8_convert)
+            UTF8ToAnsi (temp, len * 2);
+
         fputs (temp, dst);
         free (temp);
     }
