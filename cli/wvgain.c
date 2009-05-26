@@ -77,6 +77,8 @@ static const char *usage =
 #if defined (WIN32) || defined (__OS2__)
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
+"          -n  = new files only (skip files with track info, or album\n"
+"                 info if album mode specified)\n"
 "          -s  = show stored values only (no analysis)\n"
 "          -q  = quiet (keep console output to a minimum)\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
@@ -89,7 +91,7 @@ int debug_logging_mode;
 #define HISTOGRAM_SLOTS 12000
 static uint32_t track_histogram [HISTOGRAM_SLOTS], album_histogram [HISTOGRAM_SLOTS];
 
-static char album_mode, clean_mode, display_mode, ignore_wvc, quiet_mode, show_mode;
+static char album_mode, clean_mode, display_mode, ignore_wvc, quiet_mode, show_mode, new_mode;
 static int num_files, file_index;
 
 /////////////////////////// local function declarations ///////////////////////
@@ -175,6 +177,10 @@ int main (argc, argv) int argc; char **argv;
                         DosSetPriority (0, PRTYC_IDLETIME, 0, 0);
                         break;
 #endif
+                    case 'N': case 'n':
+                        new_mode = 1;
+                        break;
+
                     case 'Q': case 'q':
                         quiet_mode = 1;
                         break;
@@ -334,6 +340,29 @@ int main (argc, argv) int argc; char **argv;
 
             if (num_files > 1)
                 fprintf (stderr, "\n%s:\n", matches [file_index]);
+
+            if (new_mode) {
+                WavpackContext *wpc;
+                char error [80];
+
+                wpc = WavpackOpenFileInput (matches [file_index], error, OPEN_TAGS, 0);
+
+                if (wpc && WavpackGetTagItem (wpc, album_mode ? "replaygain_album_gain" : "replaygain_track_gain", NULL, 0)) {
+                    WavpackCloseFile (wpc);
+
+                    if (album_mode) {
+                        error_line ("ReplayGain album information already present...aborting");
+                        result = HARD_ERROR;
+                        break;
+                    }
+                    else {
+                        error_line ("ReplayGain track information already present...skipping");
+                        continue;
+                    }
+                }
+
+                WavpackCloseFile (wpc);
+            }
 
             result = analyze_file (matches [file_index], track_histogram, &track_peak);
 
@@ -722,7 +751,7 @@ static int show_file_info (char *infilename, FILE *dst)
     return NO_ERROR;
 }
 
-// Calculate the ReplayGain value from the specified loudness histogram; clip to +/- 24 dB
+// Calculate the ReplayGain value from the specified loudness histogram; clip to -24 / +64 dB
 
 static float calc_replaygain (uint32_t *histogram)
 {
@@ -739,8 +768,8 @@ static float calc_replaygain (uint32_t *histogram)
 
     unclipped_gain = (float)(64.54 - i / 100.0);
 
-    if (unclipped_gain > 24.0)
-        return 24.0;
+    if (unclipped_gain > 64.0)
+        return 64.0;
     else if (unclipped_gain < -24.0)
         return -24.0;
     else
