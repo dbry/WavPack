@@ -754,12 +754,15 @@ int main (argc, argv) int argc; char **argv;
 
         if (tag_items [i].binary) {
             int isize = (int) strlen (tag_items [i].item);
-            int esize = (int) strlen (tag_items [i].ext);
+            int esize = tag_items [i].ext ? (int) strlen (tag_items [i].ext) : 0;
 
             tag_items [i].value = realloc (tag_items [i].value, isize + esize + 1 + tag_items [i].vsize);
             memmove (tag_items [i].value + isize + esize + 1, tag_items [i].value, tag_items [i].vsize);
             strcpy (tag_items [i].value, tag_items [i].item);
-            strcat (tag_items [i].value, tag_items [i].ext);
+
+            if (tag_items [i].ext)
+                strcat (tag_items [i].value, tag_items [i].ext);
+
             tag_items [i].vsize += isize + esize + 1;
         }
         else if (tag_items [i].vsize) {
