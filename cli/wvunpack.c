@@ -99,6 +99,7 @@ static const char *usage =
 "             specifying a '-' causes sample/time to be relative to end of file)\n"
 "          -v  = verify source data only (no output file created)\n"
 "          -w  = regenerate .wav header (ignore RIFF data in file)\n"
+"          -x \"Field\" = extract specified tag field to stdout (no audio decode)\n"
 "          -y  = yes to overwrite warning (use with caution!)\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -116,6 +117,8 @@ static struct sample_time_index {
     int value_is_time, value_is_relative, value_is_valid;
     double value;
 } skip, until;
+
+static char *extract_tag;
 
 /////////////////////////// local function declarations ///////////////////////
 
@@ -136,9 +139,9 @@ int main (argc, argv) int argc; char **argv;
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
 #endif
-    int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, ask_help = 0;
+    int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, ask_help = 0, extraction_next = 0;
     char outpath, **matches = NULL, *outfilename = NULL;
-    int result;
+    int result, i;
 
 #if defined(WIN32)
     struct _finddata_t _finddata_t;
@@ -214,7 +217,13 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'C': case 'c':
-                        ++extract_cuesheet;
+                        if (extract_tag) {
+                            error_line ("can't extract more than 1 tag item to stdout at a time");
+                            ++error_count;
+                        }
+                        else
+                            ++extract_cuesheet;
+
                         break;
 
                     case 'D': case 'd':
@@ -275,6 +284,10 @@ int main (argc, argv) int argc; char **argv;
                         quiet_mode = 1;
                         break;
 
+                    case 'X': case 'x':
+                        extraction_next = 1;
+                        break;
+
                     case 'I': case 'i':
                         ignore_wvc = 1;
                         break;
@@ -284,8 +297,18 @@ int main (argc, argv) int argc; char **argv;
                         ++error_count;
                 }
         else {
+            if (extraction_next) {
+                if (extract_cuesheet || extract_tag) {
+                    error_line ("can't extract more than 1 tag item to stdout at a time");
+                    ++error_count;
+                }
+                else
+                    extract_tag = *argv;
+
+                extraction_next = 0;
+            }
 #if defined (WIN32)
-            if (!num_files) {
+            else if (!num_files) {
                 matches = realloc (matches, (num_files + 1) * sizeof (*matches));
                 matches [num_files] = malloc (strlen (*argv) + 10);
                 strcpy (matches [num_files], *argv);
@@ -305,7 +328,7 @@ int main (argc, argv) int argc; char **argv;
                 ++error_count;
             }
 #else
-            if (output_spec) {
+            else if (output_spec) {
                 outfilename = malloc (strlen (*argv) + PATH_MAX);
                 strcpy (outfilename, *argv);
                 output_spec = 0;
@@ -622,7 +645,7 @@ static void parse_sample_time_index (struct sample_time_index *dst, char *src)
 static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt);
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
 static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
-static int dump_cuesheet (WavpackContext *wpc, FILE *dst);
+static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst);
 
 static int unpack_file (char *infilename, char *outfilename)
 {
@@ -657,7 +680,7 @@ static int unpack_file (char *infilename, char *outfilename)
     if (!ignore_wvc)
         open_flags |= OPEN_WVC;
 
-    if (summary > 1 || extract_cuesheet)
+    if (summary > 1 || extract_cuesheet || extract_tag)
         open_flags |= OPEN_TAGS;
 
     wpc = WavpackOpenFileInput (infilename, error, open_flags, 0);
@@ -733,9 +756,12 @@ static int unpack_file (char *infilename, char *outfilename)
         return NO_ERROR;
     }
 
-    if (extract_cuesheet == 1) {
-        if (!dump_cuesheet (wpc, stdout)) {
-            error_line ("cuesheet not found!");
+    if (extract_cuesheet == 1 || extract_tag) {
+        if (extract_cuesheet == 1)
+            extract_tag = "cuesheet";
+
+        if (!dump_tag_item_to_file (wpc, extract_tag, stdout)) {
+            error_line ("tag \"%s\" not found!", extract_tag);
             WavpackCloseFile (wpc);
             return SOFT_ERROR;
         }
@@ -743,7 +769,7 @@ static int unpack_file (char *infilename, char *outfilename)
         WavpackCloseFile (wpc);
         return NO_ERROR;
     }
-    else if (extract_cuesheet > 1 && outfilename && *outfilename != '-' && dump_cuesheet (wpc, NULL)) {
+    else if (extract_cuesheet > 1 && outfilename && *outfilename != '-' && dump_tag_item_to_file (wpc, "cuesheet", NULL)) {
         char *cuefilename = malloc (strlen (outfilename) + 10);
 
         strcpy (cuefilename, outfilename);
@@ -778,7 +804,7 @@ static int unpack_file (char *infilename, char *outfilename)
                 result = SOFT_ERROR;
             }
             else {
-                dump_cuesheet (wpc, outfile);
+                dump_tag_item_to_file (wpc, "cuesheet", outfile);
 
                 if (!DoCloseHandle (outfile)) {
                     error_line ("can't close file %s!", FN_FIT (cuefilename));
@@ -1425,9 +1451,13 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
                     if (!value [j])
                         value [j] = '\\';
 
-                fprintf (dst, "%s =%c", item, strchr (value, '\n') ? '\n' : ' ');
-                dump_UTF8_string (value, dst);
-                fprintf (dst, "\n");
+                if (strchr (value, '\n'))
+                    fprintf (dst, "%s = <multiline text item> (%d bytes)\n", item, value_len);
+                else {
+                    fprintf (dst, "%s = ", item);
+                    dump_UTF8_string (value, dst);
+                    fprintf (dst, "\n");
+                }
             }
             else
                 fprintf (dst, "%s = %s\n", item, value);
@@ -1444,7 +1474,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
             item = malloc (item_len + 1);
             WavpackGetBinaryTagItemIndexed (wpc, i, item, item_len + 1);
             value_len = WavpackGetBinaryTagItem (wpc, item, NULL, 0);
-            fprintf (dst, "%s = <%d byte binary item>\n", item, value_len);
+            fprintf (dst, "%s = <binary item> (%d bytes)\n", item, value_len);
 
 #if 0   // debug binary tag reading
             {
@@ -1480,22 +1510,63 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     }
 }
 
-static int dump_cuesheet (WavpackContext *wpc, FILE *dst)
-{
-    if ((WavpackGetMode (wpc) & MODE_VALID_TAG) &&
-        (WavpackGetMode (wpc) & MODE_APETAG)) {
+// Dump the specified tag field to the specified stream. Both text and binary tags may be written,
+// and in Windows the appropriate file mode will be set. If the tag is not found then 0 is returned,
+// otherwise the length of the data is returned, and this is true even when the file pointer is NULL
+// so this can be used to determine if the tag exists before further processing.
 
-            int value_len = WavpackGetTagItem (wpc, "cuesheet", NULL, 0);
+static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst)
+{
+    if (WavpackGetMode (wpc) & MODE_VALID_TAG) {
+        if (WavpackGetTagItem (wpc, tag_item, NULL, 0)) {
+            int value_len = WavpackGetTagItem (wpc, tag_item, NULL, 0);
             char *value;
 
             if (!value_len || !dst)
                 return value_len;
 
+#if defined(WIN32)
+            _setmode (fileno (dst), O_TEXT);
+#endif
+#if defined(__OS2__)
+            setmode (fileno (dst), O_TEXT);
+#endif
             value = malloc (value_len * 2 + 1);
-            WavpackGetTagItem (wpc, "cuesheet", value, value_len + 1);
+            WavpackGetTagItem (wpc, tag_item, value, value_len + 1);
             dump_UTF8_string (value, dst);
             free (value);
             return value_len;
+        }
+        else if (WavpackGetBinaryTagItem (wpc, tag_item, NULL, 0)) {
+            int value_len = WavpackGetBinaryTagItem (wpc, tag_item, NULL, 0), res, i;
+            uint32_t bcount;
+            char *value;
+
+            if (!value_len || !dst)
+                return value_len;
+
+            value = malloc (value_len);
+            WavpackGetBinaryTagItem (wpc, tag_item, value, value_len);
+
+            for (i = 0; i < value_len; ++i)
+                if (!value [i]) {
+#if defined(WIN32)
+                    _setmode (fileno (stdout), O_BINARY);
+#endif
+#if defined(__OS2__)
+                    setmode (fileno (stdout), O_BINARY);
+#endif
+                    res = DoWriteFile (dst, (unsigned char *) value + i + 1, value_len - i - 1, &bcount);
+                    break;
+                }
+
+            free (value);
+
+            if (i == value_len || !res || bcount != value_len - i - 1)
+                return 0;
+
+            return value_len;
+        }
     }
     else
         return 0;
