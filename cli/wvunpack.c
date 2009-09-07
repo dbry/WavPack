@@ -141,7 +141,7 @@ int main (argc, argv) int argc; char **argv;
 #endif
     int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, ask_help = 0, extraction_next = 0;
     char outpath, **matches = NULL, *outfilename = NULL;
-    int result, i;
+    int result;
 
 #if defined(WIN32)
     struct _finddata_t _finddata_t;
@@ -1567,6 +1567,8 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
 
             return value_len;
         }
+        else
+            return 0;
     }
     else
         return 0;
