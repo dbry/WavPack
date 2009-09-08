@@ -252,8 +252,8 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
         return open_file3 (wpc, error);
 #endif
 
+    wpc->streams = malloc ((wpc->num_streams = 1) * sizeof (wpc->streams [0]));
     wpc->streams [0] = wps = malloc (sizeof (WavpackStream));
-    wpc->num_streams = 1;
     CLEAR (*wps);
 
     while (!wps->wphdr.block_samples) {
@@ -385,7 +385,7 @@ int WavpackGetMode (WavpackContext *wpc)
             mode |= MODE_HIGH;
 
             if ((wpc->config.flags & CONFIG_VERY_HIGH_FLAG) ||
-                (wpc->streams [0] && wpc->streams [0]->wphdr.version < 0x405))
+                (wpc->streams && wpc->streams [0] && wpc->streams [0]->wphdr.version < 0x405))
                     mode |= MODE_VERY_HIGH;
         }
 
@@ -402,7 +402,7 @@ int WavpackGetMode (WavpackContext *wpc)
             mode |= MODE_MD5;
 
         if ((wpc->config.flags & CONFIG_HYBRID_FLAG) && (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) &&
-            wpc->streams [0] && wpc->streams [0]->wphdr.version >= 0x407)
+            wpc->streams && wpc->streams [0] && wpc->streams [0]->wphdr.version >= 0x407)
                 mode |= MODE_DNS;
 
 #ifndef NO_TAGS
@@ -569,6 +569,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
             while (1) {
                 if (wpc->current_stream == wpc->num_streams) {
+                    wpc->streams = realloc (wpc->streams, (wpc->num_streams + 1) * sizeof (wpc->streams [0]));
                     wps = wpc->streams [wpc->num_streams++] = malloc (sizeof (WavpackStream));
                     CLEAR (*wps);
                     bcount = read_next_header (wpc->reader, wpc->wv_in, &wps->wphdr);
@@ -782,6 +783,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
                 return FALSE;
             }
 
+            wpc->streams = realloc (wpc->streams, (wpc->num_streams + 1) * sizeof (wpc->streams [0]));
             wps = wpc->streams [wpc->num_streams++] = malloc (sizeof (WavpackStream));
             CLEAR (*wps);
             bcount = read_next_header (wpc->reader, wpc->wv_in, &wps->wphdr);
@@ -1002,6 +1004,7 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
         uint32_t stereo_mask, mono_mask;
         int pos, chans = 0;
 
+        wpc->streams = realloc (wpc->streams, (wpc->current_stream + 1) * sizeof (wpc->streams [0]));
         wpc->streams [wpc->current_stream] = wps;
         CLEAR (*wps);
 
@@ -1099,7 +1102,7 @@ int WavpackPackInit (WavpackContext *wpc)
     wpc->ave_block_samples = wpc->block_samples;
     wpc->max_samples = wpc->block_samples + (wpc->block_samples >> 1);
 
-    for (wpc->current_stream = 0; wpc->streams [wpc->current_stream]; wpc->current_stream++) {
+    for (wpc->current_stream = 0; wpc->current_stream < wpc->num_streams; wpc->current_stream++) {
         WavpackStream *wps = wpc->streams [wpc->current_stream];
 
         wps->sample_buffer = malloc (wpc->max_samples * (wps->wphdr.flags & MONO_FLAG ? 4 : 8));
@@ -1139,7 +1142,7 @@ int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sa
         else
             samples_to_copy = sample_count;
 
-        for (wpc->current_stream = 0; wpc->streams [wpc->current_stream]; wpc->current_stream++) {
+        for (wpc->current_stream = 0; wpc->current_stream < wpc->num_streams; wpc->current_stream++) {
             WavpackStream *wps = wpc->streams [wpc->current_stream];
             int32_t *dptr, *sptr, cnt;
 
@@ -1335,7 +1338,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
     outbuff = malloc (max_blocksize);
     outend = outbuff + max_blocksize;
 
-    for (wpc->current_stream = 0; wpc->streams [wpc->current_stream]; wpc->current_stream++) {
+    for (wpc->current_stream = 0; wpc->current_stream < wpc->num_streams; wpc->current_stream++) {
         WavpackStream *wps = wpc->streams [wpc->current_stream];
         uint32_t flags = wps->wphdr.flags;
 
@@ -1543,10 +1546,10 @@ uint32_t WavpackGetSampleIndex (WavpackContext *wpc)
 #if !defined(VER4_ONLY) && !defined(NO_UNPACK)
         if (wpc->stream3)
             return get_sample_index3 (wpc);
-        else if (wpc->streams [0])
+        else if (wpc->streams && wpc->streams [0])
             return wpc->streams [0]->sample_index;
 #else
-        if (wpc->streams [0])
+        if (wpc->streams && wpc->streams [0])
             return wpc->streams [0]->sample_index;
 #endif
     }
@@ -1632,10 +1635,10 @@ double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc)
 
 double WavpackGetInstantBitrate (WavpackContext *wpc)
 {
-    if (wpc->stream3)
+    if (wpc && wpc->stream3)
         return WavpackGetAverageBitrate (wpc, TRUE);
 
-    if (wpc && wpc->streams [0] && wpc->streams [0]->wphdr.block_samples) {
+    if (wpc && wpc->streams && wpc->streams [0] && wpc->streams [0]->wphdr.block_samples) {
         double output_time = (double) wpc->streams [0]->wphdr.block_samples / wpc->config.sample_rate;
         double input_size = 0;
         int si;
@@ -1662,10 +1665,14 @@ double WavpackGetInstantBitrate (WavpackContext *wpc)
 
 WavpackContext *WavpackCloseFile (WavpackContext *wpc)
 {
-    free_streams (wpc);
+    if (wpc->streams) {
+        free_streams (wpc);
 
-    if (wpc->streams [0])
-        free (wpc->streams [0]);
+        if (wpc->streams [0])
+            free (wpc->streams [0]);
+
+        free (wpc->streams);
+    }
 
 #if !defined(VER4_ONLY) && !defined(NO_UNPACK)
     if (wpc->stream3)
