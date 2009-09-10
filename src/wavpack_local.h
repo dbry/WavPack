@@ -263,6 +263,7 @@ typedef struct {
 #define CONFIG_SKIP_WVX         0x4000000 // no wvx stream w/ floats & big ints
 #define CONFIG_MD5_CHECKSUM     0x8000000 // compute & store MD5 signature
 #define CONFIG_MERGE_BLOCKS     0x10000000 // merge blocks of equal redundancy (for lossyWAV)
+#define CONFIG_PAIR_UNDEF_CHANS 0x20000000 // encode undefined channels in stereo pairs
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
 /*
@@ -316,7 +317,8 @@ typedef struct bs {
 } Bitstream;
 
 #define MAX_WRAPPER_BYTES 16777216
-#define MAX_STREAMS 8
+#define NEW_MAX_STREAMS 4096
+#define OLD_MAX_STREAMS 8
 #define MAX_NTERMS 16
 #define MAX_TERM 8
 
@@ -423,7 +425,7 @@ typedef struct {
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
 
-    int current_stream, num_streams, stream_version;
+    int current_stream, num_streams, max_streams, stream_version;
     WavpackStream **streams;
     void *stream3;
 

@@ -149,6 +149,7 @@ static const char *help =
 "                             (result may be incompatible with older decoders)\n"
 "    -p                      practical float storage (also affects 32-bit\n"
 "                             integers, no longer technically lossless)\n"
+"    --pair-undefined-chans  encode undefined channels into stereo pairs\n"
 "    -q                      quiet (keep console output to a minimum)\n"
 "    -r                      generate a new RIFF wav header (removes any\n"
 "                             extra chunk info from existing header)\n"
@@ -188,8 +189,8 @@ int debug_logging_mode;
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
     adobe_mode, ignore_length, new_riff_header, do_md5_checksum, raw_pcm, no_utf8_convert;
 
-static char channel_order [18], num_channels_order, channel_order_undefined;
-static uint32_t channel_order_mask;
+static uchar channel_order [18], channel_order_undefined;
+static uint32_t channel_order_mask, num_channels_order;
 
 // These two statics are used to keep track of tags that the user specifies on the
 // command line. The "num_tag_strings" and "tag_strings" fields in the WavpackConfig
@@ -212,7 +213,7 @@ static uint32_t wvselfx_size;
 
 static FILE *wild_fopen (char *filename, const char *mode);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
-static int pack_audio (WavpackContext *wpc, FILE *infile, char *new_order);
+static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order);
 static void display_progress (double file_progress);
 static void AnsiToUTF8 (char *string, int len);
 
@@ -288,6 +289,8 @@ int main (argc, argv) int argc; char **argv;
                 config.flags |= CONFIG_DYNAMIC_SHAPING;
             else if (!strcmp (long_option, "merge-blocks"))             // --merge-blocks
                 config.flags |= CONFIG_MERGE_BLOCKS;
+            else if (!strcmp (long_option, "pair-undefined-chans"))     // --pair-undefined-chans
+                config.flags |= CONFIG_PAIR_UNDEF_CHANS;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
@@ -315,7 +318,7 @@ int main (argc, argv) int argc; char **argv;
                 }
                 else if (params [0] < 1 || params [0] > 192000 ||
                     params [1] < 1 || params [1] > 32 || (fp && params [1] != 32) ||
-                    params [2] < 1 || params [2] > 16) {
+                    params [2] < 1 || params [2] > 256) {
                         error_line ("argument range error in raw PCM specification!");
                         ++error_count;
                 }
@@ -327,8 +330,10 @@ int main (argc, argv) int argc; char **argv;
 
                     if (config.num_channels <= 2)
                         config.channel_mask = 0x5 - config.num_channels;
-                    else
+                    else if (config.num_channels <= 18)
                         config.channel_mask = (1 << config.num_channels) - 1;
+                    else
+                        config.channel_mask = 0x3ffff;
 
                     config.float_norm_exp = fp ? 127 : 0;
                     raw_pcm = 1;            
@@ -1187,7 +1192,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     uint32_t total_samples = 0, bcount;
     WavpackConfig loc_config = *config;
     RiffChunkHeader riff_chunk_header;
-    char *new_channel_order = NULL;
+    uchar *new_channel_order = NULL;
     write_id wv_file, wvc_file;
     ChunkHeader chunk_header;
     WaveHeader WaveHeader;
@@ -1436,7 +1441,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             if (format != 1 && format != 3)
                 supported = FALSE;
 
-            if (!WaveHeader.NumChannels ||
+            if (!WaveHeader.NumChannels || WaveHeader.NumChannels > 256 ||
                 WaveHeader.BlockAlign / WaveHeader.NumChannels < (loc_config.bits_per_sample + 7) / 8 ||
                 WaveHeader.BlockAlign / WaveHeader.NumChannels > 4 ||
                 WaveHeader.BlockAlign % WaveHeader.NumChannels)
@@ -1457,8 +1462,10 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             if (chunk_header.ckSize < 40) {
                 if (WaveHeader.NumChannels <= 2)
                     loc_config.channel_mask = 0x5 - WaveHeader.NumChannels;
-                else
+                else if (WaveHeader.NumChannels <= 18)
                     loc_config.channel_mask = (1 << WaveHeader.NumChannels) - 1;
+                else
+                    loc_config.channel_mask = 0x3ffff;
             }
             else {
                 loc_config.channel_mask = WaveHeader.ChannelMask;
@@ -1846,12 +1853,12 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 // little-endian standard the executing processor's format is done and where
 // (if selected) the MD5 sum is calculated and displayed.
 
-static void reorder_channels (char *data, char *new_order, int num_chans,
+static void reorder_channels (char *data, uchar *new_order, int num_chans,
     int num_samples, int bytes_per_sample);
 
 #define INPUT_SAMPLES 65536
 
-static int pack_audio (WavpackContext *wpc, FILE *infile, char *new_order)
+static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order)
 {
     uint32_t samples_remaining, samples_read = 0;
     double progress = -1.0;
@@ -1986,7 +1993,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, char *new_order)
     return NO_ERROR;
 }
 
-static void reorder_channels (char *data, char *order, int num_chans,
+static void reorder_channels (char *data, uchar *order, int num_chans,
     int num_samples, int bytes_per_sample)
 {
     char *temp = malloc (num_chans * bytes_per_sample);

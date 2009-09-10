@@ -1352,13 +1352,25 @@ void write_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
     uint32_t mask = wpc->config.channel_mask;
     char *byteptr;
 
-    byteptr = wpmd->data = malloc (4);
-    wpmd->id = ID_CHANNEL_INFO;
-    *byteptr++ = wpc->config.num_channels;
-
-    while (mask) {
+    if (wpc->num_streams > OLD_MAX_STREAMS) {
+        byteptr = wpmd->data = malloc (6);
+        wpmd->id = ID_CHANNEL_INFO;
+        *byteptr++ = wpc->config.num_channels - 1;
+        *byteptr++ = wpc->num_streams - 1;
+        *byteptr++ = (((wpc->num_streams - 1) >> 4) & 0xf0) | (((wpc->config.num_channels - 1) >> 8) & 0xf);
         *byteptr++ = mask;
-        mask >>= 8;
+        *byteptr++ = (mask >> 8);
+        *byteptr++ = (mask >> 16);
+    }
+    else {
+        byteptr = wpmd->data = malloc (4);
+        wpmd->id = ID_CHANNEL_INFO;
+        *byteptr++ = wpc->config.num_channels;
+
+        while (mask) {
+            *byteptr++ = mask;
+            mask >>= 8;
+        }
     }
 
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);

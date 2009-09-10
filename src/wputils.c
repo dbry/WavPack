@@ -229,6 +229,7 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
     wpc->reader = reader;
     wpc->total_samples = (uint32_t) -1;
     wpc->norm_offset = norm_offset;
+    wpc->max_streams = OLD_MAX_STREAMS;     // use this until overwritten with actual number
     wpc->open_flags = flags;
 
     wpc->filelen = wpc->reader->get_length (wpc->wv_in);
@@ -642,7 +643,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                     offset += 2;
                 }
 
-                if ((wps->wphdr.flags & FINAL_BLOCK) || wpc->current_stream == MAX_STREAMS - 1 || offset == num_channels)
+                if ((wps->wphdr.flags & FINAL_BLOCK) || wpc->current_stream == wpc->max_streams - 1 || offset == num_channels)
                     break;
                 else
                     wpc->current_stream++;
@@ -778,7 +779,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
     while (!wpc->reduced_channels && !(wps->wphdr.flags & FINAL_BLOCK)) {
         if (++wpc->current_stream == wpc->num_streams) {
 
-            if (wpc->num_streams == MAX_STREAMS) {
+            if (wpc->num_streams == wpc->max_streams) {
                 free_streams (wpc);
                 return FALSE;
             }
@@ -1024,12 +1025,16 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
             }
         }
 
-        if (!chans)
-            chans = num_chans > 1 ? 2 : 1;
+        if (!chans) {
+            if (config->flags & CONFIG_PAIR_UNDEF_CHANS)
+                chans = num_chans > 1 ? 2 : 1;
+            else
+                chans = 1;
+        }
 
         num_chans -= chans;
 
-        if (num_chans && wpc->current_stream == MAX_STREAMS - 1)
+        if (num_chans && wpc->current_stream == NEW_MAX_STREAMS - 1)
             break;
 
         memcpy (wps->wphdr.ckID, "wvpk", 4);
