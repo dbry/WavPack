@@ -76,7 +76,9 @@ static const char *usage =
 "             (infile may contain wildcards: ?,*)\n\n"
 " Options: -b  = blindly decode all stream blocks & ignore length info\n"
 "          -c  = extract cuesheet only to stdout (no audio decode)\n"
+"                (note: equivalent to -x cuesheet)\n"
 "          -cc = extract cuesheet file (.cue) in addition to audio file\n"
+"                (note: equivalent to -xx cuesheet=%a.cue)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
 "          --help = this help display\n"
 "          -i  = ignore .wvc file (forces hybrid lossy decompression)\n"
@@ -95,12 +97,16 @@ static const char *usage =
 "          --skip=[sample|hh:mm:ss.ss] = start decoding at specified sample/time\n"
 "          -t  = copy input file's time stamp to output file(s)\n"
 "          --until=[+|-][sample|hh:mm:ss.ss] = stop decoding at specified sample/time\n"
-"            (specifying a '+' causes sample/time to be relative to '--skip' point;\n"
-"             specifying a '-' causes sample/time to be relative to end of file)\n"
+"              (specifying a '+' causes sample/time to be relative to '--skip' point;\n"
+"               specifying a '-' causes sample/time to be relative to end of file)\n"
 "          -v  = verify source data only (no output file created)\n"
 "          -w  = regenerate .wav header (ignore RIFF data in file)\n"
-"          -x \"Field\" = extract specified tag field only to stdout (no audio decode)\n"
-"          -xx \"Field[=file]\" = extract specified tag field to file (%a,%t,%e allowed)\n"
+"          -x \"field\" = extract specified tag field only to stdout (no audio decode)\n"
+"          -xx \"field[=file]\" = extract specified tag field to file, optional\n"
+"              filename specification can inlude following replacement codes:\n"
+"                %a = audio output filename\n"
+"                %t = tag field name (comes from data for binary tags)\n"
+"                %e = extension from binary tag or 'txt' for text tag\n"
 "          -y  = yes to overwrite warning (use with caution!)\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -617,14 +623,6 @@ int main (argc, argv) int argc; char **argv;
 #endif
 
     return error_count ? 1 : 0;
-}
-
-static add_tag_extraction_to_list (char *spec)
-{
-    tag_extractions = realloc (tag_extractions, (num_tag_extractions + 1) * sizeof (*tag_extractions));
-    tag_extractions [num_tag_extractions] = malloc (strlen (spec) + 10);
-    strcpy (tag_extractions [num_tag_extractions], spec);
-    num_tag_extractions++;
 }
 
 // Parse the parameter of the --skip and --until commands, which are of the form:
@@ -1144,6 +1142,14 @@ static int unpack_file (char *infilename, char *outfilename)
     return result;
 }
 
+static add_tag_extraction_to_list (char *spec)
+{
+    tag_extractions = realloc (tag_extractions, (num_tag_extractions + 1) * sizeof (*tag_extractions));
+    tag_extractions [num_tag_extractions] = malloc (strlen (spec) + 10);
+    strcpy (tag_extractions [num_tag_extractions], spec);
+    num_tag_extractions++;
+}
+
 static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 {
     int result = NO_ERROR, i;
@@ -1157,14 +1163,19 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
             *output_spec++ = 0;
 
         if (dump_tag_item_to_file (wpc, tag_extractions [i], NULL, tag_filename)) {
-            char full_filename [512];
+            int max_length = strlen (outfilename) + strlen (tag_filename) + 10;
+            char *full_filename;
 
+            if (output_spec)
+                max_length += strlen (output_spec) + 256;
+
+            full_filename = malloc (max_length * 2 + 1);
             strcpy (full_filename, outfilename);
 
             if (output_spec) {
                 char *dst = filespec_name (full_filename);
 
-                while (*output_spec && dst - full_filename < 384) {
+                while (*output_spec && dst - full_filename < max_length) {
                     if (*output_spec == '%') {
                         switch (*++output_spec) {
                             case 'a':                           // audio filename
@@ -1215,7 +1226,7 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
                 switch (yna ()) {
 
                     case 'n':
-                        result = SOFT_ERROR;
+                        *full_filename = 0;
                         break;
 
                     case 'a':
@@ -1225,7 +1236,7 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 
             // open output file for writing
 
-            if (result == NO_ERROR) {
+            if (*full_filename) {
                 if ((outfile = fopen (full_filename, "w")) == NULL) {
                     error_line ("can't create file %s!", FN_FIT (full_filename));
                     result = SOFT_ERROR;
@@ -1241,6 +1252,8 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
                         error_line ("extracted tag \"%s\" to file %s", tag_extractions [i], FN_FIT (full_filename));
                 }
             }
+
+            free (full_filename);
         }
     }
 
@@ -1521,8 +1534,9 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         int ape_tag = WavpackGetMode (wpc) & MODE_APETAG;
         int num_binary_items = WavpackGetNumBinaryTagItems (wpc);
         int num_items = WavpackGetNumTagItems (wpc), i;
+        char *spaces = "                  ";
 
-        fprintf (dst, "%s tag items:   %d\n\n", ape_tag ? "APEv2" : "ID3v1", num_items + num_binary_items);
+        fprintf (dst, "\n%s tag items:   %d\n", ape_tag ? "APEv2" : "ID3v1", num_items + num_binary_items);
 
         for (i = 0; i < num_items; ++i) {
             int item_len, value_len, j;
@@ -1535,21 +1549,22 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
             value = malloc (value_len * 2 + 1);
             WavpackGetTagItem (wpc, item, value, value_len + 1);
 
+            fprintf (dst, "%s:%s", item, strlen (item) < strlen (spaces) ? spaces + strlen (item) : " ");
+
             if (ape_tag) {
                 for (j = 0; j < value_len; ++j)
                     if (!value [j])
                         value [j] = '\\';
 
                 if (strchr (value, '\n'))
-                    fprintf (dst, "%s = %d-byte multi-line text string\n", item, value_len);
+                    fprintf (dst, "%d-byte multi-line text string\n", value_len);
                 else {
-                    fprintf (dst, "%s = ", item);
                     dump_UTF8_string (value, dst);
                     fprintf (dst, "\n");
                 }
             }
             else
-                fprintf (dst, "%s = %s\n", item, value);
+                fprintf (dst, "%s\n", value);
 
             free (value);
             free (item);
@@ -1562,13 +1577,13 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
             item_len = WavpackGetBinaryTagItemIndexed (wpc, i, NULL, 0);
             item = malloc (item_len + 1);
             WavpackGetBinaryTagItemIndexed (wpc, i, item, item_len + 1);
-//          value_len = WavpackGetBinaryTagItem (wpc, item, NULL, 0);
             value_len = dump_tag_item_to_file (wpc, item, NULL, fname);
+            fprintf (dst, "%s:%s", item, strlen (item) < strlen (spaces) ? spaces + strlen (item) : " ");
 
             if (filespec_ext (fname))
-                fprintf (dst, "%s = %d-byte binary item (%s)\n", item, value_len, filespec_ext (fname)+1);
+                fprintf (dst, "%d-byte binary item (%s)\n", value_len, filespec_ext (fname)+1);
             else
-                fprintf (dst, "%s = %d-byte binary item\n", item, value_len);
+                fprintf (dst, "%d-byte binary item\n", value_len);
 
 #if 0   // debug binary tag reading
             {
