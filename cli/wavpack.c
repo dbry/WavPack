@@ -164,9 +164,12 @@ static const char *help =
 "    -t                      copy input file's time stamp to output file(s)\n"
 "    -w \"Field=Value\"        write specified text metadata to APEv2 tag\n"
 "    -w \"Field=@file.ext\"    write specified text metadata from file to APEv2\n"
-"                             tag, normally used for embedded cuesheets\n"
-"    -ww \"Field=@file.ext\"   write the specified binary metadata file to APEv2\n"
-"                             tag, normally used for cover art\n"
+"                             tag, normally used for embedded cuesheets and logs\n"
+"                             (field names \"Cuesheet\" and \"Log\")\n"
+"    --write-binary-tag \"Field=@file.ext\"\n"
+"                            write the specified binary metadata file to APEv2\n"
+"                             tag, normally used for cover art with the specified\n"
+"                             field name \"Cover Art (Front)\"\n"
 "    -x[n]                   extra encode processing (optional n = 1 to 6, 1=default)\n"
 "                             -x1 to -x3 to choose best of predefined filters\n"
 "                             -x4 to -x6 to generate custom filters (very slow!)\n"
@@ -293,6 +296,8 @@ int main (argc, argv) int argc; char **argv;
                 config.flags |= CONFIG_PAIR_UNDEF_CHANS;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
+            else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
+                tag_next_arg = 2;
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
                 int params [] = { 44100, 16, 2 };
                 int pi, fp = 0;
@@ -572,7 +577,11 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'W': case 'w':
-                        ++tag_next_arg;
+                        if (++tag_next_arg == 2) {
+                            error_line ("warning: -ww deprecated, use --write-binary-tag");
+                            ++error_count;
+                        }
+
                         break;
 
                     default:
