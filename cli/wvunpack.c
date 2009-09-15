@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2008 Conifer Software.               //
+//              Copyright (c) 1998 - 2009 Conifer Software.               //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -65,7 +65,7 @@ static char *strdup (const char *s)
 
 static const char *sign_on = "\n"
 " WVUNPACK  Hybrid Lossless Audio Decompressor  %s Version %s\n"
-" Copyright (c) 1998 - 2008 Conifer Software.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2009 Conifer Software.  All Rights Reserved.\n\n";
 
 static const char *usage =
 #if defined (WIN32)
