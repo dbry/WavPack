@@ -1077,8 +1077,8 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
 
 int WavpackPackInit (WavpackContext *wpc)
 {
-    if (wpc->metabytes > 4096)
-        write_metadata_block (wpc);
+    if (wpc->metabytes > 16384)             // 16384 bytes still leaves plenty of room for audio
+        write_metadata_block (wpc);         //  in this block (otherwise write a special one)
 
     if (wpc->config.flags & CONFIG_HIGH_FLAG)
         wpc->block_samples = wpc->config.sample_rate;
