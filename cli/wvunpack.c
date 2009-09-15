@@ -1163,11 +1163,11 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
             *output_spec++ = 0;
 
         if (dump_tag_item_to_file (wpc, tag_extractions [i], NULL, tag_filename)) {
-            int max_length = strlen (outfilename) + strlen (tag_filename) + 10;
+            int max_length = (int) strlen (outfilename) + (int) strlen (tag_filename) + 10;
             char *full_filename;
 
             if (output_spec)
-                max_length += strlen (output_spec) + 256;
+                max_length += (int) strlen (output_spec) + 256;
 
             full_filename = malloc (max_length * 2 + 1);
             strcpy (full_filename, outfilename);

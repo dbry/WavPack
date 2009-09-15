@@ -192,8 +192,9 @@ int debug_logging_mode;
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
     adobe_mode, ignore_length, new_riff_header, do_md5_checksum, raw_pcm, no_utf8_convert;
 
+static int num_channels_order;
 static uchar channel_order [18], channel_order_undefined;
-static uint32_t channel_order_mask, num_channels_order;
+static uint32_t channel_order_mask;
 
 // These two statics are used to keep track of tags that the user specifies on the
 // command line. The "num_tag_strings" and "tag_strings" fields in the WavpackConfig

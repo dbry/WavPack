@@ -65,7 +65,7 @@ static char *strdup (const char *s)
 
 static const char *sign_on = "\n"
 " WVGAIN  ReplayGain Scanner/Tagger for WavPack  %s Version %s\n"
-" Copyright (c) 2009 Conifer Software.  All Rights Reserved.\n\n";
+" Copyright (c) 2005 - 2009 Conifer Software.  All Rights Reserved.\n\n";
 
 static const char *usage =
 " Usage:   WVGAIN [-options] [@]infile[.wv] [...]\n"
