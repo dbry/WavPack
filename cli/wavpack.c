@@ -149,7 +149,7 @@ static const char *help =
 "                             (result may be incompatible with older decoders)\n"
 "    -p                      practical float storage (also affects 32-bit\n"
 "                             integers, no longer technically lossless)\n"
-"    --pair-undefined-chans  encode undefined channels into stereo pairs\n"
+"    --pair-unassigned-chans encode unassigned channels into stereo pairs\n"
 "    -q                      quiet (keep console output to a minimum)\n"
 "    -r                      generate a new RIFF wav header (removes any\n"
 "                             extra chunk info from existing header)\n"
@@ -292,7 +292,7 @@ int main (argc, argv) int argc; char **argv;
                 config.flags |= CONFIG_DYNAMIC_SHAPING;
             else if (!strcmp (long_option, "merge-blocks"))             // --merge-blocks
                 config.flags |= CONFIG_MERGE_BLOCKS;
-            else if (!strcmp (long_option, "pair-undefined-chans"))     // --pair-undefined-chans
+            else if (!strcmp (long_option, "pair-unassigned-chans"))    // --pair-unassigned-chans
                 config.flags |= CONFIG_PAIR_UNDEF_CHANS;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;

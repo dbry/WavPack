@@ -1410,7 +1410,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         WavpackGetSampleRate (wpc));
 
     if (!channel_mask)
-        strcpy (modes, "undefined speakers");
+        strcpy (modes, "unassigned speakers");
     else if (num_channels == 1 && channel_mask == 0x4)
         strcpy (modes, "mono");
     else if (num_channels == 2 && channel_mask == 0x3)
