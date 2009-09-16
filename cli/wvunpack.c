@@ -1669,10 +1669,10 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
 
                     if (dst) {
 #if defined(WIN32)
-                        _setmode (fileno (stdout), O_BINARY);
+                        _setmode (fileno (dst), O_BINARY);
 #endif
 #if defined(__OS2__)
-                        setmode (fileno (stdout), O_BINARY);
+                        setmode (fileno (dst), O_BINARY);
 #endif
                         res = DoWriteFile (dst, (unsigned char *) value + i + 1, value_len - i - 1, &bcount);
                     }
