@@ -207,7 +207,7 @@ int WavpackDeleteTagItem (WavpackContext *wpc, const char *item)
             if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
                 break;
 
-            if (isize && vsize && !stricmp (item, p)) {
+            if (isize && vsize && !stricmp (item, (char *) p)) {
                 unsigned char *d = p - 8;
 
                 p += isize + vsize + 1;
@@ -383,7 +383,7 @@ static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int si
         if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
             break;
 
-        if (isize && vsize && !stricmp (item, p) && ((flags & 6) >> 1) == type) {
+        if (isize && vsize && !stricmp (item, (char *) p) && ((flags & 6) >> 1) == type) {
 
             if (!value || !size)
                 return vsize;
@@ -573,7 +573,7 @@ static int append_ape_tag_item (WavpackContext *wpc, const char *item, const cha
         *p++ = (unsigned char) (flags >> 16);
         *p++ = (unsigned char) (flags >> 24);
 
-        strcpy (p, item);
+        strcpy ((char *) p, item);
         p += isize + 1;
         memcpy (p, value, vsize);
 

@@ -1699,7 +1699,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
                         memcpy (chunk_header, wrapper_location, sizeof (ChunkHeader));
 
-                        if (!strncmp (chunk_header, "RIFF", 4)) {
+                        if (!strncmp ((char *) chunk_header, "RIFF", 4)) {
                             ((ChunkHeader *)chunk_header)->ckSize = wrapper_size + data_size - 8;
                             WavpackNativeToLittleEndian (chunk_header, ChunkHeaderFormat);
                         }
@@ -1707,7 +1707,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                         memcpy (wrapper_location, chunk_header, sizeof (ChunkHeader));
                         memcpy (chunk_header, wrapper_location + wrapper_size - sizeof (ChunkHeader), sizeof (ChunkHeader));
 
-                        if (!strncmp (chunk_header, "data", 4)) {
+                        if (!strncmp ((char *) chunk_header, "data", 4)) {
                             ((ChunkHeader *)chunk_header)->ckSize = data_size;
                             WavpackNativeToLittleEndian (chunk_header, ChunkHeaderFormat);
                         }
@@ -1863,7 +1863,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 // little-endian standard the executing processor's format is done and where
 // (if selected) the MD5 sum is calculated and displayed.
 
-static void reorder_channels (char *data, uchar *new_order, int num_chans,
+static void reorder_channels (void *data, uchar *new_order, int num_chans,
     int num_samples, int bytes_per_sample);
 
 #define INPUT_SAMPLES 65536
@@ -2003,13 +2003,14 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order)
     return NO_ERROR;
 }
 
-static void reorder_channels (char *data, uchar *order, int num_chans,
+static void reorder_channels (void *data, uchar *order, int num_chans,
     int num_samples, int bytes_per_sample)
 {
     char *temp = malloc (num_chans * bytes_per_sample);
+    char *src = data;
 
     while (num_samples--) {
-        char *start = data;
+        char *start = src;
         int chan;
 
         for (chan = 0; chan < num_chans; ++chan) {
@@ -2017,7 +2018,7 @@ static void reorder_channels (char *data, uchar *order, int num_chans,
             int bc = bytes_per_sample;
 
             while (bc--)
-                *dst++ = *data++;
+                *dst++ = *src++;
         }
 
         memcpy (start, temp, num_chans * bytes_per_sample);

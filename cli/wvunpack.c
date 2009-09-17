@@ -131,7 +131,7 @@ static int num_tag_extractions;
 
 /////////////////////////// local function declarations ///////////////////////
 
-static add_tag_extraction_to_list (char *spec);
+static void add_tag_extraction_to_list (char *spec);
 static void parse_sample_time_index (struct sample_time_index *dst, char *src);
 static int unpack_file (char *infilename, char *outfilename);
 static void display_progress (double file_progress);
@@ -1142,7 +1142,7 @@ static int unpack_file (char *infilename, char *outfilename)
     return result;
 }
 
-static add_tag_extraction_to_list (char *spec)
+static void add_tag_extraction_to_list (char *spec)
 {
     tag_extractions = realloc (tag_extractions, (num_tag_extractions + 1) * sizeof (*tag_extractions));
     tag_extractions [num_tag_extractions] = malloc (strlen (spec) + 10);
