@@ -723,6 +723,8 @@ void *WavpackGetWrapperLocation (void *first_block, uint32_t *size);
 
 void WavpackLittleEndianToNative (void *data, char *format);
 void WavpackNativeToLittleEndian (void *data, char *format);
+void WavpackBigEndianToNative (void *data, char *format);
+void WavpackNativeToBigEndian (void *data, char *format);
 
 uint32_t WavpackGetLibraryVersion (void);
 const char *WavpackGetLibraryVersionString (void);

@@ -2325,6 +2325,16 @@ void WavpackNativeToLittleEndian (void *data, char *format)
     native_to_little_endian (data, format);
 }
 
+void WavpackBigEndianToNative (void *data, char *format)
+{
+    big_endian_to_native (data, format);
+}
+
+void WavpackNativeToBigEndian (void *data, char *format)
+{
+    native_to_big_endian (data, format);
+}
+
 uint32_t WavpackGetLibraryVersion (void)
 {
     return (LIBWAVPACK_MAJOR<<16)

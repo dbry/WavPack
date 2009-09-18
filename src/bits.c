@@ -137,13 +137,20 @@ uint32_t bs_close_write (Bitstream *bs)
 void little_endian_to_native (void *data, char *format)
 {
     uchar *cp = (uchar *) data;
-    int32_t temp;
+    int64_t temp;
 
     while (*format) {
         switch (*format) {
+            case 'D':
+                temp = cp [0] + ((int64_t) cp [1] << 8) + ((int64_t) cp [2] << 16) + ((int64_t) cp [3] << 24) +
+                    ((int64_t) cp [4] << 32) + ((int64_t) cp [5] << 40) + ((int64_t) cp [6] << 48) + ((int64_t) cp [7] << 56);
+                * (int64_t *) cp = temp;
+                cp += 8;
+                break;
+
             case 'L':
                 temp = cp [0] + ((int32_t) cp [1] << 8) + ((int32_t) cp [2] << 16) + ((int32_t) cp [3] << 24);
-                * (int32_t *) cp = temp;
+                * (int32_t *) cp = (int32_t) temp;
                 cp += 4;
                 break;
 
@@ -167,10 +174,22 @@ void little_endian_to_native (void *data, char *format)
 void native_to_little_endian (void *data, char *format)
 {
     uchar *cp = (uchar *) data;
-    int32_t temp;
+    int64_t temp;
 
     while (*format) {
         switch (*format) {
+            case 'D':
+                temp = * (int64_t *) cp;
+                *cp++ = (uchar) temp;
+                *cp++ = (uchar) (temp >> 8);
+                *cp++ = (uchar) (temp >> 16);
+                *cp++ = (uchar) (temp >> 24);
+                *cp++ = (uchar) (temp >> 32);
+                *cp++ = (uchar) (temp >> 40);
+                *cp++ = (uchar) (temp >> 48);
+                *cp++ = (uchar) (temp >> 56);
+                break;
+
             case 'L':
                 temp = * (int32_t *) cp;
                 *cp++ = (uchar) temp;
@@ -183,6 +202,87 @@ void native_to_little_endian (void *data, char *format)
                 temp = * (short *) cp;
                 *cp++ = (uchar) temp;
                 *cp++ = (uchar) (temp >> 8);
+                break;
+
+            default:
+                if (isdigit (*format))
+                    cp += *format - '0';
+
+                break;
+        }
+
+        format++;
+    }
+}
+
+void big_endian_to_native (void *data, char *format)
+{
+    uchar *cp = (uchar *) data;
+    int64_t temp;
+
+    while (*format) {
+        switch (*format) {
+            case 'D':
+                temp = cp [7] + ((int64_t) cp [6] << 8) + ((int64_t) cp [5] << 16) + ((int64_t) cp [4] << 24) +
+                    ((int64_t) cp [3] << 32) + ((int64_t) cp [2] << 40) + ((int64_t) cp [1] << 48) + ((int64_t) cp [0] << 56);
+                * (int64_t *) cp = temp;
+                cp += 8;
+                break;
+
+            case 'L':
+                temp = cp [3] + ((int32_t) cp [2] << 8) + ((int32_t) cp [1] << 16) + ((int32_t) cp [0] << 24);
+                * (int32_t *) cp = (int32_t) temp;
+                cp += 4;
+                break;
+
+            case 'S':
+                temp = cp [1] + (cp [0] << 8);
+                * (short *) cp = (short) temp;
+                cp += 2;
+                break;
+
+            default:
+                if (isdigit (*format))
+                    cp += *format - '0';
+
+                break;
+        }
+
+        format++;
+    }
+}
+
+void native_to_big_endian (void *data, char *format)
+{
+    uchar *cp = (uchar *) data;
+    int64_t temp;
+
+    while (*format) {
+        switch (*format) {
+            case 'D':
+                temp = * (int64_t *) cp;
+                *cp++ = (uchar) (temp >> 56);
+                *cp++ = (uchar) (temp >> 48);
+                *cp++ = (uchar) (temp >> 40);
+                *cp++ = (uchar) (temp >> 32);
+                *cp++ = (uchar) (temp >> 24);
+                *cp++ = (uchar) (temp >> 16);
+                *cp++ = (uchar) (temp >> 8);
+                *cp++ = (uchar) temp;
+                break;
+
+            case 'L':
+                temp = * (int32_t *) cp;
+                *cp++ = (uchar) (temp >> 24);
+                *cp++ = (uchar) (temp >> 16);
+                *cp++ = (uchar) (temp >> 8);
+                *cp++ = (uchar) temp;
+                break;
+
+            case 'S':
+                temp = * (short *) cp;
+                *cp++ = (uchar) (temp >> 8);
+                *cp++ = (uchar) temp;
                 break;
 
             default:
