@@ -1219,6 +1219,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     struct timezone timez;
 #endif
 
+    CLEAR (WaveHeader);
+
     CLEAR (wv_file);
     CLEAR (wvc_file);
     wpc = WavpackOpenFileOutput (write_block, &wv_file, out2filename ? &wvc_file : NULL);
@@ -1514,6 +1516,15 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         else if (!strncmp (chunk_header.ckID, "data", 4)) {
 
             // on the data chunk, get size and exit loop
+
+            if (!WaveHeader.NumChannels) {      // make sure we saw a "fmt" chunk...
+                error_line ("%s is not a valid .WAV file!", infilename);
+                DoCloseHandle (infile);
+                DoCloseHandle (wv_file.file);
+                DoDeleteFile (outfilename);
+                WavpackCloseFile (wpc);
+                return SOFT_ERROR;
+            }
 
             if (infilesize && !ignore_length && infilesize - chunk_header.ckSize > 16777216) {
                 error_line ("this .WAV file has over 16 MB of extra RIFF data, probably is corrupt!");
