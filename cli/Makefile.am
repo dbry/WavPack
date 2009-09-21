@@ -1,6 +1,6 @@
 bin_PROGRAMS = wavpack wvunpack wvgain
 
-wavpack_SOURCES = wavpack.c utils.c md5.c
+wavpack_SOURCES = wavpack.c caff.c utils.c md5.c
 wavpack_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 wavpack_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
 

@@ -1197,6 +1197,7 @@ static FILE *wild_fopen (char *filename, const char *mode)
 // and the "config" structure specifies the mode of compression.
 
 static int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
@@ -1361,6 +1362,15 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
         if (!strncmp (fourcc, "RIFF", 4)) {
             if (ParseRiffHeaderConfig (infile, infilename, fourcc, wpc, &loc_config)) {
+                DoCloseHandle (infile);
+                DoCloseHandle (wv_file.file);
+                DoDeleteFile (outfilename);
+                WavpackCloseFile (wpc);
+                return SOFT_ERROR;
+            }
+        }
+        else if (!strncmp (fourcc, "caff", 4)) {
+            if (ParseCaffHeaderConfig (infile, infilename, fourcc, wpc, &loc_config)) {
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
                 DoDeleteFile (outfilename);
@@ -1667,6 +1677,7 @@ static int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, 
     WaveHeader WaveHeader;
     int64_t infilesize;
 
+    CLEAR (WaveHeader);
     infilesize = DoGetFileSize (infile);
 
     if (infilesize >= 4294967296LL && !(config->qmode & QMODE_IGNORE_LENGTH)) {
@@ -1810,6 +1821,11 @@ static int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, 
 
             // on the data chunk, get size and exit loop
 
+            if (!WaveHeader.NumChannels) {      // make sure we saw a "fmt" chunk...
+                error_line ("%s is not a valid .WAV file!", infilename);
+                return SOFT_ERROR;
+            }
+
             if (infilesize && !(config->qmode & QMODE_IGNORE_LENGTH) && infilesize - chunk_header.ckSize > 16777216) {
                 error_line ("this .WAV file has over 16 MB of extra RIFF data, probably is corrupt!");
                 return SOFT_ERROR;
@@ -1851,7 +1867,7 @@ static int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, 
     }
 
     if (!WavpackSetConfiguration (wpc, config, total_samples)) {
-        error_line ("%s", WavpackGetErrorMessage (wpc));
+        error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
         return SOFT_ERROR;
     }
 

@@ -133,7 +133,7 @@ static int num_tag_extractions;
 
 static void add_tag_extraction_to_list (char *spec);
 static void parse_sample_time_index (struct sample_time_index *dst, char *src);
-static int unpack_file (char *infilename, char *outfilename);
+static int unpack_file (char *infilename, char *outfilename, int add_extension);
 static void display_progress (double file_progress);
 
 #define NO_ERROR 0L
@@ -575,13 +575,10 @@ int main (argc, argv) int argc; char **argv;
                     *filespec_ext (outfilename) = '\0';
             }
 
-            if (outfilename && *outfilename != '-' && add_extension)
-                strcat (outfilename, raw_decode ? ".raw" : ".wav");
-
             if (num_files > 1)
                 fprintf (stderr, "\n%s:\n", matches [file_index]);
 
-            result = unpack_file (matches [file_index], verify_only ? NULL : outfilename);
+            result = unpack_file (matches [file_index], verify_only ? NULL : outfilename, add_extension);
 
             if (result != NO_ERROR)
                 ++error_count;
@@ -679,7 +676,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
 static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
 
-static int unpack_file (char *infilename, char *outfilename)
+static int unpack_file (char *infilename, char *outfilename, int add_extension)
 {
     int result = NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
@@ -687,6 +684,7 @@ static int unpack_file (char *infilename, char *outfilename)
     uint32_t skip_sample_index = 0, until_samples_total = 0;
     uchar *output_buffer = NULL, *output_pointer = NULL;
     double dtime, progress = -1.0;
+    char *extension = NULL;
     MD5_CTX md5_context;
     WavpackContext *wpc;
     int32_t *temp_buffer;
@@ -724,6 +722,17 @@ static int unpack_file (char *infilename, char *outfilename)
 
     if (calc_md5)
         MD5Init (&md5_context);
+
+    if (add_extension) {
+        if (raw_decode)
+            extension = ".raw";
+        else if (wav_decode || WavpackGetWrapperBytes (wpc) < 4)
+            extension = ".wav";
+        else if (!strncmp (WavpackGetWrapperData (wpc), "RIFF", 4))
+            extension = ".wav";
+        else if (!strncmp (WavpackGetWrapperData (wpc), "caff", 4))
+            extension = ".caf";
+    }
 
     wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
     num_channels = WavpackGetNumChannels (wpc);
@@ -809,6 +818,9 @@ static int unpack_file (char *infilename, char *outfilename)
 
     if (outfilename) {
         if (*outfilename != '-') {
+
+            if (add_extension)
+                strcat (outfilename, extension);
 
             // check the output file for overwrite warning required
 
