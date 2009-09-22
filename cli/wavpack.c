@@ -1881,28 +1881,33 @@ static void reorder_channels (void *data, uchar *new_order, int num_chans,
 
 static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order)
 {
-    uint32_t samples_remaining, samples_read = 0;
+    uint32_t samples_remaining, input_samples = INPUT_SAMPLES, samples_read = 0;
     double progress = -1.0;
     int bytes_per_sample;
     int32_t *sample_buffer;
     uchar *input_buffer;
     MD5_CTX md5_context;
 
+    // don't use an absurd amount of memory just because we have an absurd number of channels
+
+    while (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc) > 2048*1024)
+        input_samples >>= 1;
+
     if (do_md5_checksum)
         MD5Init (&md5_context);
 
     WavpackPackInit (wpc);
     bytes_per_sample = WavpackGetBytesPerSample (wpc) * WavpackGetNumChannels (wpc);
-    input_buffer = malloc (INPUT_SAMPLES * bytes_per_sample);
-    sample_buffer = malloc (INPUT_SAMPLES * sizeof (int32_t) * WavpackGetNumChannels (wpc));
+    input_buffer = malloc (input_samples * bytes_per_sample);
+    sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc));
     samples_remaining = WavpackGetNumSamples (wpc);
 
     while (1) {
         uint32_t bytes_to_read, bytes_read = 0;
         uint sample_count;
 
-        if (raw_pcm || ignore_length || samples_remaining > INPUT_SAMPLES)
-            bytes_to_read = INPUT_SAMPLES * bytes_per_sample;
+        if (raw_pcm || ignore_length || samples_remaining > input_samples)
+            bytes_to_read = input_samples * bytes_per_sample;
         else
             bytes_to_read = samples_remaining * bytes_per_sample;
 
