@@ -1,3 +1,13 @@
+                        -------------------------
+                        Update - January 23, 2009
+                        -------------------------
+
+ in_wv.dll (winamp plugin) - 2.6b
+ --------------------------------
+  added: "lossless" and "category" to metadata keywords that we handle in winamp plugin
+  added: internationalization support to facilitate inclusion in Winamp Essentials Pack
+
+
                        -----------------------------
                        Release 4.50.1 - July 3, 2008
                        -----------------------------
