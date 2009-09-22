@@ -1239,8 +1239,10 @@ int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
         wpc->riff_header_added = TRUE;
         meta_id = ID_RIFF_HEADER;
     }
-    else
+    else {
+        wpc->riff_trailer_bytes += bcount;
         meta_id = ID_RIFF_TRAILER;
+    }
 
     return add_to_metadata (wpc, data, bcount, meta_id);
 }
@@ -1439,7 +1441,7 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
 
             if (!strncmp (riffhdr->ckID, "RIFF", 4)) {
                 little_endian_to_native (riffhdr, ChunkHeaderFormat);
-                riffhdr->ckSize = wrapper_size + data_size - 8;
+                riffhdr->ckSize = wrapper_size + data_size - 8 + wpc->riff_trailer_bytes;
                 native_to_little_endian (riffhdr, ChunkHeaderFormat);
             }
 
