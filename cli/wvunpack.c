@@ -15,7 +15,8 @@
 #include <io.h>
 #else
 #if defined(__OS2__)
-#define INCL_DOS
+#define INCL_DOSPROCESS
+#include <os2.h>
 #include <io.h>
 #endif
 #include <sys/stat.h>
