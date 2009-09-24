@@ -671,14 +671,17 @@ static void parse_sample_time_index (struct sample_time_index *dst, char *src)
 // source and lossless compression is used.
 
 static int do_tag_extractions (WavpackContext *wpc, char *outfilename);
-static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt);
+static void *store_little_endian_unsigned_samples (void *dst, int32_t *src, int bps, int count);
+static void *store_little_endian_signed_samples (void *dst, int32_t *src, int bps, int count);
+static void *store_big_endian_unsigned_samples (void *dst, int32_t *src, int bps, int count);
+static void *store_big_endian_signed_samples (void *dst, int32_t *src, int bps, int count);
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
 static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
 
 static int unpack_file (char *infilename, char *outfilename, int add_extension)
 {
-    int result = NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
+    int result = NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE, qmode;
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
     uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
     uint32_t skip_sample_index = 0, until_samples_total = 0;
@@ -734,6 +737,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             extension = ".caf";
     }
 
+    qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
     wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
     num_channels = WavpackGetNumChannels (wpc);
     bps = WavpackGetBytesPerSample (wpc);
@@ -940,8 +944,18 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         total_unpacked_samples += samples_unpacked;
 
         if (output_buffer) {
-            if (samples_unpacked)
-                output_pointer = format_samples (bps, output_pointer, temp_buffer, samples_unpacked * num_channels);
+            if (samples_unpacked) {
+                if (qmode & QMODE_BIG_ENDIAN) {
+                    if ((qmode & QMODE_UNSIGNED_WORDS) || (bps == 1 && !(qmode & QMODE_SIGNED_BYTES)))
+                        output_pointer = store_big_endian_unsigned_samples (output_pointer, temp_buffer, bps, samples_unpacked * num_channels);
+                    else
+                        output_pointer = store_big_endian_signed_samples (output_pointer, temp_buffer, bps, samples_unpacked * num_channels);
+                }
+                else if ((qmode & QMODE_UNSIGNED_WORDS) || (bps == 1 && !(qmode & QMODE_SIGNED_BYTES)))
+                    output_pointer = store_little_endian_unsigned_samples (output_pointer, temp_buffer, bps, samples_unpacked * num_channels);
+                else
+                    output_pointer = store_little_endian_signed_samples (output_pointer, temp_buffer, bps, samples_unpacked * num_channels);
+            }
 
             if (!samples_unpacked || (output_buffer_size - (output_pointer - output_buffer)) < (uint32_t) bytes_per_sample) {
                 if (!DoWriteFile (outfile, output_buffer, (uint32_t)(output_pointer - output_buffer), &bcount) ||
@@ -957,7 +971,17 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         }
 
         if (calc_md5 && samples_unpacked) {
-            format_samples (bps, (uchar *) temp_buffer, temp_buffer, samples_unpacked * num_channels);
+            if (qmode & QMODE_BIG_ENDIAN) {
+                if ((qmode & QMODE_UNSIGNED_WORDS) || (bps == 1 && !(qmode & QMODE_SIGNED_BYTES)))
+                    store_big_endian_unsigned_samples (temp_buffer, temp_buffer, bps, samples_unpacked * num_channels);
+                else
+                    store_big_endian_signed_samples (temp_buffer, temp_buffer, bps, samples_unpacked * num_channels);
+            }
+            else if ((qmode & QMODE_UNSIGNED_WORDS) || (bps == 1 && !(qmode & QMODE_SIGNED_BYTES)))
+                store_little_endian_unsigned_samples (temp_buffer, temp_buffer, bps, samples_unpacked * num_channels);
+            else
+                store_little_endian_signed_samples (temp_buffer, temp_buffer, bps, samples_unpacked * num_channels);
+
             MD5Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
         }
 
@@ -1272,50 +1296,180 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
     return result;
 }
 
-// Reformat samples from longs in processor's native endian mode to
-// little-endian data with (possibly) less than 4 bytes / sample.
-
-static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt)
+static void *store_little_endian_unsigned_samples (void *dst, int32_t *src, int bps, int count)
 {
+    uchar *dptr = dst;
     int32_t temp;
 
     switch (bps) {
 
         case 1:
-            while (samcnt--)
-                *dst++ = *src++ + 128;
+            while (count--)
+                *dptr++ = *src++ + 0x80;
 
             break;
 
         case 2:
-            while (samcnt--) {
-                *dst++ = (uchar) (temp = *src++);
-                *dst++ = (uchar) (temp >> 8);
+            while (count--) {
+                *dptr++ = (uchar) (temp = *src++ + 0x8000);
+                *dptr++ = (uchar) (temp >> 8);
             }
 
             break;
 
         case 3:
-            while (samcnt--) {
-                *dst++ = (uchar) (temp = *src++);
-                *dst++ = (uchar) (temp >> 8);
-                *dst++ = (uchar) (temp >> 16);
+            while (count--) {
+                *dptr++ = (uchar) (temp = *src++ + 0x800000);
+                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (uchar) (temp >> 16);
             }
 
             break;
 
         case 4:
-            while (samcnt--) {
-                *dst++ = (uchar) (temp = *src++);
-                *dst++ = (uchar) (temp >> 8);
-                *dst++ = (uchar) (temp >> 16);
-                *dst++ = (uchar) (temp >> 24);
+            while (count--) {
+                *dptr++ = (uchar) (temp = *src++ + 0x80000000);
+                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (uchar) (temp >> 16);
+                *dptr++ = (uchar) (temp >> 24);
             }
 
             break;
     }
 
-    return dst;
+    return dptr;
+}
+
+static void *store_little_endian_signed_samples (void *dst, int32_t *src, int bps, int count)
+{
+    uchar *dptr = dst;
+    int32_t temp;
+
+    switch (bps) {
+
+        case 1:
+            while (count--)
+                *dptr++ = *src++;
+
+            break;
+
+        case 2:
+            while (count--) {
+                *dptr++ = (uchar) (temp = *src++);
+                *dptr++ = (uchar) (temp >> 8);
+            }
+
+            break;
+
+        case 3:
+            while (count--) {
+                *dptr++ = (uchar) (temp = *src++);
+                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (uchar) (temp >> 16);
+            }
+
+            break;
+
+        case 4:
+            while (count--) {
+                *dptr++ = (uchar) (temp = *src++);
+                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (uchar) (temp >> 16);
+                *dptr++ = (uchar) (temp >> 24);
+            }
+
+            break;
+    }
+
+    return dptr;
+}
+
+static void *store_big_endian_unsigned_samples (void *dst, int32_t *src, int bps, int count)
+{
+    uchar *dptr = dst;
+    int32_t temp;
+
+    switch (bps) {
+
+        case 1:
+            while (count--)
+                *dptr++ = *src++ + 0x80;
+
+            break;
+
+        case 2:
+            while (count--) {
+                *dptr++ = (uchar) ((temp = *src++ + 0x8000) >> 8);
+                *dptr++ = (uchar) temp;
+            }
+
+            break;
+
+        case 3:
+            while (count--) {
+                *dptr++ = (uchar) ((temp = *src++ + 0x800000) >> 16);
+                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (uchar) temp;
+            }
+
+            break;
+
+        case 4:
+            while (count--) {
+                *dptr++ = (uchar) ((temp = *src++ + 0x80000000) >> 24);
+                *dptr++ = (uchar) (temp >> 16);
+                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (uchar) temp;
+            }
+
+            break;
+    }
+
+    return dptr;
+}
+
+static void *store_big_endian_signed_samples (void *dst, int32_t *src, int bps, int count)
+{
+    uchar *dptr = dst;
+    int32_t temp;
+
+    switch (bps) {
+
+        case 1:
+            while (count--)
+                *dptr++ = *src++;
+
+            break;
+
+        case 2:
+            while (count--) {
+                *dptr++ = (uchar) ((temp = *src++) >> 8);
+                *dptr++ = (uchar) temp;
+            }
+
+            break;
+
+        case 3:
+            while (count--) {
+                *dptr++ = (uchar) ((temp = *src++) >> 16);
+                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (uchar) temp;
+            }
+
+            break;
+
+        case 4:
+            while (count--) {
+                *dptr++ = (uchar) ((temp = *src++) >> 24);
+                *dptr++ = (uchar) (temp >> 16);
+                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (uchar) temp;
+            }
+
+            break;
+    }
+
+    return dptr;
 }
 
 static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples)

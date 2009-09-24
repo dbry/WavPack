@@ -153,10 +153,13 @@ static const char *help =
 "    -q                      quiet (keep console output to a minimum)\n"
 "    -r                      generate a new RIFF wav header (removes any\n"
 "                             extra chunk info from existing header)\n"
-"    --raw-pcm               input data is raw pcm (44100 Hz, 16-bit, 2-ch)\n"
-"    --raw-pcm=sr,bps,ch     input data is raw pcm with specified sample rate,\n"
-"                             sample bit depth, and number of channels\n"
-"                             (specify 32f for 32-bit floating point data)\n"
+"    --raw-pcm               input data is raw pcm (default is 44100 Hz, 16-bit\n"
+"                             signed, 2-channels, little-endian)\n"
+"    --raw-pcm=sr,bps[f|s|u],nch,[le|be]\n"
+"                            input data is raw pcm with specified sample rate,\n"
+"                             sample bit depth (float or signed or unsigned), number\n"
+"                             of channels, and little-endian or big-endian\n"
+"                             (defaulted parameters may be omitted)\n"
 "    -sn                     override default noise shaping where n is a float\n"
 "                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
@@ -300,21 +303,40 @@ int main (argc, argv) int argc; char **argv;
                 tag_next_arg = 2;
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
                 int params [] = { 44100, 16, 2 };
-                int pi, fp = 0;
+                int pi, fp = 0, be = 0, us = 0, s = 0;
 
                 for (pi = 0; *long_param && pi < 3; ++pi) {
                     if (isdigit (*long_param))
                         params [pi] = strtol (long_param, &long_param, 10);
 
-                    if ((*long_param == 'f' || *long_param == 'F') && pi == 1) {
-                        long_param++;
-                        fp = 1;
+                    if (pi == 1) {
+                        if (*long_param == 'f' || *long_param == 'F') {
+                            long_param++;
+                            fp = 1;
+                        }
+                        else if (*long_param == 'u' || *long_param == 'U') {
+                            long_param++;
+                            us = 1;
+                        }
+                        else if (*long_param == 's' || *long_param == 'S') {
+                            long_param++;
+                            s = 1;
+                        }
                     }
 
                     if (*long_param == ',')
                         long_param++;
                     else
                         break;
+                }
+
+                if (*long_param && pi == 3) {
+                    if (!stricmp (long_param, "be")) {
+                        long_param += 2;
+                        be = 1;
+                    }
+                    else if (!stricmp (long_param, "le"))
+                        long_param += 2;
                 }
 
                 if (*long_param) {
@@ -342,6 +364,16 @@ int main (argc, argv) int argc; char **argv;
 
                     config.float_norm_exp = fp ? 127 : 0;
                     config.qmode |= QMODE_RAW_PCM;            
+
+                    if (params [1] > 8) {
+                        if (us)
+                            config.qmode |= QMODE_UNSIGNED_WORDS;            
+
+                        if (be)
+                            config.qmode |= QMODE_BIG_ENDIAN;            
+                    }
+                    else if (s)
+                        config.qmode |= QMODE_SIGNED_BYTES;            
                 }
             }
             else if (!strncmp (long_option, "blocksize", 9)) {          // --blocksize
@@ -1883,32 +1915,42 @@ static int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, 
 static void reorder_channels (void *data, uchar *new_order, int num_chans,
     int num_samples, int bytes_per_sample);
 
+static void load_little_endian_unsigned_samples (int32_t *dst, void *src, int bps, int count);
+static void load_little_endian_signed_samples (int32_t *dst, void *src, int bps, int count);
+static void load_big_endian_unsigned_samples (int32_t *dst, void *src, int bps, int count);
+static void load_big_endian_signed_samples (int32_t *dst, void *src, int bps, int count);
+
 #define INPUT_SAMPLES 65536
 
 static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, uchar *new_order)
 {
-    uint32_t samples_remaining, samples_read = 0;
+    uint32_t samples_remaining, input_samples = INPUT_SAMPLES, samples_read = 0;
     double progress = -1.0;
     int bytes_per_sample;
     int32_t *sample_buffer;
     uchar *input_buffer;
     MD5_CTX md5_context;
 
+    // don't use an absurd amount of memory just because we have an absurd number of channels
+
+    while (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc) > 2048*1024)
+        input_samples >>= 1;
+
     if (do_md5_checksum)
         MD5Init (&md5_context);
 
     WavpackPackInit (wpc);
     bytes_per_sample = WavpackGetBytesPerSample (wpc) * WavpackGetNumChannels (wpc);
-    input_buffer = malloc (INPUT_SAMPLES * bytes_per_sample);
-    sample_buffer = malloc (INPUT_SAMPLES * sizeof (int32_t) * WavpackGetNumChannels (wpc));
+    input_buffer = malloc (input_samples * bytes_per_sample);
+    sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc));
     samples_remaining = WavpackGetNumSamples (wpc);
 
     while (1) {
         uint32_t bytes_to_read, bytes_read = 0;
         uint sample_count;
 
-        if ((qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM)) || samples_remaining > INPUT_SAMPLES)
-            bytes_to_read = INPUT_SAMPLES * bytes_per_sample;
+        if ((qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM)) || samples_remaining > input_samples)
+            bytes_to_read = input_samples * bytes_per_sample;
         else
             bytes_to_read = samples_remaining * bytes_per_sample;
 
@@ -1927,43 +1969,19 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, uchar *new_
             break;
 
         if (sample_count) {
-            uint cnt = sample_count * WavpackGetNumChannels (wpc);
-            uchar *sptr = input_buffer;
-            int32_t *dptr = sample_buffer;
+            int bps = WavpackGetBytesPerSample (wpc);
 
-            switch (WavpackGetBytesPerSample (wpc)) {
-
-                case 1:
-                    while (cnt--)
-                        *dptr++ = *sptr++ - 128;
-
-                    break;
-
-                case 2:
-                    while (cnt--) {
-                        *dptr++ = sptr [0] | ((int32_t)(signed char) sptr [1] << 8);
-                        sptr += 2;
-                    }
-
-                    break;
-
-                case 3:
-                    while (cnt--) {
-                        *dptr++ = sptr [0] | ((int32_t) sptr [1] << 8) | ((int32_t)(signed char) sptr [2] << 16);
-                        sptr += 3;
-                    }
-
-                    break;
-
-                case 4:
-                    while (cnt--) {
-                        *dptr++ = sptr [0] | ((int32_t) sptr [1] << 8) | ((int32_t) sptr [2] << 16) | ((int32_t)(signed char) sptr [3] << 24);
-                        sptr += 4;
-                    }
-
-                    break;
+            if (qmode & QMODE_BIG_ENDIAN) {
+                if ((qmode & QMODE_UNSIGNED_WORDS) || (bps == 1 && !(qmode & QMODE_SIGNED_BYTES)))
+                    load_big_endian_unsigned_samples (sample_buffer, input_buffer, bps, sample_count * WavpackGetNumChannels (wpc));
+                else
+                    load_big_endian_signed_samples (sample_buffer, input_buffer, bps, sample_count * WavpackGetNumChannels (wpc));
             }
-        }
+            else if ((qmode & QMODE_UNSIGNED_WORDS) || (bps == 1 && !(qmode & QMODE_SIGNED_BYTES)))
+                load_little_endian_unsigned_samples (sample_buffer, input_buffer, bps, sample_count * WavpackGetNumChannels (wpc));
+            else
+                load_little_endian_signed_samples (sample_buffer, input_buffer, bps, sample_count * WavpackGetNumChannels (wpc));
+        } 
 
         if (!WavpackPackSamples (wpc, sample_buffer, sample_count)) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
@@ -2018,6 +2036,158 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, uchar *new_
     }
 
     return NO_ERROR;
+}
+
+static void load_little_endian_unsigned_samples (int32_t *dst, void *src, int bps, int count)
+{
+    uchar *sptr = src;
+
+    switch (bps) {
+
+        case 1:
+            while (count--)
+                *dst++ = *sptr++ - 0x80;
+
+            break;
+
+        case 2:
+            while (count--) {
+                *dst++ = (sptr [0] | ((int32_t) sptr [1] << 8)) - 0x8000;
+                sptr += 2;
+            }
+
+            break;
+
+        case 3:
+            while (count--) {
+                *dst++ = (sptr [0] | ((int32_t) sptr [1] << 8) | ((int32_t) sptr [2] << 16)) - 0x800000;
+                sptr += 3;
+            }
+
+            break;
+
+        case 4:
+            while (count--) {
+                *dst++ = (sptr [0] | ((int32_t) sptr [1] << 8) | ((int32_t) sptr [2] << 16) | ((int32_t) sptr [3] << 24)) - 0x80000000;
+                sptr += 4;
+            }
+
+            break;
+    }
+}
+
+static void load_little_endian_signed_samples (int32_t *dst, void *src, int bps, int count)
+{
+    uchar *sptr = src;
+
+    switch (bps) {
+
+        case 1:
+            while (count--)
+                *dst++ = (signed char) *sptr++;
+
+            break;
+
+        case 2:
+            while (count--) {
+                *dst++ = sptr [0] | ((int32_t)(signed char) sptr [1] << 8);
+                sptr += 2;
+            }
+
+            break;
+
+        case 3:
+            while (count--) {
+                *dst++ = sptr [0] | ((int32_t) sptr [1] << 8) | ((int32_t)(signed char) sptr [2] << 16);
+                sptr += 3;
+            }
+
+            break;
+
+        case 4:
+            while (count--) {
+                *dst++ = sptr [0] | ((int32_t) sptr [1] << 8) | ((int32_t) sptr [2] << 16) | ((int32_t)(signed char) sptr [3] << 24);
+                sptr += 4;
+            }
+
+            break;
+    }
+}
+
+static void load_big_endian_unsigned_samples (int32_t *dst, void *src, int bps, int count)
+{
+    uchar *sptr = src;
+
+    switch (bps) {
+
+        case 1:
+            while (count--)
+                *dst++ = *sptr++ - 0x80;
+
+            break;
+
+        case 2:
+            while (count--) {
+                *dst++ = (sptr [1] | ((int32_t) sptr [0] << 8)) - 0x8000;
+                sptr += 2;
+            }
+
+            break;
+
+        case 3:
+            while (count--) {
+                *dst++ = (sptr [2] | ((int32_t) sptr [1] << 8) | ((int32_t) sptr [0] << 16)) - 0x800000;
+                sptr += 3;
+            }
+
+            break;
+
+        case 4:
+            while (count--) {
+                *dst++ = (sptr [3] | ((int32_t) sptr [2] << 8) | ((int32_t) sptr [1] << 16) | ((int32_t) sptr [0] << 24)) - 0x80000000;
+                sptr += 4;
+            }
+
+            break;
+    }
+}
+
+static void load_big_endian_signed_samples (int32_t *dst, void *src, int bps, int count)
+{
+    uchar *sptr = src;
+
+    switch (bps) {
+
+        case 1:
+            while (count--)
+                *dst++ = (signed char) *sptr++;
+
+            break;
+
+        case 2:
+            while (count--) {
+                *dst++ = sptr [1] | ((int32_t)(signed char) sptr [0] << 8);
+                sptr += 2;
+            }
+
+            break;
+
+        case 3:
+            while (count--) {
+                *dst++ = sptr [2] | ((int32_t) sptr [1] << 8) | ((int32_t)(signed char) sptr [0] << 16);
+                sptr += 3;
+            }
+
+            break;
+
+        case 4:
+            while (count--) {
+                *dst++ = sptr [3] | ((int32_t) sptr [2] << 8) | ((int32_t) sptr [1] << 16) | ((int32_t)(signed char) sptr [0] << 24);
+                sptr += 4;
+            }
+
+            break;
+    }
 }
 
 static void reorder_channels (void *data, uchar *order, int num_chans,

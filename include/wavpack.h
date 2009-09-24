@@ -190,11 +190,14 @@ typedef struct {
 #define CONFIG_PAIR_UNDEF_CHANS 0x20000000 // encode undefined channels in stereo pairs
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
-#define QMODE_ADOBE_MODE        0x1     // user specified Adobe mode
-#define QMODE_NO_STORE_WRAPPER  0x2     // user specified to not store audio file wrapper (RIFF, CAFF, etc.)
-#define QMODE_CHANS_UNASSIGNED  0x4     // user specified "..." in --channel-order option
-#define QMODE_IGNORE_LENGTH     0x8     // user specified to ignore length in file header
-#define QMODE_RAW_PCM           0x10    // user specified raw PCM format (no header present)
+#define QMODE_BIG_ENDIAN        0x1     // big-endian data format (opposite of WAV format)
+#define QMODE_SIGNED_BYTES      0x2     // 8-bit audio data is signed (opposite of WAV format)
+#define QMODE_UNSIGNED_WORDS    0x4     // audio data (other than 8-bit) is unsigned (opposite of WAV format)
+#define QMODE_ADOBE_MODE        0x100   // user specified Adobe mode
+#define QMODE_NO_STORE_WRAPPER  0x200   // user specified to not store audio file wrapper (RIFF, CAFF, etc.)
+#define QMODE_CHANS_UNASSIGNED  0x400   // user specified "..." in --channel-order option
+#define QMODE_IGNORE_LENGTH     0x800   // user specified to ignore length in file header
+#define QMODE_RAW_PCM           0x1000  // user specified raw PCM format (no header present)
 
 ////////////// Callbacks used for reading & writing WavPack streams //////////
 

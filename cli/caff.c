@@ -248,15 +248,21 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             config->num_channels = caf_audio_format.mChannelsPerFrame;
             config->sample_rate = (int) caf_audio_format.mSampleRate;
 
+            if (!(caf_audio_format.mFormatFlags & CAF_FORMAT_LITTLE_ENDIAN) && config->bytes_per_sample > 1)
+                config->qmode |= QMODE_BIG_ENDIAN;
+
+            if (config->bytes_per_sample == 1)
+                config->qmode |= QMODE_SIGNED_BYTES;
+
             if (debug_logging_mode) {
                 if (config->float_norm_exp == 127)
                     error_line ("data format: normalized 32-bit floating point");
                 else if (config->float_norm_exp)
-                    error_line ("data format: 32-bit floating point (Audition %d:%d float type 1)",
-                        config->float_norm_exp - 126, 150 - config->float_norm_exp);
+                    error_line ("data format: 32-bit %s-endian floating point (Audition %d:%d float type 1)",
+                        (config->qmode & QMODE_BIG_ENDIAN) ? "big" : "little", config->float_norm_exp - 126, 150 - config->float_norm_exp);
                 else
-                    error_line ("data format: %d-bit integers stored in %d byte(s)",
-                        config->bits_per_sample, config->bytes_per_sample);
+                    error_line ("data format: %d-bit %s-endian integers stored in %d byte(s)",
+                        config->bits_per_sample, (config->qmode & QMODE_BIG_ENDIAN) ? "big" : "little", config->bytes_per_sample);
             }
         }
         else if (!strncmp (caf_chunk_header.ckID, "chan", 4)) {
