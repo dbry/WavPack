@@ -4,7 +4,7 @@ wavpack_SOURCES = wavpack.c caff.c utils.c md5.c
 wavpack_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 wavpack_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
 
-wvunpack_SOURCES = wvunpack.c utils.c md5.c
+wvunpack_SOURCES = wvunpack.c caff.c utils.c md5.c
 wvunpack_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 wvunpack_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
 

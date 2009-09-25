@@ -67,7 +67,9 @@ static char *strdup (const char *s)
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2009 Conifer Software.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2009 Conifer Software.  All Rights Reserved.\n\n"
+" *** This is an experimental alpha version and should be used for ***\n"
+" *** testing only. Please do not use it for important archiving!! ***\n\n";
 
 static const char *usage =
 #if defined (WIN32)
