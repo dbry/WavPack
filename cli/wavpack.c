@@ -767,6 +767,10 @@ int main (argc, argv) int argc; char **argv;
                 tag_items [i].value = new_value;
             }
         }
+        else if (tag_items [i].binary) {
+            error_line ("binary tags must be from files: %s !", tag_items [i].value);
+            ++error_count;
+        }
 
         if (tag_items [i].binary) {
             int isize = (int) strlen (tag_items [i].item);

@@ -1184,6 +1184,8 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 
                                 if (filespec_ext (dst))         // get rid of any extension
                                     dst = filespec_ext (dst);
+                                else
+                                    dst += strlen (dst);
 
                                 output_spec++;
                                 break;
@@ -1193,15 +1195,18 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 
                                 if (filespec_ext (dst))         // get rid of any extension
                                     dst = filespec_ext (dst);
+                                else
+                                    dst += strlen (dst);
 
                                 output_spec++;
                                 break;
 
                             case 'e':                           // default extension
-                                if (filespec_ext (tag_filename))
+                                if (filespec_ext (tag_filename)) {
                                     strcpy (dst, filespec_ext (tag_filename) + 1);
+                                    dst += strlen (dst);
+                                }
 
-                                dst += strlen (dst);
                                 output_spec++;
                                 break;
 
@@ -1595,6 +1600,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
                 int i, j;
 
                 MD5Init (&md5_context);
+                value_len = WavpackGetBinaryTagItem (wpc, item, NULL, 0);
                 value = malloc (value_len);
                 value_len = WavpackGetBinaryTagItem (wpc, item, value, value_len);
 
