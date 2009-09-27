@@ -118,7 +118,7 @@ wv_file_info_box(char *fn)
     char    album_peak      [16];
 
     assert(fn != NULL);
-    char error_buff[80]; // TODO: fixme!
+    char error_buff[80];
     WavpackContext *ctx = WavpackOpenFileInput(fn, error_buff, OPEN_TAGS | OPEN_WVC, 0);
     if (ctx == NULL) {
         printf("wavpack: Error opening file: \"%s: %s\"\n", fn, error_buff);
@@ -387,7 +387,7 @@ wv_file_info_box(char *fn)
     seconds = time % 60;
 
     label_set_text(version_label, "Version: %d", WavpackGetVersion(ctx));
-    label_set_text(bitrate_label, "Average bitrate: %6.1f kbps", WavpackGetAverageBitrate(ctx, 0) / 1000);
+    label_set_text(bitrate_label, "Average bitrate: %6.1f kbps", WavpackGetAverageBitrate(ctx, 1) / 1000);
     label_set_text(rate_label, "Samplerate: %d Hz", WavpackGetSampleRate(ctx));
     label_set_text(bits_per_sample_label, "Bits per sample: %d", WavpackGetBitsPerSample(ctx));
     label_set_text(channel_label, "Channels: %d", WavpackGetNumChannels(ctx));
