@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 4.50</div>
+				<div class="pageHeader">Using WavPack Version 4.60</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -293,20 +293,31 @@ a:hover {
 				</p>
 
 				<p>
-     <b><tt>--channel-order=&lt;list&gt; = specify non-standard channel ordering)</tt></b>
+     <b><tt>--channel-order=&lt;list&gt; = specify non-standard channel ordering</tt></b>
 				</p>
 				<p>
-     For multichannel audio WAV files, WavPack assumes that they are in the standard
-     Microsoft order. However, some programs generate different channel orders (especially
-     those that do not generate WAVEFORMATEXTENSIBLE headers). For those files, this command
-     allows the user to override the Microsoft order and specify a list of channels from
-     this list (which is in Microsoft order): FL,FR,FC,LFE,BL,BR,LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR.
+     For multichannel audio WAV files there is a Microsoft required WAVEFORMATEXTENSIBLE header to
+     indicate which speakers are represented and those speakers must be in the standard Microsoft
+     order (which is also specified by USB). However, some programs skip generating the WAVEFORMATEXTENSIBLE
+     header and even write the channels in the wrong order. For files without the WAVEFORMATEXTENSIBLE
+     header, WavPack assumes Microsoft channel order and further assumes that all speakers (up to the
+     number of channels) are present. If that is not the case, then this option allows the user to
+     specify the exact channels present (and their order) from this list (which is in Microsoft order):
+     FL,FR,FC,LFE,BL,BR,LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR.
+    </p>
+				<p>
+     If not all of the channels in the file have speaker definitions, then it is possible to simply
+     terminate the speaker list with "..." (e.g. FL,FR,...) to indicate that all following channels are
+     unassigned. Specifying "..." alone indicates that all channels are unassigned.
     </p>
     <p>
-     Note that this operation reorders the channels <i>before</i> encoding, so if the
+     This option may just be used to specify <i>which</i> channels are present, even if they
+     are in standard Microsoft order (e.g. standard quad is FL,FR,BL,BR). In this case the
+     option just controls the channel "mask" and performs no reordering. But if the option
+     does result in reordering, then this is done <i>before</i> encoding, so if the
      resulting WavPack file is subsequently unpacked it will <b>not</b> recreate the
      identical WAV file (because the channels will now be in the correct order). If you want
-     the unpacked file to be identical to the original simply do not use this command (although
+     the unpacked file to be identical to the original simply do not use this option (although
      this means that the resulting WavPack file will not have the correct channel information
      and so won't play correctly in multichannel software, and also means that the compression
      might not be as good because the "wrong" channels will be paired in stereo).
@@ -428,7 +439,7 @@ a:hover {
 				</p>
 				<p>
      This option is only valid when generating lossless files and is only used with the
-     <b>--blocksize</b> command. WavPack will always scan each block of audio data before
+     <b>--blocksize</b> option. WavPack will always scan each block of audio data before
      compressing to determine the actual number of valid bits that need to be stored because,
      for various reasons, this is not always the same as the number of bits present. In some
      situations there can be many redundant bits, as for example in the output of the
@@ -460,6 +471,16 @@ a:hover {
 				</p>
 
     <p>
+     <b><tt>--no-utf8-convert = don't recode passed tags to UTF-8, assume they are UTF-8 already</tt></b>
+    </p>
+    <p>
+     The text fields of APEv2 tags are encoded in the UTF-8 varient of Unicode, so when
+     tag information is passed in on the command-line (which is normally multibyte encoded in
+     WavPack's case) they are converted to UTF-8 before being stored. If your system is
+     already passing the strings in UTF-8, use this option to prevent double conversion.
+    </p>
+
+    <p>
      <b><tt>--optimize-mono = optimization for stereo files that are really mono</tt></b>
     </p>
     <p>
@@ -481,6 +502,21 @@ a:hover {
 					bits of resolution). This also affects large integer compression by limiting the 
 					resolution to 24 bits.
 				</p>
+
+				<p>
+					<b><tt>--pair-unassigned-chans = encode unassigned channels into stereo pairs</tt></b>
+				</p>
+				<p>
+     WavPack encodes all channels of multichannel files into stereo or mono streams. So, if
+     two channels are related (like FL and FR) then these are encoded into one stream
+     (which improves compression performance) whereas unrelated channels (like LFE) are
+     encoded by themselves into mono streams. Unassigned channels (those not associated
+     with any defined speaker) are normally encoded in mono streams for safety, however
+     this option can be used to specify that they should be paired into stereo streams.
+     This might improve compression in cases where all of the channels were very similar,
+     or when it is known that the channels are, in fact, stereo pairs.
+				</p>
+
 				<p>
 					<b><tt>-q = quiet (keep console output to a minimum)</tt></b>
 				</p>
@@ -501,6 +537,36 @@ a:hover {
 				 Also note that this option cannot be used with certain floating-point wav files
 				 generated by CoolEdit or Audition because they are not properly normalized.
 				</p>
+
+				<p>
+					<b><tt>--raw-pcm = input data is raw pcm (44100 Hz, 16-bit, 2-ch)</tt></b>
+				</p>
+				<p>
+     Specifies that the source file (or stdin) contains raw PCM data with no header.
+     and conforms to standard CD quality. Note that the data must match the format of WAV file
+     audio (i.e., little endian and signed). 
+				</p>
+    </p>
+     Note that WavPack files created in this
+     way will still normally decode to WAV files (with headers) when unpacked. To avoid
+     this, use the "-r" option with the WvUnpack program to force raw unpacking.
+				</p>
+				<p>
+					<b><tt>--raw-pcm=sr,bps,ch = input data is raw pcm with specified format</tt></b>
+				</p>
+				<p>
+     Specifies that the source file (or stdin) contains raw PCM data with no header
+     and the specified sampling rate, bit-depth, and number of channels. Parameters
+     matching the default (44100,16,2) can be omitted. The valid range of bit-depths
+     is from 1 to 32, with 32f specifying 32-bit floating point data. The number of channels
+     may be from 1 to 256. Note that the data must still match the format of WAV file
+     audio (i.e., little endian and signed, except for 8-bit data which is unsigned).
+    </p>
+     Note that WavPack files created in this
+     way will still normally decode to WAV files (with headers) when unpacked. To avoid
+     this, use the "-r" option with the WvUnpack program to force raw unpacking.
+				</p>
+
 				<p>
 					<b><tt>-sn = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)</tt></b>
 				</p>
@@ -537,7 +603,7 @@ a:hover {
      noise shaping.
 				</p>
 				<p>
-					<b><tt> -w "Field=Value" = write specified metadata to APEv2 tag</tt></b>
+					<b><tt>-w "Field=Value" = write specified metadata to APEv2 tag</tt></b>
 				</p>
 				<p>
 					Write specified information to APEv2 tag appended to WavPack file(s). May be used
@@ -549,12 +615,22 @@ a:hover {
 				 The filename may contain wildcards if it matches exactly one file. Also, if the
 				 file cannot be found in the current directory then the source and destination
 				 directories (if specifed) are also checked.
+				<p>
+					<b><tt>--write-binary-tag "Field=@file.ext" = write specified binary metadata to APEv2 tag</tt></b>
+				</p>
+				<p>
+					Write specified binary file to APEv2 tag appended to WavPack file(s). This is most
+     commonly used to embed album cover art into WavPack files (with the field name
+     <b>"Cover Art (Front)"</b>), but could be used for anything desired. A file must be
+     specified (the data cannot come from the command-line) and it may contain wildcards
+     if it matches exactly one file. Also, if the file cannot be found in the current directory
+     then the source and destination directories (if specifed) are also checked.
 				</p>
 				<p>
 					<b><tt>-x[n] = extra encode processing (optional n = 1-6, 1 = default)</tt></b>
 				</p>
 				<p>
-					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 4.50 normally 
+					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 4.60 normally 
 					works "symmetrically" in that encoding and decoding operate at about the same rate
 					(regardless of the mode used). However, WavPack has an option to work
 					"asymmetrically", so that extra processing can be done during encoding to
@@ -604,20 +680,21 @@ a:hover {
      <b><tt>-c  = extract cuesheet only to stdout (no audio decode)</tt></b>
 				</p>
 				<p>
-					If the specified WavPack contains an APEv2 tag, and that tag contains a CUESHEET
+					If the specified WavPack file contains an APEv2 tag, and that tag contains a CUESHEET
      field, then only dump that text to stdout without decoding any audio. If no
-     cuesheet is found then an error is generated.
+     cuesheet is found then an error is generated. This is equivalent to "-x cuesheet".
 				</p>
 				<p>
      <b><tt>-cc = extract cuesheet file (.cue) in addition to audio file</tt></b>
 				</p>
 				<p>
-					If the specified WavPack contains an APEv2 tag, and that tag contains a CUESHEET
+					If the specified WavPack file contains an APEv2 tag, and that tag contains a CUESHEET
      field, then that text will be extracted into an appropriately named .cue file
      located in the same folder as the .wav file. Note that the cuesheet
      is not automatically modified to point to the correct .wav file; this must be
      handled either when the cuesheet is embedded or (if the .wv file is renamed) by
-     the user after extraction. This option has no effect if there's no cuesheet.
+     the user after extraction. This option has no effect if there's no cuesheet and
+     is equivalent to "-xx cuesheet=%a.cue".
 				</p>
 				<p>
 					<b><tt>-d = delete source file if successful (use with caution!)</tt></b>
@@ -657,6 +734,15 @@ a:hover {
 					WvUnpack will verify that they match). For lossy operation these numbers should not 
 					match.
 				</p>
+    <p>
+     <b><tt>--no-utf8-convert = leave tag items in UTF-8 on extract or display</tt></b>
+    </p>
+    <p>
+     The text fields of APEv2 tags are encoded in the UTF-8 varient of Unicode, so when
+     tag information is displayed or extracted, it is converted to local multibyte encoding
+     before being displayed or written to files. If your system already expects UTF-8, use this
+     option to prevent the conversion.
+    </p>
 				<p>
 					<b><tt>-q = quiet (keep console output to a minimum)</tt></b>
 				</p>
@@ -669,7 +755,9 @@ a:hover {
 				<p>
 					This option causes WvUnpack to strip off the standard wav file header (and any 
 					trailer) and only output the uncompressed audio data. If a file is created then it 
-					will be given the .raw extension instead of the standard .wav extension.
+					will be given the .raw extension instead of the standard .wav extension. Note that
+     the raw data still conforms to standard WAV audio data (i.e., little-endian and signed,
+     except for 8-bit data which is unsigned).
 				</p>
 				<p>
 					<b><tt>-s = display summary information only to stdout (no decode)</tt></b>
@@ -685,7 +773,9 @@ a:hover {
 				</p>
 				<p>
 					This option is similar to -s except that information from any valid tag found
-				 (either APEv2 or ID3v1) is also listed.
+				 (either APEv2 or ID3v1) is also listed. For binary or multi-line text items, only
+     the size of the tag data is displayed, but you can use the -x command to view this
+     data (or redirect it to a file).
 				</p>
 
 				<p>
@@ -694,7 +784,7 @@ a:hover {
 				<p>
      Specifies an alternate start position for decoding, as either an integer sample index
      or as a time in hours, minutes, and seconds (with fraction). The WavPack file must be seekable
-     (i.e. not a pipe). This command can be used with the --until command to decode a
+     (i.e. not a pipe). This option can be used with the --until option to decode a
      specific region of a track.
 				</p>
 
@@ -712,7 +802,7 @@ a:hover {
      Specifies an alternate stop position for decoding, as either an integer sample index
      or as a time in hours, minutes, and seconds (with fraction). If a plus ('+') or minus ('-')
      sign is inserted before the specified sample (or time) then it becomes a relative amount,
-     either from the position specified by a --start command (if plus) or from the end of the
+     either from the position specified by a --start option (if plus) or from the end of the
      file (if minus).
 				</p>
 
@@ -736,6 +826,36 @@ a:hover {
      are unpacked. Beginning with version 4.40, these headers are automatically
      regenerated at decode time if a WavPack file is missing them. This option allows
      the .wav header to be regenerated even if the WavPack file contains a valid header.
+				</p>
+				<p>
+     <b><tt>-x "Field" = extract specified tag field only to stdout (no audio decode)</tt></b>
+				</p>
+				<p>
+					If the specified WavPack file contains a tag, and that tag contains the specified
+     field, then only dump that field to stdout without decoding any audio. If the tag field
+     is not found then an error is generated. Of course, the data may be redirected to a file
+     or pipe. Only one field may be specified, and -c can be used as a shortcut to extract
+     the CUESHEET field. 
+				</p>
+				<p>
+     <b><tt>-xx "field[=file]" = extract specified tag field to file (with audio decode)</tt></b>
+				</p>
+				<p>
+					If the specified WavPack file contains a tag, and that tag contains the specified 
+     field, then that field will be extracted into an appropriately named file
+     located in the same folder as the target .wav file. The name of the file will be
+     the name of the tag field with a .txt extension for text items or, in the case of
+     binary items, the name comes from the tag itself (although the convention is for this
+     to be the tag field name with the extension from the original source file).
+    </p>
+    <p>
+     If the automatically generated name is not acceptable, then a new name can be specified,
+     and this new name specification may contain the following replacement codes:
+				</p>
+				<p>
+					&nbsp;&nbsp;%a = audio output filename<br/>
+					&nbsp;&nbsp;%t = tag field name (note: comes from data for binary tags)<br/>
+					&nbsp;&nbsp;%e = extension from binary tag source file, or 'txt' for text tag<br/>
 				</p>
 				<p>
 					<b><tt>-y = yes to overwrite warning (use with caution!)</tt></b>
@@ -782,7 +902,10 @@ a:hover {
 				</p>
 				<p>
 					This option forces WvGain to not look for a corresponding correction file when 
-					analyzing hybrid mode files.
+					analyzing hybrid lossless mode files. This is probably a good idea in most cases
+     because it's faster and the lossy versions tend to have slightly higher peak
+     amplitudes than the lossless versions (although the overall levels will be
+     almost identical).
 				</p>
 				<p>
 					<b><tt>-l = run at low priority (for smoother multitasking)</tt></b>
@@ -790,6 +913,15 @@ a:hover {
 				<p>
 					This option can be used (in Windows only) to force WvGain to run at a low priority 
      and is handy for doing large batch operations in the background.
+				</p>
+				<p>
+					<b><tt>-n = new files only</tt></b>
+				</p>
+				<p>
+					This option instructs WvGain to check the tags of the files first to make sure that they
+     don't already have ReplayGain information. Files that already have ReplayGain information
+     are skipped; in "album" mode a file encountered with ReplayGain information will abort the
+     whole operation. 
 				</p>
 				<p>
 					<b><tt>-q = quiet (keep console output to a minimum)</tt></b>

@@ -117,7 +117,6 @@ static const char *help =
 "                             with '...' to indicate that any channels beyond\n"
 "                             those specified are unassigned\n"
 "    -d                      delete source file if successful (use with caution!)\n"
-"    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 #if defined (WIN32)
 "    -e                      create self-extracting executable with .exe\n"
 "                             extension, requires wvself.exe in path\n"
@@ -163,6 +162,7 @@ static const char *help =
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
 "    -t                      copy input file's time stamp to output file(s)\n"
+"    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 "    -w \"Field=Value\"        write specified text metadata to APEv2 tag\n"
 "    -w \"Field=@file.ext\"    write specified text metadata from file to APEv2\n"
 "                             tag, normally used for embedded cuesheets and logs\n"
