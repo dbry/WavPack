@@ -202,7 +202,7 @@ static uint32_t channel_order_mask;
 // structure are no longer used for anything (they should not have been there in
 // the first place).
 
-static int num_tag_items;
+static int num_tag_items, total_tag_size;
 
 static struct tag_item {
     char *item, *value, *ext;
@@ -792,6 +792,12 @@ int main (argc, argv) int argc; char **argv;
                 AnsiToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
 
             tag_items [i].vsize = (int) strlen (tag_items [i].value);
+        }
+
+        if ((total_tag_size += tag_items [i].vsize) > 1048576) {
+            error_line ("total APEv2 tag size exceeds 1 MB !");
+            ++error_count;
+            break;
         }
     }
 
@@ -1676,17 +1682,17 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // (which is NOT stored in regular WavPack blocks)
 
     if (result == NO_ERROR && num_tag_items) {
-        int i;
+        int i, res = TRUE;
 
-        for (i = 0; i < num_tag_items; ++i)
+        for (i = 0; i < num_tag_items && res; ++i)
             if (tag_items [i].vsize) {
                 if (tag_items [i].binary) 
-                    WavpackAppendBinaryTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
+                    res = WavpackAppendBinaryTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
                 else
-                    WavpackAppendTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
+                    res = WavpackAppendTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
             }
 
-        if (!WavpackWriteTag (wpc)) {
+        if (!res || !WavpackWriteTag (wpc)) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             result = HARD_ERROR;
         }

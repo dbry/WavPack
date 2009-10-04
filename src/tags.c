@@ -272,7 +272,7 @@ int load_tag (WavpackContext *wpc)
 
                 if (m_tag->ape_tag_hdr.version == 2000 && m_tag->ape_tag_hdr.item_count &&
                     m_tag->ape_tag_hdr.length > sizeof (m_tag->ape_tag_hdr) &&
-                    m_tag->ape_tag_hdr.length < (1024 * 1024) &&
+                    m_tag->ape_tag_hdr.length <= APE_TAG_MAX_LENGTH &&
                     (m_tag->ape_tag_data = malloc (m_tag->ape_tag_hdr.length)) != NULL) {
 
                         ape_tag_items = m_tag->ape_tag_hdr.item_count;
@@ -557,6 +557,11 @@ static int append_ape_tag_item (WavpackContext *wpc, const char *item, const cha
     if (m_tag->ape_tag_hdr.ID [0] == 'A') {
         int new_item_len = vsize + isize + 9, flags = type << 1;
         unsigned char *p;
+
+        if (m_tag->ape_tag_hdr.length + new_item_len > APE_TAG_MAX_LENGTH) {
+            strcpy (wpc->error_message, "APEv2 tag exceeds maximum allowed length!");
+            return FALSE;
+        }
 
         m_tag->ape_tag_hdr.item_count++;
         m_tag->ape_tag_hdr.length += new_item_len;

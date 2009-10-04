@@ -92,6 +92,7 @@ typedef struct {
 #define APE_TAG_TYPE_BINARY     0x1
 #define APE_TAG_THIS_IS_HEADER  0x20000000
 #define APE_TAG_CONTAINS_HEADER 0x80000000
+#define APE_TAG_MAX_LENGTH      (1024 * 1024)
 
 typedef struct {
     int32_t tag_file_pos;
