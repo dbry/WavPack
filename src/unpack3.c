@@ -35,7 +35,7 @@ int32_t dump_alloc (void);
 #endif
 
 static void unpack_init3 (WavpackStream3 *wps);
-static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader *reader, void *id);
+static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader64 *reader, void *id);
 static void bs_close_read3 (Bitstream3 *bs);
 #ifndef NO_SEEKING
 static void bs_restore3 (Bitstream3 *bs);
@@ -322,7 +322,7 @@ static void bs_read3 (Bitstream3 *bs)
 // data is located.  A return value of TRUE indicates an error in
 // allocating buffer space.
 
-static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader *reader, void *id)
+static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader64 *reader, void *id)
 {
     bs->fpos = (bs->reader = reader)->get_pos (bs->id = id);
 

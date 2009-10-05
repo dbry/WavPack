@@ -48,6 +48,8 @@ AC_HEADER_STDC
 AC_CHECK_LIBM
 AC_SUBST(LIBM)
 
+AC_SYS_LARGEFILE
+
 # Check if cross-compiling on mingw
 AC_MINGW32
 

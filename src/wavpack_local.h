@@ -94,7 +94,7 @@ typedef struct {
 #define APE_TAG_CONTAINS_HEADER 0x80000000
 
 typedef struct {
-    int32_t tag_file_pos;
+    int64_t tag_file_pos;
     ID3_Tag id3_tag;
     APE_Tag_Hdr ape_tag_hdr;
     unsigned char *ape_tag_data;
@@ -401,6 +401,22 @@ typedef struct {
     int32_t (*write_bytes)(void *id, void *data, int32_t bcount);
 } WavpackStreamReader;
 
+// Extended version of structure for handling large files and added functionality for truncating files
+
+typedef struct {
+    int32_t (*read_bytes)(void *id, void *data, int32_t bcount);
+    int64_t (*get_pos)(void *id);                               // new signature for large files
+    int (*set_pos_abs)(void *id, int64_t pos);                  // new signature for large files
+    int (*set_pos_rel)(void *id, int64_t delta, int mode);      // new signature for large files
+    int (*push_back_byte)(void *id, int c);
+    int64_t (*get_length)(void *id);                            // new signature for large files
+    int (*can_seek)(void *id);
+
+    // these callbacks are currently for writing edited tags only
+    int32_t (*write_bytes)(void *id, void *data, int32_t bcount);
+    int (*truncate_here)(void *id);                             // new function to truncate file at current position
+} WavpackStreamReader64;
+
 typedef int (*WavpackBlockOutput)(void *id, void *data, int32_t bcount);
 
 typedef struct {
@@ -416,10 +432,11 @@ typedef struct {
     WavpackBlockOutput blockout;
     void *wv_out, *wvc_out;
 
-    WavpackStreamReader *reader;
+    WavpackStreamReader64 *reader;
     void *wv_in, *wvc_in;
 
-    uint32_t filelen, file2len, filepos, file2pos, total_samples, crc_errors, first_flags;
+    int64_t filelen, file2len, filepos, file2pos;
+    uint32_t total_samples, crc_errors, first_flags;
     int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, close_files;
     uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, initial_index;
     int riff_header_added, riff_header_created;
@@ -655,6 +672,8 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
 
 // wputils.c
 
+WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id,
+    char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
 

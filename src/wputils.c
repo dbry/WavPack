@@ -62,8 +62,8 @@ static const uint32_t sample_rates [] = { 6000, 8000, 9600, 11025, 12000, 16000,
 
 #if !defined(NO_UNPACK) || defined(INFO_ONLY)
 
-static uint32_t read_next_header (WavpackStreamReader *reader, void *id, WavpackHeader *wphdr);
-static uint32_t seek_final_index (WavpackStreamReader *reader, void *id);
+static uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr);
+static uint32_t seek_final_index (WavpackStreamReader64 *reader, void *id);
 static int read_wvc_block (WavpackContext *wpc);
 
 // This code provides an interface between the reader callback mechanism that
@@ -76,19 +76,31 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
     return (int32_t) fread (data, 1, bcount, (FILE*) id);
 }
 
-static uint32_t get_pos (void *id)
+static int64_t get_pos (void *id)
 {
+#ifdef WIN32
+    return _ftelli64 ((FILE*) id);
+#else
     return ftell ((FILE*) id);
+#endif
 }
 
-static int set_pos_abs (void *id, uint32_t pos)
+static int set_pos_abs (void *id, int64_t pos)
 {
+#ifdef WIN32
+    return _fseeki64 (id, pos, SEEK_SET);
+#else
     return fseek (id, pos, SEEK_SET);
+#endif
 }
 
-static int set_pos_rel (void *id, int32_t delta, int mode)
+static int set_pos_rel (void *id, int64_t delta, int mode)
 {
+#ifdef WIN32
+    return _fseeki64 (id, delta, mode);
+#else
     return fseek (id, delta, mode);
+#endif
 }
 
 static int push_back_byte (void *id, int c)
@@ -96,7 +108,22 @@ static int push_back_byte (void *id, int c)
     return ungetc (c, id);
 }
 
-static uint32_t get_length (void *id)
+#ifdef WIN32
+
+static int64_t get_length (void *id)
+{
+    FILE *file = id;
+    struct stat64 statbuf;
+
+    if (!file || fstat64 (fileno (file), &statbuf) || !(statbuf.st_mode & S_IFREG))
+        return 0;
+
+    return statbuf.st_size;
+}
+
+#else
+
+static int64_t get_length (void *id)
 {
     FILE *file = id;
     struct stat statbuf;
@@ -106,6 +133,8 @@ static uint32_t get_length (void *id)
 
     return statbuf.st_size;
 }
+
+#endif
 
 static int can_seek (void *id)
 {
@@ -120,7 +149,7 @@ static int32_t write_bytes (void *id, void *data, int32_t bcount)
     return (int32_t) fwrite (data, 1, bcount, (FILE*) id);
 }
 
-static WavpackStreamReader freader = {
+static WavpackStreamReader64 freader = {
     read_bytes, get_pos, set_pos_abs, set_pos_rel, push_back_byte, get_length, can_seek,
     write_bytes
 };
@@ -185,7 +214,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
     else
         wvc_id = NULL;
 
-    wpc = WavpackOpenFileInputEx (&freader, wv_id, wvc_id, error, flags, norm_offset);
+    wpc = WavpackOpenFileInputEx64 (&freader, wv_id, wvc_id, error, flags, norm_offset);
 
     if (!wpc) {
         if (wv_id)
@@ -202,6 +231,87 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 
 #endif
 
+// This code provides an interface between the new reader callback mechanism that
+// WavPack uses internally and the old reader callback functions that did not
+// provide large file support.
+
+typedef struct {
+    WavpackStreamReader *reader;
+    void *id;
+} WavpackReaderTranslator;
+
+static int32_t trans_read_bytes (void *id, void *data, int32_t bcount)
+{
+    WavpackReaderTranslator *trans = id;
+    return trans->reader->read_bytes (trans->id, data, bcount);
+}
+
+static int64_t trans_get_pos (void *id)
+{
+    WavpackReaderTranslator *trans = id;
+    return trans->reader->get_pos (trans->id);
+}
+
+static int trans_set_pos_abs (void *id, int64_t pos)
+{
+    WavpackReaderTranslator *trans = id;
+    return trans->reader->set_pos_abs (trans->id, pos);
+}
+
+static int trans_set_pos_rel (void *id, int64_t delta, int mode)
+{
+    WavpackReaderTranslator *trans = id;
+    return trans->reader->set_pos_rel (trans->id, delta, mode);
+}
+
+static int trans_push_back_byte (void *id, int c)
+{
+    WavpackReaderTranslator *trans = id;
+    return trans->reader->push_back_byte (trans->id, c);
+}
+
+static int64_t trans_get_length (void *id)
+{
+    WavpackReaderTranslator *trans = id;
+    return trans->reader->get_length (trans->id);
+}
+
+static int trans_can_seek (void *id)
+{
+    WavpackReaderTranslator *trans = id;
+    return trans->reader->can_seek (trans->id);
+}
+
+static int32_t trans_write_bytes (void *id, void *data, int32_t bcount)
+{
+    WavpackReaderTranslator *trans = id;
+    return trans->reader->write_bytes (trans->id, data, bcount);
+}
+
+static WavpackStreamReader64 trans_reader = {
+    trans_read_bytes, trans_get_pos, trans_set_pos_abs, trans_set_pos_rel, trans_push_back_byte, trans_get_length, trans_can_seek,
+    trans_write_bytes
+};
+
+WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
+{
+    WavpackReaderTranslator *trans_wv = NULL, *trans_wvc = NULL;
+
+    if (wv_id) {
+        trans_wv = malloc (sizeof (WavpackReaderTranslator));
+        trans_wv->reader = reader;
+        trans_wv->id = wv_id;
+    }
+
+    if (wvc_id) {
+        trans_wvc = malloc (sizeof (WavpackReaderTranslator));
+        trans_wvc->reader = reader;
+        trans_wvc->id = wvc_id;
+    }
+
+    return WavpackOpenFileInputEx64 (&trans_reader, trans_wv, trans_wvc, error, flags, norm_offset);
+}
+
 // This function is identical to WavpackOpenFileInput() except that instead
 // of providing a filename to open, the caller provides a pointer to a set of
 // reader callbacks and instances of up to two streams. The first of these
@@ -210,7 +320,8 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 // function which handles the correction file transparently, in this case it
 // is the responsibility of the caller to be aware of correction files.
 
-WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
+WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id,
+    char *error, int flags, int norm_offset)
 {
     WavpackContext *wpc = malloc (sizeof (WavpackContext));
     WavpackStream *wps;
@@ -1832,7 +1943,7 @@ void WavpackSeekTrailingWrapper (WavpackContext *wpc)
 // last sample or an extra seek will occur). A return value of FALSE indicates
 // that no MD5 checksum was stored.
 
-static int seek_md5 (WavpackStreamReader *reader, void *id, uchar data [16]);
+static int seek_md5 (WavpackStreamReader64 *reader, void *id, uchar data [16]);
 
 int WavpackGetMD5Sum (WavpackContext *wpc, uchar data [16])
 {
@@ -1908,7 +2019,7 @@ static void free_streams (WavpackContext *wpc)
 // to indicate the error. No additional bytes are read past the header and it
 // is returned in the processor's native endian mode. Seeking is not required.
 
-static uint32_t read_next_header (WavpackStreamReader *reader, void *id, WavpackHeader *wphdr)
+static uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr)
 {
     unsigned char buffer [sizeof (*wphdr)], *sp = buffer + sizeof (*wphdr), *ep = sp;
     uint32_t bytes_skipped = 0;
@@ -1951,7 +2062,7 @@ static uint32_t read_next_header (WavpackStreamReader *reader, void *id, Wavpack
 // pointer undefined. A return value of -1 indicates the length could not
 // be determined.
 
-static uint32_t seek_final_index (WavpackStreamReader *reader, void *id)
+static uint32_t seek_final_index (WavpackStreamReader64 *reader, void *id)
 {
     uint32_t result = (uint32_t) -1, bcount;
     WavpackHeader wphdr;
@@ -1983,7 +2094,7 @@ static uint32_t seek_final_index (WavpackStreamReader *reader, void *id)
     }
 }
 
-static int seek_md5 (WavpackStreamReader *reader, void *id, uchar data [16])
+static int seek_md5 (WavpackStreamReader64 *reader, void *id, uchar data [16])
 {
     uchar meta_id, c1, c2;
     uint32_t bcount, meta_bc;
@@ -2029,7 +2140,7 @@ static int seek_md5 (WavpackStreamReader *reader, void *id, uchar data [16])
 
 static void seek_riff_trailer (WavpackContext *wpc)
 {
-    WavpackStreamReader *reader = wpc->reader;
+    WavpackStreamReader64 *reader = wpc->reader;
     void *id = wpc->wv_in;
     uchar meta_id, c1, c2;
     uint32_t bcount, meta_bc;
@@ -2189,7 +2300,7 @@ static int read_wvc_block (WavpackContext *wpc)
 
 #define BUFSIZE 4096
 
-static uint32_t find_header (WavpackStreamReader *reader, void *id, uint32_t filepos, WavpackHeader *wphdr)
+static uint32_t find_header (WavpackStreamReader64 *reader, void *id, uint32_t filepos, WavpackHeader *wphdr)
 {
     unsigned char *buffer = malloc (BUFSIZE), *sp = buffer, *ep = buffer;
 
