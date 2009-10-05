@@ -102,10 +102,34 @@ if test "x$enable_mmx" = "xyes" ; then
     $CC $CFLAGS -mmmx -S -o /dev/null -xc /dev/null > /dev/null 2>&1 && CFLAGS="-mmmx $CFLAGS"
 fi
 
+AC_ARG_ENABLE(man,
+              [AC_HELP_STRING([--enable-man],
+                              [regenerate man pages from Docbook [default=no]])],enable_man=yes,
+              enable_man=no)
+
+if test "${enable_man}" != no; then
+  dnl
+  dnl Check for xsltproc
+  dnl
+  AC_PATH_PROG([XSLTPROC], [xsltproc])
+  if test -z "$XSLTPROC"; then
+    enable_man=no
+  fi
+
+  dnl check for DocBook DTD and stylesheets in the local catalog.
+  JH_CHECK_XML_CATALOG([-//OASIS//DTD DocBook XML V4.1.2//EN],
+     [DocBook XML DTD V4.1.2],,enable_man=no)
+  JH_CHECK_XML_CATALOG([http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl],
+     [DocBook XSL Stylesheets],,enable_man=no)
+fi
+
+AM_CONDITIONAL(ENABLE_MAN, test x$enable_man != xno)
+
 AC_CONFIG_FILES(
 Makefile
 wavpack.pc
 src/Makefile
 include/Makefile
-cli/Makefile)
+cli/Makefile
+man/Makefile)
 AC_OUTPUT

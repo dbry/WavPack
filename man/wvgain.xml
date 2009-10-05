@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.4//EN"
+"http://www.oasis-open.org/docbook/xml/4.4/docbookx.dtd" [
+]>
+<refentry>
+  <refentryinfo>
+    <author>
+      <firstname>Sebastian</firstname>
+      <surname>Dröge</surname>
+      <email>slomo@debian.org</email>
+    </author>
+    <copyright>
+      <year>2005</year>
+      <holder>Sebastian Dröge</holder>
+    </copyright>
+    <date>2005-12-15</date>
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>wvgain</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>wvgain</refname>
+    <refpurpose>adds ReplayGain informations to wavpack files</refpurpose>
+  </refnamediv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>wvgain</command>
+      <arg choice="opt">
+        <option><replaceable>-options</replaceable></option>
+      </arg>
+      <arg choice="opt">
+        <option><replaceable>INFILE</replaceable></option>
+      </arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1>
+    <title>DESCRIPTION</title>
+    <para>
+       wvgain analyzes wavpack files for ReplayGain informations and adds them
+       to the files. This will yield to files with the same perceived loudness.
+    </para>
+  </refsect1>
+  <refsect1>
+    <title>OPTIONS</title>
+    <para>
+      <variablelist>
+        <varlistentry>
+          <term> <option>-a</option> </term>
+          <listitem> <para>album mode (all files scanned are considered an album)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-c</option> </term>
+          <listitem> <para>clean ReplayGain values from all files</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-d</option> </term>
+          <listitem> <para>display calculated values only (no files are modified)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-i</option> </term>
+          <listitem> <para>ignore .wvc file (forces hybrid lossy)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-s</option> </term>
+          <listitem> <para>show stored values only (no analysis)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-q</option> </term>
+          <listitem> <para>quiet (keep console output to a minimum)</para> </listitem>
+        </varlistentry>
+      </variablelist>
+    </para>
+  </refsect1>
+  <refsect1>
+    <title>SEE ALSO</title>
+    <para>
+      Please visit www.wavpack.com for more informations
+    </para>
+  </refsect1>
+  <refsect1>
+    <title>COPYRIGHT</title>
+    <para>
+      This manual page was written by Sebastian Dröge
+      <email>slomo@debian.org</email>.
+      Permission is granted to copy, distribute and/or modify this document
+      under the terms of the <acronym>BSD</acronym> License.
+    </para>
+  </refsect1>
+</refentry>
+

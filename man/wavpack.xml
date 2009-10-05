@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.4//EN"
+"http://www.oasis-open.org/docbook/xml/4.4/docbookx.dtd" [
+]>
+<refentry>
+  <refentryinfo>
+    <author>
+      <firstname>Sebastian</firstname>
+      <surname>Dröge</surname>
+      <email>slomo@debian.org</email>
+    </author>
+    <copyright>
+      <year>2005</year>
+      <holder>Sebastian Dröge</holder>
+    </copyright>
+    <date>2005-10-13</date>
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>wavpack</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>wavpack</refname>
+    <refpurpose>encode wav files to wavpack</refpurpose>
+  </refnamediv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>wavpack</command>
+      <arg choice="opt">
+        <option><replaceable>-options</replaceable></option>
+      </arg>
+      <arg choice="opt">
+        <option><replaceable>INFILE</replaceable></option>
+      </arg>
+      <arg choice="opt">
+        <option><replaceable>OUTFILE</replaceable></option>
+      </arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1>
+    <title>DESCRIPTION</title>
+    <para>
+       wavpack encodes WAV files or from stdin to WavPack with the options you
+       provide. It can write to plain files or stdout.
+    </para>
+  </refsect1>
+  <refsect1>
+    <title>OPTIONS</title>
+    <para>
+      <variablelist>
+        <varlistentry>
+          <term> <option>-a</option> </term>
+          <listitem> <para>Adobe Audition (CoolEdit) mode for 32-bit floats</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-bn</option> </term>
+          <listitem> <para>enable hybrid compression, n = 2.0 to 23.9 bits/sample, or n = 24-9600 kbits/second (kbps)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-c</option> </term>
+          <listitem> <para>create correction file (.wvc) for hybrid mode (=lossless)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-cc</option> </term>
+          <listitem> <para>maximum hybrid compression (hurts lossy quality &amp; decode speed)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-d</option> </term>
+          <listitem> <para>delete source file if successful (use with caution!)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-f</option> </term>
+          <listitem> <para>fast mode (fast, but some compromise in compression ratio)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-h</option> </term>
+          <listitem> <para>high quality (best compression in all modes, but slower)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-i</option> </term>
+          <listitem> <para>ignore length in wav header (no pipe output allowed)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-jn</option> </term>
+          <listitem> <para>joint-stereo override (0 = left/right, 1 = mid/side)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-m</option> </term>
+          <listitem> <para>compute &amp; store MD5 signature of raw audio data</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-n</option> </term>
+          <listitem> <para>calculate average and peak quantization noise (hybrid only)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-p</option> </term>
+          <listitem> <para>practical float storage (also 32-bit ints, not lossless)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-q</option> </term>
+          <listitem> <para>quiet (keep console output to a minimum)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-sn</option> </term>
+          <listitem> <para>noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-w "Field=Value"</option> </term>
+          <listitem> <para>write specified metadata to APEv2 tag</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-x[n]</option> </term>
+          <listitem> <para>extra encode processing (optional n = 1-6 for less/more)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-y</option> </term>
+          <listitem> <para>yes to all warnings (use with caution!)</para> </listitem>
+        </varlistentry>
+      </variablelist>
+    </para>
+  </refsect1>
+  <refsect1>
+    <title>SEE ALSO</title>
+    <para>
+      Please visit www.wavpack.com for more informations
+    </para>
+  </refsect1>
+  <refsect1>
+    <title>COPYRIGHT</title>
+    <para>
+      This manual page was written by Sebastian Dröge
+      <email>slomo@debian.org</email>.
+      Permission is granted to copy, distribute and/or modify this document
+      under the terms of the <acronym>BSD</acronym> License.
+    </para>
+  </refsect1>
+</refentry>
+
