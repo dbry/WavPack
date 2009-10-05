@@ -37,6 +37,8 @@
 #ifdef WIN32
 #define stricmp(x,y) _stricmp(x,y)
 #define fileno _fileno
+#define stat64 __stat64
+#define fstat64 _fstat64
 #else
 #define stricmp(x,y) strcasecmp(x,y)
 #endif
