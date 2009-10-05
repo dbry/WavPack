@@ -7,3 +7,7 @@ endif
 
 EXTRA_DIST = $(man_MANS)
 
+MAINTAINERCLEANFILES = \
+	$(man_MANS) \
+	Makefile.in
+
