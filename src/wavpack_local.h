@@ -516,9 +516,9 @@ uint32_t bs_close_write (Bitstream *bs);
 
 int DoReadFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToRead, uint32_t *lpNumberOfBytesRead);
 int DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, uint32_t *lpNumberOfBytesWritten);
-uint32_t DoGetFileSize (FILE *hFile), DoGetFilePosition (FILE *hFile);
-int DoSetFilePositionRelative (FILE *hFile, int32_t pos, int mode);
-int DoSetFilePositionAbsolute (FILE *hFile, uint32_t pos);
+int64_t DoGetFileSize (FILE *hFile), DoGetFilePosition (FILE *hFile);
+int DoSetFilePositionRelative (FILE *hFile, int64_t pos, int mode);
+int DoSetFilePositionAbsolute (FILE *hFile, int64_t pos);
 int DoUngetc (int c, FILE *hFile), DoDeleteFile (char *filename);
 int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
 
@@ -585,6 +585,8 @@ int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
 
 void little_endian_to_native (void *data, char *format);
 void native_to_little_endian (void *data, char *format);
+void big_endian_to_native (void *data, char *format);
+void native_to_big_endian (void *data, char *format);
 
 // pack.c
 
@@ -726,6 +728,7 @@ void WavpackFreeWrapper (WavpackContext *wpc);
 void WavpackSeekTrailingWrapper (WavpackContext *wpc);
 double WavpackGetProgress (WavpackContext *wpc);
 uint32_t WavpackGetFileSize (WavpackContext *wpc);
+int64_t WavpackGetFileSize64 (WavpackContext *wpc);
 double WavpackGetRatio (WavpackContext *wpc);
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc);
 double WavpackGetInstantBitrate (WavpackContext *wpc);

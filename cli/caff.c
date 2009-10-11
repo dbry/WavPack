@@ -195,13 +195,13 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             int supported = TRUE;
 
             if (caf_chunk_header.mChunkSize != sizeof (CAFAudioFormat) ||
-                !DoReadFile (infile, &caf_audio_format, caf_chunk_header.mChunkSize, &bcount) ||
+                !DoReadFile (infile, &caf_audio_format, (uint32_t) caf_chunk_header.mChunkSize, &bcount) ||
                 bcount != caf_chunk_header.mChunkSize) {
                     error_line ("%s is not a valid .CAF file!", infilename);
                     return SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, &caf_audio_format, caf_chunk_header.mChunkSize)) {
+                !WavpackAddWrapper (wpc, &caf_audio_format, (uint32_t) caf_chunk_header.mChunkSize)) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     return SOFT_ERROR;
             }
@@ -266,18 +266,18 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             }
         }
         else if (!strncmp (caf_chunk_header.mChunkType, "chan", 4)) {
-            CAFChannelLayout *caf_channel_layout = malloc (caf_chunk_header.mChunkSize);
+            CAFChannelLayout *caf_channel_layout = malloc ((size_t) caf_chunk_header.mChunkSize);
             int supported = TRUE;
 
             if (caf_chunk_header.mChunkSize < sizeof (CAFChannelLayout) ||
-                !DoReadFile (infile, caf_channel_layout, caf_chunk_header.mChunkSize, &bcount) ||
+                !DoReadFile (infile, caf_channel_layout, (uint32_t) caf_chunk_header.mChunkSize, &bcount) ||
                 bcount != caf_chunk_header.mChunkSize) {
                     error_line ("%s is not a valid .CAF file!", infilename);
                     free (caf_channel_layout);
                     return SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, caf_channel_layout, caf_chunk_header.mChunkSize)) {
+                !WavpackAddWrapper (wpc, caf_channel_layout, (uint32_t) caf_chunk_header.mChunkSize)) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     free (caf_channel_layout);
                     return SOFT_ERROR;
@@ -343,7 +343,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     return SOFT_ERROR;
                 }
 
-                total_samples = (caf_chunk_header.mChunkSize - 4) / caf_audio_format.mBytesPerPacket;
+                total_samples = (uint32_t) ((caf_chunk_header.mChunkSize - 4) / caf_audio_format.mBytesPerPacket);
 
                 if (!total_samples && !(config->qmode & QMODE_IGNORE_LENGTH)) {
                     error_line ("this .CAF file has no audio samples, probably is corrupt!");
@@ -355,7 +355,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         }
         else {          // just copy unknown chunks to output file
 
-            int bytes_to_copy = caf_chunk_header.mChunkSize;
+            int bytes_to_copy = (uint32_t) caf_chunk_header.mChunkSize;
             char *buff = malloc (bytes_to_copy);
 
             if (debug_logging_mode)

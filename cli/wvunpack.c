@@ -1608,7 +1608,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
     if (name && *name != '-') {
         fprintf (dst, "file name:         %s%s\n", name, (WavpackGetMode (wpc) & MODE_WVC) ? " (+wvc)" : "");
-        fprintf (dst, "file size:         %u bytes\n", WavpackGetFileSize (wpc));
+        fprintf (dst, "file size:         %ll bytes\n", WavpackGetFileSize64 (wpc));
     }
 
     fprintf (dst, "source:            %d-bit %s at %u Hz\n", WavpackGetBitsPerSample (wpc),

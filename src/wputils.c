@@ -257,13 +257,13 @@ static int64_t trans_get_pos (void *id)
 static int trans_set_pos_abs (void *id, int64_t pos)
 {
     WavpackReaderTranslator *trans = id;
-    return trans->reader->set_pos_abs (trans->id, pos);
+    return trans->reader->set_pos_abs (trans->id, (uint32_t) pos);
 }
 
 static int trans_set_pos_rel (void *id, int64_t delta, int mode)
 {
     WavpackReaderTranslator *trans = id;
-    return trans->reader->set_pos_rel (trans->id, delta, mode);
+    return trans->reader->set_pos_rel (trans->id, (int32_t) delta, mode);
 }
 
 static int trans_push_back_byte (void *id, int c)
@@ -398,7 +398,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
                 wps->wphdr.block_index = 0;
 
                 if (wpc->reader->can_seek (wpc->wv_in)) {
-                    uint32_t pos_save = wpc->reader->get_pos (wpc->wv_in);
+                    int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
                     uint32_t final_index = seek_final_index (wpc->reader, wpc->wv_in);
 
                     if (final_index != (uint32_t) -1)
@@ -809,7 +809,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
 #ifndef NO_SEEKING
 
-static uint32_t find_sample (WavpackContext *wpc, void *infile, uint32_t header_pos, uint32_t sample);
+static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, uint32_t sample);
 
 // Seek to the specifed sample index, returning TRUE on success. Note that
 // files generated with version 4.0 or newer will seek almost immediately.
@@ -1708,6 +1708,11 @@ double WavpackGetProgress (WavpackContext *wpc)
 
 uint32_t WavpackGetFileSize (WavpackContext *wpc)
 {
+    return (uint32_t) (wpc ? wpc->filelen + wpc->file2len : 0);
+}
+
+int64_t WavpackGetFileSize64 (WavpackContext *wpc)
+{
     return wpc ? wpc->filelen + wpc->file2len : 0;
 }
 
@@ -1934,7 +1939,7 @@ void WavpackSeekTrailingWrapper (WavpackContext *wpc)
 {
     if ((wpc->open_flags & OPEN_WRAPPER) &&
         wpc->reader->can_seek (wpc->wv_in) && !wpc->stream3) {
-            uint32_t pos_save = wpc->reader->get_pos (wpc->wv_in);
+            int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
 
             seek_riff_trailer (wpc);
             wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
@@ -1955,7 +1960,7 @@ int WavpackGetMD5Sum (WavpackContext *wpc, uchar data [16])
             return TRUE;
         }
         else if (wpc->reader->can_seek (wpc->wv_in)) {
-            uint32_t pos_save = wpc->reader->get_pos (wpc->wv_in);
+            int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
 
             wpc->config.md5_read = seek_md5 (wpc->reader, wpc->wv_in, wpc->config.md5_checksum);
             wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
@@ -2241,7 +2246,7 @@ static int match_wvc_header (WavpackHeader *wv_hdr, WavpackHeader *wvc_hdr)
 static int read_wvc_block (WavpackContext *wpc)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uint32_t bcount, file2pos;
+    int64_t bcount, file2pos;
     WavpackHeader wphdr;
     int compare_result;
 
@@ -2302,7 +2307,7 @@ static int read_wvc_block (WavpackContext *wpc)
 
 #define BUFSIZE 4096
 
-static uint32_t find_header (WavpackStreamReader64 *reader, void *id, uint32_t filepos, WavpackHeader *wphdr)
+static int64_t find_header (WavpackStreamReader64 *reader, void *id, int64_t filepos, WavpackHeader *wphdr)
 {
     unsigned char *buffer = malloc (BUFSIZE), *sp = buffer, *ep = buffer;
 
@@ -2364,11 +2369,11 @@ static uint32_t find_header (WavpackStreamReader64 *reader, void *id, uint32_t f
 // or below that point. If a .wvc file is being used, then this must be called
 // for that file also.
 
-static uint32_t find_sample (WavpackContext *wpc, void *infile, uint32_t header_pos, uint32_t sample)
+static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, uint32_t sample)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uint32_t file_pos1 = 0, file_pos2 = wpc->reader->get_length (infile);
-    uint32_t sample_pos1 = 0, sample_pos2 = wpc->total_samples;
+    int64_t file_pos1 = 0, file_pos2 = wpc->reader->get_length (infile);
+    int64_t sample_pos1 = 0, sample_pos2 = wpc->total_samples;
     double ratio = 0.96;
     int file_skip = 0;
 
@@ -2390,18 +2395,18 @@ static uint32_t find_sample (WavpackContext *wpc, void *infile, uint32_t header_
 
     while (1) {
         double bytes_per_sample;
-        uint32_t seek_pos;
+        int64_t seek_pos;
 
-        bytes_per_sample = file_pos2 - file_pos1;
+        bytes_per_sample = (double) file_pos2 - file_pos1;
         bytes_per_sample /= sample_pos2 - sample_pos1;
         seek_pos = file_pos1 + (file_skip ? 32 : 0);
-        seek_pos += (uint32_t)(bytes_per_sample * (sample - sample_pos1) * ratio);
+        seek_pos += (int64_t)(bytes_per_sample * (sample - sample_pos1) * ratio);
         seek_pos = find_header (wpc->reader, infile, seek_pos, &wps->wphdr);
 
-        if (seek_pos != (uint32_t) -1)
+        if (seek_pos != (int64_t) -1)
             wps->wphdr.block_index -= wpc->initial_index;
 
-        if (seek_pos == (uint32_t) -1 || seek_pos >= file_pos2) {
+        if (seek_pos == (int64_t) -1 || seek_pos >= file_pos2) {
             if (ratio > 0.0) {
                 if ((ratio -= 0.24) < 0.0)
                     ratio = 0.0;
