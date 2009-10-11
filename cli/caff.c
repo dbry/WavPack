@@ -78,11 +78,13 @@ typedef struct
 
 #define CAFFileHeaderFormat "4SS"
 
+#pragma pack(push,4)
 typedef struct
 {
     char mChunkType [4];
     int64_t mChunkSize;
 } CAFChunkHeader;
+#pragma pack(pop)
 
 #define CAFChunkHeaderFormat "4D"
 
