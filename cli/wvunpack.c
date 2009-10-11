@@ -79,6 +79,8 @@ static const char *usage =
 "               (note: equivalent to -x \"cuesheet\")\n"
 "          -cc = extract cuesheet file (.cue) in addition to audio file\n"
 "               (note: equivalent to -xx \"cuesheet=%a.cue\")\n"
+"          --caf-be = force extraction to big-endian Core Audio (extension .caf)\n"
+"          --caf-le = force extraction to little-endian Core Audio (extension .caf)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
 "          --help = this help display\n"
 "          -i  = ignore .wvc file (forces hybrid lossy decompression)\n"
@@ -1608,7 +1610,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
     if (name && *name != '-') {
         fprintf (dst, "file name:         %s%s\n", name, (WavpackGetMode (wpc) & MODE_WVC) ? " (+wvc)" : "");
-        fprintf (dst, "file size:         %ll bytes\n", WavpackGetFileSize64 (wpc));
+        fprintf (dst, "file size:         %lld bytes\n", WavpackGetFileSize64 (wpc));
     }
 
     fprintf (dst, "source:            %d-bit %s at %u Hz\n", WavpackGetBitsPerSample (wpc),
