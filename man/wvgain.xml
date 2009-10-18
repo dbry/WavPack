@@ -9,11 +9,20 @@
       <surname>Dröge</surname>
       <email>slomo@debian.org</email>
     </author>
+    <author>
+      <firstname>David</firstname>
+      <surname>Bryant</surname>
+      <email>david@wavpack.com</email>
+    </author>
     <copyright>
       <year>2005</year>
       <holder>Sebastian Dröge</holder>
     </copyright>
-    <date>2005-12-15</date>
+    <copyright>
+      <year>2009</year>
+      <holder>David Bryant</holder>
+    </copyright>
+    <date>2009-10-17</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvgain</refentrytitle>
@@ -21,7 +30,7 @@
   </refmeta>
   <refnamediv>
     <refname>wvgain</refname>
-    <refpurpose>adds ReplayGain informations to wavpack files</refpurpose>
+    <refpurpose>adds ReplayGain information to wavpack files</refpurpose>
   </refnamediv>
   <refsynopsisdiv>
     <cmdsynopsis>
@@ -29,7 +38,7 @@
       <arg choice="opt">
         <option><replaceable>-options</replaceable></option>
       </arg>
-      <arg choice="opt">
+      <arg choice="plain" rep="repeat">
         <option><replaceable>INFILE</replaceable></option>
       </arg>
     </cmdsynopsis>
@@ -37,8 +46,9 @@
   <refsect1>
     <title>DESCRIPTION</title>
     <para>
-       wvgain analyzes wavpack files for ReplayGain informations and adds them
-       to the files. This will yield to files with the same perceived loudness.
+       <command>wvgain</command> perceptually analyzes WavPack audio files for volume, calculates ReplayGain information based on this,
+       and adds the appropriate APEv2 tag fields. ReplayGain-enabled players will use this information to produce the same perceived loudness
+       on all tracks. Both individual track and whole album ReplayGain information can be calculated.
     </para>
   </refsect1>
   <refsect1>
@@ -62,6 +72,10 @@
           <listitem> <para>ignore .wvc file (forces hybrid lossy)</para> </listitem>
         </varlistentry>
         <varlistentry>
+          <term> <option>-n</option> </term>
+          <listitem> <para>new files only (skip files with track info, or album info if album mode specified)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
           <term> <option>-s</option> </term>
           <listitem> <para>show stored values only (no analysis)</para> </listitem>
         </varlistentry>
@@ -74,15 +88,22 @@
   </refsect1>
   <refsect1>
     <title>SEE ALSO</title>
+    <para><citerefentry>
+      <refentrytitle>wavpack</refentrytitle>
+      <manvolnum>1</manvolnum>
+    </citerefentry>, <citerefentry>
+      <refentrytitle>wvunpack</refentrytitle>
+      <manvolnum>1</manvolnum>
+    </citerefentry></para>
     <para>
-      Please visit www.wavpack.com for more informations
+      Please visit www.wavpack.com for more information
     </para>
   </refsect1>
   <refsect1>
     <title>COPYRIGHT</title>
     <para>
       This manual page was written by Sebastian Dröge
-      <email>slomo@debian.org</email>.
+      <email>slomo@debian.org</email> and David Bryant <email>david@wavpack.com</email>.
       Permission is granted to copy, distribute and/or modify this document
       under the terms of the <acronym>BSD</acronym> License.
     </para>
