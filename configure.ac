@@ -1,13 +1,13 @@
-# wavpack 4.60.0 configure.ac
+# wavpack 4.60.1 configure.ac
 
-AC_INIT(wavpack, 4.60.0, bryant@wavpack.com)
-AM_INIT_AUTOMAKE(wavpack, 4.60.0, bryant@wavpack.com)
+AC_INIT(wavpack, 4.60.1, bryant@wavpack.com)
+AM_INIT_AUTOMAKE(wavpack, 4.60.1, bryant@wavpack.com)
 AC_CONFIG_SRCDIR([src/pack.c])
 AM_MAINTAINER_MODE
 
 LIBWAVPACK_MAJOR=4
 LIBWAVPACK_MINOR=60
-LIBWAVPACK_MICRO=0
+LIBWAVPACK_MICRO=1
 LIBWAVPACK_VERSION_STRING=$LIBWAVPACK_MAJOR.$LIBWAVPACK_MINOR.$LIBWAVPACK_MICRO
 
 AC_DEFINE_UNQUOTED(LIBWAVPACK_MAJOR, $LIBWAVPACK_MAJOR, [libwavpack major version])
@@ -21,7 +21,7 @@ AC_DEFINE_UNQUOTED(LIBWAVPACK_VERSION_STRING, "$LIBWAVPACK_VERSION_STRING", [lib
 #  ? : +1 :  ?   == internal changes that doesn't break anything.
 # CURRENT : REVISION : AGE
 LT_CURRENT=2
-LT_REVISION=3
+LT_REVISION=4
 LT_AGE=1
 
 AC_SUBST(LT_CURRENT)
