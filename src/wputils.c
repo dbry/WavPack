@@ -464,7 +464,7 @@ char *WavpackGetErrorMessage (WavpackContext *wpc)
 
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream = 0];
+    WavpackStream *wps = wpc->streams ? wpc->streams [wpc->current_stream = 0] : NULL;
     uint32_t bcount, samples_unpacked = 0, samples_to_unpack;
     int num_channels = wpc->config.num_channels;
     int file_done = FALSE;
@@ -706,7 +706,7 @@ static uint32_t find_sample (WavpackContext *wpc, void *infile, uint32_t header_
 
 int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream = 0];
+    WavpackStream *wps = wpc->streams ? wpc->streams [wpc->current_stream = 0] : NULL;
     uint32_t bcount, samples_to_skip;
     int32_t *buffer;
 
