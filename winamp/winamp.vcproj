@@ -4,6 +4,7 @@
 	Version="8.00"
 	Name="winamp"
 	ProjectGUID="{1DB9C3E7-D670-46EB-B006-CCF94982D484}"
+	RootNamespace="winamp"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -142,6 +143,8 @@
 				Name="VCLinkerTool"
 				OutputFile="$(OutDir)\in_wv.dll"
 				LinkIncremental="1"
+				IgnoreAllDefaultLibraries="false"
+				IgnoreDefaultLibraryNames="MSVCRT"
 				GenerateDebugInformation="false"
 				SubSystem="2"
 				LargeAddressAware="0"
@@ -179,7 +182,7 @@
 	<References>
 		<ProjectReference
 			ReferencedProjectIdentifier="{5CCCB9CF-0384-458F-BA08-72B73866840F}"
-			RelativePathToProject="..\src\libwavpack.vcproj"
+			RelativePathToProject=".\src\libwavpack.vcproj"
 		/>
 	</References>
 	<Files>
@@ -198,6 +201,10 @@
 			</File>
 			<File
 				RelativePath=".\resource.h"
+				>
+			</File>
+			<File
+				RelativePath=".\wasabi\Wasabi.h"
 				>
 			</File>
 			<File
@@ -240,6 +247,10 @@
 						Detect64BitPortabilityProblems="false"
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\wasabi\Wasabi.cpp"
+				>
 			</File>
 		</Filter>
 	</Files>

@@ -15,12 +15,13 @@
 #include "in2.h"
 #include "wavpack.h"
 #include "resource.h"
+#include "wasabi/wasabi.h"
 
 #define fileno _fileno
 
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 
-#define PLUGIN_VERSION "2.6"
+#define PLUGIN_VERSION "2.7a"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 
@@ -248,6 +249,8 @@ void init() { /* any one-time initialization goes here (configuration reading, e
     HANDLE confile;
     DWORD result;
 
+	Wasabi_Init ();
+
     module = GetModuleHandle ("in_wv.dll");
     config_bits = 0;
 
@@ -318,6 +321,7 @@ void quit() { /* one-time deinit, such as memory freeing */
         debug_console = INVALID_HANDLE_VALUE;
     }
 #endif
+	Wasabi_Quit ();
 }
 
 int isourfile(char *fn)
@@ -1632,6 +1636,235 @@ static void generate_format_string (WavpackContext *wpc, char *string, int maxle
         else
             _snprintf (string, maxlen, "%s:\n  %s\n  %s\n", str_md5, md5s1, md5s2);
     }
+}
+
+///////////////////// native "C" functions required for AlbumArt support ///////////////////////////
+
+#ifdef DEBUG_CONSOLE
+
+static char temp_buff [256];
+
+static char *wide2char (const wchar_t *src)
+{
+	char *dst = temp_buff;
+
+	while (*src)
+		*dst++ = (char) *src++;
+
+	*dst = 0;
+	return temp_buff;
+}
+
+#endif
+
+int WavPack_HandlesExtension(const wchar_t *extension)
+{
+	return !_wcsicmp (extension, L"wv");
+}
+
+int WavPack_GetAlbumArt(const wchar_t *filename, const wchar_t *type, void **bits, size_t *len, wchar_t **mime_type)
+{
+	unsigned char *buffer;
+    char error [128];
+	int tag_size, i;
+    int retval = 1;
+
+#ifdef DEBUG_CONSOLE
+    sprintf (error, "WavPack_GetAlbumArt (%s)\n", wide2char (type));
+    debug_write (error);
+#endif
+
+    if (!filename || !*filename || _wcsicmp (type, L"cover"))
+        return retval;
+
+    if (!info.wpc || wcscmp (filename, info.w_lastfn)) {
+        close_context (&info);
+
+        if (!(info.wv_id = _wfopen (filename, L"rb")))
+            return retval;
+
+        if (config_bits & ALLOW_WVC) {
+            wchar_t *wvc_name = malloc (wcslen (filename) * 2 + 10);
+
+            if (wvc_name) {
+                wcscpy (wvc_name, filename);
+                wcscat (wvc_name, L"c");
+                info.wvc_id = _wfopen (wvc_name, L"rb");
+                free (wvc_name);
+            }
+        }
+
+        info.wpc = WavpackOpenFileInputEx (&freader, &info.wv_id,
+            info.wvc_id ? &info.wvc_id : NULL, error, OPEN_TAGS, 0);
+
+        if (!info.wpc) {
+            close_context (&info);
+            return retval;
+        }
+
+        wcscpy (info.w_lastfn, filename);
+        info.lastfn [0] = 0;
+    }
+
+	tag_size = WavpackGetBinaryTagItem (info.wpc, "Cover Art (Front)", NULL, 0);
+
+	if (!tag_size)
+		return retval;
+
+	buffer = Wasabi_Malloc (tag_size);
+	WavpackGetBinaryTagItem (info.wpc, "Cover Art (Front)", buffer, tag_size);
+
+	for (i = 0; i < tag_size - 1; ++i)
+		if (!buffer [i] && strrchr (buffer, '.')) {
+			char *ext = strrchr (buffer, '.') + 1;
+			wchar_t *wcptr;
+
+			wcptr = *mime_type = Wasabi_Malloc (strlen (ext) * 2 + 2);
+
+			while (*ext)
+				*wcptr++ = *ext++;
+
+			*wcptr = 0;
+			*bits = buffer;
+			*len = tag_size - i - 1;
+			memmove (buffer, buffer + i + 1, *len);
+			retval = 0;
+#ifdef DEBUG_CONSOLE
+			sprintf (error, "WavPack_GetAlbumArt (\"%s\", %d) success!\n", wide2char (*mime_type), *len);
+			debug_write (error);
+#endif
+		}
+
+	if (retval)
+		Wasabi_Free (buffer);
+
+    // This is a little ugly, but since the WavPack library has read the tags off the
+    // files, we can close the files (but not the WavPack context) now so that we don't
+    // leave handles open. We may access the file again for the "formatinformation"
+    // field, so we reopen the file if we get that one.
+
+    if (info.wv_id) {
+        fclose (info.wv_id);
+        info.wv_id = NULL;
+    }
+
+    if (info.wvc_id) {
+        fclose (info.wvc_id);
+        info.wvc_id = NULL;
+    }
+
+    return retval;
+}
+
+int WavPack_SetAlbumArt(const wchar_t *filename, const wchar_t *type, void *bits, size_t len, const wchar_t *mime_type)
+{
+    char error [128], name [50], *cp;
+	int tag_size, retval = 0;
+	unsigned char *buffer;
+
+#ifdef DEBUG_CONSOLE
+    sprintf (error, "WavPack_SetAlbumArt (%s)\n", wide2char (mime_type));
+    debug_write (error);
+#endif
+
+    if (!filename || !*filename || _wcsicmp (type, L"cover") || wcslen (mime_type) > 16)
+        return 1;
+
+	strcpy (name, "Cover Art (Front)");
+	cp = name + strlen (name);
+	*cp++ = '.';
+
+	while (*mime_type)
+		*cp++ = (char) *mime_type++;
+
+	*cp = 0;
+	tag_size = strlen (name) + 1 + len;
+	buffer = malloc (tag_size);
+	strcpy (buffer, name);
+	memcpy (buffer + strlen (buffer) + 1, bits, len);
+
+    if (!edit.wpc || wcscmp (filename, edit.w_lastfn)) {
+        if (edit.wpc) {
+            WavpackCloseFile (edit.wpc);
+            edit.wpc = NULL;
+        }
+
+        if (edit.wv_id)
+            fclose (edit.wv_id);
+
+        if (!(edit.wv_id = _wfopen (filename, L"r+b"))) {
+			free (buffer);
+            return 1;
+		}
+
+        edit.wpc = WavpackOpenFileInputEx (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+
+        if (!edit.wpc) {
+            fclose (edit.wv_id);
+			free (buffer);
+            return 1;
+        }
+
+        wcscpy (edit.w_lastfn, filename);
+        edit.lastfn [0] = 0;
+    }
+
+	retval = WavpackAppendTagItem (edit.wpc, "Cover Art (Front)", buffer, tag_size);
+	free (buffer);
+
+	if (retval) {
+		winampWriteExtendedFileInfo ();
+		return 0;
+	}
+	else {
+		close_context (&edit);
+		return 1;
+	}
+}
+
+int WavPack_DeleteAlbumArt(const wchar_t *filename, const wchar_t *type)
+{
+    char error [128];
+
+#ifdef DEBUG_CONSOLE
+    sprintf (error, "WavPack_DeleteAlbumArt ()\n");
+    debug_write (error);
+#endif
+
+    if (!filename || !*filename || _wcsicmp (type, L"cover"))
+        return 0;
+
+    if (!edit.wpc || wcscmp (filename, edit.w_lastfn)) {
+        if (edit.wpc) {
+            WavpackCloseFile (edit.wpc);
+            edit.wpc = NULL;
+        }
+
+        if (edit.wv_id)
+            fclose (edit.wv_id);
+
+        if (!(edit.wv_id = _wfopen (filename, L"r+b")))
+            return 1;
+
+        edit.wpc = WavpackOpenFileInputEx (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+
+        if (!edit.wpc) {
+            fclose (edit.wv_id);
+            return 1;
+        }
+
+        wcscpy (edit.w_lastfn, filename);
+        edit.lastfn [0] = 0;
+    }
+
+	if (WavpackDeleteTagItem (edit.wpc, "Cover Art (Front)")) {
+		winampWriteExtendedFileInfo ();
+		return 0;
+	}
+	else {
+		close_context (&edit);
+		return 1;
+	}
 }
 
 
