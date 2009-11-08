@@ -16,7 +16,7 @@
 #include <io.h>
 #include <conio.h>
 #include <shlobj.h>
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__sun)
 #include <glob.h>
 #include <unistd.h>
 #endif
@@ -164,7 +164,7 @@ char *filespec_ext (char *filespec)
 // returned.                                                                //
 //////////////////////////////////////////////////////////////////////////////
 
-#if defined(__GNUC__) && !defined(WIN32)
+#if (defined(__GNUC__) || defined(__sun)) && !defined(WIN32)
 
 char *filespec_path (char *filespec)
 {

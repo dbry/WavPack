@@ -33,7 +33,7 @@ typedef float float32_t;
 
 typedef unsigned char   uchar;
 
-#if !defined(__GNUC__) || defined(WIN32)
+#if (!defined(__GNUC__) && !defined(__sun)) || defined(WIN32)
 typedef unsigned short  ushort;
 typedef unsigned int    uint;
 #endif
