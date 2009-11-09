@@ -194,7 +194,7 @@ static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
     adobe_mode, ignore_length, new_riff_header, do_md5_checksum, raw_pcm, no_utf8_convert;
 
 static int num_channels_order;
-static uchar channel_order [18], channel_order_undefined;
+static unsigned char channel_order [18], channel_order_undefined;
 static uint32_t channel_order_mask;
 
 // These two statics are used to keep track of tags that the user specifies on the
@@ -218,7 +218,7 @@ static uint32_t wvselfx_size;
 
 static FILE *wild_fopen (char *filename, const char *mode);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
-static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order);
+static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order);
 static void display_progress (double file_progress);
 static void AnsiToUTF8 (char *string, int len);
 
@@ -1213,7 +1213,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     uint32_t total_samples = 0, bcount;
     WavpackConfig loc_config = *config;
     RiffChunkHeader riff_chunk_header;
-    uchar *new_channel_order = NULL;
+    unsigned char *new_channel_order = NULL;
     write_id wv_file, wvc_file;
     ChunkHeader chunk_header;
     WaveHeader WaveHeader;
@@ -1658,7 +1658,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // to the WavPack metadata as "wrapper"
 
     if (result == NO_ERROR && !ignore_length && !raw_pcm) {
-        uchar buff [16];
+        unsigned char buff [16];
 
         while (DoReadFile (infile, buff, sizeof (buff), &bcount) && bcount)
             if (!new_riff_header &&
@@ -1714,8 +1714,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     WavpackUpdateNumSamples (wpc, block_buff);
 
                     if (WavpackGetWrapperLocation (block_buff, &wrapper_size)) {
-                        uchar *wrapper_location = WavpackGetWrapperLocation (block_buff, NULL);
-                        uchar *chunk_header = malloc (sizeof (ChunkHeader));
+                        unsigned char *wrapper_location = WavpackGetWrapperLocation (block_buff, NULL);
+                        unsigned char *chunk_header = malloc (sizeof (ChunkHeader));
                         uint32_t data_size = WavpackGetSampleIndex (wpc) * WavpackGetNumChannels (wpc) *
                             WavpackGetBytesPerSample (wpc);
 
@@ -1885,18 +1885,18 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 // little-endian standard the executing processor's format is done and where
 // (if selected) the MD5 sum is calculated and displayed.
 
-static void reorder_channels (void *data, uchar *new_order, int num_chans,
+static void reorder_channels (void *data, unsigned char *new_order, int num_chans,
     int num_samples, int bytes_per_sample);
 
 #define INPUT_SAMPLES 65536
 
-static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order)
+static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order)
 {
     uint32_t samples_remaining, input_samples = INPUT_SAMPLES, samples_read = 0;
     double progress = -1.0;
     int bytes_per_sample;
     int32_t *sample_buffer;
-    uchar *input_buffer;
+    unsigned char *input_buffer;
     MD5_CTX md5_context;
 
     // don't use an absurd amount of memory just because we have an absurd number of channels
@@ -1915,7 +1915,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order)
 
     while (1) {
         uint32_t bytes_to_read, bytes_read = 0;
-        uint sample_count;
+        unsigned int sample_count;
 
         if (raw_pcm || ignore_length || samples_remaining > input_samples)
             bytes_to_read = input_samples * bytes_per_sample;
@@ -1937,8 +1937,8 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order)
             break;
 
         if (sample_count) {
-            uint cnt = sample_count * WavpackGetNumChannels (wpc);
-            uchar *sptr = input_buffer;
+            unsigned int cnt = sample_count * WavpackGetNumChannels (wpc);
+            unsigned char *sptr = input_buffer;
             int32_t *dptr = sample_buffer;
 
             switch (WavpackGetBytesPerSample (wpc)) {
@@ -2013,7 +2013,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order)
 
     if (do_md5_checksum) {
         char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
-        uchar md5_digest [16];
+        unsigned char md5_digest [16];
         int i;
 
         MD5Final (md5_digest, &md5_context);
@@ -2030,7 +2030,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, uchar *new_order)
     return NO_ERROR;
 }
 
-static void reorder_channels (void *data, uchar *order, int num_chans,
+static void reorder_channels (void *data, unsigned char *order, int num_chans,
     int num_samples, int bytes_per_sample)
 {
     char *temp = malloc (num_chans * bytes_per_sample);
@@ -2063,22 +2063,22 @@ static void reorder_channels (void *data, uchar *order, int num_chans,
 
 #if defined(WIN32)
 
-static int WideCharToUTF8 (const ushort *Wide, uchar *pUTF8, int len)
+static int WideCharToUTF8 (const unsigned short *Wide, unsigned char *pUTF8, int len)
 {
-    const ushort *pWide = Wide;
+    const unsigned short *pWide = Wide;
     int outndx = 0;
 
     while (*pWide) {
         if (*pWide < 0x80 && outndx + 1 < len)
-            pUTF8 [outndx++] = (uchar) *pWide++;
+            pUTF8 [outndx++] = (unsigned char) *pWide++;
         else if (*pWide < 0x800 && outndx + 2 < len) {
-            pUTF8 [outndx++] = (uchar) (0xc0 | ((*pWide >> 6) & 0x1f));
-            pUTF8 [outndx++] = (uchar) (0x80 | (*pWide++ & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0xc0 | ((*pWide >> 6) & 0x1f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
         }
         else if (outndx + 3 < len) {
-            pUTF8 [outndx++] = (uchar) (0xe0 | ((*pWide >> 12) & 0xf));
-            pUTF8 [outndx++] = (uchar) (0x80 | ((*pWide >> 6) & 0x3f));
-            pUTF8 [outndx++] = (uchar) (0x80 | (*pWide++ & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0xe0 | ((*pWide >> 12) & 0xf));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | ((*pWide >> 6) & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
         }
         else
             break;
@@ -2100,10 +2100,10 @@ static void AnsiToUTF8 (char *string, int len)
 {
     int max_chars = (int) strlen (string);
 #if defined(WIN32)
-    ushort *temp = (ushort *) malloc ((max_chars + 1) * 2);
+    unsigned short *temp = (unsigned short *) malloc ((max_chars + 1) * 2);
 
     MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
-    WideCharToUTF8 (temp, (uchar *) string, len);
+    WideCharToUTF8 (temp, (unsigned char *) string, len);
 #else
     char *temp = malloc (len);
     char *outp = temp;

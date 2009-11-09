@@ -136,7 +136,7 @@ uint32_t bs_close_write (Bitstream *bs)
 
 void little_endian_to_native (void *data, char *format)
 {
-    uchar *cp = (uchar *) data;
+    unsigned char *cp = (unsigned char *) data;
     int32_t temp;
 
     while (*format) {
@@ -166,23 +166,23 @@ void little_endian_to_native (void *data, char *format)
 
 void native_to_little_endian (void *data, char *format)
 {
-    uchar *cp = (uchar *) data;
+    unsigned char *cp = (unsigned char *) data;
     int32_t temp;
 
     while (*format) {
         switch (*format) {
             case 'L':
                 temp = * (int32_t *) cp;
-                *cp++ = (uchar) temp;
-                *cp++ = (uchar) (temp >> 8);
-                *cp++ = (uchar) (temp >> 16);
-                *cp++ = (uchar) (temp >> 24);
+                *cp++ = (unsigned char) temp;
+                *cp++ = (unsigned char) (temp >> 8);
+                *cp++ = (unsigned char) (temp >> 16);
+                *cp++ = (unsigned char) (temp >> 24);
                 break;
 
             case 'S':
                 temp = * (short *) cp;
-                *cp++ = (uchar) temp;
-                *cp++ = (uchar) (temp >> 8);
+                *cp++ = (unsigned char) temp;
+                *cp++ = (unsigned char) (temp >> 8);
                 break;
 
             default:

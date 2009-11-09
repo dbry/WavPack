@@ -1219,7 +1219,7 @@ void write_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     int tcount = wps->num_terms, wcount = 1, temp;
     struct decorr_pass *dpp;
-    uchar *byteptr;
+    unsigned char *byteptr;
 
     byteptr = wpmd->data = malloc (256);
     wpmd->id = ID_DECORR_SAMPLES;
@@ -1276,7 +1276,7 @@ void write_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
             CLEAR (dpp->samples_B);
         }
 
-    wpmd->byte_length = (int32_t)(byteptr - (uchar *) wpmd->data);
+    wpmd->byte_length = (int32_t)(byteptr - (unsigned char *) wpmd->data);
 }
 
 // Allocate room for and copy the noise shaping info into the specified
@@ -1593,7 +1593,7 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
 
     if (orig_data) {
         uint32_t data_count;
-        uchar *cptr;
+        unsigned char *cptr;
 
         if (wpc->wvc_flag)
             cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
@@ -1923,7 +1923,7 @@ static int scan_int32_data (WavpackStream *wps, int32_t *values, int32_t num_val
         }
 
     if (((wps->wphdr.flags & MAG_MASK) >> MAG_LSB) > 23) {
-        wps->int32_sent_bits = (uchar)(((wps->wphdr.flags & MAG_MASK) >> MAG_LSB) - 23);
+        wps->int32_sent_bits = (unsigned char)(((wps->wphdr.flags & MAG_MASK) >> MAG_LSB) - 23);
         total_shift += wps->int32_sent_bits;
         wps->wphdr.flags &= ~MAG_MASK;
         wps->wphdr.flags += 23 << MAG_LSB;
@@ -2393,7 +2393,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
     if (data_count) {
         if (data_count != (uint32_t) -1) {
-            uchar *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
+            unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
 
             *cptr++ = ID_WV_BITSTREAM | ID_LARGE;
             *cptr++ = data_count >> 1;
@@ -2412,7 +2412,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
         if (data_count && lossy) {
             if (data_count != (uint32_t) -1) {
-                uchar *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
+                unsigned char *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
 
                 *cptr++ = ID_WVC_BITSTREAM | ID_LARGE;
                 *cptr++ = data_count >> 1;

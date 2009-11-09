@@ -118,7 +118,7 @@ const char nbits_table [] = {
     8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8      // 240 - 255
 };
 
-static const uchar log2_table [] = {
+static const unsigned char log2_table [] = {
     0x00, 0x01, 0x03, 0x04, 0x06, 0x07, 0x09, 0x0a, 0x0b, 0x0d, 0x0e, 0x10, 0x11, 0x12, 0x14, 0x15,
     0x16, 0x18, 0x19, 0x1a, 0x1c, 0x1d, 0x1e, 0x20, 0x21, 0x22, 0x24, 0x25, 0x26, 0x28, 0x29, 0x2a,
     0x2c, 0x2d, 0x2e, 0x2f, 0x31, 0x32, 0x33, 0x34, 0x36, 0x37, 0x38, 0x39, 0x3b, 0x3c, 0x3d, 0x3e,
@@ -137,7 +137,7 @@ static const uchar log2_table [] = {
     0xf4, 0xf5, 0xf6, 0xf7, 0xf7, 0xf8, 0xf9, 0xf9, 0xfa, 0xfb, 0xfc, 0xfc, 0xfd, 0xfe, 0xff, 0xff
 };
 
-static const uchar exp2_table [] = {
+static const unsigned char exp2_table [] = {
     0x00, 0x01, 0x01, 0x02, 0x03, 0x03, 0x04, 0x05, 0x06, 0x06, 0x07, 0x08, 0x08, 0x09, 0x0a, 0x0b,
     0x0b, 0x0c, 0x0d, 0x0e, 0x0e, 0x0f, 0x10, 0x10, 0x11, 0x12, 0x13, 0x13, 0x14, 0x15, 0x16, 0x16,
     0x17, 0x18, 0x19, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1d, 0x1e, 0x1f, 0x20, 0x20, 0x21, 0x22, 0x23,
@@ -238,7 +238,7 @@ void word_set_bitrate (WavpackStream *wps)
 
 void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    uchar *byteptr;
+    unsigned char *byteptr;
     int temp;
 
     byteptr = wpmd->data = malloc (12);
@@ -260,7 +260,7 @@ void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
         *byteptr++ = temp >> 8;
     }
 
-    wpmd->byte_length = (int32_t)(byteptr - (uchar *) wpmd->data);
+    wpmd->byte_length = (int32_t)(byteptr - (unsigned char *) wpmd->data);
     read_entropy_vars (wps, wpmd);
 }
 
@@ -273,7 +273,7 @@ void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 
 void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    uchar *byteptr;
+    unsigned char *byteptr;
     int temp;
 
     word_set_bitrate (wps);
@@ -308,7 +308,7 @@ void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
         }
     }
 
-    wpmd->byte_length = (int32_t)(byteptr - (uchar *) wpmd->data);
+    wpmd->byte_length = (int32_t)(byteptr - (unsigned char *) wpmd->data);
     read_hybrid_profile (wps, wpmd);
 }
 
@@ -320,7 +320,7 @@ void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
 
 int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    uchar *byteptr = wpmd->data;
+    unsigned char *byteptr = wpmd->data;
 
     if (wpmd->byte_length != ((wps->wphdr.flags & MONO_DATA) ? 6 : 12))
         return FALSE;
@@ -345,8 +345,8 @@ int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 
 int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    uchar *byteptr = wpmd->data;
-    uchar *endptr = byteptr + wpmd->byte_length;
+    unsigned char *byteptr = wpmd->data;
+    unsigned char *endptr = byteptr + wpmd->byte_length;
 
     if (wps->wphdr.flags & HYBRID_BITRATE) {
         if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)

@@ -675,7 +675,7 @@ static void parse_sample_time_index (struct sample_time_index *dst, char *src)
 // source and lossless compression is used.
 
 static int do_tag_extractions (WavpackContext *wpc, char *outfilename);
-static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt);
+static unsigned char *format_samples (int bps, unsigned char *dst, int32_t *src, uint32_t samcnt);
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
 static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
@@ -686,7 +686,7 @@ static int unpack_file (char *infilename, char *outfilename)
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
     uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
     uint32_t skip_sample_index = 0, until_samples_total = 0;
-    uchar *output_buffer = NULL, *output_pointer = NULL;
+    unsigned char *output_buffer = NULL, *output_pointer = NULL;
     double dtime, progress = -1.0;
     MD5_CTX md5_context;
     WavpackContext *wpc;
@@ -946,7 +946,7 @@ static int unpack_file (char *infilename, char *outfilename)
         }
 
         if (calc_md5 && samples_unpacked) {
-            format_samples (bps, (uchar *) temp_buffer, temp_buffer, samples_unpacked * num_channels);
+            format_samples (bps, (unsigned char *) temp_buffer, temp_buffer, samples_unpacked * num_channels);
             MD5Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
         }
 
@@ -980,7 +980,7 @@ static int unpack_file (char *infilename, char *outfilename)
     if (!check_break () && calc_md5) {
         char md5_string1 [] = "00000000000000000000000000000000";
         char md5_string2 [] = "00000000000000000000000000000000";
-        uchar md5_original [16], md5_unpacked [16];
+        unsigned char md5_original [16], md5_unpacked [16];
         int i;
 
         MD5Final (md5_unpacked, &md5_context);
@@ -1269,7 +1269,7 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 // Reformat samples from longs in processor's native endian mode to
 // little-endian data with (possibly) less than 4 bytes / sample.
 
-static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt)
+static unsigned char *format_samples (int bps, unsigned char *dst, int32_t *src, uint32_t samcnt)
 {
     int32_t temp;
 
@@ -1283,27 +1283,27 @@ static uchar *format_samples (int bps, uchar *dst, int32_t *src, uint32_t samcnt
 
         case 2:
             while (samcnt--) {
-                *dst++ = (uchar) (temp = *src++);
-                *dst++ = (uchar) (temp >> 8);
+                *dst++ = (unsigned char) (temp = *src++);
+                *dst++ = (unsigned char) (temp >> 8);
             }
 
             break;
 
         case 3:
             while (samcnt--) {
-                *dst++ = (uchar) (temp = *src++);
-                *dst++ = (uchar) (temp >> 8);
-                *dst++ = (uchar) (temp >> 16);
+                *dst++ = (unsigned char) (temp = *src++);
+                *dst++ = (unsigned char) (temp >> 8);
+                *dst++ = (unsigned char) (temp >> 16);
             }
 
             break;
 
         case 4:
             while (samcnt--) {
-                *dst++ = (uchar) (temp = *src++);
-                *dst++ = (uchar) (temp >> 8);
-                *dst++ = (uchar) (temp >> 16);
-                *dst++ = (uchar) (temp >> 24);
+                *dst++ = (unsigned char) (temp = *src++);
+                *dst++ = (unsigned char) (temp >> 8);
+                *dst++ = (unsigned char) (temp >> 16);
+                *dst++ = (unsigned char) (temp >> 24);
             }
 
             break;
@@ -1401,7 +1401,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 {
     uint32_t channel_mask = (uint32_t) WavpackGetChannelMask (wpc);
     int num_channels = WavpackGetNumChannels (wpc);
-    uchar md5_sum [16];
+    unsigned char md5_sum [16];
     char modes [80];
 
     fprintf (dst, "\n");
@@ -1510,7 +1510,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
     if (summary > 1) {
         uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes, i;
-        uchar *header_data = WavpackGetWrapperData (wpc);
+        unsigned char *header_data = WavpackGetWrapperData (wpc);
         char header_name [5];
 
         strcpy (header_name, "????");
@@ -1594,7 +1594,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 #if 0   // debug binary tag reading
             {
                 char md5_string [] = "00000000000000000000000000000000";
-                uchar md5_result [16];
+                unsigned char md5_result [16];
                 MD5_CTX md5_context;
                 char *value;
                 int i, j;

@@ -27,10 +27,10 @@ int32_t dump_alloc (void);
 
 #if !defined(NO_UNPACK) || defined(INFO_ONLY)
 
-int read_metadata_buff (WavpackMetadata *wpmd, uchar *blockbuff, uchar **buffptr)
+int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, unsigned char **buffptr)
 {
     WavpackHeader *wphdr = (WavpackHeader *) blockbuff;
-    uchar *buffend = blockbuff + wphdr->ckSize + 8;
+    unsigned char *buffend = blockbuff + wphdr->ckSize + 8;
 
     if (buffend - *buffptr < 2)
         return FALSE;
@@ -139,7 +139,7 @@ int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
 
 #ifndef NO_PACK
 
-int copy_metadata (WavpackMetadata *wpmd, uchar *buffer_start, uchar *buffer_end)
+int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned char *buffer_end)
 {
     uint32_t mdsize = wpmd->byte_length + (wpmd->byte_length & 1);
     WavpackHeader *wphdr = (WavpackHeader *) buffer_start;
@@ -177,10 +177,10 @@ int copy_metadata (WavpackMetadata *wpmd, uchar *buffer_start, uchar *buffer_end
     return TRUE;
 }
 
-int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, uchar id)
+int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, unsigned char id)
 {
     WavpackMetadata *mdp;
-    uchar *src = data;
+    unsigned char *src = data;
 
     while (bcount) {
         if (wpc->metacount) {
@@ -218,7 +218,7 @@ int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, uchar id)
 
 static char *write_metadata (WavpackMetadata *wpmd, char *outdata)
 {
-    uchar id = wpmd->id, wordlen [3];
+    unsigned char id = wpmd->id, wordlen [3];
 
     wordlen [0] = (wpmd->byte_length + 1) >> 1;
     wordlen [1] = (wpmd->byte_length + 1) >> 9;

@@ -42,13 +42,6 @@ typedef float float32_t;
 #include <inttypes.h>
 #endif
 
-typedef unsigned char   uchar;
-
-#if !defined(__GNUC__) || defined(WIN32)
-typedef unsigned short  ushort;
-typedef unsigned int    uint;
-#endif
-
 // Because the C99 specification states that "The order of allocation of
 // bit-ﬁelds within a unit (high-order to low-order or low-order to
 // high-order) is implementation-deﬁned" (6.7.2.1), I decided to change
@@ -118,12 +111,12 @@ typedef struct {
 #define ChunkHeaderFormat "4L"
 
 typedef struct {
-    ushort FormatTag, NumChannels;
+    unsigned short FormatTag, NumChannels;
     uint32_t SampleRate, BytesPerSecond;
-    ushort BlockAlign, BitsPerSample;
-    ushort cbSize, ValidBitsPerSample;
+    unsigned short BlockAlign, BitsPerSample;
+    unsigned short cbSize, ValidBitsPerSample;
     int32_t ChannelMask;
-    ushort SubFormat;
+    unsigned short SubFormat;
     char GUID [14];
 } WaveHeader;
 
@@ -139,7 +132,7 @@ typedef struct {
     char ckID [4];
     uint32_t ckSize;
     short version;
-    uchar track_no, index_no;
+    unsigned char track_no, index_no;
     uint32_t total_samples, block_index, block_samples, flags, crc;
 } WavpackHeader;
 
@@ -192,7 +185,7 @@ typedef struct {
 typedef struct {
     int32_t byte_length;
     void *data;
-    uchar id;
+    unsigned char id;
 } WavpackMetadata;
 
 #define ID_UNIQUE               0x3f
@@ -234,7 +227,7 @@ typedef struct {
     int bits_per_sample, bytes_per_sample;
     int qmode, flags, xmode, num_channels, float_norm_exp;
     int32_t block_samples, extra_flags, sample_rate, channel_mask;
-    uchar md5_checksum [16], md5_read;
+    unsigned char md5_checksum [16], md5_read;
     int num_tag_strings;
     char **tag_strings;
 } WavpackConfig;
@@ -349,8 +342,8 @@ typedef struct {
     WavpackHeader wphdr;
     struct words_data w;
 
-    uchar *blockbuff, *blockend;
-    uchar *block2buff, *block2end;
+    unsigned char *blockbuff, *blockend;
+    unsigned char *block2buff, *block2end;
     int32_t *sample_buffer;
 
     int bits, num_terms, mute_error, joint_stereo, false_stereo, shift;
@@ -360,8 +353,8 @@ typedef struct {
     int init_done, wvc_skip;
     float delta_decay;
 
-    uchar int32_sent_bits, int32_zeros, int32_ones, int32_dups;
-    uchar float_flags, float_shift, float_max_exp, float_norm_exp;
+    unsigned char int32_sent_bits, int32_zeros, int32_ones, int32_dups;
+    unsigned char float_flags, float_shift, float_max_exp, float_norm_exp;
 
     struct {
         int32_t shaping_acc [2], shaping_delta [2], error [2];
@@ -411,7 +404,7 @@ typedef struct {
     uint32_t metabytes;
     int metacount;
 
-    uchar *wrapper_data;
+    unsigned char *wrapper_data;
     uint32_t wrapper_bytes;
 
     WavpackBlockOutput blockout;
@@ -606,10 +599,10 @@ int get_version3 (WavpackContext *wpc);
 
 // metadata.c stuff
 
-int read_metadata_buff (WavpackMetadata *wpmd, uchar *blockbuff, uchar **buffptr);
+int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, unsigned char **buffptr);
 int write_metadata_block (WavpackContext *wpc);
-int copy_metadata (WavpackMetadata *wpmd, uchar *buffer_start, uchar *buffer_end);
-int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, uchar id);
+int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned char *buffer_end);
+int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, unsigned char id);
 int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd);
 void free_metadata (WavpackMetadata *wpmd);
 
@@ -701,9 +694,9 @@ int WavpackGetNumChannels (WavpackContext *wpc);
 int WavpackGetChannelMask (WavpackContext *wpc);
 int WavpackGetReducedChannels (WavpackContext *wpc);
 int WavpackGetFloatNormExp (WavpackContext *wpc);
-int WavpackGetMD5Sum (WavpackContext *wpc, uchar data [16]);
+int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 uint32_t WavpackGetWrapperBytes (WavpackContext *wpc);
-uchar *WavpackGetWrapperData (WavpackContext *wpc);
+unsigned char *WavpackGetWrapperData (WavpackContext *wpc);
 void WavpackFreeWrapper (WavpackContext *wpc);
 void WavpackSeekTrailingWrapper (WavpackContext *wpc);
 double WavpackGetProgress (WavpackContext *wpc);
@@ -715,7 +708,7 @@ double WavpackGetInstantBitrate (WavpackContext *wpc);
 WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
-int WavpackStoreMD5Sum (WavpackContext *wpc, uchar data [16]);
+int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 int WavpackPackInit (WavpackContext *wpc);
 int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);
 int WavpackFlushSamples (WavpackContext *wpc);

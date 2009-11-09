@@ -12,9 +12,9 @@
 // decoding old (versions 1, 2 & 3) WavPack files.
 
 typedef struct {
-    ushort FormatTag, NumChannels;
+    unsigned short FormatTag, NumChannels;
     uint32_t SampleRate, BytesPerSecond;
-    ushort BlockAlign, BitsPerSample;
+    unsigned short BlockAlign, BitsPerSample;
 } WaveHeader3;
 
 #define WaveHeader3Format "SSLLSS"
@@ -61,7 +61,7 @@ typedef struct {
 
 typedef struct bs3 {
     void (*wrap)(struct bs3 *bs);
-    uchar *buf, *end, *ptr;
+    unsigned char *buf, *end, *ptr;
     uint32_t bufsiz, fpos, sr;
     WavpackStreamReader *reader;
     int error, bc;
@@ -83,7 +83,7 @@ typedef struct {
         uint32_t sample_index;
     } index_points [256];
 
-    uchar *unpack_data;
+    unsigned char *unpack_data;
     uint32_t unpack_size;
 #endif
 

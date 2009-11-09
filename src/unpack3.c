@@ -122,7 +122,7 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
                             wpc->wrapper_bytes += bytes_to_skip;
                         }
                         else {
-                            uchar *temp = malloc (bytes_to_skip);
+                            unsigned char *temp = malloc (bytes_to_skip);
                             wpc->reader->read_bytes (wpc->wv_in, temp, bytes_to_skip);
                             free (temp);
                         }
@@ -144,7 +144,7 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
                         wpc->wrapper_bytes += bytes_to_skip;
                     }
                     else {
-                        uchar *temp = malloc (bytes_to_skip);
+                        unsigned char *temp = malloc (bytes_to_skip);
                         wpc->reader->read_bytes (wpc->wv_in, temp, bytes_to_skip);
                         free (temp);
                     }
@@ -327,7 +327,7 @@ static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader *reader, void *id)
     bs->fpos = (bs->reader = reader)->get_pos (bs->id = id);
 
     if (!bs->buf)
-        bs->buf = (uchar *) malloc (bs->bufsiz);
+        bs->buf = (unsigned char *) malloc (bs->bufsiz);
 
     bs->end = bs->buf + bs->bufsiz;
     bs->ptr = bs->end - 1;
@@ -382,7 +382,7 @@ static uint32_t bs_unused_bytes (Bitstream3 *bs)
     return (uint32_t)(bs->end - bs->ptr);
 }
 
-static uchar *bs_unused_data (Bitstream3 *bs)
+static unsigned char *bs_unused_data (Bitstream3 *bs)
 {
     if (bs->bc < 8) {
         bs->bc += 8;
@@ -618,7 +618,7 @@ static void *unpack_restore (WavpackStream3 *wps, void *source, int keep_resourc
     int flags = wps->wphdr.flags, tcount;
     struct decorr_pass *dpp;
     FILE *temp_file;
-    uchar *temp_buf;
+    unsigned char *temp_buf;
 
     unpack_init3 (wps);
     temp_file = wps->wvbits.id;
@@ -805,7 +805,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
     int32_t read_word, *bptr;
     int32_t sample [2] [2];
     int weight [2] [1];
-    uint i;
+    unsigned int i;
 
 #ifdef ATTEMPT_ERROR_MUTING
     int32_t mute_limit = (flags & BYTES_3) ? 8388608 : 32768;
@@ -838,7 +838,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
     if (!wps->index_points [points_index].saved) {
 
         if (!wps->unpack_data)
-            wps->unpack_data = (uchar *) malloc (256 * (wps->unpack_size = unpack_size (wps)));
+            wps->unpack_data = (unsigned char *) malloc (256 * (wps->unpack_size = unpack_size (wps)));
 
         wps->index_points [points_index].sample_index = wps->sample_index;
         unpack_save (wps, wps->unpack_data + points_index * wps->unpack_size);
@@ -1705,7 +1705,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
             wpc->crc_errors++;
 
         if (wpc->open_flags & OPEN_WRAPPER) {
-            uchar *temp = malloc (1024);
+            unsigned char *temp = malloc (1024);
             uint32_t bcount;
 
             if (bs_unused_bytes (&wps->wvbits)) {
@@ -1790,7 +1790,7 @@ static void init_words3 (WavpackStream3 *wps)
 static int32_t FASTCALL get_word1 (WavpackStream3 *wps, int chan)
 {
     uint32_t tmp1, tmp2, avalue;
-    uint ones_count;
+    unsigned int ones_count;
     int k;
 
     if ((wps->wphdr.flags & EXTREME_DECORR) && !(wps->wphdr.flags & OVER_20)) {
@@ -1892,7 +1892,7 @@ static int32_t FASTCALL get_word1 (WavpackStream3 *wps, int chan)
 static int32_t FASTCALL get_old_word1 (WavpackStream3 *wps, int chan)
 {
     uint32_t avalue;
-    uint bc;
+    unsigned int bc;
     int k;
 
     if (!wps->w1.index [chan]) {

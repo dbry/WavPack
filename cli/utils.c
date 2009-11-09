@@ -297,13 +297,13 @@ char *filespec_name (char *filespec)
 
 static int is_second_byte (char *filespec, char *pos)
 {
-    uchar *cp = pos;
+    unsigned char *cp = pos;
 
     while (cp > filespec && ((cp [-1] >= 0x81 && cp [-1] <= 0x9f) ||
                              (cp [-1] >= 0xe0 && cp [-1] <= 0xfc)))
         cp--;
 
-    return (int)((uchar *)pos - cp) & 1;
+    return (int)((unsigned char *)pos - cp) & 1;
 }
 
 #endif
@@ -624,7 +624,7 @@ int DoReadFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToRead, uint
     *lpNumberOfBytesRead = 0;
 
     while (nNumberOfBytesToRead) {
-        bcount = (uint32_t) fread ((uchar *) lpBuffer + *lpNumberOfBytesRead, 1, nNumberOfBytesToRead, hFile);
+        bcount = (uint32_t) fread ((unsigned char *) lpBuffer + *lpNumberOfBytesRead, 1, nNumberOfBytesToRead, hFile);
 
         if (bcount) {
             *lpNumberOfBytesRead += bcount;
@@ -644,7 +644,7 @@ int DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, ui
     *lpNumberOfBytesWritten = 0;
 
     while (nNumberOfBytesToWrite) {
-        bcount = (uint32_t) fwrite ((uchar *) lpBuffer + *lpNumberOfBytesWritten, 1, nNumberOfBytesToWrite, hFile);
+        bcount = (uint32_t) fwrite ((unsigned char *) lpBuffer + *lpNumberOfBytesWritten, 1, nNumberOfBytesToWrite, hFile);
 
         if (bcount) {
             *lpNumberOfBytesWritten += bcount;
