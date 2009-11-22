@@ -341,7 +341,7 @@ DWORD PASCAL WriteFilterOutput (HANDLE hOutput, BYTE *lpbData, long lBytes)
 
         if (bytes_per_sample == 1) {
             int32_t samcnt = samples * num_channels, *out = buffer;
-            uchar *inp = (uchar *) lpbData;
+            unsigned char *inp = (unsigned char *) lpbData;
 
             while (samcnt--)
                 *out++ = *inp++ - 128;
@@ -598,7 +598,7 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
 
         if (bytes_per_sample == 1) {
             int32_t samcnt = samples_to_read * num_channels, *inp = buffer;
-            uchar *out = (uchar *) lpbData;
+            unsigned char *out = (unsigned char *) lpbData;
 
             while (samcnt--)
                 *out++ = *inp++ + 128;

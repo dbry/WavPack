@@ -497,7 +497,7 @@ void setpan (int pan)
 
 static void generate_format_string (WavpackContext *wpc, char *string, int maxlen, int wide);
 static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide);
-static int WideCharToUTF8 (const ushort *Wide, uchar *pUTF8, int len);
+static int WideCharToUTF8 (const unsigned short *Wide, unsigned char *pUTF8, int len);
 static void AnsiToUTF8 (char *string, int len);
 static UTF8ToAnsi (char *string, int len);
 
@@ -1540,7 +1540,7 @@ static void generate_format_string (WavpackContext *wpc, char *string, int maxle
 	char str_ratio [32] = "Overall ratio";
 	char str_kbps [32] = "kbps";
 	char str_md5 [32] = "Original md5";
-    uchar md5_sum [16];
+    unsigned char md5_sum [16];
     char modes [256];
 	char fmt [256];
 
@@ -1927,22 +1927,22 @@ static float calculate_gain (WavpackContext *wpc, int *pSoftClip)
 // may be less than the number of characters in the wide string if the buffer
 // length is exceeded.
 
-static int WideCharToUTF8 (const ushort *Wide, uchar *pUTF8, int len)
+static int WideCharToUTF8 (const unsigned short *Wide, unsigned char *pUTF8, int len)
 {
-    const ushort *pWide = Wide;
+    const unsigned short *pWide = Wide;
     int outndx = 0;
 
     while (*pWide) {
         if (*pWide < 0x80 && outndx + 1 < len)
-            pUTF8 [outndx++] = (uchar) *pWide++;
+            pUTF8 [outndx++] = (unsigned char) *pWide++;
         else if (*pWide < 0x800 && outndx + 2 < len) {
-            pUTF8 [outndx++] = (uchar) (0xc0 | ((*pWide >> 6) & 0x1f));
-            pUTF8 [outndx++] = (uchar) (0x80 | (*pWide++ & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0xc0 | ((*pWide >> 6) & 0x1f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
         }
         else if (outndx + 3 < len) {
-            pUTF8 [outndx++] = (uchar) (0xe0 | ((*pWide >> 12) & 0xf));
-            pUTF8 [outndx++] = (uchar) (0x80 | ((*pWide >> 6) & 0x3f));
-            pUTF8 [outndx++] = (uchar) (0x80 | (*pWide++ & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0xe0 | ((*pWide >> 12) & 0xf));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | ((*pWide >> 6) & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
         }
         else
             break;
@@ -2006,10 +2006,10 @@ static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide)
 static void AnsiToUTF8 (char *string, int len)
 {
     int max_chars = (int) strlen (string);
-    ushort *temp = (ushort *) malloc ((max_chars + 1) * 2);
+    unsigned short *temp = (unsigned short *) malloc ((max_chars + 1) * 2);
 
     MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
-    WideCharToUTF8 (temp, (uchar *) string, len);
+    WideCharToUTF8 (temp, (unsigned char *) string, len);
     free (temp);
 }
 

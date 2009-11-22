@@ -98,7 +98,7 @@ typedef struct {
     struct decorr_pass decorr_passes [MAX_NTERMS3];
 
     struct {
-        uint index [2], k_value [2], ave_k [2];
+        unsigned int index [2], k_value [2], ave_k [2];
         uint32_t zeros_acc, ave_level [K_DEPTH] [2];
     } w1;
 
