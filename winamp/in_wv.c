@@ -1758,6 +1758,9 @@ int WavPack_GetAlbumArt(const wchar_t *filename, const wchar_t *type, void **bit
 
 int WavPack_SetAlbumArt(const wchar_t *filename, const wchar_t *type, void *bits, size_t len, const wchar_t *mime_type)
 {
+#if 1
+	return 2;	// return 2 to indicate "read-only" cover art for now
+#else
     char error [128], name [50], *cp;
 	int tag_size, retval = 0;
 	unsigned char *buffer;
@@ -1820,6 +1823,7 @@ int WavPack_SetAlbumArt(const wchar_t *filename, const wchar_t *type, void *bits
 		close_context (&edit);
 		return 1;
 	}
+#endif
 }
 
 int WavPack_DeleteAlbumArt(const wchar_t *filename, const wchar_t *type)
