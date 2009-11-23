@@ -23,6 +23,7 @@
 // Version 2.8 - May 6, 2007   (library ver 4.41, read RIFF header, not just trailer)
 // Version 2.9 - May 24, 2008  (library ver 4.50, add About, make "extra" into slider)
 // Version 2.10 - Sept 25, 2009 (library ver 4.60)
+// Version 2.11 - Nov 22, 2009 (library ver 4.60.1)
 
 #include <windows.h>
 #include <commctrl.h>
