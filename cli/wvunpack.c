@@ -1157,13 +1157,14 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
     FILE *outfile;
 
     for (i = 0; result == NO_ERROR && i < num_tag_extractions; ++i) {
-        char *output_spec = strchr (tag_extractions [i], '=');
+        char *extraction_spec = strdup (tag_extractions [i]);
+        char *output_spec = strchr (extraction_spec, '=');
         char tag_filename [256];
 
-        if (output_spec && output_spec > tag_extractions [i] && strlen (output_spec) > 1)
+        if (output_spec && output_spec > extraction_spec && strlen (output_spec) > 1)
             *output_spec++ = 0;
 
-        if (dump_tag_item_to_file (wpc, tag_extractions [i], NULL, tag_filename)) {
+        if (dump_tag_item_to_file (wpc, extraction_spec, NULL, tag_filename)) {
             int max_length = (int) strlen (outfilename) + (int) strlen (tag_filename) + 10;
             char *full_filename;
 
@@ -1248,19 +1249,21 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
                     result = SOFT_ERROR;
                 }
                 else {
-                    dump_tag_item_to_file (wpc, tag_extractions [i], outfile, NULL);
+                    dump_tag_item_to_file (wpc, extraction_spec, outfile, NULL);
 
                     if (!DoCloseHandle (outfile)) {
                         error_line ("can't close file %s!", FN_FIT (full_filename));
                         result = SOFT_ERROR;
                     }
                     else if (!quiet_mode)
-                        error_line ("extracted tag \"%s\" to file %s", tag_extractions [i], FN_FIT (full_filename));
+                        error_line ("extracted tag \"%s\" to file %s", extraction_spec, FN_FIT (full_filename));
                 }
             }
 
             free (full_filename);
         }
+
+        free (extraction_spec);
     }
 
     return result;
