@@ -1,9 +1,10 @@
                       ----------------------------------
-                      Release 4.60.1 - November 22, 2009
+                      Release 4.60.1 - November 29, 2009
                       ----------------------------------
 
  WavPack Library Source Code - 4.60.1
  ------------------------------------
+  fixed: filename specs in tag extractions failed in batch operations
   fixed: prevent creation of APEv2 tags > 1 MB (which we can't read)
   fixed: crash when decoding old WavPack files (pre version 4.0)
   added: man pages to build system and updated with newer options
