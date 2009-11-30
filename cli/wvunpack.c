@@ -47,6 +47,7 @@
 #include "md5.h"
 
 #ifdef WIN32
+#define strdup(x) _strdup(x)
 #define fileno _fileno
 #endif
 
