@@ -5,7 +5,7 @@ if ENABLE_MAN
 	$(XSLTPROC) -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 endif
 
-EXTRA_DIST = $(man_MANS)
+EXTRA_DIST = $(man_MANS) $(patsubst %.1,%.xml,$(man_MANS))
 
 MAINTAINERCLEANFILES = \
 	$(man_MANS) \
