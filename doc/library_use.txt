@@ -1,21 +1,25 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2006 Conifer Software.               //
+//              Copyright (c) 1998 - 2009 Conifer Software.               //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
 
-                   WavPack 4.0 Library Documentation
-                   ---------------------------------
+                       WavPack 4.60 Library Documentation
+                       ----------------------------------
 
-                          December 9, 2006
-                            David Bryant
+                              December 9, 2006
+                                David Bryant
 
-                       updated: April 29, 2007
-                       updated: June 7, 2008
+                           updated: April 29, 2007
+                           updated: June 7, 2008
+                           updated: Sept 26, 2009
 
-1.0 INTRODUCTION
+
+******************************************************************************
+****************************   1.0 INTRODUCTION   ****************************
+******************************************************************************
 
 This document describes the use of the WavPack library (libwavpack) from a
 programmer's viewpoint. The library is designed to make reading and writing
@@ -51,20 +55,22 @@ value would be the number of bits in a single channel's sample (or 16, in the
 common case of CD audio).
 
 
-2.0 GENERAL PURPOSE FUNCTIONS
+******************************************************************************
+*********************   2.0 GENERAL PURPOSE FUNCTIONS   **********************
+******************************************************************************
 
   uint32_t WavpackGetLibraryVersion (void);
   ----------------------------------------
 
 Return the WavPack library version in a packed integer. Bits 0-7 give the
 micro version, bits 8-15 give the minor version, and bits 16-23 give the
-major version. As of this writing the version is 4.50.0.
+major version. As of this writing the version is 4.60.0.
 
   const char *WavpackGetLibraryVersionString (void);
   -------------------------------------------------
 
 Return the WavPack library version as a string. As of this writing this is
-"4.50.0".
+"4.60.0".
 
   char *WavpackGetErrorMessage (WavpackContext *wpc);
   --------------------------------------------------
@@ -91,7 +97,9 @@ ON MACHINES THAT HAVE FIELD ALIGNMENT REQUIREMENTS, IT IS IMPORTANT THAT THE
 STRUCTURES ARE PROPERLY ALIGNED!
 
 
-3.0 READING WAVPACK FILES
+******************************************************************************
+*********************   3.0 READING WAVPACK FILES   **************************
+******************************************************************************
 
 The basic procedure for reading a WavPack file is this:
 
@@ -393,12 +401,28 @@ that no MD5 checksum was stored.
 
 These three routines are used to access (and free) header and trailer data that
 was retrieved from the Wavpack file. The header will be available before the
-samples are decoded and the trailer will be available after all samples have
-been read. Note that the OPEN_WRAPPER flag must be set in the "open" call for
-this information to be available. Most applications will not need this data
-because everything required to decode and (possibly) play a WavPack file can
-be determined without this information, and some files might not actually have
-this wrapper.
+samples are decoded. The trailer will be available after all samples have been
+read and an attempt is made to read at least one sample past the end of the
+available samples (it is also possible to use the WavpackSeekTrailingWrapper()
+function described below). Note that the OPEN_WRAPPER flag must be set in the
+"open" call for this information to be available. Most applications will not
+need this data because everything required to decode and (possibly) play a
+WavPack file can be determined without this information, and some valid WavPack
+files might not even actually have this wrapper.
+
+The wrapper information is simply a verbatim copy of everything that was in
+the original WAV file right up to the start of the audio data (and anything
+after the audio data in the case of the "trailer"). In RIFF terms, this means
+that the data chunk will be last and only include the "data" ID and the size
+(as it was in the WAV file). The code was implemented like this so that the
+wvunpack program could be "dumb" and just copy this information directly to
+the output file without having to know anything about WAV files or parse
+the headers.
+
+The WavPack library accumulates this information when parsing the WavPack file
+and only purges this when WavpackFreeWrapper() is called. Therefore, if the
+application unpacks an entire WavPack file without freeing anything, then the
+entire wrapper data (both header and trailer) will be returned.
 
   void WavpackSeekTrailingWrapper (WavpackContext *wpc);
   -----------------------------------------------------
@@ -515,7 +539,9 @@ Close the specified WavPack file and release all resources used by it.
 Returns NULL.
 
 
-4.0 WRITING WAVPACK FILES
+******************************************************************************
+***********************   4.0 WRITING WAVPACK FILES   ************************
+******************************************************************************
 
 To use the library to create WavPack files from raw PCM audio, the user must
 provide a WavpackBlockOutput function that is used by the library to write
@@ -678,10 +704,12 @@ Given the pointer to the first block written (to either a .wv or .wvc file),
 update the block with the actual number of samples written. If the wav header
 was generated by the library, then it is updated also. This should be done if
 WavpackSetConfiguration() was called with an incorrect number of samples (or
--1). It is the responsibility of the application to read and rewrite the block.
-An example of this can be found in the Audition filter or in the command-line
-packer when the -i option is used. ON MACHINES WITH ALIGNMENT REQUIREMENTS, BE
-SURE THAT THE PASSED POINTER IS PROPERLY ALIGNED!
+-1). This should also be done in the case where the application did not provide
+the RIFF header but did add some chunks for a RIFF trailer (see the section
+on adding RIFF metadata). It is the responsibility of the application to read
+and rewrite the block. An example of this can be found in the Audition filter
+or in the command-line packer when the -i option is used. ON MACHINES WITH
+ALIGNMENT REQUIREMENTS, BE SURE THAT THE PASSED POINTER IS PROPERLY ALIGNED!
 
   int WavpackStoreMD5Sum (WavpackContext *wpc, uchar data [16]);
   -------------------------------------------------------------
@@ -698,13 +726,62 @@ Close the specified WavPack file and release all resources used by it.
 Returns NULL.
 
 
-Normally, the library will create a standard RIFF header based on the audio
-properties that will be used when the resulting WavPack file is unpacked to a
-.wav file (it is not used when simply playing the file). However, some
-applications may want to store a custom RIFF header (and trailer) so that they
-can store extra RIFF chunks in there or simply want to create an exact copy of
-a .wav file (like the WavPack command-line program does). To accomplish this,
-the following functions are used:
+With respect to the RIFF WAV wrapper that is inormally appended to the WavPack
+file, there are three options available for the application to handle this.
+
+The first is the simplest, and that is for the application to simply do
+nothing. The library will automatically create a RIFF header appropriate for
+the audio data (including WAVEFORMATEXTENSIBLE if needed) and store this
+in the WavPack file. If the application does not know the actual number of
+samples beforehand and needs to reread the first block and have the library
+update it, then the library will handle updating its own RIFF header also.
+In this scenario, there will be no trailing RIFF data. For the vast majority
+of applications, this will be all that is required.
+
+However, some applications may want to store a custom RIFF header (and trailer)
+so that they can store extra RIFF chunks in there or perhaps they want to
+create an exact copy of a .wav file (like the WavPack command-line program
+does). To accomplish this, functions are provided (see below) to add RIFF
+metadata to a WavPack file being written. In this case, the application must
+provide a verbatim copy of all the RIFF data from the initial "RIFF" at the
+beginning of the file up to (and including) the size field of the "data"
+chunk. If any trailing RIFF data is desired, then this is appended after all
+samples have been packed and flushed. This wrapper data will be *exactly*
+what wvunpack will use to restore an original WAV file. In no circumstances
+does the WavPack library parse, verify, or otherwise use this data.
+
+If the RIFF header information needs to be updated after packing (because the
+total file size or the data chunk size need to be update) then the first
+block must be reread and the function WavpackGetWrapperLocation() must be
+called to find the wrapper in the block (it would be possible to find it by
+searching for the "RIFF", but using this function is significantly less ugly).
+The WavPack library will not touch a wrapper that it did not create when
+calling WavpackUpdateNumSamples().
+
+The third option for including RIFF data chunks is a hybrid between these
+two methods and is useful if an application wants to add a few specific RIFF
+chunks and does not mind if the chunks appear at the end of the WAV file. In
+this method, the application does not send any RIFF header before packing the
+audio data which forces the library to create and store a standard RIFF header.
+However, when all samples have been packed, the application sends the RIFF
+chunks that it wants to add at the end of the file (RIFF trailer). Then, after
+flushing, it must reread the first block and call WavpackUpdateNumSamples() so
+that the library can update the RIFF header to reflect the added chunks (even
+if the number of samples was correct). Because the library created the header,
+it will update it, and will take into account the RIFF chunks added to the end.
+
+All of this wrapper stuff can be a little confusing. It is a good idea to
+test that the final application is working correctly and creating WavPack
+files that will unpack to valid WAV files (even if the RIFF info is totally
+wrong, the files will still work perfectly well as WavPack files because,
+again, the RIFF wrapper is just informational). The first test is to use the
+-ss option on WvUnpack to make sure the RIFF wrapper is reported correctly.
+Then, unpack the WavPack file into a WAV using WvUnpack and repack it again
+with the standard WavPack command-line program (without options). If it
+doesn't complain about anything then there is a good chance that all the
+wrapper information is valid.
+
+Here are the appropriate functions:
 
   int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
   ------------------------------------------------------------------------
@@ -737,12 +814,14 @@ cannot be changed and it is the responsibility of the application to read and
 rewrite the block. An example of this can be found in the Audition filter.
 
 
-5.0 TAGGING FUNCTIONS
+******************************************************************************
+*************************   5.0 TAGGING FUNCTIONS   **************************
+******************************************************************************
 
 The WavPack library contains rudimentary support to read and write metadata tags
 on WavPack files. This includes creating new APEv2 tags during WavPack file
 creation, reading text fields from both ID3v1 and APEv2 tags on existing
-WavPack files, and editing text data in APEv2 tags.
+WavPack files, and editing data in APEv2 tags.
 
 Users should be aware of the following limitations of this functionality:
 
@@ -750,10 +829,25 @@ Users should be aware of the following limitations of this functionality:
    prior to them in the file. ID3v1 tags are lost if the prior APEv2 tag is
    edited.
 
-2. The binary fields of APEv2 tags cannot be read or written (although they
-   will be retained in edit operations).
+2. The text items in APEv2 tags are UTF-8 encoded. The functionality of
+   converting to/from any local or multi-byte encoding must be handled by the
+   calling application.
 
-3. When APEv2 tags are edited and the resulting tags are shorter than the
+3. The binary items of APEv2 tags can now (version 4.60+) be read and written.
+   To implement this in a backward-compatible way, the existing functions for
+   accessing text tag items were simply duplicated as versions handling only
+   binary tags items. The versions for text tag items work exactly as before
+   (ignoring binary items) and the binary versions ignore text items.
+
+   The convention for binary tag items in APEv2 tags is that the data starts
+   with a NULL-terminated string representing a filename. After the terminating
+   NULL, the actual binary data starts. In the WavPack code this filename has
+   only the extension of the actual file; the name portion is made up of the
+   tag item name. NOTE THAT THIS FUNCTIONALITY IS NOT HANDLED IN THE LIBRARY.
+   THE LIBRARY ONLY STORES AND RETRIEVES A BINARY IMAGE AND IT IS UP TO THE
+   CALLING APPLICATION TO APPEND AND HANDLE THIS FILENAME.
+
+4. When APEv2 tags are edited and the resulting tags are shorter than the
    original tags, the tag is padded with zeros at the front rather than having
    the file shortened, and this padding cannot be reclaimed by future editing.
    The net result of this is that repeated editing of tags will cause the file
@@ -771,29 +865,36 @@ lookup of ID3v1 tag item names).
 
 
   int WavpackGetNumTagItems (WavpackContext *wpc);
-  -----------------------------------------------
+  int WavpackGetNumBinaryTagItems (WavpackContext *wpc);
+  ------------------------------------------------------
 
-Count and return the total number of tag items in the specified file. This works
-with either ID3v1 tags or APEv2 tags. Binary fields of APEv2 tags are not
-counted.
+Count and return the total number of tag items (either text or binary) in the
+specified file. This works with either ID3v1 tags or APEv2 tags (although ID3V1
+tags do not have binary items).
 
   int WavpackGetTagItem (WavpackContext *wpc,
                          const char *item,
                          char *value,
                          int size);
+
+  int WavpackGetBinaryTagItem (WavpackContext *wpc,
+                               const char *item,
+                               char *value,
+                               int size)
   ------------------------------------------------------------
 
 Attempt to get the specified item from the specified file's ID3v1 or APEv2 tag.
 The "size" parameter specifies the amount of space available at "value", if the
-desired item will not fit in this space then ellipses (...) will be appended
-and the string terminated. Only text data are supported. The actual length of
-the string is returned (or 0 if no matching value found). Note that with APEv2
-tags the length might not be the same as the number of characters because UTF-8
-encoding is used. Also, APEv2 tags can have multiple (NULL separated) strings
-for a single value (this is why the length is returned). If this function is
-called with a NULL "value" pointer (or a zero "length") then only the actual
-length of the value data is returned (not counting the terminating NULL). This
-can be used to determine the actual memory to be allocated beforehand.
+desired text item will not fit in this space then ellipses (...) will be
+appended and the string terminated (binary tag data is simply truncated). The
+actual length of the string (or binary data) is returned (or 0 if no matching
+value found). Note that with APEv2 text tags the length might not be the same
+as the number of characters because UTF-8 encoding is used. Also, APEv2 text
+tags can have multiple (NULL separated) strings for a single value (this is why
+the length is returned). If this function is called with a NULL "value" pointer
+(or a zero "length") then only the actual length of the value data is returned
+(not counting the terminating NULL of text tag items). This can be used to
+determine the actual memory to be allocated beforehand.
 
 For ID3v1 tags the only "item" names supported are "title", "artist", "album",
 "year", "comment" and "track" (which is converted to numeric text by the
@@ -803,6 +904,11 @@ library).
                                 int index,
                                 char *item,
                                 int size);
+
+  int WavpackGetBinaryTagItemIndexed (WavpackContext *wpc,
+                                      int index,
+                                      char *item,
+                                      int size);
   -------------------------------------------------
 
 This function looks up the tag item name by index and is used when the
@@ -821,22 +927,27 @@ allocated beforehand.
                             const char *item,
                             const char *value,
                             int vsize);
+
+  int WavpackAppendBinaryTagItem (WavpackContext *wpc,
+                                  const char *item,
+                                  const char *value,
+                                  int vsize);
   ---------------------------------------------
 
 This function is used to append (or replace) the specified field to the tag
 being created or edited. If no tag has been started, then an empty one will be
 allocated first. When finished adding all the items to the tag, use
 WavpackWriteTag() to write the completed tag to the file. Note that ID3 tags
-are not supported and that only text mode APEv2 tags are allowed (so this cannot
-be currently used to add album art files). A size parameter is included so that
-values containing multiple (NULL separated) strings can be written. A FALSE
+are not supported. A size parameter is included so that text values containing
+multiple (NULL separated) strings (and binary data) can be written. A FALSE
 return indicates an error.
 
   int WavpackDeleteTagItem (WavpackContext *wpc, const char *item);
   ----------------------------------------------------------------
 
-Delete the specified tag item from the APEv2 tag being created or edited.
-Returns TRUE to indicate that an item was actually deleted from the tag.
+Delete the specified tag item from the APEv2 tag being created or edited. This
+function works with either text or binary fields. Returns TRUE to indicate that
+an item was actually deleted from the tag.
 
   int WavpackWriteTag (WavpackContext *wpc);
   -----------------------------------------
@@ -861,7 +972,9 @@ file to a shorter length, this function will pad the file with 0's in front
 of a tag that had been edited to a shorter length.
 
 
-6.0 HANDLING WAVPACK STREAMS
+******************************************************************************
+**********************   6.0 HANDLING WAVPACK STREAMS   **********************
+******************************************************************************
 
 In some applications (for example streaming applications and some filters, or
 cases where WavPack data might be embedded into another multimedia container)
@@ -901,7 +1014,9 @@ will have to suck up all the blocks for the various channels before decoding may
 begin.
 
 
-7.0 ZIP FORMAT USAGE
+******************************************************************************
+**************************   7.0 ZIP FORMAT USAGE   **************************
+******************************************************************************
 
 With version 11.0, WinZip Computing has added WavPack Audio to the official ZIP
 file format standard as compression method 97, as described here:

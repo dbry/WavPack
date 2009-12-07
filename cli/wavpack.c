@@ -15,7 +15,8 @@
 #include <io.h>
 #else
 #if defined(__OS2__)
-#define INCL_DOS
+#define INCL_DOSPROCESS
+#include <os2.h>
 #include <io.h>
 #endif
 #include <sys/param.h>
@@ -118,7 +119,6 @@ static const char *help =
 "                             with '...' to indicate that any channels beyond\n"
 "                             those specified are unassigned\n"
 "    -d                      delete source file if successful (use with caution!)\n"
-"    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 #if defined (WIN32)
 "    -e                      create self-extracting executable with .exe\n"
 "                             extension, requires wvself.exe in path\n"
@@ -167,6 +167,7 @@ static const char *help =
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
 "    -t                      copy input file's time stamp to output file(s)\n"
+"    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 "    -w \"Field=Value\"        write specified text metadata to APEv2 tag\n"
 "    -w \"Field=@file.ext\"    write specified text metadata from file to APEv2\n"
 "                             tag, normally used for embedded cuesheets and logs\n"
@@ -198,14 +199,14 @@ static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
     do_md5_checksum, no_utf8_convert;
 
 static int num_channels_order;
-static uchar channel_order [18];
+static unsigned char channel_order [18];
 
 // These two statics are used to keep track of tags that the user specifies on the
 // command line. The "num_tag_strings" and "tag_strings" fields in the WavpackConfig
 // structure are no longer used for anything (they should not have been there in
 // the first place).
 
-static int num_tag_items;
+static int num_tag_items, total_tag_size;
 
 static struct tag_item {
     char *item, *value, *ext;
@@ -221,7 +222,7 @@ static uint32_t wvselfx_size;
 
 static FILE *wild_fopen (char *filename, const char *mode);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
-static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, uchar *new_order);
+static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order);
 static void display_progress (double file_progress);
 static void AnsiToUTF8 (char *string, int len);
 
@@ -799,6 +800,10 @@ int main (argc, argv) int argc; char **argv;
                 tag_items [i].value = new_value;
             }
         }
+        else if (tag_items [i].binary) {
+            error_line ("binary tags must be from files: %s !", tag_items [i].value);
+            ++error_count;
+        }
 
         if (tag_items [i].binary) {
             int isize = (int) strlen (tag_items [i].item);
@@ -820,6 +825,12 @@ int main (argc, argv) int argc; char **argv;
                 AnsiToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
 
             tag_items [i].vsize = (int) strlen (tag_items [i].value);
+        }
+
+        if ((total_tag_size += tag_items [i].vsize) > 1048576) {
+            error_line ("total APEv2 tag size exceeds 1 MB !");
+            ++error_count;
+            break;
         }
     }
 
@@ -1237,7 +1248,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 {
     uint32_t bcount;
     WavpackConfig loc_config = *config;
-    uchar *new_channel_order = NULL;
+    unsigned char *new_channel_order = NULL;
     write_id wv_file, wvc_file;
     WavpackContext *wpc;
     double dtime;
@@ -1482,7 +1493,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // to the WavPack metadata as "wrapper"
 
     if (result == NO_ERROR && !(loc_config.qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM))) {
-        uchar buff [16];
+        unsigned char buff [16];
 
         while (DoReadFile (infile, buff, sizeof (buff), &bcount) && bcount)
             if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
@@ -1506,17 +1517,17 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // (which is NOT stored in regular WavPack blocks)
 
     if (result == NO_ERROR && num_tag_items) {
-        int i;
+        int i, res = TRUE;
 
-        for (i = 0; i < num_tag_items; ++i)
+        for (i = 0; i < num_tag_items && res; ++i)
             if (tag_items [i].vsize) {
                 if (tag_items [i].binary) 
-                    WavpackAppendBinaryTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
+                    res = WavpackAppendBinaryTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
                 else
-                    WavpackAppendTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
+                    res = WavpackAppendTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
             }
 
-        if (!WavpackWriteTag (wpc)) {
+        if (!res || !WavpackWriteTag (wpc)) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             result = HARD_ERROR;
         }
@@ -1538,8 +1549,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     WavpackUpdateNumSamples (wpc, block_buff);
 
                     if (WavpackGetWrapperLocation (block_buff, &wrapper_size)) {
-                        uchar *wrapper_location = WavpackGetWrapperLocation (block_buff, NULL);
-                        uchar *chunk_header = malloc (sizeof (ChunkHeader));
+                        unsigned char *wrapper_location = WavpackGetWrapperLocation (block_buff, NULL);
+                        unsigned char *chunk_header = malloc (sizeof (ChunkHeader));
                         uint32_t data_size = WavpackGetSampleIndex (wpc) * WavpackGetNumChannels (wpc) *
                             WavpackGetBytesPerSample (wpc);
 
@@ -1914,7 +1925,7 @@ static int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, 
 // little-endian standard the executing processor's format is done and where
 // (if selected) the MD5 sum is calculated and displayed.
 
-static void reorder_channels (void *data, uchar *new_order, int num_chans,
+static void reorder_channels (void *data, unsigned char *new_order, int num_chans,
     int num_samples, int bytes_per_sample);
 
 static void load_little_endian_unsigned_samples (int32_t *dst, void *src, int bps, int count);
@@ -1924,13 +1935,13 @@ static void load_big_endian_signed_samples (int32_t *dst, void *src, int bps, in
 
 #define INPUT_SAMPLES 65536
 
-static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, uchar *new_order)
+static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order)
 {
     uint32_t samples_remaining, input_samples = INPUT_SAMPLES, samples_read = 0;
     double progress = -1.0;
     int bytes_per_sample;
     int32_t *sample_buffer;
-    uchar *input_buffer;
+    unsigned char *input_buffer;
     MD5_CTX md5_context;
 
     // don't use an absurd amount of memory just because we have an absurd number of channels
@@ -1949,7 +1960,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, uchar *new_
 
     while (1) {
         uint32_t bytes_to_read, bytes_read = 0;
-        uint sample_count;
+        unsigned int sample_count;
 
         if ((qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM)) || samples_remaining > input_samples)
             bytes_to_read = input_samples * bytes_per_sample;
@@ -2023,7 +2034,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, uchar *new_
 
     if (do_md5_checksum) {
         char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
-        uchar md5_digest [16];
+        unsigned char md5_digest [16];
         int i;
 
         MD5Final (md5_digest, &md5_context);
@@ -2042,7 +2053,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, uchar *new_
 
 static void load_little_endian_unsigned_samples (int32_t *dst, void *src, int bps, int count)
 {
-    uchar *sptr = src;
+    unsigned char *sptr = src;
 
     switch (bps) {
 
@@ -2080,7 +2091,7 @@ static void load_little_endian_unsigned_samples (int32_t *dst, void *src, int bp
 
 static void load_little_endian_signed_samples (int32_t *dst, void *src, int bps, int count)
 {
-    uchar *sptr = src;
+    unsigned char *sptr = src;
 
     switch (bps) {
 
@@ -2118,7 +2129,7 @@ static void load_little_endian_signed_samples (int32_t *dst, void *src, int bps,
 
 static void load_big_endian_unsigned_samples (int32_t *dst, void *src, int bps, int count)
 {
-    uchar *sptr = src;
+    unsigned char *sptr = src;
 
     switch (bps) {
 
@@ -2156,7 +2167,7 @@ static void load_big_endian_unsigned_samples (int32_t *dst, void *src, int bps, 
 
 static void load_big_endian_signed_samples (int32_t *dst, void *src, int bps, int count)
 {
-    uchar *sptr = src;
+    unsigned char *sptr = src;
 
     switch (bps) {
 
@@ -2192,7 +2203,7 @@ static void load_big_endian_signed_samples (int32_t *dst, void *src, int bps, in
     }
 }
 
-static void reorder_channels (void *data, uchar *order, int num_chans,
+static void reorder_channels (void *data, unsigned char *order, int num_chans,
     int num_samples, int bytes_per_sample)
 {
     char *temp = malloc (num_chans * bytes_per_sample);
@@ -2225,22 +2236,22 @@ static void reorder_channels (void *data, uchar *order, int num_chans,
 
 #if defined(WIN32)
 
-static int WideCharToUTF8 (const ushort *Wide, uchar *pUTF8, int len)
+static int WideCharToUTF8 (const unsigned short *Wide, unsigned char *pUTF8, int len)
 {
-    const ushort *pWide = Wide;
+    const unsigned short *pWide = Wide;
     int outndx = 0;
 
     while (*pWide) {
         if (*pWide < 0x80 && outndx + 1 < len)
-            pUTF8 [outndx++] = (uchar) *pWide++;
+            pUTF8 [outndx++] = (unsigned char) *pWide++;
         else if (*pWide < 0x800 && outndx + 2 < len) {
-            pUTF8 [outndx++] = (uchar) (0xc0 | ((*pWide >> 6) & 0x1f));
-            pUTF8 [outndx++] = (uchar) (0x80 | (*pWide++ & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0xc0 | ((*pWide >> 6) & 0x1f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
         }
         else if (outndx + 3 < len) {
-            pUTF8 [outndx++] = (uchar) (0xe0 | ((*pWide >> 12) & 0xf));
-            pUTF8 [outndx++] = (uchar) (0x80 | ((*pWide >> 6) & 0x3f));
-            pUTF8 [outndx++] = (uchar) (0x80 | (*pWide++ & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0xe0 | ((*pWide >> 12) & 0xf));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | ((*pWide >> 6) & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
         }
         else
             break;
@@ -2262,10 +2273,10 @@ static void AnsiToUTF8 (char *string, int len)
 {
     int max_chars = (int) strlen (string);
 #if defined(WIN32)
-    ushort *temp = (ushort *) malloc ((max_chars + 1) * 2);
+    unsigned short *temp = (unsigned short *) malloc ((max_chars + 1) * 2);
 
     MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
-    WideCharToUTF8 (temp, (uchar *) string, len);
+    WideCharToUTF8 (temp, (unsigned char *) string, len);
 #else
     char *temp = malloc (len);
     char *outp = temp;

@@ -108,7 +108,7 @@ public:
     int num_channels;
     int bytes_per_sample;
     WavpackContext *ctx;
-    char error_buff[4096]; // TODO: fixme!
+    char error_buff[80];
     float play_gain, shaping_error [8];
 
     WavpackDecoder(InputPlugin *mod) : mod(mod)
@@ -150,7 +150,7 @@ public:
         memset (shaping_error, 0, sizeof (shaping_error));
         mod->set_info(generate_title(filename, ctx),
                       (int) (WavpackGetNumSamples(ctx) / sample_rate) * 1000,
-                      (int) WavpackGetAverageBitrate(ctx, num_channels),
+                      (int) WavpackGetAverageBitrate(ctx, true),
                       (int) sample_rate, num_channels);
         play_gain = calculate_gain (ctx);
         DBG("gain value = %g\n", play_gain);
@@ -511,7 +511,7 @@ static void
 wv_get_song_info(char *filename, char **title, int *length)
 {
     assert(filename != NULL);
-    char error_buff[4096]; // TODO: fixme!
+    char error_buff[80];
     WavpackContext *ctx = WavpackOpenFileInput(filename, error_buff, OPEN_TAGS | OPEN_WVC, 0);
     if (ctx == NULL) {
         printf("wavpack: Error opening file: \"%s: %s\"\n", filename, error_buff);

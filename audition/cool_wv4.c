@@ -22,6 +22,8 @@
 // Version 2.7 - Dec 3, 2006   (updated to library version 4.40, added v.high mode)
 // Version 2.8 - May 6, 2007   (library ver 4.41, read RIFF header, not just trailer)
 // Version 2.9 - May 24, 2008  (library ver 4.50, add About, make "extra" into slider)
+// Version 2.10 - Sept 25, 2009 (library ver 4.60)
+// Version 2.11 - Nov 22, 2009 (library ver 4.60.1)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -340,7 +342,7 @@ DWORD PASCAL WriteFilterOutput (HANDLE hOutput, BYTE *lpbData, long lBytes)
 
         if (bytes_per_sample == 1) {
             int32_t samcnt = samples * num_channels, *out = buffer;
-            uchar *inp = (uchar *) lpbData;
+            unsigned char *inp = (unsigned char *) lpbData;
 
             while (samcnt--)
                 *out++ = *inp++ - 128;
@@ -597,7 +599,7 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
 
         if (bytes_per_sample == 1) {
             int32_t samcnt = samples_to_read * num_channels, *inp = buffer;
-            uchar *out = (uchar *) lpbData;
+            unsigned char *out = (unsigned char *) lpbData;
 
             while (samcnt--)
                 *out++ = *inp++ + 128;
@@ -916,8 +918,8 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
 
                 case IDABOUT:
                     MessageBox (hDlg,
-                        "WavPack Filter Version 2.9\n"
-                        "Copyright (c) 2008 Conifer Software  ", "About WavPack Filter", MB_OK);
+                        "WavPack Filter Version 2.11\n"
+                        "Copyright (c) 2009 Conifer Software  ", "About WavPack Filter", MB_OK);
                     break;
             }
 

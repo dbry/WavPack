@@ -15,7 +15,8 @@
 #include <io.h>
 #else
 #if defined(__OS2__)
-#define INCL_DOS
+#define INCL_DOSPROCESS
+#include <os2.h>
 #include <io.h>
 #endif
 #include <sys/stat.h>
@@ -46,6 +47,7 @@
 #include "md5.h"
 
 #ifdef WIN32
+#define strdup(x) _strdup(x)
 #define fileno _fileno
 #endif
 
@@ -693,7 +695,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
     uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
     uint32_t skip_sample_index = 0, until_samples_total = 0;
-    uchar *output_buffer = NULL, *output_pointer = NULL;
+    unsigned char *output_buffer = NULL, *output_pointer = NULL;
     double dtime, progress = -1.0;
     char *extension = NULL;
     MD5_CTX md5_context;
@@ -1051,7 +1053,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     if (!check_break () && calc_md5) {
         char md5_string1 [] = "00000000000000000000000000000000";
         char md5_string2 [] = "00000000000000000000000000000000";
-        uchar md5_original [16], md5_unpacked [16];
+        unsigned char md5_original [16], md5_unpacked [16];
         int i;
 
         MD5Final (md5_unpacked, &md5_context);
@@ -1234,13 +1236,14 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
     FILE *outfile;
 
     for (i = 0; result == NO_ERROR && i < num_tag_extractions; ++i) {
-        char *output_spec = strchr (tag_extractions [i], '=');
+        char *extraction_spec = strdup (tag_extractions [i]);
+        char *output_spec = strchr (extraction_spec, '=');
         char tag_filename [256];
 
-        if (output_spec && output_spec > tag_extractions [i] && strlen (output_spec) > 1)
+        if (output_spec && output_spec > extraction_spec && strlen (output_spec) > 1)
             *output_spec++ = 0;
 
-        if (dump_tag_item_to_file (wpc, tag_extractions [i], NULL, tag_filename)) {
+        if (dump_tag_item_to_file (wpc, extraction_spec, NULL, tag_filename)) {
             int max_length = (int) strlen (outfilename) + (int) strlen (tag_filename) + 10;
             char *full_filename;
 
@@ -1261,6 +1264,8 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 
                                 if (filespec_ext (dst))         // get rid of any extension
                                     dst = filespec_ext (dst);
+                                else
+                                    dst += strlen (dst);
 
                                 output_spec++;
                                 break;
@@ -1270,15 +1275,18 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 
                                 if (filespec_ext (dst))         // get rid of any extension
                                     dst = filespec_ext (dst);
+                                else
+                                    dst += strlen (dst);
 
                                 output_spec++;
                                 break;
 
                             case 'e':                           // default extension
-                                if (filespec_ext (tag_filename))
+                                if (filespec_ext (tag_filename)) {
                                     strcpy (dst, filespec_ext (tag_filename) + 1);
+                                    dst += strlen (dst);
+                                }
 
-                                dst += strlen (dst);
                                 output_spec++;
                                 break;
 
@@ -1320,19 +1328,21 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
                     result = SOFT_ERROR;
                 }
                 else {
-                    dump_tag_item_to_file (wpc, tag_extractions [i], outfile, NULL);
+                    dump_tag_item_to_file (wpc, extraction_spec, outfile, NULL);
 
                     if (!DoCloseHandle (outfile)) {
                         error_line ("can't close file %s!", FN_FIT (full_filename));
                         result = SOFT_ERROR;
                     }
                     else if (!quiet_mode)
-                        error_line ("extracted tag \"%s\" to file %s", tag_extractions [i], FN_FIT (full_filename));
+                        error_line ("extracted tag \"%s\" to file %s", extraction_spec, FN_FIT (full_filename));
                 }
             }
 
             free (full_filename);
         }
+
+        free (extraction_spec);
     }
 
     return result;
@@ -1340,7 +1350,7 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 
 static void *store_little_endian_unsigned_samples (void *dst, int32_t *src, int bps, int count)
 {
-    uchar *dptr = dst;
+    unsigned char *dptr = dst;
     int32_t temp;
 
     switch (bps) {
@@ -1353,27 +1363,27 @@ static void *store_little_endian_unsigned_samples (void *dst, int32_t *src, int 
 
         case 2:
             while (count--) {
-                *dptr++ = (uchar) (temp = *src++ + 0x8000);
-                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (unsigned char) (temp = *src++ + 0x8000);
+                *dptr++ = (unsigned char) (temp >> 8);
             }
 
             break;
 
         case 3:
             while (count--) {
-                *dptr++ = (uchar) (temp = *src++ + 0x800000);
-                *dptr++ = (uchar) (temp >> 8);
-                *dptr++ = (uchar) (temp >> 16);
+                *dptr++ = (unsigned char) (temp = *src++ + 0x800000);
+                *dptr++ = (unsigned char) (temp >> 8);
+                *dptr++ = (unsigned char) (temp >> 16);
             }
 
             break;
 
         case 4:
             while (count--) {
-                *dptr++ = (uchar) (temp = *src++ + 0x80000000);
-                *dptr++ = (uchar) (temp >> 8);
-                *dptr++ = (uchar) (temp >> 16);
-                *dptr++ = (uchar) (temp >> 24);
+                *dptr++ = (unsigned char) (temp = *src++ + 0x80000000);
+                *dptr++ = (unsigned char) (temp >> 8);
+                *dptr++ = (unsigned char) (temp >> 16);
+                *dptr++ = (unsigned char) (temp >> 24);
             }
 
             break;
@@ -1384,7 +1394,7 @@ static void *store_little_endian_unsigned_samples (void *dst, int32_t *src, int 
 
 static void *store_little_endian_signed_samples (void *dst, int32_t *src, int bps, int count)
 {
-    uchar *dptr = dst;
+    unsigned char *dptr = dst;
     int32_t temp;
 
     switch (bps) {
@@ -1397,27 +1407,27 @@ static void *store_little_endian_signed_samples (void *dst, int32_t *src, int bp
 
         case 2:
             while (count--) {
-                *dptr++ = (uchar) (temp = *src++);
-                *dptr++ = (uchar) (temp >> 8);
+                *dptr++ = (unsigned char) (temp = *src++);
+                *dptr++ = (unsigned char) (temp >> 8);
             }
 
             break;
 
         case 3:
             while (count--) {
-                *dptr++ = (uchar) (temp = *src++);
-                *dptr++ = (uchar) (temp >> 8);
-                *dptr++ = (uchar) (temp >> 16);
+                *dptr++ = (unsigned char) (temp = *src++);
+                *dptr++ = (unsigned char) (temp >> 8);
+                *dptr++ = (unsigned char) (temp >> 16);
             }
 
             break;
 
         case 4:
             while (count--) {
-                *dptr++ = (uchar) (temp = *src++);
-                *dptr++ = (uchar) (temp >> 8);
-                *dptr++ = (uchar) (temp >> 16);
-                *dptr++ = (uchar) (temp >> 24);
+                *dptr++ = (unsigned char) (temp = *src++);
+                *dptr++ = (unsigned char) (temp >> 8);
+                *dptr++ = (unsigned char) (temp >> 16);
+                *dptr++ = (unsigned char) (temp >> 24);
             }
 
             break;
@@ -1428,7 +1438,7 @@ static void *store_little_endian_signed_samples (void *dst, int32_t *src, int bp
 
 static void *store_big_endian_unsigned_samples (void *dst, int32_t *src, int bps, int count)
 {
-    uchar *dptr = dst;
+    unsigned char *dptr = dst;
     int32_t temp;
 
     switch (bps) {
@@ -1441,27 +1451,27 @@ static void *store_big_endian_unsigned_samples (void *dst, int32_t *src, int bps
 
         case 2:
             while (count--) {
-                *dptr++ = (uchar) ((temp = *src++ + 0x8000) >> 8);
-                *dptr++ = (uchar) temp;
+                *dptr++ = (unsigned char) ((temp = *src++ + 0x8000) >> 8);
+                *dptr++ = (unsigned char) temp;
             }
 
             break;
 
         case 3:
             while (count--) {
-                *dptr++ = (uchar) ((temp = *src++ + 0x800000) >> 16);
-                *dptr++ = (uchar) (temp >> 8);
-                *dptr++ = (uchar) temp;
+                *dptr++ = (unsigned char) ((temp = *src++ + 0x800000) >> 16);
+                *dptr++ = (unsigned char) (temp >> 8);
+                *dptr++ = (unsigned char) temp;
             }
 
             break;
 
         case 4:
             while (count--) {
-                *dptr++ = (uchar) ((temp = *src++ + 0x80000000) >> 24);
-                *dptr++ = (uchar) (temp >> 16);
-                *dptr++ = (uchar) (temp >> 8);
-                *dptr++ = (uchar) temp;
+                *dptr++ = (unsigned char) ((temp = *src++ + 0x80000000) >> 24);
+                *dptr++ = (unsigned char) (temp >> 16);
+                *dptr++ = (unsigned char) (temp >> 8);
+                *dptr++ = (unsigned char) temp;
             }
 
             break;
@@ -1472,7 +1482,7 @@ static void *store_big_endian_unsigned_samples (void *dst, int32_t *src, int bps
 
 static void *store_big_endian_signed_samples (void *dst, int32_t *src, int bps, int count)
 {
-    uchar *dptr = dst;
+    unsigned char *dptr = dst;
     int32_t temp;
 
     switch (bps) {
@@ -1485,27 +1495,27 @@ static void *store_big_endian_signed_samples (void *dst, int32_t *src, int bps, 
 
         case 2:
             while (count--) {
-                *dptr++ = (uchar) ((temp = *src++) >> 8);
-                *dptr++ = (uchar) temp;
+                *dptr++ = (unsigned char) ((temp = *src++) >> 8);
+                *dptr++ = (unsigned char) temp;
             }
 
             break;
 
         case 3:
             while (count--) {
-                *dptr++ = (uchar) ((temp = *src++) >> 16);
-                *dptr++ = (uchar) (temp >> 8);
-                *dptr++ = (uchar) temp;
+                *dptr++ = (unsigned char) ((temp = *src++) >> 16);
+                *dptr++ = (unsigned char) (temp >> 8);
+                *dptr++ = (unsigned char) temp;
             }
 
             break;
 
         case 4:
             while (count--) {
-                *dptr++ = (uchar) ((temp = *src++) >> 24);
-                *dptr++ = (uchar) (temp >> 16);
-                *dptr++ = (uchar) (temp >> 8);
-                *dptr++ = (uchar) temp;
+                *dptr++ = (unsigned char) ((temp = *src++) >> 24);
+                *dptr++ = (unsigned char) (temp >> 16);
+                *dptr++ = (unsigned char) (temp >> 8);
+                *dptr++ = (unsigned char) temp;
             }
 
             break;
@@ -1603,7 +1613,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 {
     uint32_t channel_mask = (uint32_t) WavpackGetChannelMask (wpc);
     int num_channels = WavpackGetNumChannels (wpc);
-    uchar md5_sum [16];
+    unsigned char md5_sum [16];
     char modes [80];
 
     fprintf (dst, "\n");
@@ -1712,7 +1722,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
     if (summary > 1) {
         uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes, i;
-        uchar *header_data = WavpackGetWrapperData (wpc);
+        unsigned char *header_data = WavpackGetWrapperData (wpc);
         char header_name [5];
 
         strcpy (header_name, "????");
@@ -1796,12 +1806,13 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 #if 0   // debug binary tag reading
             {
                 char md5_string [] = "00000000000000000000000000000000";
-                uchar md5_result [16];
+                unsigned char md5_result [16];
                 MD5_CTX md5_context;
                 char *value;
                 int i, j;
 
                 MD5Init (&md5_context);
+                value_len = WavpackGetBinaryTagItem (wpc, item, NULL, 0);
                 value = malloc (value_len);
                 value_len = WavpackGetBinaryTagItem (wpc, item, value, value_len);
 

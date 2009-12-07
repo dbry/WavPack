@@ -28,7 +28,7 @@
 #include <io.h>
 #endif
 
-#if defined(WIN32) && !defined(__MINGW32__)
+#ifndef LIBWAVPACK_VERSION_STRING
 #include "wavpack_version.h"
 #endif
 
@@ -328,7 +328,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
     WavpackContext *wpc = malloc (sizeof (WavpackContext));
     WavpackStream *wps;
     int num_blocks = 0;
-    uchar first_byte;
+    unsigned char first_byte;
     uint32_t bcount;
 
     if (!wpc) {
@@ -579,7 +579,7 @@ char *WavpackGetErrorMessage (WavpackContext *wpc)
 
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream = 0];
+    WavpackStream *wps = wpc->streams ? wpc->streams [wpc->current_stream = 0] : NULL;
     uint32_t bcount, samples_unpacked = 0, samples_to_unpack;
     int num_channels = wpc->config.num_channels;
     int file_done = FALSE;
@@ -821,7 +821,7 @@ static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_po
 
 int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream = 0];
+    WavpackStream *wps = wpc->streams ? wpc->streams [wpc->current_stream = 0] : NULL;
     uint32_t bcount, samples_to_skip;
     int32_t *buffer;
 
@@ -1253,7 +1253,7 @@ int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sa
 
     while (sample_count) {
         int32_t *source_pointer = sample_buffer;
-        uint samples_to_copy;
+        unsigned int samples_to_copy;
 
         if (!wpc->riff_header_added && !wpc->riff_header_created && !create_riff_header (wpc))
             return FALSE;
@@ -1349,14 +1349,16 @@ int WavpackFlushSamples (WavpackContext *wpc)
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
 {
     uint32_t index = WavpackGetSampleIndex (wpc);
-    uchar meta_id;
+    unsigned char meta_id;
 
     if (!index || index == (uint32_t) -1) {
         wpc->riff_header_added = TRUE;
         meta_id = ID_RIFF_HEADER;
     }
-    else
+    else {
+        wpc->riff_trailer_bytes += bcount;
         meta_id = ID_RIFF_TRAILER;
+    }
 
     return add_to_metadata (wpc, data, bcount, meta_id);
 }
@@ -1364,7 +1366,7 @@ int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
 // Store computed MD5 sum in WavPack metadata. Note that the user must compute
 // the 16 byte sum; it is not done here. A return of FALSE indicates an error.
 
-int WavpackStoreMD5Sum (WavpackContext *wpc, uchar data [16])
+int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16])
 {
     return add_to_metadata (wpc, data, 16, ID_MD5_CHECKSUM);
 }
@@ -1446,7 +1448,7 @@ static int create_riff_header (WavpackContext *wpc)
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 {
     uint32_t max_blocksize, bcount;
-    uchar *outbuff, *outend, *out2buff, *out2end;
+    unsigned char *outbuff, *outend, *out2buff, *out2end;
     int result = TRUE;
 
     if ((wpc->config.flags & CONFIG_FLOAT_DATA) && !(wpc->config.flags & CONFIG_SKIP_WVX))
@@ -1555,7 +1557,7 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
 
             if (!strncmp (riffhdr->ckID, "RIFF", 4)) {
                 little_endian_to_native (riffhdr, ChunkHeaderFormat);
-                riffhdr->ckSize = wrapper_size + data_size - 8;
+                riffhdr->ckSize = wrapper_size + data_size - 8 + wpc->riff_trailer_bytes;
                 native_to_little_endian (riffhdr, ChunkHeaderFormat);
             }
 
@@ -1606,14 +1608,14 @@ void *WavpackGetWrapperLocation (void *first_block, uint32_t *size)
 static void *find_metadata (void *wavpack_block, int desired_id, uint32_t *size)
 {
     WavpackHeader *wphdr = wavpack_block;
-    uchar *dp, meta_id, c1, c2;
+    unsigned char *dp, meta_id, c1, c2;
     int32_t bcount, meta_bc;
 
     if (strncmp (wphdr->ckID, "wvpk", 4))
         return NULL;
 
     bcount = wphdr->ckSize - sizeof (WavpackHeader) + 8;
-    dp = (uchar *)(wphdr + 1);
+    dp = (unsigned char *)(wphdr + 1);
 
     while (bcount >= 2) {
         meta_id = *dp++;
@@ -1912,7 +1914,7 @@ uint32_t WavpackGetWrapperBytes (WavpackContext *wpc)
     return wpc ? wpc->wrapper_bytes : 0;
 }
 
-uchar *WavpackGetWrapperData (WavpackContext *wpc)
+unsigned char *WavpackGetWrapperData (WavpackContext *wpc)
 {
     return wpc ? wpc->wrapper_data : NULL;
 }
@@ -1950,9 +1952,9 @@ void WavpackSeekTrailingWrapper (WavpackContext *wpc)
 // last sample or an extra seek will occur). A return value of FALSE indicates
 // that no MD5 checksum was stored.
 
-static int seek_md5 (WavpackStreamReader64 *reader, void *id, uchar data [16]);
+static int seek_md5 (WavpackStreamReader64 *reader, void *id, unsigned char data [16]);
 
-int WavpackGetMD5Sum (WavpackContext *wpc, uchar data [16])
+int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16])
 {
     if (wpc->config.flags & CONFIG_MD5_CHECKSUM) {
         if (wpc->config.md5_read) {
@@ -2073,7 +2075,7 @@ static uint32_t seek_final_index (WavpackStreamReader64 *reader, void *id)
 {
     uint32_t result = (uint32_t) -1, bcount;
     WavpackHeader wphdr;
-    uchar *tempbuff;
+    unsigned char *tempbuff;
 
     if (reader->get_length (id) > 1200000L)
         reader->set_pos_rel (id, -1048576L, SEEK_END);
@@ -2101,9 +2103,9 @@ static uint32_t seek_final_index (WavpackStreamReader64 *reader, void *id)
     }
 }
 
-static int seek_md5 (WavpackStreamReader64 *reader, void *id, uchar data [16])
+static int seek_md5 (WavpackStreamReader64 *reader, void *id, unsigned char data [16])
 {
-    uchar meta_id, c1, c2;
+    unsigned char meta_id, c1, c2;
     uint32_t bcount, meta_bc;
     WavpackHeader wphdr;
 
@@ -2149,7 +2151,7 @@ static void seek_riff_trailer (WavpackContext *wpc)
 {
     WavpackStreamReader64 *reader = wpc->reader;
     void *id = wpc->wv_in;
-    uchar meta_id, c1, c2;
+    unsigned char meta_id, c1, c2;
     uint32_t bcount, meta_bc;
     WavpackHeader wphdr;
 

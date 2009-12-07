@@ -13,6 +13,7 @@
                             David Bryant
 
                        updated: April 29, 2007
+                       updated: Sept 26, 2009
 
 1.0 INTRODUCTION
 
@@ -237,4 +238,5 @@ may be used):
     Replaygain_Album_Peak
     Cover Art (Front)
     Cover Art (Back)
+    Log
 

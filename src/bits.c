@@ -136,7 +136,7 @@ uint32_t bs_close_write (Bitstream *bs)
 
 void little_endian_to_native (void *data, char *format)
 {
-    uchar *cp = (uchar *) data;
+    unsigned char *cp = (unsigned char *) data;
     int64_t temp;
 
     while (*format) {
@@ -173,35 +173,35 @@ void little_endian_to_native (void *data, char *format)
 
 void native_to_little_endian (void *data, char *format)
 {
-    uchar *cp = (uchar *) data;
+    unsigned char *cp = (unsigned char *) data;
     int64_t temp;
 
     while (*format) {
         switch (*format) {
             case 'D':
                 temp = * (int64_t *) cp;
-                *cp++ = (uchar) temp;
-                *cp++ = (uchar) (temp >> 8);
-                *cp++ = (uchar) (temp >> 16);
-                *cp++ = (uchar) (temp >> 24);
-                *cp++ = (uchar) (temp >> 32);
-                *cp++ = (uchar) (temp >> 40);
-                *cp++ = (uchar) (temp >> 48);
-                *cp++ = (uchar) (temp >> 56);
+                *cp++ = (unsigned char) temp;
+                *cp++ = (unsigned char) (temp >> 8);
+                *cp++ = (unsigned char) (temp >> 16);
+                *cp++ = (unsigned char) (temp >> 24);
+                *cp++ = (unsigned char) (temp >> 32);
+                *cp++ = (unsigned char) (temp >> 40);
+                *cp++ = (unsigned char) (temp >> 48);
+                *cp++ = (unsigned char) (temp >> 56);
                 break;
 
             case 'L':
                 temp = * (int32_t *) cp;
-                *cp++ = (uchar) temp;
-                *cp++ = (uchar) (temp >> 8);
-                *cp++ = (uchar) (temp >> 16);
-                *cp++ = (uchar) (temp >> 24);
+                *cp++ = (unsigned char) temp;
+                *cp++ = (unsigned char) (temp >> 8);
+                *cp++ = (unsigned char) (temp >> 16);
+                *cp++ = (unsigned char) (temp >> 24);
                 break;
 
             case 'S':
                 temp = * (short *) cp;
-                *cp++ = (uchar) temp;
-                *cp++ = (uchar) (temp >> 8);
+                *cp++ = (unsigned char) temp;
+                *cp++ = (unsigned char) (temp >> 8);
                 break;
 
             default:
@@ -217,7 +217,7 @@ void native_to_little_endian (void *data, char *format)
 
 void big_endian_to_native (void *data, char *format)
 {
-    uchar *cp = (uchar *) data;
+    unsigned char *cp = (unsigned char *) data;
     int64_t temp;
 
     while (*format) {
@@ -254,35 +254,35 @@ void big_endian_to_native (void *data, char *format)
 
 void native_to_big_endian (void *data, char *format)
 {
-    uchar *cp = (uchar *) data;
+    unsigned char *cp = (unsigned char *) data;
     int64_t temp;
 
     while (*format) {
         switch (*format) {
             case 'D':
                 temp = * (int64_t *) cp;
-                *cp++ = (uchar) (temp >> 56);
-                *cp++ = (uchar) (temp >> 48);
-                *cp++ = (uchar) (temp >> 40);
-                *cp++ = (uchar) (temp >> 32);
-                *cp++ = (uchar) (temp >> 24);
-                *cp++ = (uchar) (temp >> 16);
-                *cp++ = (uchar) (temp >> 8);
-                *cp++ = (uchar) temp;
+                *cp++ = (unsigned char) (temp >> 56);
+                *cp++ = (unsigned char) (temp >> 48);
+                *cp++ = (unsigned char) (temp >> 40);
+                *cp++ = (unsigned char) (temp >> 32);
+                *cp++ = (unsigned char) (temp >> 24);
+                *cp++ = (unsigned char) (temp >> 16);
+                *cp++ = (unsigned char) (temp >> 8);
+                *cp++ = (unsigned char) temp;
                 break;
 
             case 'L':
                 temp = * (int32_t *) cp;
-                *cp++ = (uchar) (temp >> 24);
-                *cp++ = (uchar) (temp >> 16);
-                *cp++ = (uchar) (temp >> 8);
-                *cp++ = (uchar) temp;
+                *cp++ = (unsigned char) (temp >> 24);
+                *cp++ = (unsigned char) (temp >> 16);
+                *cp++ = (unsigned char) (temp >> 8);
+                *cp++ = (unsigned char) temp;
                 break;
 
             case 'S':
                 temp = * (short *) cp;
-                *cp++ = (uchar) (temp >> 8);
-                *cp++ = (uchar) temp;
+                *cp++ = (unsigned char) (temp >> 8);
+                *cp++ = (unsigned char) temp;
                 break;
 
             default:

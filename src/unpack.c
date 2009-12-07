@@ -52,7 +52,7 @@ int32_t dump_alloc (void);
 int unpack_init (WavpackContext *wpc)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uchar *blockptr, *block2ptr;
+    unsigned char *blockptr, *block2ptr;
     WavpackMetadata wpmd;
 
     wps->mute_error = FALSE;
@@ -124,7 +124,7 @@ int init_wv_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
     if (!wpmd->byte_length)
         return FALSE;
 
-    bs_open_read (&wps->wvbits, wpmd->data, (uchar *) wpmd->data + wpmd->byte_length);
+    bs_open_read (&wps->wvbits, wpmd->data, (unsigned char *) wpmd->data + wpmd->byte_length);
     return TRUE;
 }
 
@@ -136,7 +136,7 @@ int init_wvc_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
     if (!wpmd->byte_length)
         return FALSE;
 
-    bs_open_read (&wps->wvcbits, wpmd->data, (uchar *) wpmd->data + wpmd->byte_length);
+    bs_open_read (&wps->wvcbits, wpmd->data, (unsigned char *) wpmd->data + wpmd->byte_length);
     return TRUE;
 }
 
@@ -149,7 +149,7 @@ int init_wvc_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
 
 int init_wvx_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    uchar *cp = wpmd->data;
+    unsigned char *cp = wpmd->data;
 
     if (wpmd->byte_length <= 4)
         return FALSE;
@@ -159,7 +159,7 @@ int init_wvx_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
     wps->crc_wvx |= (int32_t) *cp++ << 16;
     wps->crc_wvx |= (int32_t) *cp++ << 24;
 
-    bs_open_read (&wps->wvxbits, cp, (uchar *) wpmd->data + wpmd->byte_length);
+    bs_open_read (&wps->wvxbits, cp, (unsigned char *) wpmd->data + wpmd->byte_length);
     return TRUE;
 }
 
@@ -173,7 +173,7 @@ int init_wvx_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
 int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     int termcnt = wpmd->byte_length;
-    uchar *byteptr = wpmd->data;
+    unsigned char *byteptr = wpmd->data;
     struct decorr_pass *dpp;
 
     if (termcnt > MAX_NTERMS)
@@ -233,8 +233,8 @@ int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
 
 int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    uchar *byteptr = wpmd->data;
-    uchar *endptr = byteptr + wpmd->byte_length;
+    unsigned char *byteptr = wpmd->data;
+    unsigned char *endptr = byteptr + wpmd->byte_length;
     struct decorr_pass *dpp;
     int tcount;
 
@@ -318,7 +318,7 @@ int read_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd)
         return TRUE;
     }
     else if (wpmd->byte_length >= (wps->wphdr.flags & MONO_DATA ? 4 : 8)) {
-        uchar *byteptr = wpmd->data;
+        unsigned char *byteptr = wpmd->data;
 
         wps->dc.error [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
         wps->dc.shaping_acc [0] = exp2s ((short)(byteptr [2] + (byteptr [3] << 8)));
@@ -370,7 +370,7 @@ int read_int32_info (WavpackStream *wps, WavpackMetadata *wpmd)
 int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     int bytecnt = wpmd->byte_length, shift = 0;
-    uchar *byteptr = wpmd->data;
+    unsigned char *byteptr = wpmd->data;
     uint32_t mask = 0;
 
     if (!bytecnt || bytecnt > 6)
@@ -413,7 +413,7 @@ int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 int read_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     int bytecnt = wpmd->byte_length;
-    uchar *byteptr = wpmd->data;
+    unsigned char *byteptr = wpmd->data;
 
     if (bytecnt >= 3) {
         wpc->config.flags &= 0xff;
@@ -439,7 +439,7 @@ int read_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 int read_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     int bytecnt = wpmd->byte_length;
-    uchar *byteptr = wpmd->data;
+    unsigned char *byteptr = wpmd->data;
 
     if (bytecnt == 3) {
         wpc->config.sample_rate = (int32_t) *byteptr++;

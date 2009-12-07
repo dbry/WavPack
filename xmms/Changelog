@@ -1,3 +1,5 @@
+version 1.0.3:
+	* include GPL license    
 version 1.0.2:
 	* play all supported bitdepths
 	* edit tags with WavPack library
