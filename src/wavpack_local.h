@@ -405,6 +405,7 @@ typedef struct {
     int (*push_back_byte)(void *id, int c);
     int64_t (*get_length)(void *id);                            // new signature for large files
     int (*can_seek)(void *id);
+    int (*close)(void *id);                                     // new function to close file
 
     // these callbacks are currently for writing edited tags only
     int32_t (*write_bytes)(void *id, void *data, int32_t bcount);
@@ -431,7 +432,7 @@ typedef struct {
 
     int64_t filelen, file2len, filepos, file2pos;
     uint32_t total_samples, crc_errors, first_flags;
-    int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, close_files;
+    int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks;
     uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, initial_index, riff_trailer_bytes;
     int riff_header_added, riff_header_created;
     M_Tag m_tag;

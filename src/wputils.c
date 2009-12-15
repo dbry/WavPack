@@ -146,13 +146,18 @@ static int can_seek (void *id)
     return file && !fstat (fileno (file), &statbuf) && (statbuf.st_mode & S_IFREG);
 }
 
+static int close_file (void *id)
+{
+    return fclose ((FILE*) id);
+}
+
 static int32_t write_bytes (void *id, void *data, int32_t bcount)
 {
     return (int32_t) fwrite (data, 1, bcount, (FILE*) id);
 }
 
 static WavpackStreamReader64 freader = {
-    read_bytes, get_pos, set_pos_abs, set_pos_rel, push_back_byte, get_length, can_seek,
+    read_bytes, get_pos, set_pos_abs, set_pos_rel, push_back_byte, get_length, can_seek, close_file,
     write_bytes
 };
 
@@ -189,7 +194,6 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 {
     char *file_mode = (flags & OPEN_EDIT_TAGS) ? "r+b" : "rb";
     FILE *wv_id, *wvc_id;
-    WavpackContext *wpc;
 
     if (*infilename == '-') {
         wv_id = stdin;
@@ -216,19 +220,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
     else
         wvc_id = NULL;
 
-    wpc = WavpackOpenFileInputEx64 (&freader, wv_id, wvc_id, error, flags, norm_offset);
-
-    if (!wpc) {
-        if (wv_id)
-            fclose (wv_id);
-
-        if (wvc_id)
-            fclose (wvc_id);
-    }
-    else
-        wpc->close_files = TRUE;
-
-    return wpc;
+    return WavpackOpenFileInputEx64 (&freader, wv_id, wvc_id, error, flags, norm_offset);
 }
 
 #endif
@@ -284,6 +276,18 @@ static int trans_can_seek (void *id)
     return trans->reader->can_seek (trans->id);
 }
 
+static int trans_close (void *id)
+{
+    WavpackReaderTranslator *trans = id;
+
+    if (trans->id) {
+        free (trans->id);
+        trans->id = 0;
+    }
+
+    return 0;
+}
+
 static int32_t trans_write_bytes (void *id, void *data, int32_t bcount)
 {
     WavpackReaderTranslator *trans = id;
@@ -291,7 +295,7 @@ static int32_t trans_write_bytes (void *id, void *data, int32_t bcount)
 }
 
 static WavpackStreamReader64 trans_reader = {
-    trans_read_bytes, trans_get_pos, trans_set_pos_abs, trans_set_pos_rel, trans_push_back_byte, trans_get_length, trans_can_seek,
+    trans_read_bytes, trans_get_pos, trans_set_pos_abs, trans_set_pos_rel, trans_push_back_byte, trans_get_length, trans_can_seek, trans_close,
     trans_write_bytes
 };
 
@@ -1808,14 +1812,12 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
 #endif
 
 #if !defined(NO_UNPACK) || defined(INFO_ONLY)
-    if (wpc->close_files) {
-#ifndef NO_USE_FSTREAMS
-        if (wpc->wv_in != NULL)
-            fclose (wpc->wv_in);
+    if (wpc->reader->close) {
+        if (wpc->wv_in)
+            wpc->reader->close (wpc->wv_in);
 
-        if (wpc->wvc_in != NULL)
-            fclose (wpc->wvc_in);
-#endif
+        if (wpc->wvc_in)
+            wpc->reader->close (wpc->wvc_in);
     }
 
     WavpackFreeWrapper (wpc);
