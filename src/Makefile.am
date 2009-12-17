@@ -7,6 +7,7 @@ libwavpack_la_SOURCES = \
 	unpack.c \
 	unpack3.c \
 	wputils.c \
+	fstreams.c \
 	words.c \
 	extra1.c \
 	extra2.c \

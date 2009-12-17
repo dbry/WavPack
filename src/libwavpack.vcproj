@@ -216,6 +216,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\fstreams.c"
+				>
+			</File>
+			<File
 				RelativePath=".\tags.c"
 				>
 			</File>
