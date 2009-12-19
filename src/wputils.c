@@ -1640,7 +1640,7 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
 #endif
 
 #if !defined(NO_UNPACK) || defined(INFO_ONLY)
-    if (wpc->reader->close) {
+    if (wpc->reader && wpc->reader->close) {
         if (wpc->wv_in)
             wpc->reader->close (wpc->wv_in);
 
