@@ -21,7 +21,7 @@
 
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 
-#define PLUGIN_VERSION "2.7"
+#define PLUGIN_VERSION "2.8a"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 
@@ -1285,6 +1285,8 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
     int open_flags = OPEN_TAGS;
     int retval = 0;
 
+    retlen >>= 1;		// could this be in bytes, not wchars??
+
 #ifdef DEBUG_CONSOLE
     sprintf (error, "winampGetExtendedFileInfoW (%s)\n", metadata);
     debug_write (error);
@@ -1828,6 +1830,9 @@ int WavPack_SetAlbumArt(const wchar_t *filename, const wchar_t *type, void *bits
 
 int WavPack_DeleteAlbumArt(const wchar_t *filename, const wchar_t *type)
 {
+#if 1
+	return 2;	// return 2 to indicate "read-only" cover art for now
+#else
     char error [128];
 
 #ifdef DEBUG_CONSOLE
@@ -1869,6 +1874,7 @@ int WavPack_DeleteAlbumArt(const wchar_t *filename, const wchar_t *type)
 		close_context (&edit);
 		return 1;
 	}
+#endif
 }
 
 
