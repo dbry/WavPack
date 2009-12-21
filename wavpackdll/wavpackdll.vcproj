@@ -257,6 +257,10 @@
 				RelativePath="..\src\wputils.c"
 				>
 			</File>
+			<File
+				RelativePath="..\src\fstreams.c"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>
