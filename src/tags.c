@@ -631,13 +631,13 @@ static int write_tag_reader (WavpackContext *wpc)
 
     // only write header if it's specified in the flags
 
-    if (m_tag->ape_tag_hdr.flags & APE_TAG_CONTAINS_HEADER)
+    if (tag_size && (m_tag->ape_tag_hdr.flags & APE_TAG_CONTAINS_HEADER))
         tag_size += sizeof (m_tag->ape_tag_hdr);
 
     result = (wpc->open_flags & OPEN_EDIT_TAGS) && wpc->reader->can_seek (wpc->wv_in) &&
         !wpc->reader->set_pos_rel (wpc->wv_in, m_tag->tag_file_pos, SEEK_END);
 
-    if (result && tag_size < -m_tag->tag_file_pos) {
+    if (result && tag_size < -m_tag->tag_file_pos && !wpc->reader->truncate_here) {
         int nullcnt = (int) (-m_tag->tag_file_pos - tag_size);
         char zero [1] = { 0 };
 
@@ -659,6 +659,9 @@ static int write_tag_reader (WavpackContext *wpc)
         result = (wpc->reader->write_bytes (wpc->wv_in, &m_tag->ape_tag_hdr, sizeof (m_tag->ape_tag_hdr)) == sizeof (m_tag->ape_tag_hdr));
         little_endian_to_native (&m_tag->ape_tag_hdr, APE_Tag_Hdr_Format);
     }
+
+    if (result && tag_size < -m_tag->tag_file_pos && wpc->reader->truncate_here)
+        result = !wpc->reader->truncate_here (wpc->wv_in);
 
     if (!result)
         strcpy (wpc->error_message, "can't write WavPack data, disk probably full!");

@@ -123,8 +123,8 @@ static int32_t trans_write_bytes (void *id, void *data, int32_t bcount)
 }
 
 static WavpackStreamReader64 trans_reader = {
-    trans_read_bytes, trans_get_pos, trans_set_pos_abs, trans_set_pos_rel, trans_push_back_byte, trans_get_length, trans_can_seek, trans_close,
-    trans_write_bytes
+    trans_read_bytes, trans_get_pos, trans_set_pos_abs, trans_set_pos_rel, trans_push_back_byte, trans_get_length,
+    trans_can_seek, trans_close, trans_write_bytes, NULL
 };
 
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)

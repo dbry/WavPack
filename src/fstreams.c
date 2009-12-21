@@ -129,9 +129,31 @@ static int32_t write_bytes (void *id, void *data, int32_t bcount)
     return (int32_t) fwrite (data, 1, bcount, (FILE*) id);
 }
 
+#ifdef WIN32
+
+static int truncate_here (void *id)
+{
+    FILE *file = id;
+    int64_t curr_pos = _ftelli64 (file);
+
+    return _chsize_s (fileno (file), curr_pos);
+}
+
+#else
+
+static int truncate_here (void *id)
+{
+    FILE *file = id;
+    off_t curr_pos = ftell (file);
+
+    return ftruncate (fileno (file), curr_pos);
+}
+
+#endif
+
 static WavpackStreamReader64 freader = {
     read_bytes, get_pos, set_pos_abs, set_pos_rel, push_back_byte, get_length, can_seek, close_file,
-    write_bytes
+    write_bytes, truncate_here
 };
 
 // This function attempts to open the specified WavPack file for reading. If
