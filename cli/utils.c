@@ -139,7 +139,7 @@ char *filespec_ext (char *filespec)
 
     while (--cp >= filespec) {
 
-        if (*cp == '/' || *cp == ':')
+        if (*cp == '/')
             return NULL;
 
         if (*cp == '.') {
@@ -175,7 +175,7 @@ char *filespec_path (char *filespec)
     if (cp == filespec || filespec_wild (filespec))
         return NULL;
 
-    if (*--cp == '/' || *cp == ':')
+    if (*--cp == '/')
         return filespec;
 
     if (*cp == '.' && cp == filespec)
@@ -276,7 +276,7 @@ char *filespec_name (char *filespec)
     char *cp = filespec + strlen (filespec);
 
     while (--cp >= filespec)
-        if (*cp == '/' || *cp == ':')
+        if (*cp == '/')
             break;
 
     if (strlen (cp + 1))
