@@ -1653,6 +1653,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     result = pack_audio (wpc, infile, new_channel_order);
 
+    if (new_channel_order)
+        free (new_channel_order);
+
     // if everything went well (and we're not ignoring length) try to read
     // anything else that might be appended to the audio data and write that
     // to the WavPack metadata as "wrapper"
