@@ -324,7 +324,7 @@ struct decorr_pass {
 };
 
 typedef struct {
-    char joint_stereo, delta, terms [MAX_NTERMS+1];
+    signed char joint_stereo, delta, terms [MAX_NTERMS+1];
 } WavpackDecorrSpec;
 
 struct entropy_data {
