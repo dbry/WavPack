@@ -327,7 +327,7 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
         ((wps->wphdr.flags & SHIFT_MASK) >> SHIFT_LSB);
 
     if (!wpc->config.sample_rate) {
-        if (!wps || !wps->wphdr.block_samples || (wps->wphdr.flags & SRATE_MASK) == SRATE_MASK)
+        if (!wps->wphdr.block_samples || (wps->wphdr.flags & SRATE_MASK) == SRATE_MASK)
             wpc->config.sample_rate = 44100;
         else
             wpc->config.sample_rate = sample_rates [(wps->wphdr.flags & SRATE_MASK) >> SRATE_LSB];
