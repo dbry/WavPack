@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2009 Conifer Software.               //
+//              Copyright (c) 1998 - 2010 Conifer Software.               //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -68,7 +68,7 @@ static char *strdup (const char *s)
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2009 Conifer Software.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2010 Conifer Software.  All Rights Reserved.\n\n";
 
 static const char *usage =
 #if defined (WIN32)
@@ -220,7 +220,7 @@ static FILE *wild_fopen (char *filename, const char *mode);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
 static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order);
 static void display_progress (double file_progress);
-static void AnsiToUTF8 (char *string, int len);
+static void TextToUTF8 (void *string, int len);
 
 #define NO_ERROR 0L
 #define SOFT_ERROR 1
@@ -744,15 +744,14 @@ int main (argc, argv) int argc; char **argv;
                     tag_items [i].ext = strdup (filespec_ext (fn));
 
                 if (tag_items [i].vsize < 1048576) {
-                    new_value = malloc (tag_items [i].vsize + 1);
+                    new_value = malloc (tag_items [i].vsize + 2);
+                    memset (new_value, 0, tag_items [i].vsize + 2);
 
                     if (!DoReadFile (file, new_value, tag_items [i].vsize, &bcount) ||
                         bcount != tag_items [i].vsize) {
                             free (new_value);
                             new_value = NULL;
                         }
-                        else
-                            new_value [tag_items [i].vsize] = 0;
                 }
 
                 DoCloseHandle (file);
@@ -789,7 +788,7 @@ int main (argc, argv) int argc; char **argv;
             tag_items [i].value = realloc (tag_items [i].value, tag_items [i].vsize * 2 + 1);
 
             if (!no_utf8_convert)
-                AnsiToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
+                TextToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
 
             tag_items [i].vsize = (int) strlen (tag_items [i].value);
         }
@@ -2057,6 +2056,8 @@ static void reorder_channels (void *data, unsigned char *order, int num_chans,
     free (temp);
 }
 
+#if defined(WIN32)
+
 // Convert the Unicode wide-format string into a UTF-8 string using no more
 // than the specified buffer length. The wide-format string must be NULL
 // terminated and the resulting string will be NULL terminated. The actual
@@ -2064,11 +2065,9 @@ static void reorder_channels (void *data, unsigned char *order, int num_chans,
 // may be less than the number of characters in the wide string if the buffer
 // length is exceeded.
 
-#if defined(WIN32)
-
-static int WideCharToUTF8 (const unsigned short *Wide, unsigned char *pUTF8, int len)
+static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len)
 {
-    const unsigned short *pWide = Wide;
+    const wchar_t *pWide = Wide;
     int outndx = 0;
 
     while (*pWide) {
@@ -2091,27 +2090,38 @@ static int WideCharToUTF8 (const unsigned short *Wide, unsigned char *pUTF8, int
     return (int)(pWide - Wide);
 }
 
-#endif
-
-// Convert a Ansi string into its Unicode UTF-8 format equivalent. The
+// Convert a text string into its Unicode UTF-8 format equivalent. The
 // conversion is done in-place so the maximum length of the string buffer must
 // be specified because the string may become longer or shorter. If the
 // resulting string will not fit in the specified buffer size then it is
 // truncated.
 
-static void AnsiToUTF8 (char *string, int len)
+static void TextToUTF8 (void *string, int len)
 {
-    int max_chars = (int) strlen (string);
-#if defined(WIN32)
-    unsigned short *temp = (unsigned short *) malloc ((max_chars + 1) * 2);
+    if (* (wchar_t *) string == 0xFEFF) {
+        wchar_t *temp = _wcsdup (string);
 
-    MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
-    WideCharToUTF8 (temp, (unsigned char *) string, len);
+        WideCharToUTF8 (temp + 1, (unsigned char *) string, len);
+        free (temp);
+    }
+    else {
+        int max_chars = (int) strlen (string);
+        wchar_t *temp = (wchar_t *) malloc ((max_chars + 1) * 2);
+
+        MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
+        WideCharToUTF8 (temp, (unsigned char *) string, len);
+        free (temp);
+    }
+}
+
 #else
+
+static void TextToUTF8 (void *string, int len)
+{
     char *temp = malloc (len);
     char *outp = temp;
     char *inp = string;
-    size_t insize = max_chars;
+    size_t insize = 0;
     size_t outsize = len - 1;
     int err = 0;
     char *old_locale;
@@ -2119,7 +2129,19 @@ static void AnsiToUTF8 (char *string, int len)
 
     memset(temp, 0, len);
     old_locale = setlocale (LC_CTYPE, "");
-    converter = iconv_open ("UTF-8", "");
+
+    if ((unsigned char) inp [0] == 0xFF && (unsigned char) inp [1] == 0xFE) {
+        uint16_t *utf16p = (uint16_t *) (inp += 2);
+
+        while (*utf16p++)
+            insize += 2;
+
+        converter = iconv_open ("UTF-8", "UTF-16LE");
+    }
+    else {
+        insize = strlen (string);
+        converter = iconv_open ("UTF-8", "");
+    }
 
     if (converter != (iconv_t) -1) {
         err = iconv (converter, &inp, &insize, &outp, &outsize);
@@ -2136,9 +2158,10 @@ static void AnsiToUTF8 (char *string, int len)
     }
 
     memmove (string, temp, len);
-#endif
     free (temp);
 }
+
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 // This function displays the progress status on the title bar of the DOS   //
