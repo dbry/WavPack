@@ -1457,7 +1457,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             format = (WaveHeader.FormatTag == 0xfffe && chunk_header.ckSize == 40) ?
                 WaveHeader.SubFormat : WaveHeader.FormatTag;
 
-            loc_config.bits_per_sample = chunk_header.ckSize == 40 ?
+            loc_config.bits_per_sample = (chunk_header.ckSize == 40 && WaveHeader.ValidBitsPerSample) ?
                 WaveHeader.ValidBitsPerSample : WaveHeader.BitsPerSample;
 
             if (format != 1 && format != 3)
