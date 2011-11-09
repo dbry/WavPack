@@ -478,15 +478,19 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
             wps->sample_index >= wps->wphdr.block_index + wps->wphdr.block_samples) {
 
+                uint32_t nexthdrpos;
+
                 if (wpc->wrapper_bytes >= MAX_WRAPPER_BYTES)
                     break;
 
                 free_streams (wpc);
-                wpc->filepos = wpc->reader->get_pos (wpc->wv_in);
+                nexthdrpos = wpc->reader->get_pos (wpc->wv_in);
                 bcount = read_next_header (wpc->reader, wpc->wv_in, &wps->wphdr);
 
                 if (bcount == (uint32_t) -1)
                     break;
+
+                wpc->filepos = nexthdrpos;
 
                 if (wpc->open_flags & OPEN_STREAMING)
                     wps->wphdr.block_index = wps->sample_index = 0;
