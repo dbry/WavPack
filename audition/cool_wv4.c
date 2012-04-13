@@ -520,16 +520,16 @@ typedef struct {
     WavpackContext *wpc;
     uint32_t special_bytes;
     char *special_data;
-} INPUT;
+} WavpackInput;
 
 HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
     WORD *lpwBitsPerSample, WORD *lpwChannels, HWND hWnd, long *lplChunkSize)
 {
     WavpackContext *wpc;
     char error [256];
-    INPUT *in;
+    WavpackInput *in;
 
-    if ((in = malloc (sizeof (INPUT))) == NULL)
+    if ((in = malloc (sizeof (WavpackInput))) == NULL)
         return 0;
 
     CLEAR (*in);
@@ -562,7 +562,7 @@ HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
 
 DWORD PASCAL FilterGetFileSize (HANDLE hInput)
 {
-    INPUT *in = hInput;
+    WavpackInput *in = hInput;
 
     if (in && in->wpc && WavpackGetNumSamples (in->wpc) != (uint32_t) -1)
         return WavpackGetNumSamples (in->wpc) * WavpackGetNumChannels (in->wpc) *
@@ -579,7 +579,7 @@ DWORD PASCAL FilterGetFileSize (HANDLE hInput)
 
 DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
 {
-    INPUT *in = hInput;
+    WavpackInput *in = hInput;
 
     if (in && in->wpc) {
         WavpackContext *wpc = in->wpc;
@@ -633,12 +633,12 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
 
 
 //////////////////////////////////////////////////////////////////////////////
-// Close input file and release INPUT structure.                            //
+// Close input file and release WavpackInput structure.                     //
 //////////////////////////////////////////////////////////////////////////////
 
 void PASCAL CloseFilterInput (HANDLE hInput)
 {
-    INPUT *in = hInput;
+    WavpackInput *in = hInput;
 
     if (in) {
         if (WavpackGetNumErrors (in->wpc)) {
@@ -954,7 +954,7 @@ static int std_bitrate (int bitrate)
 
 DWORD PASCAL FilterOptions (HANDLE hInput)
 {
-    INPUT *in = hInput;
+    WavpackInput *in = hInput;
     DWORD dwOptions = 0;
 
     if (in && in->wpc) {
@@ -1001,7 +1001,7 @@ DWORD PASCAL FilterOptions (HANDLE hInput)
 
 DWORD PASCAL FilterOptionsString (HANDLE hInput, LPSTR lpszString)
 {
-    INPUT *in = hInput;
+    WavpackInput *in = hInput;
 
     if (in && in->wpc && lpszString) {
         WavpackContext *wpc = in->wpc;
@@ -1224,7 +1224,7 @@ static DWORD dump_list_chunk (OUTPUT *out)
 DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
 {
     ChunkHeader ChunkHeader;
-    INPUT *in = hInput;
+    WavpackInput *in = hInput;
 
     while (in && in->special_bytes) {
         char * pData;
@@ -1376,7 +1376,7 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
 
 DWORD PASCAL FilterGetFirstSpecialData (HANDLE hInput, SPECIALDATA *psp)
 {
-    INPUT *in = hInput;
+    WavpackInput *in = hInput;
 
     if (in && in->wpc) {
         WavpackContext *wpc = in->wpc;

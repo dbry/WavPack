@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="8.00"
+	Version="9.00"
 	Name="libwavpack"
 	ProjectGUID="{5CCCB9CF-0384-458F-BA08-72B73866840F}"
 	Keyword="Win32Proj"
+	TargetFrameworkVersion="131072"
 	>
 	<Platforms>
 		<Platform
@@ -44,7 +45,7 @@
 				RuntimeLibrary="1"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 				DebugInformationFormat="4"
 			/>
 			<Tool
@@ -98,6 +99,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				Optimization="2"
 				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
 				FavorSizeOrSpeed="1"
@@ -112,7 +114,7 @@
 				RuntimeTypeInfo="false"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="true"
+				Detect64BitPortabilityProblems="false"
 				DebugInformationFormat="0"
 				CompileAs="0"
 				OmitDefaultLibName="true"
@@ -192,11 +194,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\fstreams.c"
+				>
+			</File>
+			<File
 				RelativePath=".\metadata.c"
 				>
 			</File>
 			<File
 				RelativePath=".\pack.c"
+				>
+			</File>
+			<File
+				RelativePath=".\tags.c"
 				>
 			</File>
 			<File
@@ -213,14 +223,6 @@
 			</File>
 			<File
 				RelativePath=".\wputils.c"
-				>
-			</File>
-			<File
-				RelativePath=".\fstreams.c"
-				>
-			</File>
-			<File
-				RelativePath=".\tags.c"
 				>
 			</File>
 		</Filter>
