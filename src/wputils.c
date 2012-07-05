@@ -1400,7 +1400,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         }
 
         if (wpc->acc_samples != block_samples)
-            memcpy (wps->sample_buffer, wps->sample_buffer + block_samples * (flags & MONO_FLAG ? 1 : 2),
+            memmove (wps->sample_buffer, wps->sample_buffer + block_samples * (flags & MONO_FLAG ? 1 : 2),
                 (wpc->acc_samples - block_samples) * sizeof (int32_t) * (flags & MONO_FLAG ? 1 : 2));
     }
 
