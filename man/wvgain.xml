@@ -8,11 +8,13 @@
       <firstname>Sebastian</firstname>
       <surname>Dröge</surname>
       <email>slomo@debian.org</email>
+      <contrib>Original author</contrib>
     </author>
     <author>
       <firstname>David</firstname>
       <surname>Bryant</surname>
       <email>david@wavpack.com</email>
+      <contrib>Updates</contrib>
     </author>
     <copyright>
       <year>2005</year>
@@ -26,6 +28,9 @@
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvgain</refentrytitle>
+    <refmiscinfo class="source">WavPack</refmiscinfo>
+    <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
+    <refmiscinfo class="version">4.60.1</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
