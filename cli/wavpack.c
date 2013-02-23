@@ -1985,7 +1985,11 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
         }
 
         if (check_break ()) {
+#if defined(WIN32)
             fprintf (stderr, "^C\n");
+#else
+            fprintf (stderr, "\n");
+#endif
             free (sample_buffer);
             free (input_buffer);
             return SOFT_ERROR;

@@ -955,7 +955,11 @@ static int unpack_file (char *infilename, char *outfilename)
             break;
 
         if (check_break ()) {
+#if defined(WIN32)
             fprintf (stderr, "^C\n");
+#else
+            fprintf (stderr, "\n");
+#endif
             DoTruncateFile (outfile);
             result = SOFT_ERROR;
             break;

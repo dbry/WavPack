@@ -600,8 +600,24 @@ void finish_line (void)
 // Function to initialize console for intercepting ^C and ^Break.           //
 //////////////////////////////////////////////////////////////////////////////
 
+#include <signal.h>
+
+static int break_flag;
+
+static void int_handler(int s)
+{
+    break_flag = 1;
+}
+
 void setup_break (void)
 {
+    struct sigaction sigIntHandler;
+
+    break_flag = 0;
+    sigIntHandler.sa_handler = int_handler;
+    sigemptyset (&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+    sigaction (SIGINT, &sigIntHandler, NULL);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -610,7 +626,7 @@ void setup_break (void)
 
 int check_break (void)
 {
-    return 0;
+    return break_flag;
 }
 
 #endif
