@@ -743,6 +743,6 @@ int DoTruncateFile (FILE *hFile)
 
 int DoDeleteFile (char *filename)
 {
-    return !remove (filename);
+    return filename ? !remove (filename) : 0;
 }
 

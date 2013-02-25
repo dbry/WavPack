@@ -667,6 +667,87 @@ static void parse_sample_time_index (struct sample_time_index *dst, char *src)
     dst->value_is_valid = 1;
 }
 
+
+// Open specified file for writing, with overwrite check. If the specified file already exists (and the user has
+// agreed to overwrite) then open a temp file instead and store a pointer to that filename at "tempfilename" (otherwise
+// the pointer is set to NULL). The caller will be required to perform the rename (and free the pointer) once the file
+// is completely written and closed.
+
+static FILE *open_output_file (char *filename, char **tempfilename)
+{
+    FILE *retval, *testfile;
+
+    *tempfilename = NULL;
+
+    if (*filename == '-') {
+#if defined(WIN32)
+        _setmode (fileno (stdout), O_BINARY);
+#endif
+#if defined(__OS2__)
+        setmode (fileno (stdout), O_BINARY);
+#endif
+        return stdout;
+    }
+
+    testfile = fopen (filename, "rb");
+
+    if (testfile) {
+        int count = 0;
+
+        fclose (testfile);
+
+        if (!overwrite_all) {
+            fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (filename));
+#if defined(WIN32)
+            SetConsoleTitle ("overwrite?");
+#endif
+
+            switch (yna ()) {
+                case 'n':
+                    return NULL;
+
+                case 'a':
+                    overwrite_all = 1;
+            }
+        }
+
+        *tempfilename = malloc (strlen (filename) + 16);
+
+        while (1) {
+            strcpy (*tempfilename, filename);
+
+            if (filespec_ext (*tempfilename)) {
+                if (count++)
+                    sprintf (filespec_ext (*tempfilename), ".tmp%d", count-1);
+                else
+                    strcpy (filespec_ext (*tempfilename), ".tmp");
+
+                strcat (*tempfilename, filespec_ext (filename));
+            }
+            else {
+                if (count++)
+                    sprintf (*tempfilename + strlen (*tempfilename), ".tmp%d", count-1);
+                else
+                    strcat (*tempfilename, ".tmp");
+            }
+
+            testfile = fopen (*tempfilename, "rb");
+
+            if (!testfile)
+                break;
+
+            fclose (testfile);
+        }
+    }
+
+    retval = fopen (*tempfilename ? *tempfilename : filename, "w+b");
+
+    if (retval == NULL)
+        error_line ("can't create file %s!", *tempfilename ? *tempfilename : filename);
+
+    return retval;
+}
+
 // Unpack the specified WavPack input file into the specified output file name.
 // This function uses the library routines provided in wputils.c to do all
 // unpacking. This function takes care of reformatting the data (which is
@@ -689,6 +770,7 @@ static int unpack_file (char *infilename, char *outfilename)
     uint32_t skip_sample_index = 0, until_samples_total = 0;
     unsigned char *output_buffer = NULL, *output_pointer = NULL;
     double dtime, progress = -1.0;
+    char *outfilename_temp;
     MD5_CTX md5_context;
     WavpackContext *wpc;
     int32_t *temp_buffer;
@@ -810,56 +892,17 @@ static int unpack_file (char *infilename, char *outfilename)
     }
 
     if (outfilename) {
-        if (*outfilename != '-') {
-
-            // check the output file for overwrite warning required
-
-            if (!overwrite_all && (outfile = fopen (outfilename, "rb")) != NULL) {
-                DoCloseHandle (outfile);
-                fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
-#if defined(WIN32)
-                SetConsoleTitle ("overwrite?");
-#endif
-                switch (yna ()) {
-
-                    case 'n':
-                        result = SOFT_ERROR;
-                        break;
-
-                    case 'a':
-                        overwrite_all = 1;
-                }
-
-                if (result != NO_ERROR) {
-                    WavpackCloseFile (wpc);
-                    return result;
-                }
-            }
-
-            // open output file for writing
-
-            if ((outfile = fopen (outfilename, "wb")) == NULL) {
-                error_line ("can't create file %s!", FN_FIT (outfilename));
-                WavpackCloseFile (wpc);
-                return SOFT_ERROR;
-            }
-            else if (!quiet_mode)
-                fprintf (stderr, "restoring %s,", FN_FIT (outfilename));
+        if ((outfile = open_output_file (outfilename, &outfilename_temp)) == NULL) {
+            WavpackCloseFile (wpc);
+            return SOFT_ERROR;
         }
-        else {  // come here to open stdout as destination
-
-            outfile = stdout;
-#if defined(WIN32)
-            _setmode (fileno (stdout), O_BINARY);
-#endif
-#if defined(__OS2__)
-            setmode (fileno (stdout), O_BINARY);
-#endif
-
+        else if (*outfilename == '-') {
             if (!quiet_mode)
                 fprintf (stderr, "unpacking %s%s to stdout,", *infilename == '-' ?
                     "stdin" : FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
         }
+        else if (!quiet_mode)
+            fprintf (stderr, "restoring %s,", FN_FIT (outfilename));
 
         if (outbuf_k)
             output_buffer_size = outbuf_k * 1024;
@@ -1033,23 +1076,34 @@ static int unpack_file (char *infilename, char *outfilename)
             }
     }
 
-    // if we are not just in verify only mode, grab the size of the output
-    // file and close the file
+    // if we are not just in verify only mode, flush the output stream and if it's a real file (not stdout)
+    // close it and make sure it's not zero length (which means we got an error somewhere)
 
-    if (outfile != NULL) {
-        int64_t outfile_length;
-
+    if (outfile) {
         fflush (outfile);
-        outfile_length = DoGetFileSize (outfile);
 
-        if (!DoCloseHandle (outfile)) {
-            error_line ("can't close file %s!", FN_FIT (outfilename));
-            result = SOFT_ERROR;
+        if (*outfilename != '-') {
+            int64_t outfile_length = DoGetFileSize (outfile);
+
+            if (!DoCloseHandle (outfile)) {
+                error_line ("can't close file %s!", FN_FIT (outfilename));
+                result = SOFT_ERROR;
+            }
+
+            if (!outfile_length)
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
         }
-
-        if (outfilename && *outfilename != '-' && !outfile_length)
-            DoDeleteFile (outfilename);
     }
+
+    // if we were writing to a temp file because the target file already existed,
+    // do the rename / overwrite now (and if that fails, flag the error)
+
+    if (result == NO_ERROR && outfilename && outfilename_temp && rename (outfilename_temp, outfilename)) {
+        error_line ("can not rename temp file %s to %s!", outfilename_temp, outfilename);
+        result = SOFT_ERROR;
+    }
+
+    if (outfilename && outfilename_temp) free (outfilename_temp);
 
     if (result == NO_ERROR && copy_time && outfilename &&
         !copy_timestamp (infilename, outfilename))

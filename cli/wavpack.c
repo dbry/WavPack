@@ -217,6 +217,7 @@ static uint32_t wvselfx_size;
 /////////////////////////// local function declarations ///////////////////////
 
 static FILE *wild_fopen (char *filename, const char *mode);
+static FILE *open_output_file (char *filename, char **tempfilename);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
 static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order);
 static void display_progress (double file_progress);
@@ -1201,6 +1202,85 @@ static FILE *wild_fopen (char *filename, const char *mode)
 
 #endif
 
+// Open specified file for writing, with overwrite check. If the specified file already exists (and the user has
+// agreed to overwrite) then open a temp file instead and store a pointer to that filename at "tempfilename" (otherwise
+// the pointer is set to NULL). The caller will be required to perform the rename (and free the pointer) once the file
+// is completely written and closed.
+
+static FILE *open_output_file (char *filename, char **tempfilename)
+{
+    FILE *retval, *testfile;
+
+    *tempfilename = NULL;
+
+    if (*filename == '-') {
+#if defined(WIN32)
+        _setmode (fileno (stdout), O_BINARY);
+#endif
+#if defined(__OS2__)
+        setmode (fileno (stdout), O_BINARY);
+#endif
+        return stdout;
+    }
+
+    testfile = fopen (filename, "rb");
+
+    if (testfile) {
+        int count = 0;
+
+        fclose (testfile);
+
+        if (!overwrite_all) {
+            fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (filename));
+#if defined(WIN32)
+            SetConsoleTitle ("overwrite?");
+#endif
+
+            switch (yna ()) {
+                case 'n':
+                    return NULL;
+
+                case 'a':
+                    overwrite_all = 1;
+            }
+        }
+
+        *tempfilename = malloc (strlen (filename) + 16);
+
+        while (1) {
+            strcpy (*tempfilename, filename);
+
+            if (filespec_ext (*tempfilename)) {
+                if (count++)
+                    sprintf (filespec_ext (*tempfilename), ".tmp%d", count-1);
+                else
+                    strcpy (filespec_ext (*tempfilename), ".tmp");
+
+                strcat (*tempfilename, filespec_ext (filename));
+            }
+            else {
+                if (count++)
+                    sprintf (*tempfilename + strlen (*tempfilename), ".tmp%d", count-1);
+                else
+                    strcat (*tempfilename, ".tmp");
+            }
+
+            testfile = fopen (*tempfilename, "rb");
+
+            if (!testfile)
+                break;
+
+            fclose (testfile);
+        }
+    }
+
+    retval = fopen (*tempfilename ? *tempfilename : filename, "w+b");
+
+    if (retval == NULL)
+        error_line ("can't create file %s!", *tempfilename ? *tempfilename : filename);
+
+    return retval;
+}
 
 // This function packs a single file "infilename" and stores the result at
 // "outfilename". If "out2filename" is specified, then the "correction"
@@ -1209,6 +1289,7 @@ static FILE *wild_fopen (char *filename, const char *mode)
 
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
+    char *outfilename_temp, *out2filename_temp;
     uint32_t total_samples = 0, bcount;
     WavpackConfig loc_config = *config;
     RiffChunkHeader riff_chunk_header;
@@ -1273,42 +1354,23 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         return SOFT_ERROR;
     }
 
-    // check both output files for overwrite warning required
+    wv_file.file = open_output_file (outfilename, &outfilename_temp);
 
-    if (*outfilename != '-' && !overwrite_all && (wv_file.file = fopen (outfilename, "rb")) != NULL) {
-        DoCloseHandle (wv_file.file);
-        fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
-#if defined(WIN32)
-        SetConsoleTitle ("overwrite?");
-#endif
-
-        switch (yna ()) {
-            case 'n':
-                DoCloseHandle (infile);
-                WavpackCloseFile (wpc);
-                return SOFT_ERROR;
-
-            case 'a':
-                overwrite_all = 1;
-        }
+    if (!wv_file.file) {
+        DoCloseHandle (infile);
+        WavpackCloseFile (wpc);
+        return SOFT_ERROR;
     }
 
-    if (out2filename && !overwrite_all && (wvc_file.file = fopen (out2filename, "rb")) != NULL) {
-        DoCloseHandle (wvc_file.file);
-        fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
-#if defined(WIN32)
-        SetConsoleTitle ("overwrite?");
-#endif
+    if (out2filename) {
+        wvc_file.file = open_output_file (out2filename, &out2filename_temp);
 
-        switch (yna ()) {
-
-            case 'n':
-                DoCloseHandle (infile);
-                WavpackCloseFile (wpc);
-                return SOFT_ERROR;
-
-            case 'a':
-                overwrite_all = 1;
+        if (!wvc_file.file) {
+            DoCloseHandle (infile);
+            DoCloseHandle (wv_file.file);
+            DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+            WavpackCloseFile (wpc);
+            return SOFT_ERROR;
         }
     }
 
@@ -1317,24 +1379,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 #else
     gettimeofday(&time1,&timez);
 #endif
-
-    // open output file for writing
-
-    if (*outfilename == '-') {
-        wv_file.file = stdout;
-#if defined(WIN32)
-        _setmode (fileno (stdout), O_BINARY);
-#endif
-#if defined(__OS2__)
-        setmode (fileno (stdout), O_BINARY);
-#endif
-    }
-    else if ((wv_file.file = fopen (outfilename, "w+b")) == NULL) {
-        error_line ("can't create file %s!", outfilename);
-        DoCloseHandle (infile);
-        WavpackCloseFile (wpc);
-        return SOFT_ERROR;
-    }
 
     if (!quiet_mode) {
         if (*outfilename == '-')
@@ -1351,7 +1395,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             error_line ("can't write WavPack data, disk probably full!");
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
-            DoDeleteFile (outfilename);
+            DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+            DoCloseHandle (wvc_file.file);
+            DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
             WavpackCloseFile (wpc);
             return SOFT_ERROR;
         }
@@ -1366,7 +1412,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("%s is not a valid .WAV file!", infilename);
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
-                DoDeleteFile (outfilename);
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                DoCloseHandle (wvc_file.file);
+                DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                 WavpackCloseFile (wpc);
                 return SOFT_ERROR;
         }
@@ -1375,7 +1423,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("%s", WavpackGetErrorMessage (wpc));
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
-                DoDeleteFile (outfilename);
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                DoCloseHandle (wvc_file.file);
+                DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                 WavpackCloseFile (wpc);
                 return SOFT_ERROR;
         }
@@ -1391,7 +1441,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("%s is not a valid .WAV file!", infilename);
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
-                DoDeleteFile (outfilename);
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                DoCloseHandle (wvc_file.file);
+                DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                 WavpackCloseFile (wpc);
                 return SOFT_ERROR;
         }
@@ -1400,7 +1452,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("%s", WavpackGetErrorMessage (wpc));
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
-                DoDeleteFile (outfilename);
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                DoCloseHandle (wvc_file.file);
+                DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                 WavpackCloseFile (wpc);
                 return SOFT_ERROR;
         }
@@ -1419,7 +1473,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     error_line ("%s is not a valid .WAV file!", infilename);
                     DoCloseHandle (infile);
                     DoCloseHandle (wv_file.file);
-                    DoDeleteFile (outfilename);
+                    DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                    DoCloseHandle (wvc_file.file);
+                    DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                     WavpackCloseFile (wpc);
                     return SOFT_ERROR;
             }
@@ -1428,7 +1484,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     DoCloseHandle (infile);
                     DoCloseHandle (wv_file.file);
-                    DoDeleteFile (outfilename);
+                    DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                    DoCloseHandle (wvc_file.file);
+                    DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                     WavpackCloseFile (wpc);
                     return SOFT_ERROR;
             }
@@ -1476,7 +1534,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("%s is an unsupported .WAV format!", infilename);
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
-                DoDeleteFile (outfilename);
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                DoCloseHandle (wvc_file.file);
+                DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                 WavpackCloseFile (wpc);
                 return SOFT_ERROR;
             }
@@ -1496,7 +1556,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     error_line ("this WAV file already has channel order information!");
                     DoCloseHandle (infile);
                     DoCloseHandle (wv_file.file);
-                    DoDeleteFile (outfilename);
+                    DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                    DoCloseHandle (wvc_file.file);
+                    DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                     WavpackCloseFile (wpc);
                     return SOFT_ERROR;
                 }
@@ -1531,7 +1593,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("%s is not a valid .WAV file!", infilename);
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
-                DoDeleteFile (outfilename);
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                DoCloseHandle (wvc_file.file);
+                DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                 WavpackCloseFile (wpc);
                 return SOFT_ERROR;
             }
@@ -1540,7 +1604,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("this .WAV file has over 16 MB of extra RIFF data, probably is corrupt!");
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
-                DoDeleteFile (outfilename);
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                DoCloseHandle (wvc_file.file);
+                DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                 WavpackCloseFile (wpc);
                 return SOFT_ERROR;
             }
@@ -1551,7 +1617,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("this .WAV file has no audio samples, probably is corrupt!");
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
-                DoDeleteFile (outfilename);
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                DoCloseHandle (wvc_file.file);
+                DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                 WavpackCloseFile (wpc);
                 return SOFT_ERROR;
             }
@@ -1578,7 +1646,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     DoCloseHandle (infile);
                     DoCloseHandle (wv_file.file);
-                    DoDeleteFile (outfilename);
+                    DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                    DoCloseHandle (wvc_file.file);
+                    DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                     free (buff);
                     WavpackCloseFile (wpc);
                     return SOFT_ERROR;
@@ -1596,7 +1666,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("file does not have %d channel(s)!", num_channels_order);
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
-                DoDeleteFile (outfilename);
+                DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+                DoCloseHandle (wvc_file.file);
+                DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
                 WavpackCloseFile (wpc);
                 return SOFT_ERROR;
             }
@@ -1630,22 +1702,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         error_line ("%s", WavpackGetErrorMessage (wpc));
         DoCloseHandle (infile);
         DoCloseHandle (wv_file.file);
-        DoDeleteFile (outfilename);
+        DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+        DoCloseHandle (wvc_file.file);
+        DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
         WavpackCloseFile (wpc);
         return SOFT_ERROR;
-    }
-
-    // if we are creating a "correction" file, open it now for writing
-
-    if (out2filename) {
-        if ((wvc_file.file = fopen (out2filename, "w+b")) == NULL) {
-            error_line ("can't create correction file!");
-            DoCloseHandle (infile);
-            DoCloseHandle (wv_file.file);
-            DoDeleteFile (outfilename);
-            WavpackCloseFile (wpc);
-            return SOFT_ERROR;
-        }
     }
 
     // pack the audio portion of the file now
@@ -1805,11 +1866,29 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // and return the error
 
     if (result != NO_ERROR) {
-        DoDeleteFile (outfilename);
+        DoDeleteFile (outfilename_temp ? outfilename_temp : outfilename);
+        DoDeleteFile (out2filename_temp ? out2filename_temp : out2filename);
+        WavpackCloseFile (wpc);
+        return result;
+    }
 
-        if (out2filename)
-            DoDeleteFile (out2filename);
+    // if we were writing to a temp file because the target file already existed,
+    // do the rename / overwrite now (and if that fails, return the error)
 
+    if (outfilename_temp && rename (outfilename_temp, outfilename)) {
+        error_line ("can not rename temp file %s to %s!", outfilename_temp, outfilename);
+        result = SOFT_ERROR;
+    }
+
+    if (out2filename && out2filename_temp && rename (out2filename_temp, out2filename)) {
+        error_line ("can not rename temp file %s to %s!", out2filename_temp, out2filename);
+        result = SOFT_ERROR;
+    }
+
+    if (outfilename_temp) free (outfilename_temp);
+    if (out2filename && out2filename_temp) free (out2filename_temp);
+
+    if (result != NO_ERROR) {
         WavpackCloseFile (wpc);
         return result;
     }
