@@ -1277,24 +1277,26 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // check both output files for overwrite warning required
 
-    if (*outfilename != '-' && !overwrite_all && (wv_file.file = fopen (outfilename, "rb")) != NULL) {
+    if (*outfilename != '-' && (wv_file.file = fopen (outfilename, "rb")) != NULL) {
         DoCloseHandle (wv_file.file);
-        fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
+        use_tempfiles = 1;
+
+        if (!overwrite_all) {
+            fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
 #if defined(WIN32)
-        SetConsoleTitle ("overwrite?");
+            SetConsoleTitle ("overwrite?");
 #endif
 
-        switch (yna ()) {
-            case 'n':
-                DoCloseHandle (infile);
-                WavpackCloseFile (wpc);
-                return SOFT_ERROR;
+            switch (yna ()) {
+                case 'n':
+                    DoCloseHandle (infile);
+                    WavpackCloseFile (wpc);
+                    return SOFT_ERROR;
 
-            case 'a':
-                overwrite_all = 1;
+                case 'a':
+                    overwrite_all = 1;
+            }
         }
-
-        use_tempfiles = 1;
     }
 
     if (out2filename && !overwrite_all && (wvc_file.file = fopen (out2filename, "rb")) != NULL) {
