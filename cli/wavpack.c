@@ -83,6 +83,7 @@ static const char *usage =
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
 "          -f  = fast mode (fast, but some compromise in compression ratio)\n"
 "          -h  = high quality (better compression ratio, but slower)\n"
+"          -v  = verify output file integrity after write (no pipes)\n"
 "          -x  = extra encode processing (no decoding speed penalty)\n"
 "          --help = complete help\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
@@ -163,6 +164,7 @@ static const char *help =
 "                             in freq, use '0' for no shaping (white noise)\n"
 "    -t                      copy input file's time stamp to output file(s)\n"
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
+"    -v                      verify output file integrity after write (no pipes)\n"
 "    -w \"Field=Value\"        write specified text metadata to APEv2 tag\n"
 "    -w \"Field=@file.ext\"    write specified text metadata from file to APEv2\n"
 "                             tag, normally used for embedded cuesheets and logs\n"
@@ -190,12 +192,13 @@ static const char *speakers [] = {
 
 int debug_logging_mode;
 
-static int overwrite_all, num_files, file_index, copy_time, quiet_mode,
-    adobe_mode, ignore_length, new_riff_header, do_md5_checksum, raw_pcm, no_utf8_convert;
+static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode,
+    adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert;
 
 static int num_channels_order;
 static unsigned char channel_order [18], channel_order_undefined;
 static uint32_t channel_order_mask;
+static double encode_time_percent;
 
 // These two statics are used to keep track of tags that the user specifies on the
 // command line. The "num_tag_strings" and "tag_strings" fields in the WavpackConfig
@@ -218,7 +221,8 @@ static uint32_t wvselfx_size;
 
 static FILE *wild_fopen (char *filename, const char *mode);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
-static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order);
+static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order, unsigned char *md5_digest_source);
+static int verify_audio (char *infilename, unsigned char *md5_digest_source);
 static void display_progress (double file_progress);
 static void TextToUTF8 (void *string, int len);
 
@@ -515,7 +519,6 @@ int main (argc, argv) int argc; char **argv;
 
                     case 'M': case 'm':
                         config.flags |= CONFIG_MD5_CHECKSUM;
-                        do_md5_checksum = 1;
                         break;
 
                     case 'I': case 'i':
@@ -524,6 +527,10 @@ int main (argc, argv) int argc; char **argv;
 
                     case 'R': case 'r':
                         new_riff_header = 1;
+                        break;
+
+                    case 'V': case 'v':
+                        verify_mode = 1;
                         break;
 
                     case 'B': case 'b':
@@ -668,7 +675,12 @@ int main (argc, argv) int argc; char **argv;
     if (ignore_length && outfilename && *outfilename == '-') {
         error_line ("can't ignore length in header when using stdout!");
         ++error_count;
-     }
+    }
+
+    if (verify_mode && outfilename && *outfilename == '-') {
+        error_line ("can't verify output file when using stdout!");
+        ++error_count;
+    }
 
     if (config.flags & CONFIG_HYBRID_FLAG) {
         if ((config.flags & CONFIG_CREATE_WVC) && outfilename && *outfilename == '-') {
@@ -988,6 +1000,23 @@ int main (argc, argv) int argc; char **argv;
     if (num_files) {
         char outpath, addext;
 
+        // calculate an estimate for the percentage of the time that will be used for the encoding (as opposed
+        // to the optional verification step) based on the "extra" mode processing; this is only used for
+        // displaying the progress and so is not very critical
+
+        if (verify_mode) {
+            if (config.flags & CONFIG_EXTRA_MODE) {
+                if (config.xmode)
+                    encode_time_percent = 100.0 * (1.0 - (1.0 / ((1 << config.xmode) + 1)));
+                else
+                    encode_time_percent = 66.7;
+            }
+            else
+                encode_time_percent = 50.0;
+        }
+        else
+            encode_time_percent = 100.0;
+
         if (outfilename && *outfilename != '-') {
             outpath = (filespec_path (outfilename) != NULL);
 
@@ -1215,6 +1244,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     WavpackConfig loc_config = *config;
     RiffChunkHeader riff_chunk_header;
     unsigned char *new_channel_order = NULL;
+    unsigned char md5_digest [16];
     write_id wv_file, wvc_file;
     ChunkHeader chunk_header;
     WaveHeader WaveHeader;
@@ -1707,12 +1737,17 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
-    // pack the audio portion of the file now
+    // pack the audio portion of the file now; calculate md5 if we're writing it to the file or verify mode is active
 
-    result = pack_audio (wpc, infile, new_channel_order);
+    result = pack_audio (wpc, infile, new_channel_order, ((loc_config.flags & CONFIG_MD5_CHECKSUM) || verify_mode) ? md5_digest : NULL);
 
     if (new_channel_order)
         free (new_channel_order);
+
+    // write the md5 sum if the user asked for it to be included
+
+    if (result == NO_ERROR && (loc_config.flags & CONFIG_MD5_CHECKSUM))
+        WavpackStoreMD5Sum (wpc, md5_digest);
 
     // if everything went well (and we're not ignoring length) try to read
     // anything else that might be appended to the audio data and write that
@@ -1843,7 +1878,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
-    // at this point we're done with the files, so close 'em whether there
+    // at this point we're completely done with the files, so close 'em whether there
     // were any other errors or not
 
     if (!DoCloseHandle (wv_file.file)) {
@@ -1860,8 +1895,13 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             result = SOFT_ERROR;
     }
 
-    // if there were any errors, delete the output files, close the context,
-    // and return the error
+    // if there have been no errors up to now, and verify mode is enabled, do that now; only pass in the md5 if this
+    // was a lossless operation (either explicitly or because a high lossy bitrate resulted in lossless)
+
+    if (result == NO_ERROR && verify_mode)
+        result = verify_audio (use_tempfiles ? outfilename_temp : outfilename, !WavpackLossyBlocks (wpc) ? md5_digest : NULL);
+
+    // if there were any errors, delete the output files, close the context, and return the error
 
     if (result != NO_ERROR) {
         DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
@@ -1932,10 +1972,20 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     if (!quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
 
+        if (loc_config.flags & CONFIG_MD5_CHECKSUM) {
+            char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
+            int i;
+
+            for (i = 0; i < 16; ++i)
+                sprintf (md5_string + 24 + (i * 2), "%02x", md5_digest [i]);
+
+            error_line (md5_string);
+        }
+
         if (outfilename && *outfilename != '-') {
             file = FN_FIT (outfilename);
             fext = wvc_file.bytes_written ? " (+.wvc)" : "";
-            oper = "created";
+            oper = verify_mode ? "created (and verified)" : "created";
         }
         else {
             file = (*infilename == '-') ? "stdin" : FN_FIT (infilename);
@@ -1974,7 +2024,7 @@ static void reorder_channels (void *data, unsigned char *new_order, int num_chan
 
 #define INPUT_SAMPLES 65536
 
-static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order)
+static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order, unsigned char *md5_digest_source)
 {
     uint32_t samples_remaining, input_samples = INPUT_SAMPLES, samples_read = 0;
     double progress = -1.0;
@@ -1988,7 +2038,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
     while (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc) > 2048*1024)
         input_samples >>= 1;
 
-    if (do_md5_checksum)
+    if (md5_digest_source)
         MD5Init (&md5_context);
 
     WavpackPackInit (wpc);
@@ -2014,7 +2064,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
             reorder_channels (input_buffer, new_order, WavpackGetNumChannels (wpc),
                 sample_count, WavpackGetBytesPerSample (wpc));
 
-        if (do_md5_checksum)
+        if (md5_digest_source)
             MD5Update (&md5_context, input_buffer, sample_count * bytes_per_sample);
 
         if (!sample_count)
@@ -2078,12 +2128,11 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
         }
 
         if (WavpackGetProgress (wpc) != -1.0 &&
-            progress != floor (WavpackGetProgress (wpc) * 100.0 + 0.5)) {
+            progress != floor (WavpackGetProgress (wpc) * encode_time_percent + 0.5)) {
                 int nobs = progress == -1.0;
 
-                progress = WavpackGetProgress (wpc);
-                display_progress (progress);
-                progress = floor (progress * 100.0 + 0.5);
+                progress = floor (WavpackGetProgress (wpc) * encode_time_percent + 0.5);
+                display_progress (progress / 100.0);
 
                 if (!quiet_mode)
                     fprintf (stderr, "%s%3d%% done...",
@@ -2099,21 +2148,8 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
         return HARD_ERROR;
     }
 
-    if (do_md5_checksum) {
-        char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
-        unsigned char md5_digest [16];
-        int i;
-
-        MD5Final (md5_digest, &md5_context);
-
-        for (i = 0; i < 16; ++i)
-            sprintf (md5_string + 24 + (i * 2), "%02x", md5_digest [i]);
-
-        if (!quiet_mode)
-            error_line (md5_string);
-
-        WavpackStoreMD5Sum (wpc, md5_digest);
-    }
+    if (md5_digest_source)
+        MD5Final (md5_digest_source, &md5_context);
 
     return NO_ERROR;
 }
@@ -2142,6 +2178,185 @@ static void reorder_channels (void *data, unsigned char *order, int num_chans,
     free (temp);
 }
 
+// Verify the specified WavPack input file. This function uses the library
+// routines provided in wputils.c to do all unpacking. If an MD5 sum is provided
+// by the caller, then this function will take care of reformatting the data
+// (which is returned in native-endian longs) to the standard little-endian
+// for a proper MD5 verification. Otherwise a lossy verification is assumed,
+// and we only verify the exact number of samples and whether the decoding
+// library detected CRC errors in any WavPack blocks.
+
+static unsigned char *format_samples (int bps, unsigned char *dst, int32_t *src, uint32_t samcnt);
+
+static int verify_audio (char *infilename, unsigned char *md5_digest_source)
+{
+    int bytes_per_sample, num_channels, wvc_mode, bps;
+    uint32_t bcount, total_unpacked_samples = 0;
+    unsigned char md5_digest_result [16];
+    double dtime, progress = -1.0;
+    int result = NO_ERROR;
+    int32_t *temp_buffer;
+    MD5_CTX md5_context;
+    WavpackContext *wpc;
+    char error [80];
+
+    // use library to open WavPack file
+
+    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC, 0);
+
+    if (!wpc) {
+        error_line (error);
+        return SOFT_ERROR;
+    }
+
+    if (md5_digest_source)
+        MD5Init (&md5_context);
+
+    wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
+    num_channels = WavpackGetNumChannels (wpc);
+    bps = WavpackGetBytesPerSample (wpc);
+    bytes_per_sample = num_channels * bps;
+    temp_buffer = malloc (4096L * num_channels * 4);
+
+    while (result == NO_ERROR) {
+        uint32_t samples_to_unpack, samples_unpacked;
+
+        samples_to_unpack = 4096;
+
+        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
+        total_unpacked_samples += samples_unpacked;
+
+        if (md5_digest_source && samples_unpacked) {
+            format_samples (bps, (unsigned char *) temp_buffer, temp_buffer, samples_unpacked * num_channels);
+            MD5Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
+        }
+
+        if (!samples_unpacked)
+            break;
+
+        if (check_break ()) {
+#if defined(WIN32)
+            fprintf (stderr, "^C\n");
+#else
+            fprintf (stderr, "\n");
+#endif
+            result = SOFT_ERROR;
+            break;
+        }
+
+        if (WavpackGetProgress (wpc) != -1.0 &&
+            progress != floor (WavpackGetProgress (wpc) * (100.0 - encode_time_percent) + encode_time_percent + 0.5)) {
+
+                progress = floor (WavpackGetProgress (wpc) * (100.0 - encode_time_percent) + encode_time_percent + 0.5);
+                display_progress (progress / 100.0);
+
+                if (!quiet_mode)
+                    fprintf (stderr, "%s%3d%% done...",
+                        "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+        }
+    }
+
+    free (temp_buffer);
+
+    // If we have been provided an MD5 sum, then the assumption is that we are doing lossless compression (either explicitly
+    // with lossless mode or having a high enough bitrate that the result is lossless) and we can use the MD5 sum as a pretty
+    // definitive verification.
+
+    if (result == NO_ERROR && md5_digest_source) {
+        MD5Final (md5_digest_result, &md5_context);
+
+        if (memcmp (md5_digest_result, md5_digest_source, 16)) {
+            char md5_string1 [] = "00000000000000000000000000000000";
+            char md5_string2 [] = "00000000000000000000000000000000";
+            int i;
+
+            for (i = 0; i < 16; ++i) {
+                sprintf (md5_string1 + (i * 2), "%02x", md5_digest_source [i]);
+                sprintf (md5_string2 + (i * 2), "%02x", md5_digest_result [i]);
+            }
+
+            error_line ("original md5: %s", md5_string1);
+            error_line ("verified md5: %s", md5_string2);
+            error_line ("MD5 signatures should match, but do not!");
+            result = SOFT_ERROR;
+        }
+    }
+
+    // If we have not been provided an MD5 sum, then the assumption is that we are doing lossy compression and cannot rely
+    // (obviously) on that for verification. For these cases we make sure that the number of samples generated was exactly
+    // correct and that the WavPack decoding library did not detect an error. There is a simple CRC on every WavPack block
+    // that should catch any random corruption, although it's possible that this might miss some decoder bug that occurs
+    // late in the decoding process (e.g., after the CRC).
+
+    if (result == NO_ERROR) {
+        if (WavpackGetNumSamples (wpc) != (uint32_t) -1) {
+            if (total_unpacked_samples < WavpackGetNumSamples (wpc)) {
+                error_line ("file is missing %u samples!",
+                    WavpackGetNumSamples (wpc) - total_unpacked_samples);
+                result = SOFT_ERROR;
+            }
+            else if (total_unpacked_samples > WavpackGetNumSamples (wpc)) {
+                error_line ("file has %u extra samples!",
+                    total_unpacked_samples - WavpackGetNumSamples (wpc));
+                result = SOFT_ERROR;
+            }
+        }
+
+        if (WavpackGetNumErrors (wpc)) {
+            error_line ("missing data or crc errors detected in %d block(s)!", WavpackGetNumErrors (wpc));
+            result = SOFT_ERROR;
+        }
+    }
+
+    WavpackCloseFile (wpc);
+    return result;
+}
+
+// Reformat samples from longs in processor's native endian mode to
+// little-endian data with (possibly) less than 4 bytes / sample.
+
+static unsigned char *format_samples (int bps, unsigned char *dst, int32_t *src, uint32_t samcnt)
+{
+    int32_t temp;
+
+    switch (bps) {
+
+        case 1:
+            while (samcnt--)
+                *dst++ = *src++ + 128;
+
+            break;
+
+        case 2:
+            while (samcnt--) {
+                *dst++ = (unsigned char) (temp = *src++);
+                *dst++ = (unsigned char) (temp >> 8);
+            }
+
+            break;
+
+        case 3:
+            while (samcnt--) {
+                *dst++ = (unsigned char) (temp = *src++);
+                *dst++ = (unsigned char) (temp >> 8);
+                *dst++ = (unsigned char) (temp >> 16);
+            }
+
+            break;
+
+        case 4:
+            while (samcnt--) {
+                *dst++ = (unsigned char) (temp = *src++);
+                *dst++ = (unsigned char) (temp >> 8);
+                *dst++ = (unsigned char) (temp >> 16);
+                *dst++ = (unsigned char) (temp >> 24);
+            }
+
+            break;
+    }
+
+    return dst;
+}
 #if defined(WIN32)
 
 // Convert the Unicode wide-format string into a UTF-8 string using no more
