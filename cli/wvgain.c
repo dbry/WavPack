@@ -460,6 +460,12 @@ int main (argc, argv) int argc; char **argv;
     error_line ("malloc_count = %d", dump_alloc ());
 #endif
 
+#if defined(WIN32)
+    SetConsoleTitle ("WvGain Completed");
+#else
+    fprintf(stderr, "%c]0;%s%c", '\033', "WvGain Completed", '\007');
+#endif
+
     return error_count ? 1 : 0;
 }
 
@@ -1157,5 +1163,7 @@ void display_progress (double file_progress)
     sprintf (title, "%d%% (WvGain)", (int) ((file_progress * 100.0) + 0.5));
 #if defined(WIN32)
     SetConsoleTitle (title);
+#else
+    fprintf(stderr, "%c]0;%s%c", '\033', title, '\007');
 #endif
 }
