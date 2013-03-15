@@ -333,6 +333,10 @@ char yna (void)
             fprintf (stderr, "^C\n");
             exit (1);
         }
+        else if (key == EOF) {
+            fprintf (stderr, "\r\n");
+            exit (1);
+        }
         else if (key == '\r' || key == '\n') {
             if (choice) {
                 fprintf (stderr, "\r\n");
