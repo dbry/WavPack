@@ -1137,7 +1137,7 @@ int main (argc, argv) int argc; char **argv;
 #if defined(WIN32)
     SetConsoleTitle ("WavPack Completed");
 #else
-    fprintf(stderr, "%c]0;%s%c", '\033', "WavPack Completed", '\007');
+    fprintf(stderr, "\033]0;WavPack Completed\007");
 #endif
 
     return error_count ? 1 : 0;
@@ -1316,6 +1316,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
 #if defined(WIN32)
             SetConsoleTitle ("overwrite?");
+#else
+            fprintf(stderr, "\033]0;overwrite?\007");
 #endif
 
             switch (yna ()) {
@@ -1335,6 +1337,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
 #if defined(WIN32)
         SetConsoleTitle ("overwrite?");
+#else
+        fprintf(stderr, "\033]0;overwrite?\007");
 #endif
 
         switch (yna ()) {
@@ -2239,6 +2243,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
 #if defined(WIN32)
                 SetConsoleTitle ("overwrite?");
+#else
+                fprintf(stderr, "\033]0;overwrite?\007");
 #endif
 
             switch (yna ()) {
@@ -2258,6 +2264,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
 #if defined(WIN32)
         SetConsoleTitle ("overwrite?");
+#else
+        fprintf(stderr, "\033]0;overwrite?\007");
 #endif
 
         switch (yna ()) {
@@ -3110,6 +3118,6 @@ static void display_progress (double file_progress)
 #if defined(WIN32)
     SetConsoleTitle (title);
 #else
-    fprintf(stderr, "%c]0;%s%c", '\033', title, '\007');
+    fprintf(stderr, "\033]0;%s\007", title);
 #endif
 }

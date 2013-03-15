@@ -627,7 +627,7 @@ int main (argc, argv) int argc; char **argv;
 #if defined(WIN32)
     SetConsoleTitle ("WvUnpack Completed");
 #else
-    fprintf(stderr, "%c]0;%s%c", '\033', "WvUnpack Completed", '\007');
+    fprintf(stderr, "\033]0;WvUnpack Completed\007");
 #endif
 
     return error_count ? 1 : 0;
@@ -706,6 +706,8 @@ static FILE *open_output_file (char *filename, char **tempfilename)
             fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (filename));
 #if defined(WIN32)
             SetConsoleTitle ("overwrite?");
+#else
+            fprintf(stderr, "\033]0;overwrite?\007");
 #endif
 
             switch (yna ()) {
@@ -1294,6 +1296,8 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (full_filename));
 #if defined(WIN32)
                 SetConsoleTitle ("overwrite?");
+#else
+                fprintf(stderr, "\033]0;overwrite?\007");
 #endif
                 switch (yna ()) {
 
@@ -1946,6 +1950,6 @@ void display_progress (double file_progress)
 #if defined(WIN32)
     SetConsoleTitle (title);
 #else
-    fprintf(stderr, "%c]0;%s%c", '\033', title, '\007');
+    fprintf(stderr, "\033]0;%s\007", title);
 #endif
 }
