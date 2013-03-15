@@ -72,11 +72,11 @@ static const char *sign_on = "\n"
 
 static const char *usage =
 #if defined (WIN32)
-" Usage:   WAVPACK [-options] [@]infile[.wav]|- [[@]outfile[.wv]|outpath|-]\n"
+" Usage:   WAVPACK [-options] infile[.wav]|infile.wv|- [outfile[.wv]|outpath|-]\n"
 "             (default is lossless; infile may contain wildcards: ?,*)\n\n"
 #else
-" Usage:   WAVPACK [-options] [@]infile[.wav]|- [...] [-o [@]outfile[.wv]|outpath|-]\n"
-"             (default is lossless; infile(s) may contain wildcards: ?,*)\n\n"
+" Usage:   WAVPACK [-options] infile[.wav]|infile.wv|- [...] [-o outfile[.wv]|outpath|-]\n"
+"             (default is lossless; multiple input files allowed)\n\n"
 #endif
 " Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
 "                                           n = 24-9600 kbits/second (kbps)\n"
@@ -91,12 +91,16 @@ static const char *usage =
 static const char *help =
 #if defined (WIN32)
 " Usage:\n"
-"    WAVPACK [-options] [@]infile[.wav]|- [[@]outfile[.wv]|outpath|-]\n"
-"      (default operation is lossless; infile may contain wildcards: ?,*)\n\n"
+"    WAVPACK [-options] infile[.wav]|infile.wv|- [outfile[.wv]|outpath|-]\n\n"
+"    The default operation is lossless. Wildcard characters (*,?) may be included\n"
+"    in the input file and they may be either WAV or WAVPACK (.wv) files (or raw\n"
+"    PCM if --raw-pcm is included). When transcoding, all tags are copied.\n\n"
 #else
 " Usage:\n"
-"    WAVPACK [-options] [@]infile[.wav]|- [...] [-o [@]outfile[.wv]|outpath|-]\n"
-"      (default operation is lossless; infile(s) may contain wildcards: ?,*)\n\n"
+"    WAVPACK [-options] infile[.wav]|infile.wv|- [...] [-o outfile[.wv]|outpath|-]\n\n"
+"    The default operation is lossless. Multiple input files may be specified,\n"
+"    and they may be either WAV or WAVPACK (.wv) files (or raw PCM if --raw-pcm\n"
+"    is included). When transcoding, all tags are copied.\n\n"
 #endif
 " Options:\n"
 "    -a                      Adobe Audition (CoolEdit) mode for 32-bit floats\n"

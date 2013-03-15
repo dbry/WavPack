@@ -71,11 +71,12 @@ static const char *sign_on = "\n"
 
 static const char *usage =
 #if defined (WIN32)
-" Usage:   WVUNPACK [-options] [@]infile[.wv]|- [[@]outfile[.wav]|outpath|-]\n"
-#else
-" Usage:   WVUNPACK [-options] [@]infile[.wv]|- [...] [-o [@]outfile[.wav]|outpath|-]\n"
-#endif
+" Usage:   WVUNPACK [-options] infile[.wv]|- [outfile[.wav]|outpath|-]\n"
 "             (infile may contain wildcards: ?,*)\n\n"
+#else
+" Usage:   WVUNPACK [-options] infile[.wv]|- [...] [-o outfile[.wav]|outpath|-]\n"
+#endif
+"             (multiple input files are allowed)\n\n"
 " Options: -b  = blindly decode all stream blocks & ignore length info\n"
 "          -c  = extract cuesheet only to stdout (no audio decode)\n"
 "               (note: equivalent to -x \"cuesheet\")\n"

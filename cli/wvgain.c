@@ -70,7 +70,11 @@ static const char *sign_on = "\n"
 
 static const char *usage =
 " Usage:   WVGAIN [-options] [@]infile[.wv] [...]\n"
+#if defined (WIN32) || defined (__OS2__)
 "             (infiles may contain wildcards: ?,*)\n\n"
+#else
+"             (multiple input files are allowed)\n\n"
+#endif
 " Options: -a  = album mode (all files scanned are considered an album)\n"
 "          -c  = clean ReplayGain values from all files (no analysis)\n"
 "          -d  = display calculated values only (no files are modified)\n"
