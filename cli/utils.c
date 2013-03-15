@@ -750,3 +750,24 @@ int DoDeleteFile (char *filename)
     return filename ? !remove (filename) : 0;
 }
 
+/////////////////////////////////////////////////////////////////////////////////
+// Function to set the name of the console window. This is very handy for      //
+// displaying progress of batch operations with the console window minimized.  //
+/////////////////////////////////////////////////////////////////////////////////
+
+#ifdef WIN32
+
+void DoSetConsoleTitle (char *text)
+{
+    SetConsoleTitle (text);
+}
+
+#else
+
+void DoSetConsoleTitle (char *text)
+{
+    fprintf (stderr, "\033]0;%s\007", text);
+}
+
+#endif
+

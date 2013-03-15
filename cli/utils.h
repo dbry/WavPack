@@ -49,6 +49,7 @@ int DoUngetc (int c, FILE *hFile);
 int DoCloseHandle (FILE *hFile);
 int DoTruncateFile (FILE *hFile);
 int DoDeleteFile (char *filename);
+void DoSetConsoleTitle (char *text);
 
 #define FN_FIT(fn) ((strlen (fn) > 30) ? filespec_name (fn) : fn)
 

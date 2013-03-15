@@ -109,7 +109,8 @@ static const char *usage =
 "                %a = audio output filename\n"
 "                %t = tag field name (note: comes from data for binary tags)\n"
 "                %e = extension from binary tag source file, or 'txt' for text tag\n"
-"          -y  = yes to overwrite warning (use with caution!)\n\n"
+"          -y  = yes to overwrite warning (use with caution!)\n"
+"          -z  = don't set console title to indicate progress\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
 // this global is used to indicate the special "debug" mode where extra debug messages
@@ -118,7 +119,7 @@ static const char *usage =
 int debug_logging_mode;
 
 static char overwrite_all, delete_source, raw_decode, no_utf8_convert,
-    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode;
+    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, no_console_title;
 
 static int num_files, file_index, outbuf_k;
 
@@ -292,6 +293,10 @@ int main (argc, argv) int argc; char **argv;
 
                     case 'Q': case 'q':
                         quiet_mode = 1;
+                        break;
+
+                    case 'Z': case 'z':
+                        no_console_title = 1;
                         break;
 
                     case 'X': case 'x':
@@ -624,11 +629,8 @@ int main (argc, argv) int argc; char **argv;
     error_line ("malloc_count = %d", dump_alloc ());
 #endif
 
-#if defined(WIN32)
-    SetConsoleTitle ("WvUnpack Completed");
-#else
-    fprintf(stderr, "\033]0;WvUnpack Completed\007");
-#endif
+    if (!no_console_title)
+        DoSetConsoleTitle ("WvUnpack Completed");
 
     return error_count ? 1 : 0;
 }
@@ -704,11 +706,9 @@ static FILE *open_output_file (char *filename, char **tempfilename)
 
         if (!overwrite_all) {
             fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (filename));
-#if defined(WIN32)
-            SetConsoleTitle ("overwrite?");
-#else
-            fprintf(stderr, "\033]0;overwrite?\007");
-#endif
+
+            if (!no_console_title)
+                DoSetConsoleTitle ("overwrite?");
 
             switch (yna ()) {
                 case 'n':
@@ -1294,11 +1294,10 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
             if (!overwrite_all && (outfile = fopen (full_filename, "r")) != NULL) {
                 DoCloseHandle (outfile);
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (full_filename));
-#if defined(WIN32)
-                SetConsoleTitle ("overwrite?");
-#else
-                fprintf(stderr, "\033]0;overwrite?\007");
-#endif
+
+                if (!no_console_title)
+                    DoSetConsoleTitle ("overwrite?");
+
                 switch (yna ()) {
 
                     case 'n':
@@ -1945,11 +1944,9 @@ void display_progress (double file_progress)
 {
     char title [40];
 
-    file_progress = (file_index + file_progress) / num_files;
-    sprintf (title, "%d%% (WvUnpack)", (int) ((file_progress * 100.0) + 0.5));
-#if defined(WIN32)
-    SetConsoleTitle (title);
-#else
-    fprintf(stderr, "\033]0;%s\007", title);
-#endif
+    if (!no_console_title) {
+        file_progress = (file_index + file_progress) / num_files;
+        sprintf (title, "%d%% (WvUnpack)", (int) ((file_progress * 100.0) + 0.5));
+        DoSetConsoleTitle (title);
+    }
 }
