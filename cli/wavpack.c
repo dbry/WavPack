@@ -192,7 +192,7 @@ static const char *speakers [] = {
 
 int debug_logging_mode;
 
-static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode,
+static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
     adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert;
 
 static int num_channels_order;
@@ -241,7 +241,7 @@ int main (argc, argv) int argc; char **argv;
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
 #endif
-    int delete_source = 0, error_count = 0, tag_next_arg = 0, output_spec = 0, ask_help = 0;
+    int error_count = 0, tag_next_arg = 0, output_spec = 0, ask_help = 0;
     char *outfilename = NULL, *out2filename = NULL;
     char **matches = NULL;
     WavpackConfig config;
@@ -1096,16 +1096,6 @@ int main (argc, argv) int argc; char **argv;
             if (result == HARD_ERROR)
                 break;
 
-            // delete source file if that option is enabled
-
-            if (result == NO_ERROR && delete_source) {
-                int res = DoDeleteFile (matches [file_index]);
-
-                if (!quiet_mode || !res)
-                    error_line ("%s source file %s", res ?
-                        "deleted" : "can't delete", matches [file_index]);
-            }
-
             // clean up in preparation for potentially another file
 
             if (outpath)
@@ -1924,6 +1914,17 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         return result;
     }
 
+    // delete source file if that option is enabled (this is done before temp file rename to make sure
+    // we don't delete the file we just created)
+
+    if (result == NO_ERROR && delete_source) {
+        int res = DoDeleteFile (infilename);
+
+        if (!quiet_mode || !res)
+            error_line ("%s source file %s", res ?
+                "deleted" : "can't delete", infilename);
+    }
+
     // if we were writing to a temp file because the target file already existed,
     // do the rename / overwrite now (and if that fails, return the error)
 
@@ -2175,8 +2176,8 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
 static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     int output_lossless = !(config->flags & CONFIG_HYBRID_FLAG) || (config->flags & CONFIG_CREATE_WVC);
+    int use_tempfiles = (out2filename != NULL), input_mode;
     unsigned char md5_verify [16], md5_display [16];
-    int use_tempfiles = (out2filename != NULL);
     char *outfilename_temp, *out2filename_temp;
     uint32_t total_samples = 0, bcount;
     WavpackConfig loc_config = *config;
@@ -2202,7 +2203,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         return SOFT_ERROR;
     }
 
-    if (!(WavpackGetMode (infile) & MODE_LOSSLESS) && output_lossless) {
+    input_mode = WavpackGetMode (infile);
+
+    if (!(input_mode & MODE_LOSSLESS) && output_lossless) {
         error_line ("can't transcode lossy file %s to lossless...not allowed!", infilename);
         WavpackCloseFile (infile);
         return SOFT_ERROR;
@@ -2388,10 +2391,10 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     loc_config.num_channels = WavpackGetNumChannels (infile);
     loc_config.sample_rate = WavpackGetSampleRate (infile);
 
-    if (WavpackGetMode (infile) & MODE_FLOAT)
+    if (input_mode & MODE_FLOAT)
         loc_config.float_norm_exp = WavpackGetFloatNormExp (infile);
 
-    if (WavpackGetMode (infile) & MODE_MD5)
+    if (input_mode & MODE_MD5)
         loc_config.flags |= CONFIG_MD5_CHECKSUM;
 
     if (!WavpackSetConfiguration (outfile, &loc_config, total_samples)) {
@@ -2433,7 +2436,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             result = SOFT_ERROR;
         }
 
-        if (WavpackGetMode (infile) & MODE_LOSSLESS) {
+        if (input_mode & MODE_LOSSLESS) {
             unsigned char md5_source [16];
 
             if (WavpackGetMD5Sum (infile, md5_source) && memcmp (md5_source, md5_verify, sizeof (md5_source))) {
@@ -2448,7 +2451,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     if (result == NO_ERROR) {
         if (WavpackGetMD5Sum (infile, md5_display)) {
-            if (WavpackGetMode (infile) & MODE_LOSSLESS)
+            if (input_mode & MODE_LOSSLESS)
                 memcpy (md5_verify, md5_display, sizeof (md5_verify));
                 
             WavpackStoreMD5Sum (outfile, md5_display);
@@ -2484,7 +2487,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // if still no errors, check to see if we need to create & write a tag
     // (which is NOT stored in regular WavPack blocks)
 
-    if (result == NO_ERROR && ((WavpackGetMode (infile) & MODE_VALID_TAG) || num_tag_items)) {
+    if (result == NO_ERROR && ((input_mode & MODE_VALID_TAG) || num_tag_items)) {
         int num_binary_items = WavpackGetNumBinaryTagItems (infile);
         int num_items = WavpackGetNumTagItems (infile), i;
         int item_len, value_len;
@@ -2566,6 +2569,36 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
         WavpackCloseFile (outfile);
         return result;
+    }
+
+    // delete source file(s) if that option is enabled (this is done before temp file rename to make sure
+    // we don't delete the file(s) we just created)
+
+    if (result == NO_ERROR && delete_source) {
+        int res;
+
+        if (stricmp (infilename, outfilename)) {
+            res = DoDeleteFile (infilename);
+
+            if (!quiet_mode || !res)
+                error_line ("%s source file %s", res ?
+                    "deleted" : "can't delete", infilename);
+        }
+    
+        if (input_mode & MODE_WVC) {
+            char in2filename [PATH_MAX];
+
+            strcpy (in2filename, infilename);
+            strcat (in2filename, "c");
+
+            if (!out2filename || stricmp (in2filename, out2filename)) {
+                res = DoDeleteFile (in2filename);
+
+                if (!quiet_mode || !res)
+                    error_line ("%s source file %s", res ?
+                        "deleted" : "can't delete", in2filename);
+            }
+        }
     }
 
     // if we were writing to a temp file because the target file already existed,
