@@ -1232,7 +1232,37 @@ static FILE *wild_fopen (char *filename, const char *mode)
 
 static FILE *wild_fopen (char *filename, const char *mode)
 {
-    return fopen (filename, mode);
+    char *matchname = NULL;
+    struct stat statbuf;
+    FILE *res = NULL;
+    glob_t globbuf;
+    int i;
+
+    glob (filename, 0, NULL, &globbuf);
+
+    for (i = 0; i < globbuf.gl_pathc; ++i) {
+        if (stat (globbuf.gl_pathv [i], &statbuf) == -1 || S_ISDIR (statbuf.st_mode))
+            continue;
+
+        if (matchname) {
+            free (matchname);
+            matchname = NULL;
+            break;
+        }
+        else {
+            matchname = malloc (strlen (globbuf.gl_pathv [i]) + 10);
+            strcpy (matchname, globbuf.gl_pathv [i]);
+        }
+    }
+
+    globfree (&globbuf);
+
+    if (matchname) {
+        res = fopen (matchname, mode);
+        free (matchname);
+    }
+
+    return res;
 }
 
 #endif
