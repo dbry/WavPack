@@ -1950,17 +1950,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         return result;
     }
 
-    // delete source file if that option is enabled (this is done before temp file rename to make sure
-    // we don't delete the file we just created)
-
-    if (result == NO_ERROR && delete_source) {
-        int res = DoDeleteFile (infilename);
-
-        if (!quiet_mode || !res)
-            error_line ("%s source file %s", res ?
-                "deleted" : "can't delete", infilename);
-    }
-
     // if we were writing to a temp file because the target file already existed,
     // do the rename / overwrite now (and if that fails, return the error)
 
@@ -1988,6 +1977,16 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         if (!copy_timestamp (infilename, outfilename) ||
             (out2filename && !copy_timestamp (infilename, out2filename)))
                 error_line ("failure copying time stamp!");
+
+    // delete source file if that option is enabled
+
+    if (result == NO_ERROR && delete_source) {
+        int res = DoDeleteFile (infilename);
+
+        if (!quiet_mode || !res)
+            error_line ("%s source file %s", res ?
+                "deleted" : "can't delete", infilename);
+    }
 
     // compute and display the time consumed along with some other details of
     // the packing operation, and then return NO_ERROR
@@ -2606,6 +2605,11 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         return result;
     }
 
+    if (result == NO_ERROR && copy_time)
+        if (!copy_timestamp (infilename, use_tempfiles ? outfilename_temp : outfilename) ||
+            (out2filename && !copy_timestamp (infilename, use_tempfiles ? out2filename_temp : out2filename)))
+                error_line ("failure copying time stamp!");
+
     // delete source file(s) if that option is enabled (this is done before temp file rename to make sure
     // we don't delete the file(s) we just created)
 
@@ -2658,11 +2662,6 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             return result;
         }
     }
-
-    if (result == NO_ERROR && copy_time)
-        if (!copy_timestamp (infilename, outfilename) ||
-            (out2filename && !copy_timestamp (infilename, out2filename)))
-                error_line ("failure copying time stamp!");
 
     // compute and display the time consumed along with some other details of
     // the packing operation, and then return NO_ERROR
