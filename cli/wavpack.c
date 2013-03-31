@@ -1954,14 +1954,36 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // do the rename / overwrite now (and if that fails, return the error)
 
     if (use_tempfiles) {
+#if defined(WIN32)
+        FILE *temp;
+
+        if (remove (outfilename) && (temp = fopen (outfilename, "rb"))) {
+            error_line ("can not remove file %s, result saved in %s!", outfilename, outfilename_temp);
+            result = SOFT_ERROR;
+            fclose (temp);
+        }
+        else
+#endif
         if (rename (outfilename_temp, outfilename)) {
             error_line ("can not rename temp file %s to %s!", outfilename_temp, outfilename);
             result = SOFT_ERROR;
         }
 
-        if (out2filename && rename (out2filename_temp, out2filename)) {
-            error_line ("can not rename temp file %s to %s!", out2filename_temp, out2filename);
-            result = SOFT_ERROR;
+        if (out2filename) {
+#if defined(WIN32)
+            FILE *temp;
+
+            if (remove (out2filename) && (temp = fopen (out2filename, "rb"))) {
+                error_line ("can not remove file %s, result saved in %s!", out2filename, out2filename_temp);
+                result = SOFT_ERROR;
+                fclose (temp);
+            }
+            else
+#endif
+            if (rename (out2filename_temp, out2filename)) {
+                error_line ("can not rename temp file %s to %s!", out2filename_temp, out2filename);
+                result = SOFT_ERROR;
+            }
         }
 
         free (outfilename_temp);
@@ -2644,14 +2666,36 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // do the rename / overwrite now (and if that fails, return the error)
 
     if (use_tempfiles) {
+#if defined(WIN32)
+        FILE *temp;
+
+        if (remove (outfilename) && (temp = fopen (outfilename, "rb"))) {
+            error_line ("can not remove file %s, result saved in %s!", outfilename, outfilename_temp);
+            result = SOFT_ERROR;
+            fclose (temp);
+        }
+        else
+#endif
         if (rename (outfilename_temp, outfilename)) {
             error_line ("can not rename temp file %s to %s!", outfilename_temp, outfilename);
             result = SOFT_ERROR;
         }
 
-        if (out2filename && rename (out2filename_temp, out2filename)) {
-            error_line ("can not rename temp file %s to %s!", out2filename_temp, out2filename);
-            result = SOFT_ERROR;
+        if (out2filename) {
+#if defined(WIN32)
+            FILE *temp;
+
+            if (remove (out2filename) && (temp = fopen (out2filename, "rb"))) {
+                error_line ("can not remove file %s, result saved in %s!", out2filename, out2filename_temp);
+                result = SOFT_ERROR;
+                fclose (temp);
+            }
+            else
+#endif
+            if (rename (out2filename_temp, out2filename)) {
+                error_line ("can not rename temp file %s to %s!", out2filename_temp, out2filename);
+                result = SOFT_ERROR;
+            }
         }
 
         free (outfilename_temp);
@@ -2857,9 +2901,9 @@ static void reorder_channels (void *data, unsigned char *order, int num_chans,
 static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 {
     int bytes_per_sample, num_channels, wvc_mode, bps;
-    uint32_t bcount, total_unpacked_samples = 0;
+    uint32_t total_unpacked_samples = 0;
     unsigned char md5_digest_result [16];
-    double dtime, progress = -1.0;
+    double progress = -1.0;
     int result = NO_ERROR;
     int32_t *temp_buffer;
     MD5_CTX md5_context;

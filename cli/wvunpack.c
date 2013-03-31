@@ -1107,10 +1107,23 @@ static int unpack_file (char *infilename, char *outfilename)
     // if we were writing to a temp file because the target file already existed,
     // do the rename / overwrite now (and if that fails, flag the error)
 
+#if defined(WIN32)
+    if (result == NO_ERROR && outfilename && outfilename_temp) {
+        if (remove (outfilename)) {
+            error_line ("can not remove file %s, result saved in %s!", outfilename, outfilename_temp);
+            result = SOFT_ERROR;
+        }
+        else if (rename (outfilename_temp, outfilename)) {
+            error_line ("can not rename temp file %s to %s!", outfilename_temp, outfilename);
+            result = SOFT_ERROR;
+        }
+    }
+#else
     if (result == NO_ERROR && outfilename && outfilename_temp && rename (outfilename_temp, outfilename)) {
         error_line ("can not rename temp file %s to %s!", outfilename_temp, outfilename);
         result = SOFT_ERROR;
     }
+#endif
 
     if (outfilename && outfilename_temp) free (outfilename_temp);
 
