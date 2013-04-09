@@ -1620,18 +1620,16 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 else
                     loc_config.channel_mask = 0x3ffff;
             }
-            else {
-                loc_config.channel_mask = WaveHeader.ChannelMask;
-
-                if (num_channels_order || channel_order_undefined) {
-                    error_line ("this WAV file already has channel order information!");
-                    DoCloseHandle (infile);
-                    DoCloseHandle (wv_file.file);
-                    DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                    WavpackCloseFile (wpc);
-                    return SOFT_ERROR;
-                }
+            else if (WaveHeader.ChannelMask && (num_channels_order || channel_order_undefined)) {
+                error_line ("this WAV file already has channel order information!");
+                DoCloseHandle (infile);
+                DoCloseHandle (wv_file.file);
+                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
+                WavpackCloseFile (wpc);
+                return SOFT_ERROR;
             }
+            else
+                loc_config.channel_mask = WaveHeader.ChannelMask;
 
             if (format == 3)
                 loc_config.float_norm_exp = 127;
