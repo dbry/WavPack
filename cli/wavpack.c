@@ -104,6 +104,9 @@ static const char *help =
 #endif
 " Options:\n"
 "    -a                      Adobe Audition (CoolEdit) mode for 32-bit floats\n"
+"    --allow-huge-tags       allow tag data up to 16 MB (embedding > 1 MB is not\n"
+"                             recommended for portable devices and may not work\n"
+"                             with some programs including WavPack pre-4.70)\n"
 "    -bn                     enable hybrid compression\n"
 "                              n = 2.0 to 23.9 bits/sample, or\n"
 "                              n = 24-9600 kbits/second (kbps)\n"
@@ -198,7 +201,7 @@ static const char *speakers [] = {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
-    adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert, no_console_title;
+    adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert, no_console_title, allow_huge_tags;
 
 static int num_channels_order;
 static unsigned char channel_order [18], channel_order_undefined;
@@ -309,6 +312,8 @@ int main (argc, argv) int argc; char **argv;
                 config.flags |= CONFIG_PAIR_UNDEF_CHANS;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
+            else if (!strcmp (long_option, "allow-huge-tags"))          // --allow-huge-tags
+                allow_huge_tags = 1;
             else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
                 tag_next_arg = 2;
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
@@ -766,7 +771,7 @@ int main (argc, argv) int argc; char **argv;
                 if (filespec_ext (fn))
                     tag_items [i].ext = strdup (filespec_ext (fn));
 
-                if (tag_items [i].vsize < 1048576) {
+                if (tag_items [i].vsize < 1048576 * (allow_huge_tags ? 16 : 1)) {
                     new_value = malloc (tag_items [i].vsize + 2);
                     memset (new_value, 0, tag_items [i].vsize + 2);
 
@@ -816,8 +821,8 @@ int main (argc, argv) int argc; char **argv;
             tag_items [i].vsize = (int) strlen (tag_items [i].value);
         }
 
-        if ((total_tag_size += tag_items [i].vsize) > 1048576) {
-            error_line ("total APEv2 tag size exceeds 1 MB !");
+        if ((total_tag_size += tag_items [i].vsize) > 1048576 * (allow_huge_tags ? 16 : 1)) {
+            error_line ("total APEv2 tag size exceeds %d MB !", allow_huge_tags ? 16 : 1);
             ++error_count;
             break;
         }
