@@ -89,6 +89,7 @@ static const char *usage =
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
 "          -m  = calculate and display MD5 signature; verify if lossless\n"
+"          -n  = no audio decoding (use with -xx to extract tags only)\n"
 "          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
 "          -q  = quiet (keep console output to a minimum)\n"
 #if !defined (WIN32)
@@ -119,7 +120,7 @@ static const char *usage =
 
 int debug_logging_mode;
 
-static char overwrite_all, delete_source, raw_decode, no_utf8_convert,
+static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode,
     summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, no_console_title;
 
 static int num_files, file_index, outbuf_k;
@@ -268,6 +269,7 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'S': case 's':
+                        no_audio_decode = 1;
                         ++summary;
                         break;
 
@@ -282,6 +284,10 @@ int main (argc, argv) int argc; char **argv;
 
                     case 'B': case 'b':
                         blind_decode = 1;
+                        break;
+
+                    case 'N': case 'n':
+                        no_audio_decode = 1;
                         break;
 
                     case 'R': case 'r':
@@ -324,8 +330,10 @@ int main (argc, argv) int argc; char **argv;
                         error_line ("can't extract more than 1 tag item to stdout at a time!");
                         ++error_count;
                     }
-                    else
+                    else {
                         tag_extract_stdout = *argv;
+                        no_audio_decode = 1;
+                    }
                 }
                 else if (x_count == 2)
                     add_tag_extraction_to_list (*argv);
@@ -395,12 +403,14 @@ int main (argc, argv) int argc; char **argv;
             error_line ("can't extract more than 1 tag item to stdout at a time!");
             error_count++;
         }
-        else
+        else {
             tag_extract_stdout = "cuesheet";
+            no_audio_decode = 1;
+        }
     }
 
-    if (tag_extract_stdout && (num_tag_extractions || outfilename || verify_only || delete_source || wav_decode || raw_decode)) {
-        error_line ("can't extract a tag to stdout and do anything else!");
+    if ((summary || tag_extract_stdout) && (num_tag_extractions || outfilename || verify_only || delete_source || wav_decode || raw_decode)) {
+        error_line ("can't display summary information or extract a tag to stdout and do anything else!");
         ++error_count;
     }
 
@@ -875,21 +885,14 @@ static int unpack_file (char *infilename, char *outfilename)
         }
     }
 
-    if (summary) {
+    if (summary)
         dump_summary (wpc, infilename, stdout);
-        WavpackCloseFile (wpc);
-        return NO_ERROR;
-    }
-
-    if (tag_extract_stdout) {
+    else if (tag_extract_stdout) {
         if (!dump_tag_item_to_file (wpc, tag_extract_stdout, stdout, NULL)) {
             error_line ("tag \"%s\" not found!", tag_extract_stdout);
             WavpackCloseFile (wpc);
             return SOFT_ERROR;
         }
-
-        WavpackCloseFile (wpc);
-        return NO_ERROR;
     }
     else if (num_tag_extractions && outfilename && *outfilename != '-' && filespec_name (outfilename)) {
         result = do_tag_extractions (wpc, outfilename);
@@ -898,6 +901,11 @@ static int unpack_file (char *infilename, char *outfilename)
             WavpackCloseFile (wpc);
             return result;
         }
+    }
+
+    if (no_audio_decode) {
+        WavpackCloseFile (wpc);
+        return NO_ERROR;
     }
 
     if (outfilename) {
