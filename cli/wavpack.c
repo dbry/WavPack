@@ -200,7 +200,7 @@ static const char *speakers [] = {
 
 int debug_logging_mode;
 
-static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
+static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source, store_floats_as_ints,
     adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert, no_console_title, allow_huge_tags;
 
 static int num_channels_order;
@@ -314,6 +314,8 @@ int main (argc, argv) int argc; char **argv;
                 no_utf8_convert = 1;
             else if (!strcmp (long_option, "allow-huge-tags"))          // --allow-huge-tags
                 allow_huge_tags = 1;
+            else if (!strcmp (long_option, "store-floats-as-ints"))     // --store-floats-as-ints
+                store_floats_as_ints = 1;
             else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
                 tag_next_arg = 2;
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
@@ -1594,6 +1596,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             if (format != 1 && format != 3)
                 supported = FALSE;
 
+            if (format == 3 && loc_config.bits_per_sample != 32 && !store_floats_as_ints)
+                supported = FALSE;
+
             if (!WaveHeader.NumChannels || WaveHeader.NumChannels > 256 ||
                 WaveHeader.BlockAlign / WaveHeader.NumChannels < (loc_config.bits_per_sample + 7) / 8 ||
                 WaveHeader.BlockAlign / WaveHeader.NumChannels > 4 ||
@@ -1631,7 +1636,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             else
                 loc_config.channel_mask = WaveHeader.ChannelMask;
 
-            if (format == 3)
+            if (format == 3 && !store_floats_as_ints)
                 loc_config.float_norm_exp = 127;
             else if (adobe_mode &&
                 WaveHeader.BlockAlign / WaveHeader.NumChannels == 4) {
