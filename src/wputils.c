@@ -170,7 +170,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 #endif
     }
     else if ((wv_id = fopen (infilename, file_mode)) == NULL) {
-        strcpy (error, (flags & OPEN_EDIT_TAGS) ? "can't open file for editing" : "can't open file");
+        if (error) strcpy (error, (flags & OPEN_EDIT_TAGS) ? "can't open file for editing" : "can't open file");
         return NULL;
     }
 
@@ -219,7 +219,7 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
     uint32_t bcount;
 
     if (!wpc) {
-        strcpy (error, "can't allocate memory");
+        if (error) strcpy (error, "can't allocate memory");
         return NULL;
     }
 
@@ -243,7 +243,7 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 
 #ifndef VER4_ONLY
     if (wpc->reader->read_bytes (wpc->wv_in, &first_byte, 1) != 1) {
-        strcpy (error, "can't read all of WavPack file!");
+        if (error) strcpy (error, "can't read all of WavPack file!");
         return WavpackCloseFile (wpc);
     }
 
@@ -264,7 +264,7 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 
         if (bcount == (uint32_t) -1 ||
             (!wps->wphdr.block_samples && num_blocks++ > 16)) {
-                strcpy (error, "not compatible with this version of WavPack file!");
+                if (error) strcpy (error, "not compatible with this version of WavPack file!");
                 return WavpackCloseFile (wpc);
         }
 
@@ -273,7 +273,7 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
         memcpy (wps->blockbuff, &wps->wphdr, 32);
 
         if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + 32, wps->wphdr.ckSize - 24) != wps->wphdr.ckSize - 24) {
-            strcpy (error, "can't read all of WavPack file!");
+            if (error) strcpy (error, "can't read all of WavPack file!");
             return WavpackCloseFile (wpc);
         }
 
@@ -304,12 +304,12 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
         }
 
         if (wpc->wvc_flag && !read_wvc_block (wpc)) {
-            strcpy (error, "not compatible with this version of correction file!");
+            if (error) strcpy (error, "not compatible with this version of correction file!");
             return WavpackCloseFile (wpc);
         }
 
         if (!wps->init_done && !unpack_init (wpc)) {
-            strcpy (error, wpc->error_message [0] ? wpc->error_message :
+            if (error) strcpy (error, wpc->error_message [0] ? wpc->error_message :
                 "not compatible with this version of WavPack file!");
 
             return WavpackCloseFile (wpc);
