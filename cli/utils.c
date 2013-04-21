@@ -12,6 +12,7 @@
 // utilities and the self-extraction module.
 
 #if defined(WIN32)
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <io.h>
 #include <conio.h>
@@ -681,12 +682,22 @@ int DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, ui
 
 int64_t DoGetFileSize (FILE *hFile)
 {
-    struct stat64 statbuf;
+    LARGE_INTEGER Size;
+    HANDLE        fHandle;
 
-    if (!hFile || fstat64 (fileno (hFile), &statbuf) || !(statbuf.st_mode & S_IFREG))
+    if (hFile == NULL)
         return 0;
 
-    return statbuf.st_size;
+    fHandle = (HANDLE)_get_osfhandle(_fileno(hFile));
+    if (fHandle == INVALID_HANDLE_VALUE)
+        return 0;
+
+    Size.u.LowPart = GetFileSize(fHandle, &Size.u.HighPart);
+
+    if (Size.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
+        return 0;
+
+    return (int64_t)Size.QuadPart;
 }
 
 #else
