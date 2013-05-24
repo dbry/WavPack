@@ -21,16 +21,16 @@
       <holder>Sebastian Dröge</holder>
     </copyright>
     <copyright>
-      <year>2009</year>
+      <year>2013</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2009-10-17</date>
+    <date>2013-05-24</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvunpack</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">4.60.1</refmiscinfo>
+    <refmiscinfo class="version">4.70.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
@@ -101,8 +101,17 @@
           <listitem> <para>calculate and display MD5 signature; verify if lossless</para> </listitem>
         </varlistentry>
         <varlistentry>
+          <term> <option>-n</option> </term>
+          <listitem> <para>no audio decoding (use with <option>-xx</option> to extract tags only)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
           <term> <option>--no-utf8-convert</option> </term>
           <listitem> <para>leave extracted text tags in UTF-8 encoding during extraction or display</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-o <replaceable>OUTFILE</replaceable></option> </term>
+          <listitem> <para>specify output filename (only if single source file) or target directory (must exist)</para>
+          </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-q</option> </term>
@@ -173,6 +182,10 @@
         <varlistentry>
           <term> <option>-y</option> </term>
           <listitem> <para>yes to overwrite warning (use with caution!)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-z</option> </term>
+          <listitem> <para>don't set console title to indicate progress (prevents console from staying "WvUnpack Completed")</para> </listitem>
         </varlistentry>
       </variablelist>
     </para>

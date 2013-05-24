@@ -21,16 +21,16 @@
       <holder>Sebastian Dröge</holder>
     </copyright>
     <copyright>
-      <year>2009</year>
+      <year>2013</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2009-10-17</date>
+    <date>2013-05-24</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wavpack</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">4.60.1</refmiscinfo>
+    <refmiscinfo class="version">4.70.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
@@ -54,12 +54,14 @@
   <refsect1>
     <title>DESCRIPTION</title>
     <para>
-      <command>wavpack</command> encodes wav files containing uncompressed audio (or raw <acronym>PCM</acronym> data) into WavPack
-      files using the options provided. The resulting filename will be <filename>source-name.wv</filename> unless overridden with
-      the <option>-o</option> switch.  Multiple input files may be specified resulting in multiple WavPack files, and in that case
-      <option>-o</option> may be used to specify an alternate target directory. <filename>Stdin</filename> and
-      <filename>stdout</filename> may be specified with <quote>-</quote>. To decode WavPack files back to wav or raw
-      <acronym>PCM</acronym> use the <command>wvunpack</command> program.
+      <command>wavpack</command> encodes the specified source file(s) into WavPack files using the options provided. The source
+      files may be uncompressed WAV files, existing WavPack files, or raw <acronym>PCM</acronym> data. The resulting filename will
+      be <filename>source-name.wv</filename> unless overridden with the <option>-o</option> switch. Multiple input files may be
+      specified resulting in multiple WavPack files, and in that case <option>-o</option> may be used to specify an alternate
+      target directory. <filename>Stdin</filename> and <filename>stdout</filename> may be specified with <quote>-</quote>. In the
+      case of transcoding from existing WavPack files, all tags are copied (and may be modified with additional args) and unless
+      an alternate name or directory is specified, the source files are safely overwritten. To decode WavPack files back to wav or
+      raw <acronym>PCM</acronym> use the <command>wvunpack</command> program.
     </para>
   </refsect1>
   <refsect1>
@@ -69,6 +71,13 @@
         <varlistentry>
           <term> <option>-a</option> </term>
           <listitem> <para>Adobe Audition (CoolEdit) mode for 32-bit floats</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--allow-huge-tags</option> </term>
+          <listitem> <para>
+            allow tag data up to 16 MB (embedding > 1 MB is not recommended for portable devices and may not work with some programs
+            including WavPack pre-4.70)
+          </para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-b<replaceable>n</replaceable></option> </term>
@@ -146,12 +155,22 @@
           <listitem> <para>don't recode passed tags from local encoding to UTF-8, assume they are in UTF-8 already</para> </listitem>
         </varlistentry>
         <varlistentry>
-          <term> <option>--pair-unassigned-chans</option> </term>
-          <listitem> <para>encode unassigned channels into stereo pairs</para> </listitem>
+          <term> <option>-o <replaceable>OUTFILE</replaceable></option> </term>
+          <listitem> <para>specify output filename (only if single source file) or target directory (must exist)</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--optimize-mono</option> </term>
+          <listitem> <para>optimization for stereo files that are really mono (result may be incompatible with very old decoders)</para>
+          </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-p</option> </term>
-          <listitem> <para>practical float storage (also 32-bit ints, not lossless)</para> </listitem>
+          <listitem> <para>practical float storage (also 32-bit ints, no longer technically lossless)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--pair-unassigned-chans</option> </term>
+          <listitem> <para>encode unassigned channels into stereo pairs</para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-q</option> </term>
@@ -187,6 +206,10 @@
           <listitem> <para>force use of dynamic noise shaping (hybrid mode only)</para> </listitem>
         </varlistentry>
         <varlistentry>
+          <term> <option>-v</option> </term>
+          <listitem> <para>verify output file integrity after write (not for piped output)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
           <term> <option>-w <quote><replaceable>Field</replaceable>=<replaceable>Value</replaceable></quote></option> </term>
           <listitem> <para>write specified text metadata to APEv2 tag</para> </listitem>
         </varlistentry>
@@ -214,6 +237,10 @@
         <varlistentry>
           <term> <option>-y</option> </term>
           <listitem> <para>yes to all warnings (use with caution!)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-z</option> </term>
+          <listitem> <para>don't set console title to indicate progress (prevents console from staying "WavPack Completed")</para> </listitem>
         </varlistentry>
       </variablelist>
     </para>

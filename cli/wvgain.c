@@ -85,8 +85,8 @@ static const char *usage =
 #endif
 "          -n  = new files only (skip files with track info, or album\n"
 "                 info if album mode specified)\n"
-"          -s  = show stored values only (no analysis)\n"
 "          -q  = quiet (keep console output to a minimum)\n"
+"          -s  = show stored values only (no analysis)\n"
 "          -z  = don't set console title to indicate progress\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 

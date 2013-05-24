@@ -92,10 +92,10 @@ static const char *usage =
 "          -m  = calculate and display MD5 signature; verify if lossless\n"
 "          -n  = no audio decoding (use with -xx to extract tags only)\n"
 "          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
-"          -q  = quiet (keep console output to a minimum)\n"
 #if !defined (WIN32)
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
+"          -q  = quiet (keep console output to a minimum)\n"
 "          -r  = force raw audio decode (results in .raw extension)\n"
 "          -s  = display summary information only to stdout (no audio decode)\n"
 "          -ss = display super summary (including tags) to stdout (no decode)\n"
