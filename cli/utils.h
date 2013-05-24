@@ -23,7 +23,11 @@
 
 #if defined(WIN32)
 #undef VERSION_OS
+#ifdef _WIN64
+#define VERSION_OS "Win64"
+#else
 #define VERSION_OS "Win32"
+#endif
 #endif
 
 #define FALSE 0

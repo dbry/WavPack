@@ -976,7 +976,7 @@ static int unpack_file (char *infilename, char *outfilename)
         uint32_t samples_to_unpack, samples_unpacked;
 
         if (output_buffer) {
-            samples_to_unpack = (output_buffer_size - (output_pointer - output_buffer)) / bytes_per_sample;
+            samples_to_unpack = (output_buffer_size - (uint32_t)(output_pointer - output_buffer)) / bytes_per_sample;
 
             if (samples_to_unpack > 4096)
                 samples_to_unpack = 4096;

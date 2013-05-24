@@ -2237,7 +2237,7 @@ static uint32_t find_header (WavpackStreamReader *reader, void *id, uint32_t fil
 
                     if (wphdr->block_samples && (wphdr->flags & INITIAL_BLOCK)) {
                         free (buffer);
-                        return reader->get_pos (id) - (ep - sp + 4);
+                        return (uint32_t) (reader->get_pos (id) - (ep - sp + 4));
                     }
 
                     if (wphdr->ckSize > 1024)
