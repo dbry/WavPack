@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 4.60</div>
+				<div class="pageHeader">Using WavPack Version 4.70</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -129,19 +129,17 @@ a:hover {
 					there are few restrictions. The files may be any resolution from 8 to 32 bits; they may be 
 					mono, stereo, or multichannel; they may even be IEEE floating point data. The programs 
 					are full 32-bit executables and therefore must only be used under Windows (for real DOS 
-					applications it is possible to use the old WavPack 3.4 instead, but more recent versions
-     of WavPack have been built for DOS by the author of Mpxplay and are available
-     <a href="http://www.freewebtown.com/mpxplay/">here</a>). For version 4.31 an additional
-				 utility called WvGain was added to apply ReplayGain information to WavPack files. The
-     programs are initiated from the MS-DOS command line prompt with the following syntax:
+					applications it is possible to use the old WavPack 3.4 instead). An additional utility
+     called WvGain is used to apply ReplayGain information to WavPack files. The programs are
+     initiated from the MS-DOS command line prompt with the following syntax:
 				<p>
 					<b>Usage:</b>
 					<br/>
-					<b><tt>WAVPACK [-options] [@]infile[.wav]|- [[@]outfile[.wv]|outpath|-]</tt></b>
+					<b><tt>WAVPACK [-options] infile[.wav]|infile.wv|- [outfile[.wv]|outpath|-]</tt></b>
 					<br/>
-					<b><tt>WVUNPACK [-options] [@]infile[.wv]|- [[@]outfile[.wav]|outpath|-]</tt></b>
+					<b><tt>WVUNPACK [-options] infile[.wv]|- [outfile[.wav]|outpath|-]</tt></b>
 					<br/>
-     <b><tt>WVGAIN [-options] [@]infile[.wv] [...]</tt></b>
+     <b><tt>WVGAIN [-options] infile[.wv] [...]</tt></b>
 					</p>
 				<p>
 					The filename extensions will be defaulted if not provided and the input filename may 
@@ -156,14 +154,32 @@ a:hover {
 					the hybrid lossless mode uses two files it is not compatible with pipes.
 				</p>
 				<p>
+     The input files for WavPack may be either Microsoft .wav files (as mentioned above), or
+     they may be existing WavPack files, or they may be raw PCM files (specified with the
+     --raw-pcm option). In the case of transcoding from existing WavPack files, all tags are
+     copied (and may be modified with the tag specification options) and unless an alternate output
+     name or directory is specified, the source files will be overwritten (safely). Used with the
+     filename wildcards, this can be used to easily transcode an entire directory of WavPack
+     files with a single command. Transcoding from lossy to lossless is not allowed, but other
+     combinations like pure lossless to hybrid lossless (or lossy) are fine. Note that when
+     transcoding from a configuration with a correction file to a configuration without a
+     correction file, the source correction file will <i>not</i> be automatically deleted even if
+     the source WavPack file is being overwritten. Adding the -d option will accomplish this,
+     however.
+				</p>
+				<p>
 					Both programs will warn before overwriting any file (unless the -y switch is 
-					specified). The programs will also (unless the -q switch is specified) display 
+					specified) and file overwriting is implemented with temp files so that the overwritten
+     file is not deleted until the operation is successful (including the verification pass
+     if that has been requested with the -v switch). The programs will also (unless the -q
+     switch is specified) display 
 					progress in percentage complete and when finished with each file will give the 
 					compression ratio (or bitrate for lossy files), whether the compression was lossy 
-					or lossless, and the processing time. They will also display the progress percentage
-					for the whole batch of files on the title bar which is useful when they are being 
-					run minimized. If a batch of files is run then both programs will indicate when 
-					complete whether any errors occurred and how many files were processed.
+					or lossless, and the processing time. They will also (unless the -z option is used)
+     display the progress percentage for the whole batch of files on the title bar which
+     is useful when they are being run minimized. If a batch of files is run then both
+     programs will indicate when complete whether any errors occurred and how many files
+     were processed.
 				</p>
 				<p>
 					The compressed file format (.wv) contains all original header information and the 
@@ -213,6 +229,7 @@ a:hover {
 			<div class="box" id="wavpack">
 				<div class="boxHeader">WavPack Options</div>
 				<div class="boxContent">
+
 				<p>
 					<b><tt>-a = Adobe Audition (CoolEdit) mode for 32-bit floats</tt></b>
 				</p>
@@ -224,6 +241,19 @@ a:hover {
 					added to WavPack (-a) to force the "adobe" interpretation of these floating point 
 					formats. If you are compressing integer files do NOT use this option.
 				</p>
+
+				<p>
+					<b><tt>--allow-huge-tags = allow tag data up to 16 MB (otherwise it's 1 MB)</tt></b>
+				</p>
+				<p>
+     Normally WavPack allows the APEv2 tags to contain up to 1 MB of data. This limit was
+     implemented to allow for their use on portable devices which may have limited memory or
+     processing resources. However, in some situations it may be desirable to place more
+     data in the tags (for high resolution cover art scans, for example) and this option
+     permits that. Note that these files are not fully WavPack compliant and may not work
+     in all situations or with older versions of WavPack programs and plugins.
+				</p>
+
 				<p>
 					<b><tt>-bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or</tt></b>
 					<br/>
@@ -300,7 +330,8 @@ a:hover {
      indicate which speakers are represented and those speakers must be in the standard Microsoft
      order (which is also specified by USB). However, some programs skip generating the WAVEFORMATEXTENSIBLE
      header and even write the channels in the wrong order. For files without the WAVEFORMATEXTENSIBLE
-     header, WavPack assumes Microsoft channel order and further assumes that all speakers (up to the
+     header (or those with the header but with a zeroed channel mask), WavPack assumes Microsoft channel
+     order and further assumes that all speakers (up to the
      number of channels) are present. If that is not the case, then this option allows the user to
      specify the exact channels present (and their order) from this list (which is in Microsoft order):
      FL,FR,FC,LFE,BL,BR,LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR.
@@ -328,12 +359,14 @@ a:hover {
      pipe the output of WavPack directly to WvUnpack for the sole purpose of reordering WAV files
      and adding the correct WAV headers!
     </p>
+
 				<p>
 					<b><tt>-d = delete source file if successful (use with caution!)</tt></b>
 				</p>
 				<p>
 					Self explanatory.
 				</p>
+
 				<p>
 					<b><tt>-e = create self-extracting executable (needs wvselfx.exe)</tt></b>
 				</p>
@@ -366,6 +399,7 @@ a:hover {
 					<blockquote>
 						<tt>C:\music_files>copy /b wvselfx.exe+music.wv music.exe</tt>
 					</blockquote>
+
 				<p>
 					<b><tt>-f = fast mode (fast, but some compromise in compression ratio)</tt></b>
 				</p>
@@ -373,6 +407,7 @@ a:hover {
 					The "fast" mode should be used when compression (or decompression) speed is more 
 					important than compression ratio (or, in lossy mode, audio quality).
 				</p>
+
 				<p>
 					<b><tt>-h = high quality (better compression in all modes, but slower)</tt></b>
 				</p>
@@ -381,6 +416,7 @@ a:hover {
 					quality) is more important than compression (or decompression) speed. This option 
 					slows both by about a factor of about 1.5.
 				</p>
+
 				<p>
 					<b><tt>-hh = very high quality (best compression in all modes, but slowest)</tt></b>
 				</p>
@@ -390,12 +426,14 @@ a:hover {
 					slows both by about a factor of about 2, and is <b>not recommended for use on
      portable devices</b> because of the high CPU load required for decoding.
 				</p>
+
 				<p>
 					<b><tt>--help = extended help display</tt></b>
 				</p>
 				<p>
 					Self explanatory.
 				</p>
+
 				<p>
 					<b><tt>-i = ignore length in wav header (no pipe output allowed)</tt></b>
 				</p>
@@ -406,6 +444,7 @@ a:hover {
 					length. Because WavPack must seek to the beginning of the file to write the correct
 					length, this option cannot be used with piped output.
 				</p>
+
 				<p>
 					<b><tt>-jn = joint-stereo override (0 = left/right, 1 = mid/side)</tt></b>
 				</p>
@@ -416,6 +455,7 @@ a:hover {
 					quality in lossy mode. This option allows this feature to be forced either on or 
 					off.
 				</p>
+
 				<p>
 					<b><tt>-l = run at low priority (for smoother multitasking)</tt></b>
 				</p>
@@ -423,6 +463,7 @@ a:hover {
 					This option can be used (in Windows only) to force WavPack to run at a low priority 
      and is handy for doing large WavPack batch conversions in the background.
 				</p>
+
 				<p>
 					<b><tt>-m = compute &amp; store MD5 signature of raw audio data</tt></b>
 				</p>
@@ -467,7 +508,7 @@ a:hover {
 					scale. While it is impossible to use this as a guide to determine the audibility 
 					of the noise, it is useful for comparing the various compression options and for 
 					comparing WavPack's lossy performance to other programs. Note that this option does
-					not currently produce meaningfull results for floating point or multichannel files.
+					not currently produce meaningful results for floating point or multichannel files.
 				</p>
 
     <p>
@@ -551,6 +592,7 @@ a:hover {
      way will still normally decode to WAV files (with headers) when unpacked. To avoid
      this, use the "-r" option with the WvUnpack program to force raw unpacking.
 				</p>
+
 				<p>
 					<b><tt>--raw-pcm=sr,bps,ch = input data is raw pcm with specified format</tt></b>
 				</p>
@@ -583,12 +625,14 @@ a:hover {
      at all (i.e., white noise). This option should not be used with the <b>--use-dns</b>
      option which enables dynamic noise shaping.
 				</p>
+
 				<p>
 					<b><tt>-t = copy input file's time stamp to output file(s)</tt></b>
 				</p>
 				<p>
 					Self explanatory.
 				</p>
+
 				<p>
 					<b><tt>--use-dns = force use of dynamic noise shaping (hybrid only)</tt></b>
 				</p>
@@ -603,6 +647,19 @@ a:hover {
      This option should not be specified with the <b>-s</b> option which overrides the default with fixed
      noise shaping.
 				</p>
+
+				<p>
+					<b><tt>-v = verify output file integrity after write</tt></b>
+				</p>
+				<p>
+					Causes WavPack to perform a separate verification pass over the output file to guarantee that the audio data
+     is correctly encoded and stored to disk. For lossless compression this is performed with an MD5 hash even
+     if the <b>-m</b> option is not specified. If an error occurs (indicating either a bug in the program or
+     faulty hardware) then a message is displayed and the output file is deleted (and if an existing file is
+     being overwritten, then it will be untouched). Because the output file is actually rewound and reread, this
+     option cannot be used when writing to pipes.
+				</p>
+
 				<p>
 					<b><tt>-w "Field=Value" = write specified metadata to APEv2 tag</tt></b>
 				</p>
@@ -617,6 +674,7 @@ a:hover {
 				 file cannot be found in the current directory then the source and destination
 				 directories (if specifed) are also checked.
 				</p>
+
 				<p>
 					<b><tt>--write-binary-tag "Field=@file.ext" = write specified binary metadata to APEv2 tag</tt></b>
 				</p>
@@ -628,11 +686,12 @@ a:hover {
      if it matches exactly one file. Also, if the file cannot be found in the current directory
      then the source and destination directories (if specifed) are also checked.
 				</p>
+
 				<p>
 					<b><tt>-x[n] = extra encode processing (optional n = 1-6, 1 = default)</tt></b>
 				</p>
 				<p>
-					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 4.60 normally 
+					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 4.70 normally 
 					works "symmetrically" in that encoding and decoding operate at about the same rate
 					(regardless of the mode used). However, WavPack has an option to work
 					"asymmetrically", so that extra processing can be done during encoding to
@@ -650,8 +709,16 @@ a:hover {
      speed. The highest levels (n = 4-6) are extremely slow but can provide significant
      improvement in special situations (i.e. synthesized sounds).
 				</p>
+
 				<p>
 					<b><tt>-y = yes to all warnings (use with caution!)</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
+				<p>
+					<b><tt>-z = don't write to console title bar to indicate overall progress</tt></b>
 				</p>
 				<p>
 					Self explanatory.
@@ -735,6 +802,12 @@ a:hover {
 					this will be displayed also. For lossless operation these numbers should match (and 
 					WvUnpack will verify that they match). For lossy operation these numbers should not 
 					match.
+				</p>
+				<p>
+					<b><tt>-n = no audio decoding</tt></b>
+				</p>
+				<p>
+					Use this option with the <b>-xx</b> and <b>-cc</b> options to perform the tag extraction only.
 				</p>
     <p>
      <b><tt>--no-utf8-convert = leave tag items in UTF-8 on extract or display</tt></b>
@@ -865,6 +938,13 @@ a:hover {
 				<p>
 					Self explanatory.
 				</p>
+
+				<p>
+					<b><tt>-z = don't write to console title bar to indicate overall progress</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
 				</div>
 			</div>
 
@@ -937,6 +1017,12 @@ a:hover {
 				<p>
 					This option does not perform any analysis but simply displays (to stdout) any
 				 ReplayGain values stored in the specified WavPack files.
+				</p>
+				<p>
+					<b><tt>-z = don't write to console title bar to indicate overall progress</tt></b>
+				</p>
+				<p>
+					Self explanatory.
 				</p>
 				</div>
 			</div>
