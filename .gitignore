@@ -1,0 +1,37 @@
+#
+# Linux ignores
+#
+
+*.[o1]
+*.l[ao]
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/
+cli/.deps/
+cli/.libs/
+cli/wavpack
+cli/wvgain
+cli/wvunpack
+compile
+configure
+config.guess
+config.log
+config.status
+config.sub
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing
+src/.deps/
+src/.libs/
+wavpack.pc
+
+#
+# Visual Studio ignores
+#
+
+Release/
+Debug/
+*.ncb
