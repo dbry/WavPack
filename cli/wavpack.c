@@ -1283,7 +1283,7 @@ static FILE *wild_fopen (char *filename, const char *mode)
 
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
-    char *outfilename_temp, *out2filename_temp;
+    char *outfilename_temp, *out2filename_temp, dummy;
     int use_tempfiles = (out2filename != NULL);
     uint32_t total_samples = 0, bcount;
     WavpackConfig loc_config = *config;
@@ -1352,17 +1352,49 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // check both output files for overwrite warning required
 
-    if (*outfilename != '-' && (wv_file.file = fopen (outfilename, "rb")) != NULL) {
-        DoCloseHandle (wv_file.file);
-        use_tempfiles = 1;
+    // note that for a file to be considered "overwritable", it must both be openable for reading
+    // and have at least 1 readable byte - this prevents us getting stuck on "nul" (Windows) 
 
-        if (!overwrite_all) {
-            fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
+    if (*outfilename != '-' && (wv_file.file = fopen (outfilename, "rb")) != NULL) {
+        int res = fread (&dummy, 1, 1, wv_file.file);
+
+        DoCloseHandle (wv_file.file);
+
+        if (res == 1) {
+            use_tempfiles = 1;
+
+            if (!overwrite_all) {
+                fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
+
+                if (!no_console_title)
+                    DoSetConsoleTitle ("overwrite?");
+
+                switch (yna ()) {
+                    case 'n':
+                        DoCloseHandle (infile);
+                        WavpackCloseFile (wpc);
+                        return SOFT_ERROR;
+
+                    case 'a':
+                        overwrite_all = 1;
+                }
+            }
+        }
+    }
+
+    if (out2filename && !overwrite_all && (wvc_file.file = fopen (out2filename, "rb")) != NULL) {
+        int res = fread (&dummy, 1, 1, wvc_file.file);
+
+        DoCloseHandle (wvc_file.file);
+
+        if (res == 1) {
+            fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
 
             if (!no_console_title)
                 DoSetConsoleTitle ("overwrite?");
 
             switch (yna ()) {
+
                 case 'n':
                     DoCloseHandle (infile);
                     WavpackCloseFile (wpc);
@@ -1371,25 +1403,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 case 'a':
                     overwrite_all = 1;
             }
-        }
-    }
-
-    if (out2filename && !overwrite_all && (wvc_file.file = fopen (out2filename, "rb")) != NULL) {
-        DoCloseHandle (wvc_file.file);
-        fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
-
-        if (!no_console_title)
-            DoSetConsoleTitle ("overwrite?");
-
-        switch (yna ()) {
-
-            case 'n':
-                DoCloseHandle (infile);
-                WavpackCloseFile (wpc);
-                return SOFT_ERROR;
-
-            case 'a':
-                overwrite_all = 1;
         }
     }
 
@@ -1426,8 +1439,12 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             testfile = fopen (outfilename_temp, "rb");
 
             if (testfile) {
+                int res = (int) fread (&dummy, 1, 1, testfile);
+
                 fclose (testfile);
-                continue;
+
+                if (res == 1)
+                    continue;
             }
 
             if (out2filename) {
@@ -1437,8 +1454,12 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 testfile = fopen (out2filename_temp, "rb");
 
                 if (testfile) {
+                    int res = (int) fread (&dummy, 1, 1, testfile);
+
                     fclose (testfile);
-                    continue;
+
+                    if (res == 1)
+                        continue;
                 }
             }   
 

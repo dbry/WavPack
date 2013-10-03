@@ -691,11 +691,13 @@ static void parse_sample_time_index (struct sample_time_index *dst, char *src)
 // Open specified file for writing, with overwrite check. If the specified file already exists (and the user has
 // agreed to overwrite) then open a temp file instead and store a pointer to that filename at "tempfilename" (otherwise
 // the pointer is set to NULL). The caller will be required to perform the rename (and free the pointer) once the file
-// is completely written and closed.
+// is completely written and closed. Note that for a file to be considered "overwritable", it must both be openable for
+// reading and have at least 1 readable byte - this prevents us getting stuck on "nul" (Windows).
 
 static FILE *open_output_file (char *filename, char **tempfilename)
 {
     FILE *retval, *testfile;
+    char dummy;
 
     *tempfilename = NULL;
 
@@ -712,51 +714,59 @@ static FILE *open_output_file (char *filename, char **tempfilename)
     testfile = fopen (filename, "rb");
 
     if (testfile) {
-        int count = 0;
+        int res = fread (&dummy, 1, 1, testfile);
 
         fclose (testfile);
 
-        if (!overwrite_all) {
-            fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (filename));
+        if (res == 1) {
+            int count = 0;
 
-            if (!no_console_title)
-                DoSetConsoleTitle ("overwrite?");
+            if (!overwrite_all) {
+                fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (filename));
 
-            switch (yna ()) {
-                case 'n':
-                    return NULL;
+                if (!no_console_title)
+                    DoSetConsoleTitle ("overwrite?");
 
-                case 'a':
-                    overwrite_all = 1;
-            }
-        }
+                switch (yna ()) {
+                    case 'n':
+                        return NULL;
 
-        *tempfilename = malloc (strlen (filename) + 16);
-
-        while (1) {
-            strcpy (*tempfilename, filename);
-
-            if (filespec_ext (*tempfilename)) {
-                if (count++)
-                    sprintf (filespec_ext (*tempfilename), ".tmp%d", count-1);
-                else
-                    strcpy (filespec_ext (*tempfilename), ".tmp");
-
-                strcat (*tempfilename, filespec_ext (filename));
-            }
-            else {
-                if (count++)
-                    sprintf (*tempfilename + strlen (*tempfilename), ".tmp%d", count-1);
-                else
-                    strcat (*tempfilename, ".tmp");
+                    case 'a':
+                        overwrite_all = 1;
+                }
             }
 
-            testfile = fopen (*tempfilename, "rb");
+            *tempfilename = malloc (strlen (filename) + 16);
 
-            if (!testfile)
-                break;
+            while (1) {
+                strcpy (*tempfilename, filename);
 
-            fclose (testfile);
+                if (filespec_ext (*tempfilename)) {
+                    if (count++)
+                        sprintf (filespec_ext (*tempfilename), ".tmp%d", count-1);
+                    else
+                        strcpy (filespec_ext (*tempfilename), ".tmp");
+
+                    strcat (*tempfilename, filespec_ext (filename));
+                }
+                else {
+                    if (count++)
+                        sprintf (*tempfilename + strlen (*tempfilename), ".tmp%d", count-1);
+                    else
+                        strcat (*tempfilename, ".tmp");
+                }
+
+                testfile = fopen (*tempfilename, "rb");
+
+                if (!testfile)
+                    break;
+
+                res = fread (&dummy, 1, 1, testfile);
+                fclose (testfile);
+
+                if (res != 1)
+                    break;
+            }
         }
     }
 
