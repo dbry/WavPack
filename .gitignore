@@ -35,3 +35,12 @@ wavpack.pc
 Release/
 Debug/
 *.ncb
+*.user
+*.suo
+
+#
+# Cygwin ignores
+#
+
+*.exe
+
