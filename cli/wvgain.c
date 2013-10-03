@@ -86,6 +86,7 @@ static const char *usage =
 "          -n  = new files only (skip files with track info, or album\n"
 "                 info if album mode specified)\n"
 "          -q  = quiet (keep console output to a minimum)\n"
+"          -v  = write the version to stdout\n"
 "          -s  = show stored values only (no analysis)\n"
 "          -z  = don't set console title to indicate progress\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
@@ -163,6 +164,11 @@ int main (argc, argv) int argc; char **argv;
 #endif
             while (*++*argv)
                 switch (**argv) {
+
+                    case 'V': case 'v':
+                        printf ("wvgain %s\n", WavpackGetLibraryVersionString ());
+                        return 1;
+
                     case 'A': case 'a':
                         album_mode = 1;
                         break;

@@ -105,6 +105,7 @@ static const char *usage =
 "              (specifying a '+' causes sample/time to be relative to '--skip' point;\n"
 "               specifying a '-' causes sample/time to be relative to end of file)\n"
 "          -v  = verify source data only (no output file created)\n"
+"          --version = write the version to stdout\n"
 "          -w  = regenerate .wav header (ignore RIFF data in file)\n"
 "          -x \"Field\" = extract specified tag field only to stdout (no audio decode)\n"
 "          -xx \"Field[=file]\" = extract specified tag field to file, optional\n"
@@ -155,7 +156,7 @@ int main (argc, argv) int argc; char **argv;
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
 #endif
-    int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, ask_help = 0, c_count = 0, x_count = 0;
+    int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, c_count = 0, x_count = 0;
     char outpath, **matches = NULL, *outfilename = NULL;
     int result;
 
@@ -196,8 +197,14 @@ int main (argc, argv) int argc; char **argv;
                 if (*long_param++ == '=')
                     break;
 
-            if (!strcmp (long_option, "help"))                          // --help
-                ask_help = 1;
+            if (!strcmp (long_option, "help")) {                        // --help
+                printf ("%s", usage);
+                return 1;
+            }
+            else if (!strcmp (long_option, "version")) {                // --version
+                printf ("wvunpack %s\n", WavpackGetLibraryVersionString ());
+                return 1;
+            }
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
             else if (!strncmp (long_option, "skip", 4)) {               // --skip
@@ -423,7 +430,7 @@ int main (argc, argv) int argc; char **argv;
     if (!quiet_mode && !error_count)
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
 
-    if (!num_files || ask_help) {
+    if (!num_files) {
         printf ("%s", usage);
         return 1;
     }

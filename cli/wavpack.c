@@ -173,6 +173,7 @@ static const char *help =
 "    -t                      copy input file's time stamp to output file(s)\n"
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 "    -v                      verify output file integrity after write (no pipes)\n"
+"    --version               write the version to stdout\n"
 "    -w \"Field=Value\"        write specified text metadata to APEv2 tag\n"
 "    -w \"Field=@file.ext\"    write specified text metadata from file to APEv2\n"
 "                             tag, normally used for embedded cuesheets and logs\n"
@@ -250,7 +251,7 @@ int main (argc, argv) int argc; char **argv;
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
 #endif
-    int error_count = 0, tag_next_arg = 0, output_spec = 0, ask_help = 0;
+    int error_count = 0, tag_next_arg = 0, output_spec = 0;
     char *outfilename = NULL, *out2filename = NULL;
     char **matches = NULL;
     WavpackConfig config;
@@ -297,8 +298,14 @@ int main (argc, argv) int argc; char **argv;
                 if (*long_param++ == '=')
                     break;
 
-            if (!strcmp (long_option, "help"))                          // --help
-                ask_help = 1;
+            if (!strcmp (long_option, "help")) {                        // --help
+                printf ("%s", help);
+                return 1;
+            }
+            else if (!strcmp (long_option, "version")) {                // --version
+                printf ("wavpack %s\n", WavpackGetLibraryVersionString ());
+                return 1;
+            }
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 config.flags |= CONFIG_OPTIMIZE_MONO;
             else if (!strcmp (long_option, "dns")) {                    // --dns
@@ -833,11 +840,6 @@ int main (argc, argv) int argc; char **argv;
 
     if (error_count) {
         fprintf (stderr, "\ntype 'wavpack' for short help or 'wavpack --help' for full help\n");
-        return 1;
-    }
-
-    if (ask_help) {
-        printf ("%s", help);
         return 1;
     }
 
