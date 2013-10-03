@@ -38,7 +38,7 @@
 #define stricmp(x,y) _stricmp(x,y)
 #define fileno _fileno
 #else
-#define stricmp(x,y) strcasecmp(x,y)
+#define stricmp strcasecmp
 #endif
 
 #ifdef DEBUG_ALLOC
