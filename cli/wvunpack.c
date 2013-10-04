@@ -84,6 +84,7 @@ static const char *usage =
 "          -cc = extract cuesheet file (.cue) in addition to audio file\n"
 "               (note: equivalent to -xx \"cuesheet=%a.cue\")\n"
 "          -d  = delete source file if successful (use with caution!)\n"
+"          -f  = file info to stdout in machine-parsable format\n"
 "          --help = this help display\n"
 "          -i  = ignore .wvc file (forces hybrid lossy decompression)\n"
 #if defined (WIN32) || defined (__OS2__)
@@ -122,7 +123,7 @@ static const char *usage =
 
 int debug_logging_mode;
 
-static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode,
+static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info,
     summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, no_console_title;
 
 static int num_files, file_index, outbuf_k;
@@ -274,6 +275,10 @@ int main (argc, argv) int argc; char **argv;
 
                     case 'V': case 'v':
                         verify_only = 1;
+                        break;
+
+                    case 'F': case 'f':
+                        file_info = quiet_mode = no_audio_decode = 1;
                         break;
 
                     case 'S': case 's':
@@ -798,6 +803,7 @@ static unsigned char *format_samples (int bps, unsigned char *dst, int32_t *src,
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
 static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
+static void dump_file_info (WavpackContext *wpc, FILE *dst);
 
 static int unpack_file (char *infilename, char *outfilename)
 {
@@ -903,7 +909,9 @@ static int unpack_file (char *infilename, char *outfilename)
         }
     }
 
-    if (summary)
+    if (file_info)
+        dump_file_info (wpc, stdout);
+    else if (summary)
         dump_summary (wpc, infilename, stdout);
     else if (tag_extract_stdout) {
         if (!dump_tag_item_to_file (wpc, tag_extract_stdout, stdout, NULL)) {
@@ -1735,6 +1743,35 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
             free (item);
         }
     }
+}
+
+static void dump_file_info (WavpackContext *wpc, FILE *dst)
+{
+    unsigned char md5_sum [16];
+    char str [80];
+
+    sprintf (str, "%d;%d;%s;%d;0x%x;", WavpackGetSampleRate (wpc), WavpackGetBitsPerSample (wpc),
+        (WavpackGetMode (wpc) & MODE_FLOAT) ? "float" : "int", WavpackGetNumChannels (wpc), WavpackGetChannelMask (wpc));
+
+    if (WavpackGetNumSamples (wpc) != (uint32_t) -1)
+        sprintf (str + strlen (str), "%u;", WavpackGetNumSamples (wpc));
+    else
+        strcat (str, ";");
+
+    if (WavpackGetMD5Sum (wpc, md5_sum)) {
+        char md5_string [] = "00000000000000000000000000000000";
+        int i;
+
+        for (i = 0; i < 16; ++i)
+            sprintf (md5_string + (i * 2), "%02x", md5_sum [i]);
+
+        sprintf (str + strlen (str), "%s;", md5_string);
+    }
+    else
+        strcat (str, ";");
+
+    sprintf (str + strlen (str), "%d;0x%x", WavpackGetVersion (wpc), WavpackGetMode (wpc));
+    fprintf (dst, "%s\n", str);
 }
 
 // Dump the specified tag field to the specified stream. Both text and binary tags may be written,
