@@ -803,7 +803,7 @@ static unsigned char *format_samples (int bps, unsigned char *dst, int32_t *src,
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
 static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
-static void dump_file_info (WavpackContext *wpc, FILE *dst);
+static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst);
 
 static int unpack_file (char *infilename, char *outfilename)
 {
@@ -910,7 +910,7 @@ static int unpack_file (char *infilename, char *outfilename)
     }
 
     if (file_info)
-        dump_file_info (wpc, stdout);
+        dump_file_info (wpc, infilename, stdout);
     else if (summary)
         dump_summary (wpc, infilename, stdout);
     else if (tag_extract_stdout) {
@@ -1745,7 +1745,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     }
 }
 
-static void dump_file_info (WavpackContext *wpc, FILE *dst)
+static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst)
 {
     unsigned char md5_sum [16];
     char str [80];
@@ -1771,7 +1771,11 @@ static void dump_file_info (WavpackContext *wpc, FILE *dst)
         strcat (str, ";");
 
     sprintf (str + strlen (str), "%d;0x%x", WavpackGetVersion (wpc), WavpackGetMode (wpc));
-    fprintf (dst, "%s\n", str);
+
+    if (name && *name != '-')
+        fprintf (dst, "%s;%s\n", str, name);
+    else
+        fprintf (dst, "%s;\n", str);
 }
 
 // Dump the specified tag field to the specified stream. Both text and binary tags may be written,
