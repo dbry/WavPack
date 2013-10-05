@@ -355,7 +355,7 @@ int main (argc, argv) int argc; char **argv;
             if (check_break ())
                 break;
 
-            if (num_files > 1)
+            if (num_files > 1 && !quiet_mode)
                 fprintf (stderr, "\n%s:\n", matches [file_index]);
 
             if (new_mode) {
@@ -439,7 +439,7 @@ int main (argc, argv) int argc; char **argv;
                 if (check_break ())
                     break;
 
-                if (num_files > 1)
+                if (num_files > 1 && !quiet_mode)
                     fprintf (stderr, "\n%s:\n", matches [file_index]);
 
                 if (show_mode)

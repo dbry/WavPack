@@ -609,7 +609,7 @@ int main (argc, argv) int argc; char **argv;
             if (outfilename && *outfilename != '-' && add_extension)
                 strcat (outfilename, raw_decode ? ".raw" : ".wav");
 
-            if (num_files > 1)
+            if (num_files > 1 && !quiet_mode)
                 fprintf (stderr, "\n%s:\n", matches [file_index]);
 
             result = unpack_file (matches [file_index], verify_only ? NULL : outfilename);

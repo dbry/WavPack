@@ -1101,7 +1101,7 @@ int main (argc, argv) int argc; char **argv;
             else
                 out2filename = NULL;
 
-            if (num_files > 1)
+            if (num_files > 1 && !quiet_mode)
                 fprintf (stderr, "\n%s:\n", matches [file_index]);
 
             if (filespec_ext (matches [file_index]) && !stricmp (filespec_ext (matches [file_index]), ".wv"))
