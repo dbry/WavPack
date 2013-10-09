@@ -658,8 +658,10 @@ static int update_file (char *infilename, float track_gain, float track_peak, fl
         if (WavpackDeleteTagItem (wpc, "replaygain_album_peak"))
             ++items_removed;
 
-        if (!quiet_mode && items_removed) {
-            error_line ("%d ReplayGain values cleaned", items_removed);
+        if (items_removed) {
+            if (!quiet_mode)
+                error_line ("%d ReplayGain values cleaned", items_removed);
+
             write_tag = TRUE;
         }
         else
