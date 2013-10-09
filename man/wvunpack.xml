@@ -89,6 +89,14 @@
           <listitem> <para>delete source file if successful (use with caution!)</para> </listitem>
         </varlistentry>
         <varlistentry>
+          <term> <option>-f</option> </term>
+          <listitem> <para>
+            do not decode audio but simply display summary information about WavPack file to <filename>stdout</filename> in a
+            machine-parsable format (see <filename>doc/wavpack_doc.html</filename> or <filename>cli/wvunpack.c</filename> in
+            repository for format details)
+          </para> </listitem>
+        </varlistentry>
+        <varlistentry>
           <term> <option>--help</option> </term>
           <listitem> <para>display extended help</para> </listitem>
         </varlistentry>
@@ -159,6 +167,10 @@
         <varlistentry>
           <term> <option>-v</option> </term>
           <listitem> <para>verify source data only (no output file created)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--version</option> </term>
+          <listitem> <para>write program version to <filename>stdout</filename></para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-w</option> </term>

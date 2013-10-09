@@ -1745,6 +1745,24 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     }
 }
 
+// Dump a summary of the file information in a machine-parsable format to the specified file (usually stdout).
+// The items are separated by semi-colons and the line is newline terminated, like in this example:
+//
+// 44100;16;int;2;0x3;9878400;023066a6345773674c0755ee6be54d87;4;0x18a2;Track01.wv
+//
+// The fields are, in order:
+//
+// 1. sampling rate
+// 2. bit-depth (1-32)
+// 3. format ("int" or "float")
+// 4. number of channels
+// 5. channel mask (in hex because it's a mask, always prefixed with "0x")
+// 6. number of samples (missing if unknown)
+// 7. md5sum (technically is hex, but not prefixed with "0x", might be missing)
+// 8. encoder version (basically this will always be 4, but there are some old files out there, could be 5 one day)
+// 9. encoding mode (in hex because it's a bitfield, always prefixed with "0x") 
+// 10. filename (if available)
+
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst)
 {
     unsigned char md5_sum [16];

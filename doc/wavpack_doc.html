@@ -661,6 +661,13 @@ a:hover {
 				</p>
 
 				<p>
+					<b><tt>--version = display program version to stdout</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
+				<p>
 					<b><tt>-w "Field=Value" = write specified metadata to APEv2 tag</tt></b>
 				</p>
 				<p>
@@ -771,6 +778,29 @@ a:hover {
 				<p>
 					Self explanatory.
 				</p>
+
+				<p>
+					<b><tt>-f = dump summary file information only to stdout in machine-parsable format (no decode)</tt></b>
+				</p>
+				<p>
+					This command would normally be used by another application to obtain information about
+     WavPack files. It outputs a single, semicolon delimited line to stdout for each input file specified. Here is
+     a sample output line and a description of the 10 items of information provided:
+				</p>
+				<p>
+     &nbsp;&nbsp;44100;16;int;2;0x3;9878400;023066a6345773674c0755ee6be54d87;4;0x18a2;Track01.wv<br/></br>
+     &nbsp;&nbsp;1. sampling rate<br/>
+     &nbsp;&nbsp;2. bit-depth (1-32)<br/>
+     &nbsp;&nbsp;3. format ("int" or "float")<br/>
+     &nbsp;&nbsp;4. number of channels<br/>
+     &nbsp;&nbsp;5. channel mask (in hex because it's a mask, always prefixed with "0x")<br/>
+     &nbsp;&nbsp;6. number of samples (missing if unknown)<br/>
+     &nbsp;&nbsp;7. md5sum (technically is hex, but not prefixed with "0x", might be missing)<br/>
+     &nbsp;&nbsp;8. encoder version (basically this will always be 4, but there are some old files out there, could be 5 one day)<br/>
+     &nbsp;&nbsp;9. encoding mode (in hex because it's a bitfield, always prefixed with "0x") <br/>
+     &nbsp;&nbsp;10. filename (if available)<br/>
+				</p>
+
 				<p>
 					<b><tt>--help = this help display</tt></b>
 				</p>
@@ -892,6 +922,14 @@ a:hover {
 					also detect algorithm errors, incompatible implementations of the encoder or 
 					decoder, and even faulty processor hardware.
 				</p>
+
+				<p>
+					<b><tt>--version = display program version to stdout</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
 				<p>
      <b><tt>-w  = regenerate .wav header (ignore RIFF data in file)</tt></b>
 				</p>
@@ -1018,6 +1056,14 @@ a:hover {
 					This option does not perform any analysis but simply displays (to stdout) any
 				 ReplayGain values stored in the specified WavPack files.
 				</p>
+
+				<p>
+					<b><tt>-v = display program version to stdout</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
 				<p>
 					<b><tt>-z = don't write to console title bar to indicate overall progress</tt></b>
 				</p>

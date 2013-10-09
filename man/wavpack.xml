@@ -210,6 +210,10 @@
           <listitem> <para>verify output file integrity after write (not for piped output)</para> </listitem>
         </varlistentry>
         <varlistentry>
+          <term> <option>--version</option> </term>
+          <listitem> <para>write program version to <filename>stdout</filename></para> </listitem>
+        </varlistentry>
+        <varlistentry>
           <term> <option>-w <quote><replaceable>Field</replaceable>=<replaceable>Value</replaceable></quote></option> </term>
           <listitem> <para>write specified text metadata to APEv2 tag</para> </listitem>
         </varlistentry>

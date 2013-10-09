@@ -89,6 +89,10 @@
           <listitem> <para>quiet (keep console output to a minimum)</para> </listitem>
         </varlistentry>
         <varlistentry>
+          <term> <option>-v</option> </term>
+          <listitem> <para>write program version to <filename>stdout</filename></para> </listitem>
+        </varlistentry>
+        <varlistentry>
           <term> <option>-z</option> </term>
           <listitem> <para>don't set console title to indicate progress (prevents console from staying "WvGain Completed")</para> </listitem>
         </varlistentry>
