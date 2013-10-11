@@ -238,6 +238,11 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
     if ((flags & (OPEN_TAGS | OPEN_EDIT_TAGS)) && wpc->reader->can_seek (wpc->wv_in)) {
         load_tag (wpc);
         wpc->reader->set_pos_abs (wpc->wv_in, 0);
+
+        if ((flags & OPEN_EDIT_TAGS) && !editable_tag (&wpc->m_tag)) {
+            if (error) strcpy (error, "can't edit tags located at the beginning of files!");
+            return WavpackCloseFile (wpc);
+        }
     }
 #endif
 

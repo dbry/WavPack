@@ -92,7 +92,7 @@ typedef struct {
 #define APE_TAG_MAX_LENGTH      (1024 * 1024 * 16)
 
 typedef struct {
-    int32_t tag_file_pos;
+    int32_t tag_file_pos, tag_begins_file;
     ID3_Tag id3_tag;
     APE_Tag_Hdr ape_tag_hdr;
     unsigned char *ape_tag_data;
@@ -740,6 +740,7 @@ int WavpackWriteTag (WavpackContext *wpc);
 int load_tag (WavpackContext *wpc);
 void free_tag (M_Tag *m_tag);
 int valid_tag (M_Tag *m_tag);
+int editable_tag (M_Tag *m_tag);
 
 ///////////////////////////// SIMD helper macros /////////////////////////////
 
