@@ -303,7 +303,8 @@ int main (argc, argv) int argc; char **argv;
                 return 1;
             }
             else if (!strcmp (long_option, "version")) {                // --version
-                printf ("wavpack %s\n", WavpackGetLibraryVersionString ());
+                printf ("wavpack %s\n", PACKAGE_VERSION);
+                printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
                 return 1;
             }
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono

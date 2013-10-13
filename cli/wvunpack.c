@@ -203,7 +203,8 @@ int main (argc, argv) int argc; char **argv;
                 return 1;
             }
             else if (!strcmp (long_option, "version")) {                // --version
-                printf ("wvunpack %s\n", WavpackGetLibraryVersionString ());
+                printf ("wvunpack %s\n", PACKAGE_VERSION);
+                printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
                 return 1;
             }
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert

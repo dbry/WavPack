@@ -166,7 +166,8 @@ int main (argc, argv) int argc; char **argv;
                 switch (**argv) {
 
                     case 'V': case 'v':
-                        printf ("wvgain %s\n", WavpackGetLibraryVersionString ());
+                        printf ("wvgain %s\n", PACKAGE_VERSION);
+                        printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
                         return 1;
 
                     case 'A': case 'a':
