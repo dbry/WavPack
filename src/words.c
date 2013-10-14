@@ -487,9 +487,8 @@ int32_t FASTCALL send_word (WavpackStream *wps, int32_t value, int chan)
                 return 0;
             }
         }
-        else if (value) {
+        else if (value)
             putbit_0 (&wps->wvbits);
-        }
         else {
             c->slow_level -= (c->slow_level + SLO) >> SLS;
             CLEAR (wps->w.c [0].median);
@@ -598,9 +597,8 @@ int32_t FASTCALL send_word (WavpackStream *wps, int32_t value, int chan)
         uint32_t extras = bitset [bitcount] - maxcode - 1;
 
         if (bitcount) {
-            if (code < extras) {
+            if (code < extras)
                 putbits (code, bitcount - 1, &wps->wvcbits);
-            }
             else {
                 putbits ((code + extras) >> 1, bitcount - 1, &wps->wvcbits);
                 putbit ((code + extras) & 1, &wps->wvcbits);
@@ -646,9 +644,8 @@ void send_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsamples)
                     continue;
                 }
             }
-            else if (value) {
+            else if (value)
                 putbit_0 (&wps->wvbits);
-            }
             else {
                 CLEAR (wps->w.c [0].median);
                 CLEAR (wps->w.c [1].median);
@@ -742,9 +739,8 @@ void flush_word (WavpackStream *wps)
     if (wps->w.zeros_acc) {
         int cbits = count_bits (wps->w.zeros_acc);
 
-        while (cbits--) {
+        while (cbits--)
             putbit_1 (&wps->wvbits);
-        }
 
         putbit_0 (&wps->wvbits);
 
@@ -765,9 +761,8 @@ void flush_word (WavpackStream *wps)
             wps->w.holding_one -= LIMIT_ONES;
             cbits = count_bits (wps->w.holding_one);
 
-            while (cbits--) {
+            while (cbits--)
                 putbit_1 (&wps->wvbits);
-            }
 
             putbit_0 (&wps->wvbits);
 

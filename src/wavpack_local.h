@@ -514,7 +514,7 @@ int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
         ((bs)->sr >>= 1, 0) \
 )
 
-#define getbits(value, nbits, bs) { \
+#define getbits(value, nbits, bs) do { \
     while ((nbits) > (bs)->bc) { \
         if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
         (bs)->sr |= (int32_t)*((bs)->ptr) << (bs)->bc; \
@@ -529,30 +529,30 @@ int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
         (bs)->bc -= (nbits); \
         (bs)->sr >>= (nbits); \
     } \
-}
+} while (0)
 
-#define putbit(bit, bs) { if (bit) (bs)->sr |= (1 << (bs)->bc); \
+#define putbit(bit, bs) do { if (bit) (bs)->sr |= (1 << (bs)->bc); \
     if (++((bs)->bc) == sizeof (*((bs)->ptr)) * 8) { \
         *((bs)->ptr) = (bs)->sr; \
         (bs)->sr = (bs)->bc = 0; \
         if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
-    }}
+    }} while (0)
 
-#define putbit_0(bs) { \
+#define putbit_0(bs) do { \
     if (++((bs)->bc) == sizeof (*((bs)->ptr)) * 8) { \
         *((bs)->ptr) = (bs)->sr; \
         (bs)->sr = (bs)->bc = 0; \
         if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
-    }}
+    }} while (0)
 
-#define putbit_1(bs) { (bs)->sr |= (1 << (bs)->bc); \
+#define putbit_1(bs) do { (bs)->sr |= (1 << (bs)->bc); \
     if (++((bs)->bc) == sizeof (*((bs)->ptr)) * 8) { \
         *((bs)->ptr) = (bs)->sr; \
         (bs)->sr = (bs)->bc = 0; \
         if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
-    }}
+    }} while (0)
 
-#define putbits(value, nbits, bs) { \
+#define putbits(value, nbits, bs) do { \
     (bs)->sr |= (int32_t)(value) << (bs)->bc; \
     if (((bs)->bc += (nbits)) >= sizeof (*((bs)->ptr)) * 8) \
         do { \
@@ -562,7 +562,7 @@ int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
                 (bs)->sr |= ((value) >> ((nbits) - (bs)->bc)); \
             if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
         } while ((bs)->bc >= sizeof (*((bs)->ptr)) * 8); \
-}
+} while (0)
 
 void little_endian_to_native (void *data, char *format);
 void native_to_little_endian (void *data, char *format);
