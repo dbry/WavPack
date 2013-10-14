@@ -10,6 +10,7 @@
 #include <msacm.h>
 #include <math.h>
 #include <sys/stat.h>
+#include <shlobj.h>
 #include <io.h>
 
 #include "in2.h"
@@ -21,7 +22,7 @@
 
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 
-#define PLUGIN_VERSION "2.8a"
+#define PLUGIN_VERSION "2.8rc"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 
@@ -95,11 +96,64 @@ static void configure_resources (void)
 		hResources = GetModuleHandle ("in_wv.dll");
 }
 
+static int get_app_path (char *app_path)
+{
+    static char file_path [MAX_PATH], tried, result;
+
+    HINSTANCE hinstLib;
+    FARPROC ProcAdd;
+
+    if (tried) {
+        if (result)
+            strcpy (app_path, file_path);
+
+        return result;
+    }
+
+    tried = TRUE;
+    hinstLib = LoadLibrary ("shell32.dll");
+
+    if (hinstLib) {
+        ProcAdd = GetProcAddress (hinstLib, "SHGetFolderPathA");
+
+        if (ProcAdd && SUCCEEDED ((ProcAdd) (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
+            result = TRUE;
+
+        if (!result) {
+            ProcAdd = GetProcAddress (hinstLib, "SHGetSpecialFolderPathA");
+
+            if (ProcAdd && SUCCEEDED ((ProcAdd) (NULL, file_path, CSIDL_APPDATA, TRUE)))
+                result = TRUE;
+        }
+
+        FreeLibrary (hinstLib);
+    }
+
+    if (!result) {
+        hinstLib = LoadLibrary ("shfolder.dll");
+
+        if (hinstLib) {
+            ProcAdd = GetProcAddress (hinstLib, "SHGetFolderPathA");
+
+            if (ProcAdd && SUCCEEDED ((ProcAdd) (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
+                result = TRUE;
+
+            FreeLibrary (hinstLib);
+        }
+    }
+
+    if (result)
+        strcpy (app_path, file_path);
+
+    return result;
+}
+
+void debug_write (char *str);
+
 void config (HWND hwndParent)
 {
     char dllname [512];
     int temp_config;
-    HMODULE module;
     HANDLE confile;
     DWORD result;
 
@@ -113,14 +167,24 @@ void config (HWND hwndParent)
             return;
 
     config_bits = temp_config;
-    module = GetModuleHandle ("in_wv.dll");
 
-    if (module && GetModuleFileName (module, dllname, sizeof (dllname))) {
-        dllname [strlen (dllname) - 2] = 'a';
-        dllname [strlen (dllname) - 1] = 't';
+    if (get_app_path (dllname)) {
+        strcat (dllname, "\\WavPack\\in_wv.dat");
 
         confile = CreateFile (dllname, GENERIC_WRITE, 0, NULL,
             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+        if (confile == INVALID_HANDLE_VALUE) {
+            get_app_path (dllname);
+            strcat (dllname, "\\WavPack");
+
+            if (CreateDirectory (dllname, NULL)) {
+                strcat (dllname, "\\in_wv.dat");
+
+                confile = CreateFile (dllname, GENERIC_WRITE, 0, NULL,
+                    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+            }
+        }
 
         if (confile == INVALID_HANDLE_VALUE)
             return;
@@ -237,7 +301,7 @@ void about (HWND hwndParent)
 #ifdef DEBUG_ALLOC
     sprintf (about_string, "alloc_count = %d", dump_alloc ());
 #else
-	sprintf (about_string, about_format, PLUGIN_VERSION, 2009);
+	sprintf (about_string, about_format, PLUGIN_VERSION, 2013);
 #endif
 
     MessageBox (hwndParent, about_string, about_title, MB_OK);
@@ -250,9 +314,32 @@ void init() { /* any one-time initialization goes here (configuration reading, e
     DWORD result;
 
 	Wasabi_Init ();
+    config_bits = ALLOW_WVC | ALLOW_MULTICHANNEL;   // reasonable config defaults
+
+    // first, try to read config from the application-specific data folder
+
+    if (get_app_path (dllname)) {
+        strcat (dllname, "\\WavPack\\in_wv.dat");
+
+        confile = CreateFile (dllname, GENERIC_READ, FILE_SHARE_READ, NULL,
+            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+        if (confile != INVALID_HANDLE_VALUE) {
+
+            if (ReadFile (confile, &config_bits, sizeof (config_bits), &result, NULL) &&
+                result == sizeof (config_bits)) {
+                    CloseHandle (confile);
+                    return;
+                }
+
+            CloseHandle (confile);
+        }
+    }
+
+    // if nothing there, try our old location (next to the in_wv.dll plugin)...
+    // we no longer write here, but trying to read here should avoid configuration loss on upgrade
 
     module = GetModuleHandle ("in_wv.dll");
-    config_bits = 0;
 
     if (module && GetModuleFileName (module, dllname, sizeof (dllname))) {
         dllname [strlen (dllname) - 2] = 'a';
@@ -261,14 +348,16 @@ void init() { /* any one-time initialization goes here (configuration reading, e
         confile = CreateFile (dllname, GENERIC_READ, FILE_SHARE_READ, NULL,
             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
-        if (confile == INVALID_HANDLE_VALUE)
-            return;
+        if (confile != INVALID_HANDLE_VALUE) {
 
-        if (!ReadFile (confile, &config_bits, sizeof (config_bits), &result, NULL) ||
-            result != sizeof (config_bits))
-                config_bits = 0;
+            if (ReadFile (confile, &config_bits, sizeof (config_bits), &result, NULL) &&
+                result == sizeof (config_bits)) {
+                    CloseHandle (confile);
+                    return;
+                }
 
-        CloseHandle (confile);
+            CloseHandle (confile);
+        }
     }
 }
 
