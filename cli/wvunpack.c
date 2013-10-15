@@ -727,7 +727,7 @@ static FILE *open_output_file (char *filename, char **tempfilename)
     testfile = fopen (filename, "rb");
 
     if (testfile) {
-        int res = fread (&dummy, 1, 1, testfile);
+        size_t res = fread (&dummy, 1, 1, testfile);
 
         fclose (testfile);
 

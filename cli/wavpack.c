@@ -1359,7 +1359,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // and have at least 1 readable byte - this prevents us getting stuck on "nul" (Windows) 
 
     if (*outfilename != '-' && (wv_file.file = fopen (outfilename, "rb")) != NULL) {
-        int res = fread (&dummy, 1, 1, wv_file.file);
+        size_t res = fread (&dummy, 1, 1, wv_file.file);
 
         DoCloseHandle (wv_file.file);
 
@@ -1386,7 +1386,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     }
 
     if (out2filename && !overwrite_all && (wvc_file.file = fopen (out2filename, "rb")) != NULL) {
-        int res = fread (&dummy, 1, 1, wvc_file.file);
+        size_t res = fread (&dummy, 1, 1, wvc_file.file);
 
         DoCloseHandle (wvc_file.file);
 
