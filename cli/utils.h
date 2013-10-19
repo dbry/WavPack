@@ -28,7 +28,7 @@
 #else
 #define VERSION_OS "Win32"
 #endif
-#define PACKAGE_VERSION "4.70.0-rc"
+#define PACKAGE_VERSION "4.70.0"
 #endif
 
 #define FALSE 0

@@ -22,7 +22,7 @@
 
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 
-#define PLUGIN_VERSION "2.8rc"
+#define PLUGIN_VERSION "2.8"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 

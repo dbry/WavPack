@@ -15,8 +15,8 @@
 ; !include "Sections.nsh"
 
 ; common defines for a generic DrO installer :o)
-!define VERSION "2.8rc"
-!define ALT_VER "2_8rc"
+!define VERSION "2.8"
+!define ALT_VER "2_8"
 !define PLUG "WavPack Plugin for Winamp"
 !define PLUG_ALT "WavPack_Plugin_for_Winamp"
 !define PLUG_FILE "in_wv"

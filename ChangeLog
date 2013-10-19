@@ -1,3 +1,56 @@
+                      ---------------------------------
+                      Release 4.70.0 - October 19, 2013
+                      ---------------------------------
+
+ wavpack.exe (command-line encoder) - 4.70.0
+ -------------------------------------------
+  added: transcoding from existing WavPack files (with tag copy)
+  added: option to verify WavPack file integrity on creation (-v)
+  added: use temporary files for safer overwriting
+  added: detect UTF-16LE encoding for tag text files (mostly a Windows thing)
+  added: --version command to write machine-parsable value
+  added: option to allow up to 16 MB APEv2 tag data (--allow-huge-tags)
+  added: allow channel-order specification on WAV files with zeroed channel mask
+  added: several Windows features to Linux (clean ^C handling, console title)
+  added: 4GB file support on 32-bit Linux targets
+
+ WavPack Library Source Code - 4.70.0
+ ------------------------------------
+  fixed: seeking to last block failure (after finishing file)
+  fixed: memcpy() not always used correctly (Linux targets)
+  fixed: unsigned char issue (ARM targets)
+  fixed: add binary tag functions to Windows DLL exports (forgot on 4.60)
+  added: read-only access to APEv2 tags that come at the beginning of files 
+  improved: switched to Microsoft Visual Studio 2008 (win32 only)
+
+ wvunpack.exe (command-line decoder) - 4.70.0
+ --------------------------------------------
+  added: use temporary files for safer overwriting
+  added: --version command to write machine-parsable value
+  added: new command (-f) for getting machine-parsable WavPack file info
+  added: option (-n) to suppress audio decoding (useful for extracting only tags)
+
+ wvgain.exe (command-line ReplayGain scanner) - 4.70.0
+ -----------------------------------------------------
+  fixed: the -q (quiet) option would cause the -c (clean) option to fail
+  added: version command (-v) to write machine-parsable value
+
+ in_wv.dll (winamp plugin) - 2.8
+ -------------------------------
+  fixed: settings could not be saved on newer Windows versions (7 & 8)
+  fixed: installation issue caused by including manifest in build
+  added: dialog to installer suggesting "Winamp Essentials Pack"
+
+
+                          --------------------------
+                          Update - December 23, 2009
+                          --------------------------
+
+ in_wv.dll (winamp plugin) - 2.8a
+ --------------------------------
+  fixed: crashes in winamp 5.57 when playing tracks that have "genre" tag
+
+
                       ----------------------------------
                       Release 4.60.1 - November 29, 2009
                       ----------------------------------
