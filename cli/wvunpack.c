@@ -289,6 +289,10 @@ int main (argc, argv) int argc; char **argv;
 
                     case 'K': case 'k':
                         outbuf_k = strtol (++*argv, argv, 10);
+
+                        if (outbuf_k < 1 || outbuf_k > 16384)       // range-check for reasonable values
+                            outbuf_k = 0;
+
                         --*argv;
                         break;
 
@@ -954,6 +958,12 @@ static int unpack_file (char *infilename, char *outfilename)
             output_buffer_size = 1024 * 256;
 
         output_pointer = output_buffer = malloc (output_buffer_size);
+
+        if (!output_buffer) {
+            error_line ("can't allocate buffer for decoding!");
+            WavpackCloseFile (wpc);
+            return HARD_ERROR;
+        }
     }
     else {      // in verify only mode we don't worry about headers
         outfile = NULL;
