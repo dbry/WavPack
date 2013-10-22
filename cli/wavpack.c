@@ -37,7 +37,7 @@
 #include "utils.h"
 #include "md5.h"
 
-#if defined (__GNUC__) && !defined(WIN32)
+#if (defined(__GNUC__) || defined(__sun)) && !defined(WIN32)
 #include <unistd.h>
 #include <glob.h>
 #include <sys/time.h>
