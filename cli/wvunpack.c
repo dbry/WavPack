@@ -200,12 +200,12 @@ int main (argc, argv) int argc; char **argv;
 
             if (!strcmp (long_option, "help")) {                        // --help
                 printf ("%s", usage);
-                return 1;
+                return 0;
             }
             else if (!strcmp (long_option, "version")) {                // --version
                 printf ("wvunpack %s\n", PACKAGE_VERSION);
                 printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
-                return 1;
+                return 0;
             }
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;

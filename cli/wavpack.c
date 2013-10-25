@@ -300,12 +300,12 @@ int main (argc, argv) int argc; char **argv;
 
             if (!strcmp (long_option, "help")) {                        // --help
                 printf ("%s", help);
-                return 1;
+                return 0;
             }
             else if (!strcmp (long_option, "version")) {                // --version
                 printf ("wavpack %s\n", PACKAGE_VERSION);
                 printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
-                return 1;
+                return 0;
             }
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 config.flags |= CONFIG_OPTIMIZE_MONO;

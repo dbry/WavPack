@@ -168,7 +168,7 @@ int main (argc, argv) int argc; char **argv;
                     case 'V': case 'v':
                         printf ("wvgain %s\n", PACKAGE_VERSION);
                         printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
-                        return 1;
+                        return 0;
 
                     case 'A': case 'a':
                         album_mode = 1;
