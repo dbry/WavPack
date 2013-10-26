@@ -46,8 +46,8 @@ typedef __int8  int8_t;
 #endif
 
 // Because the C99 specification states that "The order of allocation of
-// bit-ﬁelds within a unit (high-order to low-order or low-order to
-// high-order) is implementation-deﬁned" (6.7.2.1), I decided to change
+// bit-fields within a unit (high-order to low-order or low-order to
+// high-order) is implementation-defined" (6.7.2.1), I decided to change
 // the representation of floating-point values from a structure of
 // bit-fields to a 32-bit integer with access macros. Note that the WavPack
 // library doesn't use any floating-point math to implement compression of
