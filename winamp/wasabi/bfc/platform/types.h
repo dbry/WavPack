@@ -37,7 +37,7 @@ typedef unsigned long FOURCC;
 */
 #endif
 
-#if defined(_WIN32) && !defined(__GNUC__)
+#if defined(_MSC_VER) && _MSC_VER < 1600
 #include <stddef.h>
 	// since windows doesn't have stdint.h
 	typedef unsigned __int64 uint64_t;
