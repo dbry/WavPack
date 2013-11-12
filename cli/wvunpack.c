@@ -818,7 +818,7 @@ static int unpack_file (char *infilename, char *outfilename)
     uint32_t skip_sample_index = 0, until_samples_total = 0;
     unsigned char *output_buffer = NULL, *output_pointer = NULL;
     double dtime, progress = -1.0;
-    char *outfilename_temp;
+    char *outfilename_temp = NULL;
     MD5_CTX md5_context;
     WavpackContext *wpc;
     int32_t *temp_buffer;

@@ -1286,7 +1286,7 @@ static FILE *wild_fopen (char *filename, const char *mode)
 
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
-    char *outfilename_temp, *out2filename_temp, dummy;
+    char *outfilename_temp = NULL, *out2filename_temp = NULL, dummy;
     int use_tempfiles = (out2filename != NULL);
     uint32_t total_samples = 0, bcount;
     WavpackConfig loc_config = *config;
@@ -2266,13 +2266,13 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
 static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     int output_lossless = !(config->flags & CONFIG_HYBRID_FLAG) || (config->flags & CONFIG_CREATE_WVC);
+    char *outfilename_temp = NULL, *out2filename_temp = NULL;
     int use_tempfiles = (out2filename != NULL), input_mode;
     unsigned char md5_verify [16], md5_display [16];
-    char *outfilename_temp, *out2filename_temp;
-    uint32_t total_samples = 0, bcount;
     WavpackConfig loc_config = *config;
     WavpackContext *infile, *outfile;
     write_id wv_file, wvc_file;
+    uint32_t total_samples = 0;
     char error [80];
     double dtime;
     int result;
@@ -2448,7 +2448,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     }
 
 #if defined (WIN32)
-    if (loc_config.flags & CONFIG_CREATE_EXE)
+    if (loc_config.flags & CONFIG_CREATE_EXE) {
+        uint32_t bcount;
+
         if (!DoWriteFile (wv_file.file, wvselfx_image, wvselfx_size, &bcount) || bcount != wvselfx_size) {
             error_line ("can't write WavPack data, disk probably full!");
             WavpackCloseFile (infile);
@@ -2457,6 +2459,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             WavpackCloseFile (outfile);
             return SOFT_ERROR;
         }
+    }
 #endif
 
     // unless we've been specifically told not to, copy RIFF header
@@ -2825,7 +2828,7 @@ static unsigned char *format_samples (int bps, unsigned char *dst, int32_t *src,
 static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsigned char *md5_digest_source)
 {
     int bps = WavpackGetBytesPerSample (infile), num_channels = WavpackGetNumChannels (infile);
-    uint32_t input_samples = INPUT_SAMPLES, samples_read = 0;
+    uint32_t input_samples = INPUT_SAMPLES;
     unsigned char *format_buffer;
     int32_t *sample_buffer;
     double progress = -1.0;
@@ -2933,11 +2936,10 @@ static void reorder_channels (void *data, unsigned char *order, int num_chans,
 
 static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 {
-    int bytes_per_sample, num_channels, wvc_mode, bps;
+    int num_channels, bps, result = NO_ERROR;
     uint32_t total_unpacked_samples = 0;
     unsigned char md5_digest_result [16];
     double progress = -1.0;
-    int result = NO_ERROR;
     int32_t *temp_buffer;
     MD5_CTX md5_context;
     WavpackContext *wpc;
@@ -2955,10 +2957,8 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     if (md5_digest_source)
         MD5Init (&md5_context);
 
-    wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
     num_channels = WavpackGetNumChannels (wpc);
     bps = WavpackGetBytesPerSample (wpc);
-    bytes_per_sample = num_channels * bps;
     temp_buffer = malloc (4096L * num_channels * 4);
 
     while (result == NO_ERROR) {
