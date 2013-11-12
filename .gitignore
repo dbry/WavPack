@@ -2,7 +2,7 @@
 # Linux ignores
 #
 
-*.[o1]
+*.o
 *.l[ao]
 Makefile
 Makefile.in
