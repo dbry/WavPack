@@ -16,3 +16,5 @@ MAINTAINERCLEANFILES = \
 	missing \
 	install-sh
 
+EXTRA_DIST = doc/*.txt doc/*.html doc/*.css
+
