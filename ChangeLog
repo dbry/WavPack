@@ -1,3 +1,18 @@
+                          -------------------------
+                          Update - December 7, 2013
+                          -------------------------
+
+ CoreWavPack DirectShow Filters - 1.2.0.2
+ ----------------------------------------
+  imported: latest filter sources from Christophe Paris and CoreCodec
+  updated: port to VS 2008 and add 64-bit build platform with installer
+  added: decode streams with full headers (tested with LAV splitter)
+  fixed: issues with 7.1 and non-standard channel configurations
+  fixed: problems with 12-bit, 20-bit, and 32-bit integer audio
+  fixed: crashing bug related to hybrid files with DNS
+  fixed: custom sampling rates being ignored
+
+  
                       ---------------------------------
                       Release 4.70.0 - October 19, 2013
                       ---------------------------------
