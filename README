@@ -22,8 +22,8 @@ To build everything on Linux, type:
 2. make
 3. make install (optionally, to install into /usr/local/bin)
 
-If you are using the code directly from SVN (rather than a distribution)
-then you will need to do a ./autogen.sh before the configure step. For
+If you are using the code directly from Git (rather than a distribution)
+then you will need to do a ./autogen.sh instead of the configure step. For
 processors that support MMX, use the --enable-mmx switch to utilize MMX
 intrinsics to speed up encoding of stereo 24-bit (and higher) audio.
 
@@ -54,37 +54,30 @@ Notes:
    The "long" type is not used. The "char" type must be 8-bits, signed or
    unsigned.
 
-3. For WavPack file decoding, a library interface in "wputils.c" provides all
-   the functionality required for both the winamp plugin and the "wvunpack"
-   command-line program (including the transparent decoding of "correction"
-   files). There is also an alternate entry point that uses reader callbacks
-   for all input, although in this case it is the caller's responsibility to
-   to open the "correction" file. The header file "include/wavpack.h"
-   includes everything needed while hiding all the WavPack internals from the
-   application.
+3. For opening WavPack files for reading, a library interface in "open_utils.c"
+   provides all the functionality required for both the winamp plugin and the
+   "wvunpack" command-line program (including the transparent decoding of
+   "correction" files). There is also an alternate entry point that uses
+   reader callbacks for all input, although in this case it is the caller's
+   responsibility to to open the "correction" file. The header file
+   "include/wavpack.h" includes everything needed while hiding all the WavPack
+   internals from the application.
 
-4. For WavPack file creation, the library interface in "wputils.c" provides
+4. For WavPack file creation, the library interface in "pack_utils.c" provides
    all the functionality for both the Audition filter and the "wavpack"
    command-line program. No file I/O is performed by the library when creating
    WavPack files. Instead, the user supplies a "write_block" function that
    accepts completed WavPack blocks. It is also possible to append APEv2 tags
-   to WavPack files during creation and edit APEv2 tags on existing files
-   (although there is no support currently for "binary" fields in the tags).
+   to WavPack files during creation and edit APEv2 tags on existing files.
 
 5. The following #define's can be optionally used to eliminate some functionality
    to create smaller binaries. It is important that they must be specified
    the same for the compilation of ALL files:
    
-   NO_UNPACK       no unpacking of audio samples from WavPack files
-                    (also don't include unpack.c)
-   NO_PACK         no creating WavPack files from raw audio data
-                    (also don't include pack.c, extra1.c and extra2.c)
-   INFO_ONLY       to obtain information from WavPack files, but not audio
-                    (also don't include pack.c, extra1.c and extra2.c)
-   NO_SEEKING      to not allow seeking to a specific sample index (unpack only)
+   NO_SEEKING      to not allow seeking to a specific sample index
    NO_USE_FSTREAMS to not open WavPack files by name using fstreams
    NO_TAGS         to not read specified fields from ID3v1 and APEv2 tags and
-                    create APEv2 tags
+                    not create or edit APEv2 tags
    VER4_ONLY       to only handle WavPack files from versions 4.0 onward
    WIN32           required for Win32 platform
 
