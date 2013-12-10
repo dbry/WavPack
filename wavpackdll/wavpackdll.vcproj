@@ -349,6 +349,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\decorr_tables.h"
+				>
+			</File>
+			<File
 				RelativePath="..\src\unpack3.h"
 				>
 			</File>
@@ -377,7 +381,15 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\src\bits.c"
+				RelativePath="..\src\common_utils.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\decorr_utils.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\entropy_utils.c"
 				>
 			</File>
 			<File
@@ -389,15 +401,31 @@
 				>
 			</File>
 			<File
-				RelativePath="..\src\float.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\metadata.c"
+				RelativePath="..\src\open_utils.c"
 				>
 			</File>
 			<File
 				RelativePath="..\src\pack.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\pack_dns.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\pack_floats.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\pack_utils.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\read_words.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\tag_utils.c"
 				>
 			</File>
 			<File
@@ -409,15 +437,31 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\unpack_floats.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\unpack_seek.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\unpack_utils.c"
+				>
+			</File>
+			<File
 				RelativePath="..\src\unpack3.c"
 				>
 			</File>
 			<File
-				RelativePath="..\src\words.c"
+				RelativePath="..\src\unpack3_open.c"
 				>
 			</File>
 			<File
-				RelativePath="..\src\wputils.c"
+				RelativePath="..\src\unpack3_seek.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\write_words.c"
 				>
 			</File>
 		</Filter>

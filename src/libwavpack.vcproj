@@ -297,11 +297,19 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
+				RelativePath=".\decorr_tables.h"
+				>
+			</File>
+			<File
 				RelativePath=".\unpack3.h"
 				>
 			</File>
 			<File
 				RelativePath=".\wavpack_local.h"
+				>
+			</File>
+			<File
+				RelativePath=".\wavpack_version.h"
 				>
 			</File>
 		</Filter>
@@ -317,7 +325,15 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\bits.c"
+				RelativePath=".\common_utils.c"
+				>
+			</File>
+			<File
+				RelativePath=".\decorr_utils.c"
+				>
+			</File>
+			<File
+				RelativePath=".\entropy_utils.c"
 				>
 			</File>
 			<File
@@ -329,15 +345,31 @@
 				>
 			</File>
 			<File
-				RelativePath=".\float.c"
-				>
-			</File>
-			<File
-				RelativePath=".\metadata.c"
+				RelativePath=".\open_utils.c"
 				>
 			</File>
 			<File
 				RelativePath=".\pack.c"
+				>
+			</File>
+			<File
+				RelativePath=".\pack_dns.c"
+				>
+			</File>
+			<File
+				RelativePath=".\pack_floats.c"
+				>
+			</File>
+			<File
+				RelativePath=".\pack_utils.c"
+				>
+			</File>
+			<File
+				RelativePath=".\read_words.c"
+				>
+			</File>
+			<File
+				RelativePath=".\tag_utils.c"
 				>
 			</File>
 			<File
@@ -349,15 +381,31 @@
 				>
 			</File>
 			<File
+				RelativePath=".\unpack_floats.c"
+				>
+			</File>
+			<File
+				RelativePath=".\unpack_seek.c"
+				>
+			</File>
+			<File
+				RelativePath=".\unpack_utils.c"
+				>
+			</File>
+			<File
 				RelativePath=".\unpack3.c"
 				>
 			</File>
 			<File
-				RelativePath=".\words.c"
+				RelativePath=".\unpack3_open.c"
 				>
 			</File>
 			<File
-				RelativePath=".\wputils.c"
+				RelativePath=".\unpack3_seek.c"
+				>
+			</File>
+			<File
+				RelativePath=".\write_words.c"
 				>
 			</File>
 		</Filter>

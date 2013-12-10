@@ -31,6 +31,14 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#if defined (WIN32) || defined (__OS2__)
+#include <io.h>
+#endif
+
+#ifdef WIN32
+#define fileno _fileno
+#endif
+
 static int32_t read_bytes (void *id, void *data, int32_t bcount)
 {
     return (int32_t) fread (data, 1, bcount, (FILE*) id);
