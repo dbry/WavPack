@@ -52,7 +52,7 @@ Notes:
    To maintain compatibility on various platforms, the following conventions
    are used: A "short" must be 16-bits and an "int" must be 32-bits.
    The "long" type is not used. The "char" type must be 8-bits, signed or
-   unsigned.
+   unsigned. The WIN32 macro must be defined on Windows.
 
 3. For opening WavPack files for reading, a library interface in "open_utils.c"
    provides all the functionality required for both the winamp plugin and the
@@ -70,16 +70,21 @@ Notes:
    accepts completed WavPack blocks. It is also possible to append APEv2 tags
    to WavPack files during creation and edit APEv2 tags on existing files.
 
-5. The following #define's can be optionally used to eliminate some functionality
-   to create smaller binaries. It is important that they must be specified
-   the same for the compilation of ALL files:
-   
+5. The code's modules are organized in such a way that if major chunks of the
+   functionality are not referenced (for example, creating WavPack files) then
+   link-time dependency resolution should provide optimum binary sizes.
+   However, some functionality could not be easily excluded in this way (for
+   example the ability to decode very old WavPack files which is not needed
+   for most applications). For this reason, there are additional macros that
+   may be used to further reduce the binary size of the library. Note that
+   these must be defined for all modules and all modules should still be
+   compiled:
+
+   VER4_ONLY       to only handle WavPack files from versions 4.0 onward
    NO_SEEKING      to not allow seeking to a specific sample index
    NO_USE_FSTREAMS to not open WavPack files by name using fstreams
    NO_TAGS         to not read specified fields from ID3v1 and APEv2 tags and
                     not create or edit APEv2 tags
-   VER4_ONLY       to only handle WavPack files from versions 4.0 onward
-   WIN32           required for Win32 platform
 
 6. There are alternate versions of this library available specifically designed
    for "resource limited" CPUs or hardware encoding and decoding. There is the
