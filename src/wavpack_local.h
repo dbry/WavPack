@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2006 Conifer Software.               //
+//              Copyright (c) 1998 - 2013 Conifer Software.               //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -433,6 +433,9 @@ typedef struct {
 
 #define CLEAR(destin) memset (&destin, 0, sizeof (destin));
 
+//////////////////////////////// decorrelation //////////////////////////////
+// modules: pack.c, unpack.c, unpack_floats.c, extra1.c, extra2.c
+
 // These macros implement the weight application and update operations
 // that are at the heart of the decorrelation loops. Note that there are
 // sometimes two and even three versions of each macro. Theses should be
@@ -487,22 +490,39 @@ typedef struct {
         weight = (weight ^ s) - s; \
     }
 
-// bits.c
+void pack_init (WavpackContext *wpc);
+int pack_block (WavpackContext *wpc, int32_t *buffer);
+void free_metadata (WavpackMetadata *wpmd);
+int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned char *buffer_end);
+double WavpackGetEncodedNoise (WavpackContext *wpc, double *peak);
+int unpack_init (WavpackContext *wpc);
+int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd);
+int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd);
+int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd);
+int read_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd);
+int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
+int check_crc_error (WavpackContext *wpc);
+int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
+void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
+void float_values (WavpackStream *wps, int32_t *values, int32_t num_values);
+void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening_allowed);
+void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
+void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
 
-void bs_open_read (Bitstream *bs, void *buffer_start, void *buffer_end);
-void bs_open_write (Bitstream *bs, void *buffer_start, void *buffer_end);
-uint32_t bs_close_read (Bitstream *bs);
-uint32_t bs_close_write (Bitstream *bs);
+///////////////////////////// pre-4.0 version decoding ////////////////////////////
+// modules: unpack3.c, unpack3_open.c, unpack3_seek.c
 
-int DoReadFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToRead, uint32_t *lpNumberOfBytesRead);
-int DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, uint32_t *lpNumberOfBytesWritten);
-uint32_t DoGetFileSize (FILE *hFile), DoGetFilePosition (FILE *hFile);
-int DoSetFilePositionRelative (FILE *hFile, int32_t pos, int mode);
-int DoSetFilePositionAbsolute (FILE *hFile, uint32_t pos);
-int DoUngetc (int c, FILE *hFile), DoDeleteFile (char *filename);
-int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
+WavpackContext *open_file3 (WavpackContext *wpc, char *error);
+int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
+int seek_sample3 (WavpackContext *wpc, uint32_t desired_index);
+uint32_t get_sample_index3 (WavpackContext *wpc);
+void free_stream3 (WavpackContext *wpc);
+int get_version3 (WavpackContext *wpc);
+
+////////////////////////////// bitstream macros & functions /////////////////////////////
 
 #define bs_is_open(bs) ((bs)->ptr != NULL)
+uint32_t bs_close_read (Bitstream *bs);
 
 #define getbit(bs) ( \
     (((bs)->bc) ? \
@@ -563,56 +583,45 @@ int DoCloseHandle (FILE *hFile), DoTruncateFile (FILE *hFile);
         } while ((bs)->bc >= sizeof (*((bs)->ptr)) * 8); \
 } while (0)
 
-void little_endian_to_native (void *data, char *format);
-void native_to_little_endian (void *data, char *format);
+///////////////////////////// entropy encoder / decoder ////////////////////////////
+// modules: entropy_utils.c, read_words.c, write_words.c
 
-// pack.c
+// these control the time constant "slow_level" which is used for hybrid mode
+// that controls bitrate as a function of residual level (HYBRID_BITRATE).
+#define SLS 8
+#define SLO ((1 << (SLS - 1)))
 
-void pack_init (WavpackContext *wpc);
-int pack_block (WavpackContext *wpc, int32_t *buffer);
-double WavpackGetEncodedNoise (WavpackContext *wpc, double *peak);
+#define LIMIT_ONES 16   // maximum consecutive 1s sent for "div" data
 
-// unpack.c
+// these control the time constant of the 3 median level breakpoints
+#define DIV0 128        // 5/7 of samples
+#define DIV1 64         // 10/49 of samples
+#define DIV2 32         // 20/343 of samples
 
-int unpack_init (WavpackContext *wpc);
-int init_wv_bitstream (WavpackStream *wps, WavpackMetadata *wpmd);
-int init_wvc_bitstream (WavpackStream *wps, WavpackMetadata *wpmd);
-int init_wvx_bitstream (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_float_info (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_int32_info (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd);
-int read_config_info (WavpackContext *wpc, WavpackMetadata *wpmd);
-int read_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd);
-int read_wrapper_data (WavpackContext *wpc, WavpackMetadata *wpmd);
-int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
-int check_crc_error (WavpackContext *wpc);
+// this macro retrieves the specified median breakpoint (without frac; min = 1)
+#define GET_MED(med) (((c->median [med]) >> 4) + 1)
 
-// unpack3.c
+// These macros update the specified median breakpoints. Note that the median
+// is incremented when the sample is higher than the median, else decremented.
+// They are designed so that the median will never drop below 1 and the value
+// is essentially stationary if there are 2 increments for every 5 decrements.
 
-WavpackContext *open_file3 (WavpackContext *wpc, char *error);
-int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
-int seek_sample3 (WavpackContext *wpc, uint32_t desired_index);
-uint32_t get_sample_index3 (WavpackContext *wpc);
-void free_stream3 (WavpackContext *wpc);
-int get_version3 (WavpackContext *wpc);
+#define INC_MED0() (c->median [0] += ((c->median [0] + DIV0) / DIV0) * 5)
+#define DEC_MED0() (c->median [0] -= ((c->median [0] + (DIV0-2)) / DIV0) * 2)
+#define INC_MED1() (c->median [1] += ((c->median [1] + DIV1) / DIV1) * 5)
+#define DEC_MED1() (c->median [1] -= ((c->median [1] + (DIV1-2)) / DIV1) * 2)
+#define INC_MED2() (c->median [2] += ((c->median [2] + DIV2) / DIV2) * 5)
+#define DEC_MED2() (c->median [2] -= ((c->median [2] + (DIV2-2)) / DIV2) * 2)
 
-// metadata.c stuff
-
-int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, unsigned char **buffptr);
-int write_metadata_block (WavpackContext *wpc);
-int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned char *buffer_end);
-int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, unsigned char id);
-int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd);
-void free_metadata (WavpackMetadata *wpmd);
-
-// words.c stuff
+#define count_bits(av) ( \
+ (av) < (1 << 8) ? nbits_table [av] : \
+  ( \
+   (av) < (1L << 16) ? nbits_table [(av) >> 8] + 8 : \
+   ((av) < (1L << 24) ? nbits_table [(av) >> 16] + 16 : nbits_table [(av) >> 24] + 24) \
+  ) \
+)
 
 void init_words (WavpackStream *wps);
-void word_set_bitrate (WavpackStream *wps);
 void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd);
 void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd);
@@ -624,33 +633,26 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 void flush_word (WavpackStream *wps);
 int32_t nosend_word (WavpackStream *wps, int32_t value, int chan);
 void scan_word (WavpackStream *wps, int32_t *samples, uint32_t num_samples, int dir);
+void update_error_limit (WavpackStream *wps);
+
+const uint32_t bitset [32];
+const uint32_t bitmask [32];
+const char nbits_table [256];
 
 int log2s (int32_t value);
 int32_t exp2s (int log);
 uint32_t log2buffer (int32_t *samples, uint32_t num_samples, int limit);
+int FASTCALL mylog2 (uint32_t avalue);
 
 signed char store_weight (int weight);
 int restore_weight (signed char weight);
 
 #define WORD_EOF ((int32_t)(1L << 31))
 
-// float.c
-
-void write_float_info (WavpackStream *wps, WavpackMetadata *wpmd);
-int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
-void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
-int read_float_info (WavpackStream *wps, WavpackMetadata *wpmd);
-void float_values (WavpackStream *wps, int32_t *values, int32_t num_values);
 void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
 
-// extra?.c
-
-// void analyze_stereo (WavpackContext *wpc, int32_t *samples);
-// void analyze_mono (WavpackContext *wpc, int32_t *samples);
-void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
-void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
-
-// wputils.c
+/////////////////////////// high-level unpacking API and support ////////////////////////////
+// modules: open_utils.c, unpack_utils.c, unpack_seek.c, unpack_floats.c
 
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
@@ -681,15 +683,34 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_XMODE      0x7000  // mask for extra level (1-6, 0=unknown)
 #define MODE_DNS        0x8000
 
-char *WavpackGetErrorMessage (WavpackContext *wpc);
 int WavpackGetVersion (WavpackContext *wpc);
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
-uint32_t WavpackGetNumSamples (WavpackContext *wpc);
-uint32_t WavpackGetSampleIndex (WavpackContext *wpc);
-int WavpackGetNumErrors (WavpackContext *wpc);
-int WavpackLossyBlocks (WavpackContext *wpc);
 int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
-WavpackContext *WavpackCloseFile (WavpackContext *wpc);
+int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
+
+uint32_t read_next_header (WavpackStreamReader *reader, void *id, WavpackHeader *wphdr);
+int read_wvc_block (WavpackContext *wpc);
+
+/////////////////////////// high-level packing API and support ////////////////////////////
+// modules: pack_utils.c, pack_floats.c
+
+WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
+int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
+int WavpackPackInit (WavpackContext *wpc);
+int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
+int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);
+int WavpackFlushSamples (WavpackContext *wpc);
+int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
+void WavpackSeekTrailingWrapper (WavpackContext *wpc);
+void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block);
+void *WavpackGetWrapperLocation (void *first_block, uint32_t *size);
+
+/////////////////////////////////// common utilities ////////////////////////////////////
+// module: common_utils.c
+
+const uint32_t sample_rates [16];
+uint32_t WavpackGetLibraryVersion (void);
+const char *WavpackGetLibraryVersionString (void);
 uint32_t WavpackGetSampleRate (WavpackContext *wpc);
 int WavpackGetBitsPerSample (WavpackContext *wpc);
 int WavpackGetBytesPerSample (WavpackContext *wpc);
@@ -697,34 +718,27 @@ int WavpackGetNumChannels (WavpackContext *wpc);
 int WavpackGetChannelMask (WavpackContext *wpc);
 int WavpackGetReducedChannels (WavpackContext *wpc);
 int WavpackGetFloatNormExp (WavpackContext *wpc);
-int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
+uint32_t WavpackGetNumSamples (WavpackContext *wpc);
+uint32_t WavpackGetSampleIndex (WavpackContext *wpc);
+char *WavpackGetErrorMessage (WavpackContext *wpc);
+int WavpackGetNumErrors (WavpackContext *wpc);
+int WavpackLossyBlocks (WavpackContext *wpc);
 uint32_t WavpackGetWrapperBytes (WavpackContext *wpc);
 unsigned char *WavpackGetWrapperData (WavpackContext *wpc);
 void WavpackFreeWrapper (WavpackContext *wpc);
-void WavpackSeekTrailingWrapper (WavpackContext *wpc);
 double WavpackGetProgress (WavpackContext *wpc);
 uint32_t WavpackGetFileSize (WavpackContext *wpc);
 double WavpackGetRatio (WavpackContext *wpc);
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc);
 double WavpackGetInstantBitrate (WavpackContext *wpc);
-
-WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
-int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
-int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
-int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
-int WavpackPackInit (WavpackContext *wpc);
-int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);
-int WavpackFlushSamples (WavpackContext *wpc);
-void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block);
-void *WavpackGetWrapperLocation (void *first_block, uint32_t *size);
-
+WavpackContext *WavpackCloseFile (WavpackContext *wpc);
 void WavpackLittleEndianToNative (void *data, char *format);
 void WavpackNativeToLittleEndian (void *data, char *format);
 
-uint32_t WavpackGetLibraryVersion (void);
-const char *WavpackGetLibraryVersionString (void);
+void free_streams (WavpackContext *wpc);
 
-// tags.c
+/////////////////////////////////// tag utilities ////////////////////////////////////
+// modules: tags.c, tag_utils.c
 
 int WavpackGetNumTagItems (WavpackContext *wpc);
 int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int size);

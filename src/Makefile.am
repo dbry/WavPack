@@ -1,19 +1,30 @@
 lib_LTLIBRARIES = libwavpack.la
 
 libwavpack_la_SOURCES = \
-	bits.c \
-	float.c \
-	metadata.c \
-	unpack.c \
-	unpack3.c \
-	wputils.c \
-	words.c \
+	common_utils.c \
+	decorr_utils.c \
+	entropy_utils.c \
 	extra1.c \
 	extra2.c \
+	open_utils.c \
 	pack.c \
-	tags.c
+	pack_dns.c \
+	pack_floats.c \
+	pack_utils.c \
+	read_words.c \
+	tags.c \
+	tag_utils.c \
+	unpack3.c \
+	unpack3_open.c \
+	unpack3_seek.c \
+	unpack.c \
+	unpack_floats.c \
+	unpack_seek.c \
+	unpack_utils.c \
+	write_words.c
 
 noinst_HEADERS = \
+	decorr_tables.h \
 	unpack3.h \
 	wavpack_local.h \
 	wavpack_version.h

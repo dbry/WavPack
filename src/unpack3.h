@@ -111,3 +111,8 @@ typedef struct {
         int bits_acc [2], bitrate;
     } w4;
 } WavpackStream3;
+
+#define SAVE(destin, item) { memcpy (destin, &item, sizeof (item)); destin = (char *) destin + sizeof (item); }
+#define RESTORE(item, source) { memcpy (&item, source, sizeof (item)); source = (char *) source + sizeof (item); }
+
+void unpack_init3 (WavpackStream3 *wps);

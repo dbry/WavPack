@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2006 Conifer Software.               //
+//              Copyright (c) 1998 - 2013 Conifer Software.               //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -17,21 +17,22 @@
 #include <string.h>
 #include <math.h>
 
+// This flag causes this module to take into account the size of the header
+// (which grows with more decorrelation passes) when making decisions about
+// adding additional passes (as opposed to just considering the resulting
+// magnitude of the residuals). With small blocks this seems to work correctly,
+// but with longer blocks it seems to actually hurt compression (for reasons I
+// cannot explain), so it's disabled by default
+
 //#define USE_OVERHEAD
+
+// If the log2 value of any sample in a buffer being scanned exceeds this value,
+// we abandon that configuration. This prevents us from going down paths that
+// are wildly unstable.
+
 #define LOG_LIMIT 6912
-//#define EXTRA_DUMP
 
-#ifdef DEBUG_ALLOC
-#define malloc malloc_db
-#define realloc realloc_db
-#define free free_db
-void *malloc_db (uint32_t size);
-void *realloc_db (void *ptr, uint32_t size);
-void free_db (void *ptr);
-int32_t dump_alloc (void);
-#endif
-
-//////////////////////////////// local tables ///////////////////////////////
+//#define EXTRA_DUMP        // dump generated filter data  error_line()
 
 typedef struct {
     int32_t *sampleptrs [MAX_NTERMS+2];
