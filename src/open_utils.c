@@ -375,6 +375,8 @@ static uint32_t seek_final_index (WavpackStreamReader *reader, void *id)
             return result;
 
         tempbuff = malloc (wphdr.ckSize + 8);
+        if (!tempbuff)
+            return result;
         memcpy (tempbuff, &wphdr, 32);
 
         if (reader->read_bytes (id, tempbuff + 32, wphdr.ckSize - 24) != wphdr.ckSize - 24) {
