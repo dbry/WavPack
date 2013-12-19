@@ -229,7 +229,16 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 #endif
 
     wpc->streams = malloc ((wpc->num_streams = 1) * sizeof (wpc->streams [0]));
+    if (!wpc->streams) {
+        if (error) strcpy (error, "can't allocate memory");
+        return WavpackCloseFile (wpc);
+    }
+
     wpc->streams [0] = wps = malloc (sizeof (WavpackStream));
+    if (!wps) {
+        if (error) strcpy (error, "can't allocate memory");
+        return WavpackCloseFile (wpc);
+    }
     CLEAR (*wps);
 
     while (!wps->wphdr.block_samples) {
@@ -245,6 +254,10 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 
         wpc->filepos += bcount;
         wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
+        if (!wps->blockbuff) {
+            if (error) strcpy (error, "can't allocate memory");
+            return WavpackCloseFile (wpc);
+        }
         memcpy (wps->blockbuff, &wps->wphdr, 32);
 
         if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + 32, wps->wphdr.ckSize - 24) != wps->wphdr.ckSize - 24) {
@@ -635,6 +648,8 @@ static int read_wrapper_data (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     if ((wpc->open_flags & OPEN_WRAPPER) && wpc->wrapper_bytes < MAX_WRAPPER_BYTES) {
         wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + wpmd->byte_length);
+	if (!wpc->wrapper_data)
+	    return FALSE;
         memcpy (wpc->wrapper_data + wpc->wrapper_bytes, wpmd->data, wpmd->byte_length);
         wpc->wrapper_bytes += wpmd->byte_length;
     }
@@ -801,7 +816,7 @@ uint32_t bs_close_read (Bitstream *bs)
 // be used for seekable files (not pipes) and is not available for pre-4.0 WavPack
 // files.
 
-static void seek_riff_trailer (WavpackContext *wpc);
+static int seek_riff_trailer (WavpackContext *wpc);
 
 void WavpackSeekTrailingWrapper (WavpackContext *wpc)
 {
@@ -961,6 +976,8 @@ int read_wvc_block (WavpackContext *wpc)
 
         if (!compare_result) {
             wps->block2buff = malloc (wphdr.ckSize + 8);
+	    if (!wps->block2buff)
+	        return FALSE;
             memcpy (wps->block2buff, &wphdr, 32);
 
             if (wpc->reader->read_bytes (wpc->wvc_in, wps->block2buff + 32, wphdr.ckSize - 24) !=
@@ -1029,7 +1046,7 @@ static int seek_md5 (WavpackStreamReader *reader, void *id, unsigned char data [
     }
 }
 
-static void seek_riff_trailer (WavpackContext *wpc)
+static int seek_riff_trailer (WavpackContext *wpc)
 {
     WavpackStreamReader *reader = wpc->reader;
     void *id = wpc->wv_in;
@@ -1044,14 +1061,14 @@ static void seek_riff_trailer (WavpackContext *wpc)
         bcount = read_next_header (reader, id, &wphdr);
 
         if (bcount == (uint32_t) -1)
-            return;
+            return TRUE;
 
         bcount = wphdr.ckSize - sizeof (WavpackHeader) + 8;
 
         while (bcount >= 2) {
             if (reader->read_bytes (id, &meta_id, 1) != 1 ||
                 reader->read_bytes (id, &c1, 1) != 1)
-                    return;
+                    return TRUE;
 
             meta_bc = c1 << 1;
             bcount -= 2;
@@ -1059,7 +1076,7 @@ static void seek_riff_trailer (WavpackContext *wpc)
             if (meta_id & ID_LARGE) {
                 if (bcount < 2 || reader->read_bytes (id, &c1, 1) != 1 ||
                     reader->read_bytes (id, &c2, 1) != 1)
-                        return;
+                        return TRUE;
 
                 meta_bc += ((uint32_t) c1 << 9) + ((uint32_t) c2 << 17);
                 bcount -= 2;
@@ -1067,11 +1084,13 @@ static void seek_riff_trailer (WavpackContext *wpc)
 
             if ((meta_id & ID_UNIQUE) == ID_RIFF_TRAILER) {
                 wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + meta_bc);
+		if (!wpc->wrapper_data)
+		    return FALSE;
 
                 if (reader->read_bytes (id, wpc->wrapper_data + wpc->wrapper_bytes, meta_bc) == meta_bc)
                     wpc->wrapper_bytes += meta_bc;
                 else
-                    return;
+                    return TRUE;
             }
             else
                 reader->set_pos_rel (id, meta_bc, SEEK_CUR);
