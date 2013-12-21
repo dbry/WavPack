@@ -13,10 +13,10 @@
 
 #ifndef NO_SEEKING
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "wavpack_local.h"
 
 ///////////////////////////// executable code ////////////////////////////////
 

@@ -24,10 +24,10 @@
 // very simple encoding that is over 99% efficient with this data and
 // results in about 1.22 bits per sample.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "wavpack_local.h"
 
 #define USE_NEXT8_OPTIMIZATION  // we normally want this, but code is easier to understand without it
 

@@ -16,11 +16,11 @@
 // do not need to include the entire library image if they only use a subset
 // of it. This module will be loaded for ANY WavPack application.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+
+#include "wavpack_local.h"
 
 #ifndef LIBWAVPACK_VERSION_STRING
 #include "wavpack_version.h"

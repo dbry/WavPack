@@ -13,9 +13,9 @@
 // the macros that directly access the mantissa, exponent, and sign fields.
 // That's why we use the f32 type instead of the built-in float type.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
+
+#include "wavpack_local.h"
 
 static void float_values_nowvx (WavpackStream *wps, int32_t *values, int32_t num_values);
 

@@ -16,10 +16,10 @@
 // so that if applications that just do a subset of the full WavPack reading
 // and writing can link with a subset of the library.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "wavpack_local.h"
 
 ///////////////////////////// local table storage ////////////////////////////
 

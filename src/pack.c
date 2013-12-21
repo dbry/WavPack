@@ -14,12 +14,12 @@
 // efficiency, the conversion is isolated to tight loops that handle an entire
 // buffer.
 
-#include "wavpack_local.h"
-#include "decorr_tables.h"      // contains data, only include from this module!
-
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+#include "wavpack_local.h"
+#include "decorr_tables.h"      // contains data, only include from this module!
 
 ///////////////////////////// executable code ////////////////////////////////
 

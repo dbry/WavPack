@@ -15,10 +15,10 @@
 // information from WavPack files (rather than actually decoding audio) then
 // less code needs to be linked.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "wavpack_local.h"
 
 ///////////////////////////// executable code ////////////////////////////////
 

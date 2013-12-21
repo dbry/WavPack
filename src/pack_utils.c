@@ -15,11 +15,11 @@
 // header for the case where the number of samples was unknown (or wrong).
 // The actual audio stream compression is handled in the pack.c module.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+#include "wavpack_local.h"
 
 ///////////////////////////// executable code ////////////////////////////////
 

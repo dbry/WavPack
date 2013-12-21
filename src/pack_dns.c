@@ -13,11 +13,11 @@
 // compression up or down in frequency so that it is more likely to be masked
 // by the source material.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+#include "wavpack_local.h"
 
 static void best_floating_line (short *values, int num_values, double *initial_y, double *final_y, short *max_error);
 

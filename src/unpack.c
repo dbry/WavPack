@@ -13,10 +13,10 @@
 // efficiency, the conversion is isolated to tight loops that handle an entire
 // buffer.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "wavpack_local.h"
 
 // This flag provides faster decoding speed at the expense of more code. The
 // improvement applies to 16-bit stereo lossless only.

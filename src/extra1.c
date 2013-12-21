@@ -10,12 +10,12 @@
 
 // This module handles the "extra" mode for mono files.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+
+#include "wavpack_local.h"
 
 // This flag causes this module to take into account the size of the header
 // (which grows with more decorrelation passes) when making decisions about

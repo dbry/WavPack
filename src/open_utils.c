@@ -16,10 +16,10 @@
 // that programs that just want to query WavPack files for information (like,
 // for example, taggers) don't need to link in a lot of unnecessary code.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "wavpack_local.h"
 
 // This code provides an interface between the reader callback mechanism that
 // WavPack uses internally and the standard fstream C library. This allows an

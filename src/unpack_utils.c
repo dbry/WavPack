@@ -13,10 +13,10 @@
 // back to the application from the individual streams. The actual audio
 // stream decompression is handled in the unpack.c module.
 
-#include "wavpack_local.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "wavpack_local.h"
 
 ///////////////////////////// executable code ////////////////////////////////
 
