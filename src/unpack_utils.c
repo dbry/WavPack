@@ -71,6 +71,8 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                 wpc->filepos += bcount;
                 wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
+                if (!wps->blockbuff)
+                    break;
                 memcpy (wps->blockbuff, &wps->wphdr, 32);
 
                 if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + 32, wps->wphdr.ckSize - 24) !=
@@ -144,10 +146,17 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
             int offset = 0;
             uint32_t samcnt;
 
+	    if (!temp_buffer)
+		break;
+
             while (1) {
                 if (wpc->current_stream == wpc->num_streams) {
                     wpc->streams = realloc (wpc->streams, (wpc->num_streams + 1) * sizeof (wpc->streams [0]));
+                    if (!wpc->streams)
+		        break;
                     wps = wpc->streams [wpc->num_streams++] = malloc (sizeof (WavpackStream));
+                    if (!wps)
+			break;
                     CLEAR (*wps);
                     bcount = read_next_header (wpc->reader, wpc->wv_in, &wps->wphdr);
 
@@ -164,6 +173,8 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                         wps->wphdr.block_index -= wpc->initial_index;
 
                     wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
+                    if (!wps->blockbuff)
+		        break;
                     memcpy (wps->blockbuff, &wps->wphdr, 32);
 
                     if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + 32, wps->wphdr.ckSize - 24) !=
