@@ -365,21 +365,22 @@ int main (argc, argv) int argc; char **argv;
 
                 wpc = WavpackOpenFileInput (matches [file_index], error, OPEN_TAGS, 0);
 
-                if (wpc && WavpackGetTagItem (wpc, album_mode ? "replaygain_album_gain" : "replaygain_track_gain", NULL, 0)) {
+                if (wpc) {
+                    int alreadyHasTag = WavpackGetTagItem (wpc, album_mode ? "replaygain_album_gain" : "replaygain_track_gain", NULL, 0);
                     WavpackCloseFile (wpc);
 
-                    if (album_mode) {
-                        error_line ("ReplayGain album information already present...aborting");
-                        result = HARD_ERROR;
-                        break;
-                    }
-                    else {
-                        error_line ("ReplayGain track information already present...skipping");
-                        continue;
+                    if (alreadyHasTag) {
+                        if (album_mode) {
+                            error_line ("ReplayGain album information already present...aborting");
+                            result = HARD_ERROR;
+                            break;
+                        }
+                        else {
+                            error_line ("ReplayGain track information already present...skipping");
+                            continue;
+                        }
                     }
                 }
-
-                WavpackCloseFile (wpc);
             }
 
             result = analyze_file (matches [file_index], track_histogram, &track_peak);
