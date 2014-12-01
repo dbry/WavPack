@@ -681,6 +681,8 @@ static int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, 
     }
 
     if (wpmd->id & ID_ODD_SIZE) {
+        if (!wpmd->byte_length)         // odd size and zero length makes no sense
+            return FALSE;
         wpmd->id &= ~ID_ODD_SIZE;
         wpmd->byte_length--;
     }
