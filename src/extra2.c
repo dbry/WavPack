@@ -1138,6 +1138,12 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
     uint32_t best_size = (uint32_t) -1, size;
     int log_limit, force_js = 0, force_ts = 0, pi, i;
 
+#ifdef SKIP_DECORRELATION
+    CLEAR (wps->decorr_passes);
+    wps->num_terms = 0;
+    return;
+#endif
+
     for (i = 0; i < num_samples * 2; ++i)
         if (samples [i])
             break;

@@ -501,6 +501,12 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
     uint32_t best_size = (uint32_t) -1, size;
     int log_limit, pi, i;
 
+#ifdef SKIP_DECORRELATION
+    CLEAR (wps->decorr_passes);
+    wps->num_terms = 0;
+    return;
+#endif
+
     for (i = 0; i < num_samples; ++i)
         if (samples [i])
             break;

@@ -436,6 +436,8 @@ typedef struct {
 //////////////////////////////// decorrelation //////////////////////////////
 // modules: pack.c, unpack.c, unpack_floats.c, extra1.c, extra2.c
 
+// #define SKIP_DECORRELATION   // experimental switch to disable all decorrelation on encode
+
 // These macros implement the weight application and update operations
 // that are at the heart of the decorrelation loops. Note that there are
 // sometimes two and even three versions of each macro. Theses should be

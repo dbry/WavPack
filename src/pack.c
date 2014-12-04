@@ -35,6 +35,10 @@ void pack_init (WavpackContext *wpc)
     CLEAR (wps->decorr_passes);
     CLEAR (wps->dc);
 
+#ifdef SKIP_DECORRELATION
+    wpc->config.xmode = 0;
+#endif
+
     /* although we set the term and delta values here for clarity, they're
      * actually hardcoded in the analysis function for speed
      */
