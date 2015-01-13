@@ -879,7 +879,7 @@ uint32_t read_next_header (WavpackStreamReader *reader, void *id, WavpackHeader 
     while (1) {
         if (sp < ep) {
             bleft = (int)(ep - sp);
-            memcpy (buffer, sp, bleft);
+            memmove (buffer, sp, bleft);
         }
         else
             bleft = 0;
