@@ -455,15 +455,17 @@ typedef struct {
 #if 1   // PERFCOND - apply decorrelation weight when 32-bit overflow is possible
 #define apply_weight_f(weight, sample) (((((sample & 0xffff) * weight) >> 9) + \
     (((sample & ~0xffff) >> 9) * weight) + 1) >> 1)
+#elif 1
+#define apply_weight_f(weight, sample) ((int32_t)((weight * (int64_t) sample + 512) >> 10))
 #else
 #define apply_weight_f(weight, sample) ((int32_t)floor(((double) weight * sample + 512.0) / 1024.0))
 #endif
 
-#if 1   // PERFCOND - universal version that checks input magnitude (or simply uses 64-bit ints)
+#if 1   // PERFCOND - universal version that checks input magnitude or always uses long version
 #define apply_weight(weight, sample) (sample != (short) sample ? \
     apply_weight_f (weight, sample) : apply_weight_i (weight, sample))
 #else
-#define apply_weight(weight, sample) ((int32_t)((weight * (int64_t) sample + 512) >> 10))
+#define apply_weight(weight, sample) (apply_weight_f (weight, sample))
 #endif
 
 #if 1   // PERFCOND
