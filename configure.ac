@@ -32,6 +32,9 @@ AC_SUBST(LT_AGE)
 VERSION_OS=$(uname -s)
 AC_DEFINE_UNQUOTED(VERSION_OS, "$VERSION_OS", [os version])
 
+# Check host so we can infer target CPU (and assembly optimizations)
+AC_CANONICAL_HOST
+
 # Check for processor characteristics
 AC_C_BIGENDIAN(AC_DEFINE([HIGHFIRST], [1], [big-endian machine]))
 
@@ -41,6 +44,7 @@ AC_LIBTOOL_WIN32_DLL
 AC_PROG_LIBTOOL
 AC_PROG_INSTALL
 AM_PROG_CC_C_O
+AM_PROG_AS
 
 AC_HEADER_STDC
 
@@ -99,11 +103,24 @@ AC_SUBST(ICONV_LIBS)
 AC_SUBST(ICONV)
 fi
 
-AC_ARG_ENABLE(mmx, [[  --enable-mmx            enable MMX optimizations [default=no]]])
-if test "x$enable_mmx" = "xyes" ; then
-    AC_DEFINE([OPT_MMX], 1, [MMX optimization])
-    $CC $CFLAGS -mmmx -S -o /dev/null -xc /dev/null > /dev/null 2>&1 && CFLAGS="-mmmx $CFLAGS"
-fi
+AC_ARG_ENABLE([asm],
+    [AS_HELP_STRING([--disable-asm], [disable assembly optimizations])],,
+    [enable_asm=check])
+
+asm_selected=none
+
+AS_IF([test "x$enable_asm" != "xno"],[
+  AC_MSG_CHECKING(if assembly optimizations are available)
+  AS_CASE([$host_cpu],
+    [i686|i786], [AC_DEFINE([OPT_ASM_X86]) asm_selected=x86],
+    [x86_64], [AC_DEFINE([OPT_ASM_X64]) asm_selected=x64],
+    [AS_IF([test "x$enable_asm" = "xyes"],[AC_MSG_ERROR(no assembly code for CPU $host_cpu)])]
+  )
+  AC_MSG_RESULT($asm_selected)
+])
+
+AM_CONDITIONAL([ENABLE_X86ASM], [test "x$asm_selected" = "xx86"])
+AM_CONDITIONAL([ENABLE_X64ASM], [test "x$asm_selected" = "xx64"])
 
 AC_ARG_ENABLE(man,
               [AC_HELP_STRING([--enable-man],

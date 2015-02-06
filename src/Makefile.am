@@ -23,6 +23,14 @@ libwavpack_la_SOURCES = \
 	unpack_utils.c \
 	write_words.c
 
+if ENABLE_X86ASM
+libwavpack_la_SOURCES += pack_x86.s
+endif
+
+if ENABLE_X64ASM
+libwavpack_la_SOURCES += pack_x64.s
+endif
+
 noinst_HEADERS = \
 	decorr_tables.h \
 	unpack3.h \

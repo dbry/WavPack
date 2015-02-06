@@ -319,8 +319,10 @@ typedef struct bs {
 #define MAX_NTERMS 16
 #define MAX_TERM 8
 
+// Note that this structure is directly accessed in assembly files, so modify with care
+
 struct decorr_pass {
-    int term, delta, weight_A, weight_B;
+    int32_t term, delta, weight_A, weight_B;
     int32_t samples_A [MAX_TERM], samples_B [MAX_TERM];
     int32_t aweight_A, aweight_B;
     int32_t sum_A, sum_B;
