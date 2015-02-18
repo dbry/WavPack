@@ -24,11 +24,11 @@ libwavpack_la_SOURCES = \
 	write_words.c
 
 if ENABLE_X86ASM
-libwavpack_la_SOURCES += pack_x86.s
+libwavpack_la_SOURCES += pack_x86.s unpack_x86.s
 endif
 
 if ENABLE_X64ASM
-libwavpack_la_SOURCES += pack_x64.s
+libwavpack_la_SOURCES += pack_x64.s unpack_x64.s
 endif
 
 noinst_HEADERS = \
