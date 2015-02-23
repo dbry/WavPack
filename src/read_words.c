@@ -48,7 +48,7 @@ static const char ones_count_table [] = {
 
 ///////////////////////////// executable code ////////////////////////////////
 
-static uint32_t FASTCALL read_code (Bitstream *bs, uint32_t maxcode);
+static uint32_t inline read_code (Bitstream *bs, uint32_t maxcode);
 
 // Read the next word from the bitstream "wvbits" and return the value. This
 // function can be used for hybrid or lossless streams, but since an
@@ -264,7 +264,7 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
     struct entropy_data *c = wps->w.c;
     uint32_t ones_count, low, high;
     Bitstream *bs = &wps->wvbits;
-    int32_t csamples;
+    int32_t csamples, next8;
 
     if (!(wps->wphdr.flags & MONO_DATA))
         nsamples *= 2;
@@ -273,13 +273,26 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
         if (!(wps->wphdr.flags & MONO_DATA))
             c = wps->w.c + (csamples & 1);
 
-        if (wps->w.c [0].median [0] < 2 && !wps->w.holding_zero && !wps->w.holding_one && wps->w.c [1].median [0] < 2) {
+        if (wps->w.holding_zero) {
+            wps->w.holding_zero = 0;
+            low = read_code (bs, GET_MED (0) - 1);
+            DEC_MED0 ();
+            buffer [csamples] = (getbit (bs)) ? ~low : low;
+
+            if (++csamples == nsamples)
+                break;
+
+            if (!(wps->wphdr.flags & MONO_DATA))
+                c = wps->w.c + (csamples & 1);
+        }
+
+        if (wps->w.c [0].median [0] < 2 && !wps->w.holding_one && wps->w.c [1].median [0] < 2) {
             uint32_t mask;
             int cbits;
 
             if (wps->w.zeros_acc) {
                 if (--wps->w.zeros_acc) {
-                    *buffer++ = 0;
+                    buffer [csamples] = 0;
                     continue;
                 }
             }
@@ -302,72 +315,35 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
                 if (wps->w.zeros_acc) {
                     CLEAR (wps->w.c [0].median);
                     CLEAR (wps->w.c [1].median);
-                    *buffer++ = 0;
+                    buffer [csamples] = 0;
                     continue;
                 }
             }
         }
 
-        if (wps->w.holding_zero)
-            ones_count = wps->w.holding_zero = 0;
-        else {
 #ifdef USE_NEXT8_OPTIMIZATION
-            int next8;
+        if (bs->bc < 8) {
+            if (++(bs->ptr) == bs->end)
+                bs->wrap (bs);
 
-            if (bs->bc < 8) {
-                if (++(bs->ptr) == bs->end)
-                    bs->wrap (bs);
+            next8 = (bs->sr |= *(bs->ptr) << bs->bc) & 0xff;
+            bs->bc += sizeof (*(bs->ptr)) * 8;
+        }
+        else
+            next8 = bs->sr & 0xff;
 
-                next8 = (bs->sr |= *(bs->ptr) << bs->bc) & 0xff;
-                bs->bc += sizeof (*(bs->ptr)) * 8;
-            }
-            else
-                next8 = bs->sr & 0xff;
+        if (next8 == 0xff) {
+            bs->bc -= 8;
+            bs->sr >>= 8;
 
-            if (next8 == 0xff) {
-                bs->bc -= 8;
-                bs->sr >>= 8;
+            for (ones_count = 8; ones_count < (LIMIT_ONES + 1) && getbit (bs); ++ones_count);
 
-                for (ones_count = 8; ones_count < (LIMIT_ONES + 1) && getbit (bs); ++ones_count);
+            if (ones_count == (LIMIT_ONES + 1))
+                break;
 
-                if (ones_count == (LIMIT_ONES + 1))
-                    break;
-
-                if (ones_count == LIMIT_ONES) {
-                    uint32_t mask;
-                    int cbits;
-
-                    for (cbits = 0; cbits < 33 && getbit (bs); ++cbits);
-
-                    if (cbits == 33)
-                        break;
-
-                    if (cbits < 2)
-                        ones_count = cbits;
-                    else {
-                        for (mask = 1, ones_count = 0; --cbits; mask <<= 1)
-                            if (getbit (bs))
-                                ones_count |= mask;
-
-                        ones_count |= mask;
-                    }
-
-                    ones_count += LIMIT_ONES;
-                }
-            }
-            else {
-                bs->bc -= (ones_count = ones_count_table [next8]) + 1;
-                bs->sr >>= ones_count + 1;
-            }
-#else
-            for (ones_count = 0; ones_count < (LIMIT_ONES + 1) && getbit (bs); ++ones_count);
-
-            if (ones_count >= LIMIT_ONES) {
+            if (ones_count == LIMIT_ONES) {
                 uint32_t mask;
                 int cbits;
-
-                if (ones_count == (LIMIT_ONES + 1))
-                    break;
 
                 for (cbits = 0; cbits < 33 && getbit (bs); ++cbits);
 
@@ -386,18 +362,44 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 
                 ones_count += LIMIT_ONES;
             }
-#endif
-            if (wps->w.holding_one) {
-                wps->w.holding_one = ones_count & 1;
-                ones_count = (ones_count >> 1) + 1;
-            }
+        }
+        else {
+            bs->bc -= (ones_count = ones_count_table [next8]) + 1;
+            bs->sr >>= ones_count + 1;
+        }
+#else
+        for (ones_count = 0; ones_count < (LIMIT_ONES + 1) && getbit (bs); ++ones_count);
+
+        if (ones_count >= LIMIT_ONES) {
+            uint32_t mask;
+            int cbits;
+
+            if (ones_count == (LIMIT_ONES + 1))
+                break;
+
+            for (cbits = 0; cbits < 33 && getbit (bs); ++cbits);
+
+            if (cbits == 33)
+                break;
+
+            if (cbits < 2)
+                ones_count = cbits;
             else {
-                wps->w.holding_one = ones_count & 1;
-                ones_count >>= 1;
+                for (mask = 1, ones_count = 0; --cbits; mask <<= 1)
+                    if (getbit (bs))
+                        ones_count |= mask;
+
+                ones_count |= mask;
             }
 
-            wps->w.holding_zero = ~wps->w.holding_one & 1;
+            ones_count += LIMIT_ONES;
         }
+#endif
+
+        low = wps->w.holding_one;
+        wps->w.holding_one = ones_count & 1;
+        wps->w.holding_zero = ~ones_count & 1;
+        ones_count = (ones_count >> 1) + low;
 
         if (ones_count == 0) {
             low = 0;
@@ -429,7 +431,7 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
         }
 
         low += read_code (bs, high - low);
-        *buffer++ = (getbit (bs)) ? ~low : low;
+        buffer [csamples] = (getbit (bs)) ? ~low : low;
     }
 
     return (wps->wphdr.flags & MONO_DATA) ? csamples : (csamples / 2);
@@ -441,7 +443,7 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 // minimum number of bits and then determines whether another bit is needed
 // to define the code.
 
-static uint32_t FASTCALL read_code (Bitstream *bs, uint32_t maxcode)
+static uint32_t inline read_code (Bitstream *bs, uint32_t maxcode)
 {
     uint32_t extras, code;
     int bitcount;
