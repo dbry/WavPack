@@ -31,6 +31,10 @@ if ENABLE_X64ASM
 libwavpack_la_SOURCES += pack_x64.s unpack_x64.s
 endif
 
+if ENABLE_ARMASM
+libwavpack_la_SOURCES += unpack_armv7.s
+endif
+
 noinst_HEADERS = \
 	decorr_tables.h \
 	unpack3.h \

@@ -114,6 +114,7 @@ AS_IF([test "x$enable_asm" != "xno"],[
   AS_CASE([$host_cpu],
     [i686|i786], [AC_DEFINE([OPT_ASM_X86]) asm_selected=x86],
     [x86_64], [AC_DEFINE([OPT_ASM_X64]) asm_selected=x64],
+    [arm*], [AC_DEFINE([OPT_ASM_ARM]) asm_selected=arm],
     [AS_IF([test "x$enable_asm" = "xyes"],[AC_MSG_ERROR(no assembly code for CPU $host_cpu)])]
   )
   AC_MSG_RESULT($asm_selected)
@@ -121,6 +122,7 @@ AS_IF([test "x$enable_asm" != "xno"],[
 
 AM_CONDITIONAL([ENABLE_X86ASM], [test "x$asm_selected" = "xx86"])
 AM_CONDITIONAL([ENABLE_X64ASM], [test "x$asm_selected" = "xx64"])
+AM_CONDITIONAL([ENABLE_ARMASM], [test "x$asm_selected" = "xarm"])
 
 AC_ARG_ENABLE(man,
               [AC_HELP_STRING([--enable-man],
