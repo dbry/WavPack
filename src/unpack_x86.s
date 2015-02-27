@@ -48,7 +48,7 @@
 #
 # on stack (used for terms -1 and -2 only):
 # 
-#   int32_t delta             DWORD [esp+4]
+#   int32_t delta             DWORD [esp]
 #
 
 unpack_decorr_stereo_pass_cont_x86:
@@ -58,7 +58,7 @@ unpack_decorr_stereo_pass_cont_x86:
         push    esi
         push    edi
 
-        mov     edx, [ebp+8]                # copy delta from dpp to local stack
+        mov     edx, [ebp+8]                # copy delta from dpp to top of stack
         mov     eax, [edx+4]
         push    eax
 
@@ -321,7 +321,6 @@ term_minus_1_entry:
         cmp     DWORD PTR [ebp+20], 0       # test long_math
         mov     eax, [ebp+8]                # point to dpp
         mov     ecx, [eax+8]                # ecx = weight_A and ebp = weight_B
-        push    ebp
         mov     ebp, [eax+12]
         mov     eax, [edi-4]
         jnz     long_term_minus_1_loop
@@ -342,7 +341,7 @@ term_minus_1_loop:
         xor     ebx, edx
         sar     ebx, 31
         xor     ecx, ebx
-        add     ecx, [esp+4]
+        add     ecx, [esp]
         mov     edx, 1024
         add     edx, ebx
         cmp     ecx, edx
@@ -362,7 +361,7 @@ L182:   mov     ebx, eax
         xor     ebx, edx
         sar     ebx, 31
         xor     ebp, ebx
-        add     ebp, [esp+4]
+        add     ebp, [esp]
         mov     edx, 1024
         add     edx, ebx
         cmp     ebp, edx
@@ -390,7 +389,7 @@ long_term_minus_1_loop:
         xor     ebx, edx
         sar     ebx, 31
         xor     ecx, ebx
-        add     ecx, [esp+4]
+        add     ecx, [esp]
         mov     edx, 1024
         add     edx, ebx
         cmp     ecx, edx
@@ -412,7 +411,7 @@ L282:   mov     ebx, eax
         xor     ebx, edx
         sar     ebx, 31
         xor     ebp, ebx
-        add     ebp, [esp+4]
+        add     ebp, [esp]
         mov     edx, 1024
         add     edx, ebx
         cmp     ebp, edx
@@ -424,7 +423,8 @@ L289:   cmp     edi, esi                    # compare bptr and eptr to see if we
 
 term_minus_1_done:
         mov     edx, ebp
-        pop     ebp
+        mov     ebp, esp                    # restore ebp (we've pushed 4 DWORDS)
+        add     ebp, 16
         mov     eax, [ebp+8]                # point to dpp
         mov     [eax+8], ecx
         mov     [eax+12], edx
@@ -437,7 +437,6 @@ term_minus_2_entry:
         cmp     DWORD PTR [ebp+20], 0       # test long_math
         mov     eax, [ebp+8]                # point to dpp
         mov     ecx, [eax+8]                # ecx = weight_A and ebp = weight_B
-        push    ebp
         mov     ebp, [eax+12]
         mov     eax, [edi-8]
         jnz     long_term_minus_2_loop
@@ -458,7 +457,7 @@ term_minus_2_loop:
         xor     ebx, edx
         sar     ebx, 31
         xor     ebp, ebx
-        add     ebp, [esp+4]
+        add     ebp, [esp]
         mov     edx, 1024
         add     edx, ebx
         cmp     ebp, edx
@@ -479,7 +478,7 @@ L194:   mov     ebx, eax
         xor     ebx, edx
         sar     ebx, 31
         xor     ecx, ebx
-        add     ecx, [esp+4]
+        add     ecx, [esp]
         mov     edx, 1024
         add     edx, ebx
         cmp     ecx, edx
@@ -507,7 +506,7 @@ long_term_minus_2_loop:
         xor     ebx, edx
         sar     ebx, 31
         xor     ebp, ebx
-        add     ebp, [esp+4]
+        add     ebp, [esp]
         mov     edx, 1024
         add     edx, ebx
         cmp     ebp, edx
@@ -530,7 +529,7 @@ L294:   mov     ebx, eax
         xor     ebx, edx
         sar     ebx, 31
         xor     ecx, ebx
-        add     ecx, [esp+4]
+        add     ecx, [esp]
         mov     edx, 1024
         add     edx, ebx
         cmp     ecx, edx
@@ -542,7 +541,8 @@ L301:   cmp     edi, esi                    # compare bptr and eptr to see if we
 
 term_minus_2_done:
         mov     edx, ebp
-        pop     ebp
+        mov     ebp, esp                    # restore ebp (we've pushed 4 DWORDS)
+        add     ebp, 16
         mov     eax, [ebp+8]                # point to dpp
         mov     [eax+8], ecx
         mov     [eax+12], edx
