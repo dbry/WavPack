@@ -21,9 +21,13 @@
 #ifdef OPT_ASM_X86
 extern void unpack_decorr_stereo_pass_cont_x86 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
 #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x86
+extern void unpack_decorr_mono_pass_cont_x86 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
+#define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x86
 #elif defined(OPT_ASM_X64)
 extern void unpack_decorr_stereo_pass_cont_x64 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
 #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x64
+extern void unpack_decorr_mono_pass_cont_x64 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
+#define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x64
 #elif defined(OPT_ASM_ARM)
 extern void unpack_decorr_stereo_pass_cont_armv7 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
 #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_armv7
@@ -56,6 +60,7 @@ extern void unpack_decorr_stereo_pass_cont_armv7 (struct decorr_pass *dpp, int32
 // occurs or the end of the block is reached.
 
 static void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
+static void decorr_mono_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
 
 int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count)
@@ -100,40 +105,41 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
         else
             i = get_words_lossless (wps, buffer, sample_count);
 
-        for (bptr = buffer; bptr < eptr;) {
-            read_word = *bptr;
-
+#ifdef DECORR_MONO_PASS_CONT
+        if (sample_count < 16)
+            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
+                decorr_mono_pass (dpp, buffer, sample_count);
+        else
             for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++) {
-                int32_t sam, temp;
-                int k;
+                int pre_samples = (dpp->term > MAX_TERM) ? 2 : dpp->term;
 
-                if (dpp->term > MAX_TERM) {
-                    if (dpp->term & 1)
-                        sam = 2 * dpp->samples_A [0] - dpp->samples_A [1];
-                    else
-                        sam = dpp->samples_A [0] + ((dpp->samples_A [0] - dpp->samples_A [1]) >> 1);
+                decorr_mono_pass (dpp, buffer, pre_samples);
 
-                    dpp->samples_A [1] = dpp->samples_A [0];
-                    k = 0;
-                }
-                else {
-                    sam = dpp->samples_A [m];
-                    k = (m + dpp->term) & (MAX_TERM - 1);
-                }
-
-                temp = apply_weight (dpp->weight_A, sam) + read_word;
-                update_weight (dpp->weight_A, dpp->delta, sam, read_word);
-                dpp->samples_A [k] = read_word = temp;
+                DECORR_MONO_PASS_CONT (dpp, buffer + pre_samples, sample_count - pre_samples,
+                    ((flags & MAG_MASK) >> MAG_LSB) > 15);
             }
 
-            if (labs (read_word) > mute_limit) {
+        for (bptr = buffer; bptr < eptr; ++bptr) {
+            if (labs (bptr [0]) > mute_limit) {
                 i = (uint32_t)(bptr - buffer);
                 break;
             }
 
-            m = (m + 1) & (MAX_TERM - 1);
-            crc += (crc << 1) + (*bptr++ = read_word);
+            crc = crc * 3 + bptr [0];
         }
+#else
+        for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
+            decorr_mono_pass (dpp, buffer, sample_count);
+
+        for (bptr = buffer; bptr < eptr; ++bptr) {
+            if (labs (bptr [0]) > mute_limit) {
+                i = (uint32_t)(bptr - buffer);
+                break;
+            }
+
+            crc = crc * 3 + bptr [0];
+        }
+#endif
     }
 
     /////////////// handle lossless or hybrid lossy stereo data ///////////////
@@ -475,6 +481,68 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
     wps->crc = crc;
 
     return i;
+}
+
+// General function to perform mono decorrelation pass on specified buffer
+// (although since this is the reverse function it might technically be called
+// "correlation" instead). This version handles all sample resolutions and
+// weight deltas. The dpp->samples_X[] data is *not* returned normalized for
+// term values 1-8, so it should be normalized if it is going to be used to
+// call this function again.
+
+static void decorr_mono_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count)
+{
+    int32_t delta = dpp->delta, weight_A = dpp->weight_A;
+    int32_t *bptr, *eptr = buffer + sample_count, sam_A;
+    int m, k;
+
+    switch (dpp->term) {
+
+        case 17:
+            for (bptr = buffer; bptr < eptr; bptr++) {
+                sam_A = 2 * dpp->samples_A [0] - dpp->samples_A [1];
+                dpp->samples_A [1] = dpp->samples_A [0];
+                dpp->samples_A [0] = apply_weight (weight_A, sam_A) + bptr [0];
+                update_weight (weight_A, delta, sam_A, bptr [0]);
+                bptr [0] = dpp->samples_A [0];
+            }
+
+            break;
+
+        case 18:
+            for (bptr = buffer; bptr < eptr; bptr++) {
+                sam_A = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
+                dpp->samples_A [1] = dpp->samples_A [0];
+                dpp->samples_A [0] = apply_weight (weight_A, sam_A) + bptr [0];
+                update_weight (weight_A, delta, sam_A, bptr [0]);
+                bptr [0] = dpp->samples_A [0];
+            }
+
+            break;
+
+        default:
+            for (m = 0, k = dpp->term & (MAX_TERM - 1), bptr = buffer; bptr < eptr; bptr++) {
+                sam_A = dpp->samples_A [m];
+                dpp->samples_A [k] = apply_weight (weight_A, sam_A) + bptr [0];
+                update_weight (weight_A, delta, sam_A, bptr [0]);
+                bptr [0] = dpp->samples_A [k];
+                m = (m + 1) & (MAX_TERM - 1);
+                k = (k + 1) & (MAX_TERM - 1);
+            }
+
+            if (m) {
+                int32_t temp_samples [MAX_TERM];
+
+                memcpy (temp_samples, dpp->samples_A, sizeof (dpp->samples_A));
+
+                for (k = 0; k < MAX_TERM; k++, m++)
+                    dpp->samples_A [k] = temp_samples [m & (MAX_TERM - 1)];
+            }
+
+            break;
+    }
+
+    dpp->weight_A = weight_A;
 }
 
 // General function to perform stereo decorrelation pass on specified buffer

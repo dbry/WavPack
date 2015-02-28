@@ -9,6 +9,7 @@
         .intel_syntax noprefix
         .text
         .globl  unpack_decorr_stereo_pass_cont_x86
+        .globl  unpack_decorr_mono_pass_cont_x86
 
 # This is an assembly optimized version of the following WavPack function:
 #
@@ -99,14 +100,11 @@ unpack_decorr_stereo_pass_cont_x86:
 #
 
 default_term_entry:
-        mov     edx, [ebp+8]                # edx = *dpp
-        mov     eax, [edx]                  # set ebx to term * -8 for decorrelation index
-        sal     eax, 3
-        neg     eax
-        mov     ebx, eax
+        imul    ebx, eax, -8                # set ebx to term * -8 for decorrelation index
         mov     eax, 512
         movd    mm7, eax
         punpckldq mm7, mm7                  # mm7 = round (512)
+        mov     edx, [ebp+8]                # edx = *dpp
         mov     eax, [edx+4]
         movd    mm6, eax
         punpckldq mm6, mm6                  # mm6 = delta (0-7)
@@ -632,6 +630,285 @@ term_minus_3_loop:
         mov     [eax+48], edx
 
 done:   pop     eax                         # pop delta & saved regs
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
+#######################################################################################################################
+#
+# This is the mono version of the above function. It does not use MMX and does not handle negative terms.
+#
+# void unpack_decorr_mono_pass_cont (struct decorr_pass *dpp,
+#                                    int32_t *buffer,
+#                                    int32_t sample_count,
+#                                    int32_t long_math;
+# arguments on entry:
+#
+#   struct decorr_pass *dpp     [ebp+8]
+#   int32_t *buffer             [ebp+12]
+#   int32_t sample_count        [ebp+16]
+#   int32_t long_math           [ebp+20]
+#
+# registers after entry:
+#
+#   rdi         bptr
+#   rsi         eptr
+#
+# on stack:
+#
+#   int16_t delta             DWORD [esp]
+#
+
+unpack_decorr_mono_pass_cont_x86:
+        push    ebp
+        mov     ebp, esp
+        push    ebx
+        push    esi
+        push    edi
+        cld
+
+        mov     edx, [ebp+8]                # copy delta from dpp to local stack
+        mov     eax, [edx+4]
+        push    eax
+
+        mov     edi, [ebp+12]               # edi = buffer
+        mov     eax, [ebp+16]               # get sample_count and multiply by 4
+        sal     eax, 2
+        jz      mono_done                   # exit now if there's nothing to do
+        lea     esi, [edi+eax]              # else add to buffer point to make eptr
+
+        mov     eax, [ebp+8]                # get term from dpp and vector appropriately
+        mov     eax, [eax]
+        cmp     eax, 17
+        je      mono_17_entry
+        cmp     eax, 18
+        je      mono_18_entry
+
+#
+# registers during default term processing loop:
+#   edi         active buffer pointer
+#   esi         end of buffer pointer
+#   ecx         weight_A
+#   ebp         free
+#   ebx         term * -4
+#   eax,edx     scratch
+#
+
+default_mono_entry:
+        imul    ebx, eax, -4                # set ebx to term * -4 for decorrelation index
+        mov     edx, [ebp+8]                # edx = dpp*
+        mov     ecx, [edx+8]                # ecx = weight
+        cmp     DWORD PTR [ebp+20], 0       # test long_math
+        jnz     long_default_mono_loop
+        jmp     default_mono_loop
+
+#
+# registers during processing loop for terms 17 & 18:
+#   edi         active buffer pointer
+#   esi         end of buffer pointer
+#   ecx         weight_A
+#   ebp         previously calculated value
+#   ebx         calculated correlation sample
+#   eax,edx     scratch
+#
+
+mono_17_entry:
+        cmp     DWORD PTR [ebp+20], 0       # test long_math
+        mov     edx, [ebp+8]                # edx = dpp*
+        mov     ecx, [edx+8]                # ecx = weight_A
+        mov     ebp, [edi-4]
+        jnz     long_mono_17_loop
+        jmp     mono_17_loop
+
+mono_18_entry:
+        cmp     DWORD PTR [ebp+20], 0       # test long_math
+        mov     edx, [ebp+8]                # edx = dpp*
+        mov     ecx, [edx+8]                # ecx = weight_A
+        mov     ebp, [edi-4]
+        jnz     long_mono_18_loop
+        jmp     mono_18_loop
+
+        .align  64
+default_mono_loop:
+        mov     eax, [edi+ebx]
+        imul    eax, ecx
+        sar     eax, 10
+        mov     edx, [edi]
+        adc     eax, edx
+        mov     [edi], eax
+        mov     eax, [edi+ebx]
+        add     edi, 4
+        test    edx, edx
+        je      L100
+        test    eax, eax
+        je      L100
+        xor     eax, edx
+        cdq
+        xor     ecx, edx
+        add     ecx, [esp]
+        xor     ecx, edx
+L100:   cmp     edi, esi                    # compare bptr and eptr to see if we're done
+        jb      default_mono_loop
+        jmp     default_mono_done
+
+        .align  64
+long_default_mono_loop:
+        mov     eax, [edi+ebx]
+        imul    ecx
+        shl     edx, 22
+        shr     eax, 10
+        adc     eax, edx
+        mov     edx, [edi]
+        add     eax, edx
+        mov     [edi], eax
+        mov     eax, [edi+ebx]
+        add     edi, 4
+        test    edx, edx
+        je      L101
+        test    eax, eax
+        je      L101
+        xor     eax, edx
+        cdq
+        xor     ecx, edx
+        add     ecx, [esp]
+        xor     ecx, edx
+L101:   cmp     edi, esi                    # compare bptr and eptr to see if we're done
+        jb      long_default_mono_loop
+
+default_mono_done:
+        mov     edx, [ebp+8]                # edx = dpp*
+        mov     [edx+8], ecx                # store weight_A back
+        mov     ecx, [edx]                  # ecx = dpp->term
+
+default_mono_store_samples:
+        dec     ecx
+        sub     edi, 4                      # back up one full sample
+        mov     eax, [edi]
+        mov     [edx+ecx*4+16], eax         # store samples_A [ecx]
+        test    ecx, ecx
+        jnz     default_mono_store_samples
+        jmp     mono_done
+
+        .align  64
+mono_17_loop:
+        lea     ebx, [ebp+ebp]
+        sub     ebx, [edi-8]
+        mov     eax, ecx
+        imul    eax, ebx
+        sar     eax, 10
+        mov     edx, [edi]
+        adc     eax, edx
+        stosd
+        test    ebx, ebx
+        mov     ebp, eax
+        je      L117
+        test    edx, edx
+        je      L117
+        mov     eax, [esp]
+        xor     ebx, edx
+        sar     ebx, 31
+        xor     eax, ebx
+        sub     eax, ebx
+        add     ecx, eax
+L117:   cmp     edi, esi                    # compare bptr and eptr to see if we're done
+        jb      mono_17_loop
+        jmp     mono_1718_exit
+
+        .align  64
+long_mono_17_loop:
+        lea     ebx, [ebp+ebp]
+        sub     ebx, [edi-8]
+        mov     eax, ecx
+        imul    ebx
+        shl     edx, 22
+        shr     eax, 10
+        adc     eax, edx
+        mov     edx, [edi]
+        add     eax, edx
+        stosd
+        test    ebx, ebx
+        mov     ebp, eax
+        je      L217
+        test    edx, edx
+        je      L217
+        mov     eax, [esp]
+        xor     ebx, edx
+        sar     ebx, 31
+        xor     eax, ebx
+        sub     eax, ebx
+        add     ecx, eax
+L217:   cmp     edi, esi                    # compare bptr and eptr to see if we're done
+        jb      long_mono_17_loop
+        jmp     mono_1718_exit
+
+        .align  64
+mono_18_loop:
+        lea     ebx, [ebp+ebp*2]
+        sub     ebx, [edi-8]
+        sar     ebx, 1
+        mov     eax, ecx
+        imul    eax, ebx
+        sar     eax, 10
+        mov     edx, [edi]
+        adc     eax, edx
+        stosd
+        test    ebx, ebx
+        mov     ebp, eax
+        je      L118
+        test    edx, edx
+        je      L118
+        mov     eax, [esp]
+        xor     ebx, edx
+        sar     ebx, 31
+        xor     eax, ebx
+        sub     eax, ebx
+        add     ecx, eax
+L118:   cmp     edi, esi                    # compare bptr and eptr to see if we're done
+        jb      mono_18_loop
+        jmp     mono_1718_exit
+
+        .align  64
+long_mono_18_loop:
+        lea     ebx, [ebp+ebp*2]
+        sub     ebx, [edi-8]
+        sar     ebx, 1
+        mov     eax, ecx
+        imul    ebx
+        shl     edx, 22
+        shr     eax, 10
+        adc     eax, edx
+        mov     edx, [edi]
+        add     eax, edx
+        stosd
+        test    ebx, ebx
+        mov     ebp, eax
+        je      L218
+        test    edx, edx
+        je      L218
+        mov     eax, [esp]
+        xor     ebx, edx
+        sar     ebx, 31
+        xor     eax, ebx
+        sub     eax, ebx
+        add     ecx, eax
+L218:   cmp     edi, esi                    # compare bptr and eptr to see if we're done
+        jb      long_mono_18_loop
+
+mono_1718_exit:
+        mov     ebp, esp                    # restore ebp (we've pushed 4 DWORDS)
+        add     ebp, 16
+        mov     edx, [ebp+8]                # edx = dpp*
+        mov     [edx+8], ecx                # store weight_A back
+        mov     edx, [edi-4]                # dpp->samples_A [0] = bptr [-1];
+        mov     eax, [ebp+8]
+        mov     [eax+16], edx
+        mov     edx, [edi-8]                # dpp->samples_A [1] = bptr [-2];
+        mov     [eax+20], edx
+
+mono_done:
+        pop     eax                         # pop delta & saved regs
         pop     edi
         pop     esi
         pop     ebx
