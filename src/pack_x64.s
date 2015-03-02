@@ -527,7 +527,7 @@ log2buffer_x64:
         mov     ebx, esi                    # ebx = num_samples
         mov     rsi, rdi                    # rsi = *samples
         xor     edi, edi                    # initialize sum
-        movabs  r8, OFFSET log2_table
+        lea     r8, log2_table [rip]
         test    ebx, ebx                    # test count for zero
         jz      normal_exit
         mov     ebp, edx                    # ebp = limit
