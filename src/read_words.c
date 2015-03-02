@@ -29,7 +29,9 @@
 
 #include "wavpack_local.h"
 
-#define USE_NEXT8_OPTIMIZATION  // we normally want this, but code is easier to understand without it
+#define USE_CLZ_OPTIMIZATION      // use clz intrinsic to count trailing ones
+//#define USE_NEXT8_OPTIMIZATION  // old optimization using a table to count trailing ones
+//#define USE_BITMASK_TABLES      // use tables instead of shifting for certain masking operations
 
 ///////////////////////////// local table storage ////////////////////////////
 
@@ -106,7 +108,53 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
     if (wps->w.holding_zero)
         ones_count = wps->w.holding_zero = 0;
     else {
-#ifdef USE_NEXT8_OPTIMIZATION
+#ifdef USE_CLZ_OPTIMIZATION
+        if (wps->wvbits.bc < LIMIT_ONES) {
+            if (++(wps->wvbits.ptr) == wps->wvbits.end)
+                wps->wvbits.wrap (&wps->wvbits);
+
+            wps->wvbits.sr |= *(wps->wvbits.ptr) << wps->wvbits.bc;
+            wps->wvbits.bc += sizeof (*(wps->wvbits.ptr)) * 8;
+        }
+
+        ones_count = __builtin_ctz (~wps->wvbits.sr);
+
+        if (ones_count >= LIMIT_ONES) {
+            wps->wvbits.bc -= ones_count;
+            wps->wvbits.sr >>= ones_count;
+
+            for (; ones_count < (LIMIT_ONES + 1) && getbit (&wps->wvbits); ++ones_count);
+
+            if (ones_count == (LIMIT_ONES + 1))
+                return WORD_EOF;
+
+            if (ones_count == LIMIT_ONES) {
+                uint32_t mask;
+                int cbits;
+
+                for (cbits = 0; cbits < 33 && getbit (&wps->wvbits); ++cbits);
+
+                if (cbits == 33)
+                    return WORD_EOF;
+
+                if (cbits < 2)
+                    ones_count = cbits;
+                else {
+                    for (mask = 1, ones_count = 0; --cbits; mask <<= 1)
+                        if (getbit (&wps->wvbits))
+                            ones_count |= mask;
+
+                    ones_count |= mask;
+                }
+
+                ones_count += LIMIT_ONES;
+            }
+        }
+        else {
+            wps->wvbits.bc -= ones_count + 1;
+            wps->wvbits.sr >>= ones_count + 1;
+        }
+#elif defined (USE_NEXT8_OPTIMIZATION)
         if (wps->wvbits.bc < 8) {
             if (++(wps->wvbits.ptr) == wps->wvbits.end)
                 wps->wvbits.wrap (&wps->wvbits);
@@ -321,7 +369,53 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
             }
         }
 
-#ifdef USE_NEXT8_OPTIMIZATION
+#ifdef USE_CLZ_OPTIMIZATION
+        if (bs->bc < LIMIT_ONES) {
+            if (++(bs->ptr) == bs->end)
+                bs->wrap (bs);
+
+            bs->sr |= *(bs->ptr) << bs->bc;
+            bs->bc += sizeof (*(bs->ptr)) * 8;
+        }
+
+        ones_count = __builtin_ctz (~bs->sr);
+
+        if (ones_count >= LIMIT_ONES) {
+            bs->bc -= ones_count;
+            bs->sr >>= ones_count;
+
+            for (; ones_count < (LIMIT_ONES + 1) && getbit (bs); ++ones_count);
+
+            if (ones_count == (LIMIT_ONES + 1))
+                break;
+
+            if (ones_count == LIMIT_ONES) {
+                uint32_t mask;
+                int cbits;
+
+                for (cbits = 0; cbits < 33 && getbit (bs); ++cbits);
+
+                if (cbits == 33)
+                    break;
+
+                if (cbits < 2)
+                    ones_count = cbits;
+                else {
+                    for (mask = 1, ones_count = 0; --cbits; mask <<= 1)
+                        if (getbit (bs))
+                            ones_count |= mask;
+
+                    ones_count |= mask;
+                }
+
+                ones_count += LIMIT_ONES;
+            }
+        }
+        else {
+            bs->bc -= ones_count + 1;
+            bs->sr >>= ones_count + 1;
+        }
+#elif defined (USE_NEXT8_OPTIMIZATION)
         if (bs->bc < 8) {
             if (++(bs->ptr) == bs->end)
                 bs->wrap (bs);
@@ -452,7 +546,11 @@ static uint32_t inline read_code (Bitstream *bs, uint32_t maxcode)
         return maxcode ? getbit (bs) : 0;
 
     bitcount = count_bits (maxcode);
+#ifdef USE_BITMASK_TABLES
     extras = bitset [bitcount] - maxcode - 1;
+#else
+    extras = (1 << bitcount) - maxcode - 1;
+#endif
 
     while (bs->bc < bitcount) {
         if (++(bs->ptr) == bs->end)
@@ -462,7 +560,11 @@ static uint32_t inline read_code (Bitstream *bs, uint32_t maxcode)
         bs->bc += sizeof (*(bs->ptr)) * 8;
     }
 
+#ifdef USE_BITMASK_TABLES
     if ((code = bs->sr & bitmask [bitcount - 1]) >= extras)
+#else
+    if ((code = bs->sr & ((1 << (bitcount - 1)) - 1)) >= extras)
+#endif
         code = (code << 1) - extras + ((bs->sr >> (bitcount - 1)) & 1);
     else
         bitcount--;

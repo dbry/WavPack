@@ -619,6 +619,9 @@ uint32_t bs_close_read (Bitstream *bs);
 #define INC_MED2() (c->median [2] += ((c->median [2] + DIV2) / DIV2) * 5)
 #define DEC_MED2() (c->median [2] -= ((c->median [2] + (DIV2-2)) / DIV2) * 2)
 
+#if 1
+#define count_bits(av) ((av) ? 32 - __builtin_clz (av) : 0)
+#else
 #define count_bits(av) ( \
  (av) < (1 << 8) ? nbits_table [av] : \
   ( \
@@ -626,6 +629,7 @@ uint32_t bs_close_read (Bitstream *bs);
    ((av) < (1L << 24) ? nbits_table [(av) >> 16] + 16 : nbits_table [(av) >> 24] + 24) \
   ) \
 )
+#endif
 
 void init_words (WavpackStream *wps);
 void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd);
