@@ -26,9 +26,10 @@
 # samples to the decorr_pass structure before returning.
 #
 # The "long_math" argument is used to specify that a 32-bit multiply is
-# not enough for the "apply_weight" operation, although in this case it
-# only applies to the -1 and -2 terms because the MMX code does not have
-# this limitation.
+# not enough for the "apply_weight" operation (although in this case it
+# would only apply to the -1 and -2 terms because the MMX code does not have
+# this limitation) but we ignore the parameter and use the overflow detection
+# of the "imul" instruction to switch automatically to the "long_math" loop.
 #
 # This is written to work on an X86-64 processor (also called the AMD64)
 # running in 64-bit mode and generally uses the MMX extensions to improve
@@ -63,7 +64,7 @@ unpack_decorr_stereo_pass_cont_x64:
 
         mov     [rsp-16], rbx               # we save RBX in red zone
 
-        test    edx, edx                    # if sample_count is zero, do nothing
+        and     edx, edx                    # if sample_count is zero, do nothing
         jz      done
 
         mov     [rbp-8], rdi                # store dpp* into red zone
@@ -309,21 +310,20 @@ term_1718_exit:
 
 term_minus_1_entry:
         cld
-        test    ecx, ecx                    # test long_math
         mov     rdx, [rbp-8]                # point to dpp
         mov     ecx, [rdx+8]                # ecx = weight_A
         mov     ebp, [rdx+12]               # ebp = weight_B
         mov     r8d, [rdx+4]                # r8d = delta
         mov     eax, [rdi-4]
-        jnz     long_term_minus_1_loop
         jmp     term_minus_1_loop
 
         .align  64
 term_minus_1_loop:
         mov     ebx, eax
         imul    eax, ecx
-        sar     eax, 10
         mov     edx, [rdi]
+        jo      OV11
+        sar     eax, 10
         adc     eax, edx
         stosd
         test    ebx, ebx
@@ -342,8 +342,9 @@ term_minus_1_loop:
 L183:   xor     ecx, ebx
 L182:   mov     ebx, eax
         imul    eax, ebp
-        sar     eax, 10
         mov     edx, [rdi]
+        jo      OV12
+        sar     eax, 10
         adc     eax, edx
         stosd
         test    ebx, ebx
@@ -363,6 +364,12 @@ L188:   xor     ebp, ebx
 L187:   cmp     rdi, rsi                    # compare bptr and eptr to see if we're done
         jb      term_minus_1_loop
         jmp     term_minus_1_done
+
+OV11:   mov     eax, ebx                    # restore previous sample into eax
+        jmp     long_term_minus_1_loop
+
+OV12:   mov     eax, ebx                    # restore previous sample into eax
+        jmp     L282
 
         .align  64
 long_term_minus_1_loop:
@@ -422,21 +429,20 @@ term_minus_1_done:
         jmp     done
 
 term_minus_2_entry:
-        test    ecx, ecx                    # test long_math
         mov     rdx, [rbp-8]                # point to dpp
         mov     ecx, [rdx+8]                # ecx = weight_A
         mov     ebp, [rdx+12]               # ebp = weight_B
         mov     r8d, [rdx+4]                # r8d = delta
         mov     eax, [rdi-8]
-        jnz     long_term_minus_2_loop
         jmp     term_minus_2_loop
 
         .align  64
 term_minus_2_loop:
         mov     ebx, eax
         imul    eax, ebp
-        sar     eax, 10
         mov     edx, [rdi+4]
+        jo      OV21
+        sar     eax, 10
         adc     eax, edx
         mov     [rdi+4], eax
         test    ebx, ebx
@@ -455,8 +461,9 @@ term_minus_2_loop:
 L195:   xor     ebp, ebx
 L194:   mov     ebx, eax
         imul    eax, ecx
-        sar     eax, 10
         mov     edx, [rdi]
+        jo      OV22
+        sar     eax, 10
         adc     eax, edx
         mov     [rdi], eax
         test    ebx, ebx
@@ -477,6 +484,12 @@ L199:   add     rdi, 8
         cmp     rdi, rsi                    # compare bptr and eptr to see if we're done
         jb      term_minus_2_loop
         jmp     term_minus_2_done
+
+OV21:   mov     eax, ebx                    # restore previous sample into eax
+        jmp     long_term_minus_2_loop
+
+OV22:   mov     eax, ebx                    # restore previous sample into eax
+        jmp     L294
 
         .align  64
 long_term_minus_2_loop:
@@ -681,11 +694,9 @@ unpack_decorr_mono_pass_cont_x64:
 
 default_mono_entry:
         imul    rbx, rax, -4                # set rbx to term * -4 for decorrelation index
-        cmp     ecx, 0                      # test long_math
         mov     rdx, [rbp-8]
         mov     ecx, [rdx+8]                # ecx = weight, r8d = delta
         mov     r8d, [rdx+4]
-        jnz     long_default_mono_loop
         jmp     default_mono_loop
 
 #
@@ -700,29 +711,26 @@ default_mono_entry:
 #
 
 mono_17_entry:
-        cmp     ecx, 0                      # test long_math
         mov     rdx, [rbp-8]                # rdx = dpp*
         mov     ecx, [rdx+8]                # ecx = weight, r8d = delta
         mov     r8d, [rdx+4]
         mov     ebp, [rdi-4]
-        jnz     long_mono_17_loop
         jmp     mono_17_loop
 
 mono_18_entry:
-        cmp     ecx, 0                      # test long_math
         mov     rdx, [rbp-8]                # rdx = dpp*
         mov     ecx, [rdx+8]                # ecx = weight, r8d = delta
         mov     r8d, [rdx+4]
         mov     ebp, [rdi-4]
-        jnz     long_mono_18_loop
         jmp     mono_18_loop
 
         .align  64
 default_mono_loop:
         mov     eax, [rdi+rbx]
         imul    eax, ecx
-        sar     eax, 10
         mov     edx, [rdi]
+        jo      long_default_mono_loop
+        sar     eax, 10
         adc     eax, edx
         mov     [rdi], eax
         mov     eax, [rdi+rbx]
@@ -784,8 +792,9 @@ mono_17_loop:
         sub     ebx, [rdi-8]
         mov     eax, ecx
         imul    eax, ebx
-        sar     eax, 10
         mov     edx, [rdi]
+        jo      long_mono_17_loop
+        sar     eax, 10
         adc     eax, edx
         stosd
         test    ebx, ebx
@@ -835,8 +844,9 @@ mono_18_loop:
         sar     ebx, 1
         mov     eax, ecx
         imul    eax, ebx
-        sar     eax, 10
         mov     edx, [rdi]
+        jo      long_mono_18_loop
+        sar     eax, 10
         adc     eax, edx
         stosd
         test    ebx, ebx
@@ -880,8 +890,7 @@ L218:   cmp     rdi, rsi                    # compare bptr and eptr to see if we
         jb      long_mono_18_loop
 
 mono_1718_exit:
-        mov     rbp, rsp                    # restore rbp
-        mov     rdx, [rbp-8]                # edx = dpp*
+        mov     rdx, [rsp-8]                # edx = dpp*
         mov     [rdx+8], ecx                # store weight_A back
         mov     eax, [rdi-4]                # dpp->samples_A [0] = bptr [-1];
         mov     [rdx+16], eax

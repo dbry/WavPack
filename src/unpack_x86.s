@@ -26,9 +26,10 @@
 # samples to the decorr_pass structure before returning.
 #
 # The "long_math" argument is used to specify that a 32-bit multiply is
-# not enough for the "apply_weight" operation, although in this case it
-# only applies to the -1 and -2 terms because the MMX code does not have
-# this limitation.
+# not enough for the "apply_weight" operation (although in this case it
+# would only apply to the -1 and -2 terms because the MMX code does not have
+# this limitation) but we ignore the parameter and use the overflow detection
+# of the "imul" instruction to switch automatically to the "long_math" loop.
 #
 # This is written to work on an IA-32 processor and uses the MMX extensions
 # to improve the performance by processing both stereo channels together.
@@ -316,20 +317,19 @@ term_1718_exit:
 
 term_minus_1_entry:
         cld                                 # we use stosd here...
-        cmp     DWORD PTR [ebp+20], 0       # test long_math
         mov     eax, [ebp+8]                # point to dpp
         mov     ecx, [eax+8]                # ecx = weight_A and ebp = weight_B
         mov     ebp, [eax+12]
         mov     eax, [edi-4]
-        jnz     long_term_minus_1_loop
         jmp     term_minus_1_loop
 
         .align  64
 term_minus_1_loop:
         mov     ebx, eax
         imul    eax, ecx
-        sar     eax, 10
         mov     edx, [edi]
+        jo      OV11
+        sar     eax, 10
         adc     eax, edx
         stosd
         test    ebx, ebx
@@ -348,8 +348,9 @@ term_minus_1_loop:
 L183:   xor     ecx, ebx
 L182:   mov     ebx, eax
         imul    eax, ebp
-        sar     eax, 10
         mov     edx, [edi]
+        jo      OV12
+        sar     eax, 10
         adc     eax, edx
         stosd
         test    ebx, ebx
@@ -369,6 +370,12 @@ L188:   xor     ebp, ebx
 L189:   cmp     edi, esi                    # compare bptr and eptr to see if we're done
         jb      term_minus_1_loop
         jmp     term_minus_1_done
+
+OV11:   mov     eax, ebx                    # restore previous sample into eax
+        jmp     long_term_minus_1_loop
+
+OV12:   mov     eax, ebx                    # restore previous sample into eax
+        jmp     L282
 
         .align  64
 long_term_minus_1_loop:
@@ -432,20 +439,19 @@ term_minus_1_done:
 
 
 term_minus_2_entry:
-        cmp     DWORD PTR [ebp+20], 0       # test long_math
         mov     eax, [ebp+8]                # point to dpp
         mov     ecx, [eax+8]                # ecx = weight_A and ebp = weight_B
         mov     ebp, [eax+12]
         mov     eax, [edi-8]
-        jnz     long_term_minus_2_loop
         jmp     term_minus_2_loop
 
         .align  64
 term_minus_2_loop:
         mov     ebx, eax
         imul    eax, ebp
-        sar     eax, 10
         mov     edx, [edi+4]
+        jo      OV21
+        sar     eax, 10
         adc     eax, edx
         mov     [edi+4], eax
         test    ebx, ebx
@@ -464,8 +470,9 @@ term_minus_2_loop:
 L195:   xor     ebp, ebx
 L194:   mov     ebx, eax
         imul    eax, ecx
-        sar     eax, 10
         mov     edx, [edi]
+        jo      OV22
+        sar     eax, 10
         adc     eax, edx
         mov     [edi], eax
         add     edi, 8
@@ -486,6 +493,12 @@ L200:   xor     ecx, ebx
 L201:   cmp     edi, esi                    # compare bptr and eptr to see if we're done
         jb      term_minus_2_loop
         jmp     term_minus_2_done
+
+OV21:   mov     eax, ebx                    # restore previous sample into eax
+        jmp     long_term_minus_2_loop
+
+OV22:   mov     eax, ebx                    # restore previous sample into eax
+        jmp     L294
 
         .align  64
 long_term_minus_2_loop:
@@ -539,8 +552,7 @@ L301:   cmp     edi, esi                    # compare bptr and eptr to see if we
 
 term_minus_2_done:
         mov     edx, ebp
-        mov     ebp, esp                    # restore ebp (we've pushed 4 DWORDS)
-        add     ebp, 16
+        lea     ebp, [esp+16]               # restore ebp (we've pushed 4 DWORDS)
         mov     eax, [ebp+8]                # point to dpp
         mov     [eax+8], ecx
         mov     [eax+12], edx
@@ -700,8 +712,6 @@ default_mono_entry:
         imul    ebx, eax, -4                # set ebx to term * -4 for decorrelation index
         mov     edx, [ebp+8]                # edx = dpp*
         mov     ecx, [edx+8]                # ecx = weight
-        cmp     DWORD PTR [ebp+20], 0       # test long_math
-        jnz     long_default_mono_loop
         jmp     default_mono_loop
 
 #
@@ -715,27 +725,24 @@ default_mono_entry:
 #
 
 mono_17_entry:
-        cmp     DWORD PTR [ebp+20], 0       # test long_math
         mov     edx, [ebp+8]                # edx = dpp*
         mov     ecx, [edx+8]                # ecx = weight_A
         mov     ebp, [edi-4]
-        jnz     long_mono_17_loop
         jmp     mono_17_loop
 
 mono_18_entry:
-        cmp     DWORD PTR [ebp+20], 0       # test long_math
         mov     edx, [ebp+8]                # edx = dpp*
         mov     ecx, [edx+8]                # ecx = weight_A
         mov     ebp, [edi-4]
-        jnz     long_mono_18_loop
         jmp     mono_18_loop
 
         .align  64
 default_mono_loop:
         mov     eax, [edi+ebx]
         imul    eax, ecx
-        sar     eax, 10
         mov     edx, [edi]
+        jo      long_default_mono_loop
+        sar     eax, 10
         adc     eax, edx
         mov     [edi], eax
         mov     eax, [edi+ebx]
@@ -797,8 +804,9 @@ mono_17_loop:
         sub     ebx, [edi-8]
         mov     eax, ecx
         imul    eax, ebx
-        sar     eax, 10
         mov     edx, [edi]
+        jo      long_mono_17_loop
+        sar     eax, 10
         adc     eax, edx
         stosd
         test    ebx, ebx
@@ -850,8 +858,9 @@ mono_18_loop:
         sar     ebx, 1
         mov     eax, ecx
         imul    eax, ebx
-        sar     eax, 10
         mov     edx, [edi]
+        jo      long_mono_18_loop
+        sar     eax, 10
         adc     eax, edx
         stosd
         test    ebx, ebx
@@ -897,15 +906,13 @@ L218:   cmp     edi, esi                    # compare bptr and eptr to see if we
         jb      long_mono_18_loop
 
 mono_1718_exit:
-        mov     ebp, esp                    # restore ebp (we've pushed 4 DWORDS)
-        add     ebp, 16
+        lea     ebp, [esp+16]               # restore ebp (we've pushed 4 DWORDS)
         mov     edx, [ebp+8]                # edx = dpp*
         mov     [edx+8], ecx                # store weight_A back
-        mov     edx, [edi-4]                # dpp->samples_A [0] = bptr [-1];
-        mov     eax, [ebp+8]
-        mov     [eax+16], edx
-        mov     edx, [edi-8]                # dpp->samples_A [1] = bptr [-2];
-        mov     [eax+20], edx
+        mov     eax, [edi-4]                # dpp->samples_A [0] = bptr [-1];
+        mov     [edx+16], eax
+        mov     eax, [edi-8]                # dpp->samples_A [1] = bptr [-2];
+        mov     [edx+20], eax
 
 mono_done:
         pop     eax                         # pop delta & saved regs
