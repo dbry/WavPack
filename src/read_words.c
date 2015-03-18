@@ -31,7 +31,7 @@
 
 #define USE_CLZ_OPTIMIZATION      // use clz intrinsic to count trailing ones
 //#define USE_NEXT8_OPTIMIZATION  // old optimization using a table to count trailing ones
-//#define USE_BITMASK_TABLES      // use tables instead of shifting for certain masking operations
+#define USE_BITMASK_TABLES      // use tables instead of shifting for certain masking operations
 
 ///////////////////////////// local table storage ////////////////////////////
 
@@ -539,6 +539,7 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 
 static uint32_t inline read_code (Bitstream *bs, uint32_t maxcode)
 {
+    unsigned long local_sr;
     uint32_t extras, code;
     int bitcount;
 
@@ -552,30 +553,32 @@ static uint32_t inline read_code (Bitstream *bs, uint32_t maxcode)
     extras = (1 << bitcount) - maxcode - 1;
 #endif
 
+    local_sr = bs->sr;
+
     while (bs->bc < bitcount) {
         if (++(bs->ptr) == bs->end)
             bs->wrap (bs);
 
-        bs->sr |= *(bs->ptr) << bs->bc;
+        local_sr |= (long)*(bs->ptr) << bs->bc;
         bs->bc += sizeof (*(bs->ptr)) * 8;
     }
 
 #ifdef USE_BITMASK_TABLES
-    if ((code = bs->sr & bitmask [bitcount - 1]) >= extras)
+    if ((code = local_sr & bitmask [bitcount - 1]) >= extras)
 #else
-    if ((code = bs->sr & ((1 << (bitcount - 1)) - 1)) >= extras)
+    if ((code = local_sr & ((1 << (bitcount - 1)) - 1)) >= extras)
 #endif
-        code = (code << 1) - extras + ((bs->sr >> (bitcount - 1)) & 1);
+        code = (code << 1) - extras + ((local_sr >> (bitcount - 1)) & 1);
     else
         bitcount--;
 
-    if (bs->bc > 32) {
+    if (sizeof (local_sr) < 8 && bs->bc > sizeof (local_sr) * 8) {
         bs->bc -= bitcount;
         bs->sr = *(bs->ptr) >> (sizeof (*(bs->ptr)) * 8 - bs->bc);
     }
     else {
-        bs->sr >>= bitcount;
         bs->bc -= bitcount;
+        bs->sr = local_sr >> bitcount;
     }
 
     return code;
