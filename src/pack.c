@@ -21,6 +21,8 @@
 #include "wavpack_local.h"
 #include "decorr_tables.h"      // contains data, only include from this module!
 
+#define SAMPLES_PER_CHUNK 8192  // doing decorrelation in chunks reduces cache misses
+
 ///////////////////////////// executable code ////////////////////////////////
 
 // This function initializes everything required to pack WavPack bitstreams
@@ -988,63 +990,87 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     }
 #else
     if (!(flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
-        int32_t *alt_buffer = malloc (sizeof (int32_t) * sample_count), swapped = 0;
+        if (!wps->num_passes) {
+            int32_t *alt_buffer = malloc (sizeof (int32_t) * SAMPLES_PER_CHUNK), samples_left = sample_count;
 
-        if (!wps->num_passes)
-            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++, swapped ^= 1)
-                if (sample_count > 16) {
-                    int pre_samples = (dpp->term > MAX_TERM) ? 2 : dpp->term;
+            bptr = buffer;
 
-                    if (swapped) {
-                        decorr_mono_pass (buffer, alt_buffer, dpp, pre_samples);
-                        DECORR_MONO_PASS_CONT (buffer + pre_samples, alt_buffer + pre_samples, dpp, sample_count - pre_samples);
+            while (samples_left) {
+                int32_t samples_this_chunk = samples_left < SAMPLES_PER_CHUNK ? samples_left : SAMPLES_PER_CHUNK, swapped = 0;
+
+                for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++, swapped ^= 1)
+                    if (samples_this_chunk > 16) {
+                        int pre_samples = (dpp->term > MAX_TERM) ? 2 : dpp->term;
+
+                        if (swapped) {
+                            decorr_mono_pass (bptr, alt_buffer, dpp, pre_samples);
+                            DECORR_MONO_PASS_CONT (bptr + pre_samples, alt_buffer + pre_samples, dpp, samples_this_chunk - pre_samples);
+                        }
+                        else {
+                            decorr_mono_pass (alt_buffer, bptr, dpp, pre_samples);
+                            DECORR_MONO_PASS_CONT (alt_buffer + pre_samples, bptr + pre_samples, dpp, samples_this_chunk - pre_samples);
+                        }
                     }
-                    else {
-                        decorr_mono_pass (alt_buffer, buffer, dpp, pre_samples);
-                        DECORR_MONO_PASS_CONT (alt_buffer + pre_samples, buffer + pre_samples, dpp, sample_count - pre_samples);
-                    }
-                }
-                else if (swapped)
-                    decorr_mono_pass (buffer, alt_buffer, dpp, sample_count);
-                else
-                    decorr_mono_pass (alt_buffer, buffer, dpp, sample_count);
+                    else if (swapped)
+                        decorr_mono_pass (bptr, alt_buffer, dpp, samples_this_chunk);
+                    else
+                        decorr_mono_pass (alt_buffer, bptr, dpp, samples_this_chunk);
 
-        send_words_lossless (wps, swapped ? alt_buffer : buffer, sample_count);
-        free (alt_buffer);
+                send_words_lossless (wps, swapped ? alt_buffer : bptr, samples_this_chunk);
+                samples_left -= samples_this_chunk;
+                bptr += samples_this_chunk;
+            }
+
+            free (alt_buffer);
+        }
+        else
+            send_words_lossless (wps, buffer, sample_count);
     }
 #endif
     //////////////////// handle the lossless stereo mode //////////////////////
-
     else if (!(flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
-        int32_t *alt_buffer = malloc (sizeof (int32_t) * sample_count * 2), swapped = 0;
-        int32_t *eptr = buffer + (sample_count * 2);
-
         if (!wps->num_passes) {
-            if (flags & JOINT_STEREO)
-                for (bptr = buffer; bptr < eptr; bptr += 2)
-                    bptr [1] += ((bptr [0] -= bptr [1]) >> 1);
+            int32_t *alt_buffer = malloc (sizeof (int32_t) * SAMPLES_PER_CHUNK * 2), samples_left = sample_count;
 
-            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++, swapped ^= 1)
-                if (sample_count > 16) {
-                    int pre_samples = (dpp->term < 0 || dpp->term > MAX_TERM) ? 2 : dpp->term;
+            bptr = buffer;
 
-                    if (swapped) {
-                        decorr_stereo_pass (dpp, alt_buffer, buffer, pre_samples);
-                        DECORR_STEREO_PASS_CONT (dpp, alt_buffer + pre_samples * 2, buffer + pre_samples * 2, sample_count - pre_samples);
-                    }
-                    else {
-                        decorr_stereo_pass (dpp, buffer, alt_buffer, pre_samples);
-                        DECORR_STEREO_PASS_CONT (dpp, buffer + pre_samples * 2, alt_buffer + pre_samples * 2, sample_count - pre_samples);
-                    }
+            while (samples_left) {
+                int32_t samples_this_chunk = samples_left < SAMPLES_PER_CHUNK ? samples_left : SAMPLES_PER_CHUNK, swapped = 0;
+
+                if (flags & JOINT_STEREO) {
+                    int32_t *eptr = bptr + (samples_this_chunk * 2), *jptr;
+
+                    for (jptr = bptr; jptr < eptr; jptr += 2)
+                        jptr [1] += ((jptr [0] -= jptr [1]) >> 1);
                 }
-                else if (swapped)
-                    decorr_stereo_pass (dpp, alt_buffer, buffer, sample_count);
-                else
-                    decorr_stereo_pass (dpp, buffer, alt_buffer, sample_count);
-        }
 
-        send_words_lossless (wps, swapped ? alt_buffer : buffer, sample_count);
-        free (alt_buffer);
+                for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++, swapped ^= 1)
+                    if (samples_this_chunk > 16) {
+                        int pre_samples = (dpp->term < 0 || dpp->term > MAX_TERM) ? 2 : dpp->term;
+
+                        if (swapped) {
+                            decorr_stereo_pass (dpp, alt_buffer, bptr, pre_samples);
+                            DECORR_STEREO_PASS_CONT (dpp, alt_buffer + pre_samples * 2, bptr + pre_samples * 2, samples_this_chunk - pre_samples);
+                        }
+                        else {
+                            decorr_stereo_pass (dpp, bptr, alt_buffer, pre_samples);
+                            DECORR_STEREO_PASS_CONT (dpp, bptr + pre_samples * 2, alt_buffer + pre_samples * 2, samples_this_chunk - pre_samples);
+                        }
+                    }
+                    else if (swapped)
+                        decorr_stereo_pass (dpp, alt_buffer, bptr, samples_this_chunk);
+                    else
+                        decorr_stereo_pass (dpp, bptr, alt_buffer, samples_this_chunk);
+
+                send_words_lossless (wps, swapped ? alt_buffer : bptr, samples_this_chunk);
+                samples_left -= samples_this_chunk;
+                bptr += samples_this_chunk * 2;
+            }
+
+            free (alt_buffer);
+        }
+        else
+            send_words_lossless (wps, buffer, sample_count);
     }
 
     /////////////////// handle the lossy/hybrid mono mode /////////////////////
