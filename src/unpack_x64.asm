@@ -6,9 +6,9 @@
 ;;      Distributed under the BSD Software License (see license.txt)      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+        include <ksamd64.inc>
+
 asmcode segment page 'CODE'
-        public  unpack_decorr_stereo_pass_cont_x64
-        public  unpack_decorr_mono_pass_cont_x64
 
 ; This is an assembly optimized version of the following WavPack function:
 ;
@@ -36,9 +36,7 @@ asmcode segment page 'CODE'
 ; this is not easily used for terms -1 and -2, so these terms are handled
 ; sequentially with regular assembler code.
 ;
-; This version is for 64-bit Windows and uses the shadow area to store the
-; non-volatile registers and the decorr_pass pointer. The arguments are
-; passed in registers:
+; This version is for 64-bit Windows. The arguments are passed in registers:
 ;
 ;   rcx     struct decorr_pass *dpp
 ;   rdx     int32_t *buffer
@@ -51,22 +49,20 @@ asmcode segment page 'CODE'
 ;   rsi         eptr
 ;   ecx         long_math (only used for terms -1 and -2)
 ;
-; "Shadow area" usage:
+; stack usage:
 ;
-; [rbp+16] = *dpp
-; [rbp+24] = save rcx
-; [rbp+32] = save rsi
-; [rbp+40] = save rbx
+; [rsp+0] = *dpp
 ;
 
-unpack_decorr_stereo_pass_cont_x64:
-        push    rbp
-        mov     rbp, rsp
+unpack_decorr_stereo_pass_cont_x64 proc public frame
+        push_reg    rbp                     ; save non-volatile registers on stack
+        push_reg    rbx                     ; (alphabetically)
+        push_reg    rdi
+        push_reg    rsi
+        alloc_stack 8                       ; allocate 8 bytes on stack & align to 16 bytes
+        end_prologue
 
-        mov     [rbp+16], rcx               ; [rbp+16] = *dpp
-        mov     [rbp+24], rdi               ; save non-volatile registers in the shadows
-        mov     [rbp+32], rsi
-        mov     [rbp+40], rbx
+        mov     [rsp], rcx                  ; [rsp] = *dpp
         mov     rdi, rcx                    ; copy params from win regs to Linux regs
         mov     rsi, rdx                    ; so we can leave following code similar
         mov     rdx, r8
@@ -78,17 +74,17 @@ unpack_decorr_stereo_pass_cont_x64:
         mov     rdi, rsi                    ; rdi = bptr
         lea     rsi, [rdi+rdx*8]            ; rsi = eptr
 
-        mov     rax, [rbp+16]               ; get term from dpp struct & vector to handler
+        mov     rax, [rsp]                  ; get term from dpp struct & vector to handler
         mov     eax, [rax]
-        cmp     eax, 17
+        cmp     al, 17
         je      term_17_entry
-        cmp     eax, 18
+        cmp     al, 18
         je      term_18_entry
-        cmp     eax, -1
+        cmp     al, -1
         je      term_minus_1_entry
-        cmp     eax, -2
+        cmp     al, -2
         je      term_minus_2_entry
-        cmp     eax, -3
+        cmp     al, -3
         je      term_minus_3_entry
 
 ;
@@ -112,7 +108,7 @@ default_term_entry:
         mov     eax, 512
         movd    mm7, eax
         punpckldq mm7, mm7                  ; mm7 = round (512)
-        mov     rdx, [rbp+16]               ; set RDX to *dpp
+        mov     rdx, [rsp]                  ; set RDX to *dpp
         mov     eax, [rdx+4]
         movd    mm6, eax
         punpckldq mm6, mm6                  ; mm6 = delta (0-7)
@@ -156,7 +152,7 @@ default_term_loop:
 
         pslld   mm5, 16                     ; sign-extend 16-bit weights back to dwords
         psrad   mm5, 16
-        mov     rdx, [rbp+16]               ; point to dpp
+        mov     rdx, [rsp]                  ; point to dpp
         movq    [rdx+8], mm5                ; put weight_AB back
         emms
 
@@ -192,7 +188,7 @@ term_17_entry:
         mov     eax, 512
         movd    mm7, eax
         punpckldq mm7, mm7                  ; mm7 = round (512)
-        mov     rdx, [rbp+16]               ; set RDX to *dpp
+        mov     rdx, [rsp]                  ; set RDX to *dpp
         mov     eax, [rdx+4]
         movd    mm6, eax
         punpckldq mm6, mm6                  ; mm6 = delta (0-7)
@@ -241,7 +237,7 @@ term_18_entry:
         mov     eax, 512
         movd    mm7, eax
         punpckldq mm7, mm7                  ; mm7 = round (512)
-        mov     rdx, [rbp+16]               ; set RDX to *dpp
+        mov     rdx, [rsp]                  ; set RDX to *dpp
         mov     eax, [rdx+4]
         movd    mm6, eax
         punpckldq mm6, mm6                  ; mm6 = delta (0-7)
@@ -290,7 +286,7 @@ term_18_loop:
 term_1718_exit:
         pslld   mm5, 16                     ; sign-extend 16-bit weights back to dwords
         psrad   mm5, 16
-        mov     rdx, [rbp+16]               ; point to dpp
+        mov     rdx, [rsp]                  ; point to dpp
         movq    [rdx+8], mm5                ; put weight_AB back
         emms
 
@@ -317,7 +313,7 @@ term_1718_exit:
 
 term_minus_1_entry:
         cld
-        mov     rdx, [rbp+16]               ; point to dpp
+        mov     rdx, [rsp]                  ; point to dpp
         mov     ecx, [rdx+8]                ; ecx = weight_A
         mov     ebp, [rdx+12]               ; ebp = weight_B
         mov     r8d, [rdx+4]                ; r8d = delta
@@ -428,7 +424,7 @@ L287:   cmp     rdi, rsi                    ; compare bptr and eptr to see if we
         jb      long_term_minus_1_loop
 
 term_minus_1_done:
-        mov     rdx, [rsp+16]               ; point to dpp
+        mov     rdx, [rsp]                  ; point to dpp
         mov     [rdx+8], ecx                ; store weights back
         mov     [rdx+12], ebp
         mov     eax, [rdi-4]                ; dpp->samples_A [0] = bptr [-1];
@@ -436,7 +432,7 @@ term_minus_1_done:
         jmp     done
 
 term_minus_2_entry:
-        mov     rdx, [rbp+16]               ; point to dpp
+        mov     rdx, [rsp]                  ; point to dpp
         mov     ecx, [rdx+8]                ; ecx = weight_A
         mov     ebp, [rdx+12]               ; ebp = weight_B
         mov     r8d, [rdx+4]                ; r8d = delta
@@ -549,7 +545,7 @@ L299:   add     rdi, 8
         jb      long_term_minus_2_loop
 
 term_minus_2_done:
-        mov     rdx, [rsp+16]               ; point to dpp
+        mov     rdx, [rsp]                  ; point to dpp
         mov     [rdx+8], ecx                ; store weights back
         mov     [rdx+12], ebp
         mov     eax, [rdi-8]                ; dpp->samples_B [0] = bptr [-2];
@@ -575,7 +571,7 @@ term_minus_3_entry:
         mov     eax, 512
         movd    mm7, eax
         punpckldq mm7, mm7                  ; mm7 = round (512)
-        mov     rdx, [rbp+16]               ; set RDX to *dpp
+        mov     rdx, [rsp]                  ; set RDX to *dpp
         mov     eax, [rdx+4]
         movd    mm6, eax
         punpckldq mm6, mm6                  ; mm6 = delta (0-7)
@@ -628,25 +624,29 @@ term_minus_3_loop:
 
         pslld   mm5, 16                     ; sign-extend 16-bit weights back to dwords
         psrad   mm5, 16
-        mov     rdx, [rbp+16]               ; point to dpp
+        mov     rdx, [rsp]                  ; point to dpp
         movq    [rdx+8], mm5                ; put weight_AB back
         emms
 
         mov     edx, [rdi-4]                ; dpp->samples_A [0] = bptr [-1];
-        mov     rax, [rbp+16] 
+        mov     rax, [rsp] 
         mov     [rax+16], edx
         mov     edx, [rdi-8]                ; dpp->samples_B [0] = bptr [-2];
         mov     [rax+48], edx
 
-done:   mov     rdi, [rsp+24]               ; restore non-volatile registers from the shadows
-        mov     rsi, [rsp+32]
-        mov     rbx, [rsp+40]
-        pop     rbp                         ; restore rbp and return
+done:   add     rsp, 8                      ; begin epilog by deallocating stack
+        pop     rsi                         ; restore non-volatile registers & return
+        pop     rdi
+        pop     rbx
+        pop     rbp
         ret
+
+unpack_decorr_stereo_pass_cont_x64 endp
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-; This is the mono version of the above function. It does not use MMX and does not handle negative terms.
+; This is the mono version of the above function. It does not use MMX and does not
+; handle negative terms (since they don't apply to mono), but is otherwise similar.
 ;
 ; void unpack_decorr_mono_pass_cont (struct decorr_pass *dpp,
 ;                                    int32_t *buffer,
@@ -665,22 +665,20 @@ done:   mov     rdi, [rsp+24]               ; restore non-volatile registers fro
 ;   rsi         eptr
 ;   ecx         long_math
 ;
-; "Shadow area" usage:
+; stack usage:
 ;
-; [rbp+16] = *dpp
-; [rbp+24] = save rcx
-; [rbp+32] = save rsi
-; [rbp+40] = save rbx
+; [rsp+0] = *dpp
 ;
 
-unpack_decorr_mono_pass_cont_x64:
-        push    rbp
-        mov     rbp, rsp
+unpack_decorr_mono_pass_cont_x64 proc public frame
+        push_reg    rbp                     ; save non-volatile registers on stack
+        push_reg    rbx                     ; (alphabetically)
+        push_reg    rdi
+        push_reg    rsi
+        alloc_stack 8                       ; allocate 8 bytes on stack & align to 16 bytes
+        end_prologue
 
-        mov     [rbp+16], rcx               ; [rbp+16] = *dpp
-        mov     [rbp+24], rdi               ; save non-volatile registers in the shadows
-        mov     [rbp+32], rsi
-        mov     [rbp+40], rbx
+        mov     [rsp], rcx                  ; [rsp] = *dpp
         mov     rdi, rcx                    ; copy params from win regs to Linux regs
         mov     rsi, rdx                    ; so we can leave following code similar
         mov     rdx, r8
@@ -692,11 +690,11 @@ unpack_decorr_mono_pass_cont_x64:
         mov     rdi, rsi                    ; rdi = bptr
         lea     rsi, [rdi+rdx*4]            ; rsi = eptr
 
-        mov     rax, [rbp+16]               ; get term from dpp struct & vector to handler
+        mov     rax, [rsp]                  ; get term from dpp struct & vector to handler
         mov     eax, [rax]
-        cmp     eax, 17
+        cmp     al, 17
         je      mono_17_entry
-        cmp     eax, 18
+        cmp     al, 18
         je      mono_18_entry
 
 ;
@@ -711,7 +709,7 @@ unpack_decorr_mono_pass_cont_x64:
 
 default_mono_entry:
         imul    rbx, rax, -4                ; set rbx to term * -4 for decorrelation index
-        mov     rdx, [rbp+16]
+        mov     rdx, [rsp]
         mov     ecx, [rdx+8]                ; ecx = weight, r8d = delta
         mov     r8d, [rdx+4]
         jmp     default_mono_loop
@@ -728,14 +726,14 @@ default_mono_entry:
 ;
 
 mono_17_entry:
-        mov     rdx, [rbp+16]               ; rdx = dpp*
+        mov     rdx, [rsp]                  ; rdx = dpp*
         mov     ecx, [rdx+8]                ; ecx = weight, r8d = delta
         mov     r8d, [rdx+4]
         mov     ebp, [rdi-4]
         jmp     mono_17_loop
 
 mono_18_entry:
-        mov     rdx, [rbp+16]               ; rdx = dpp*
+        mov     rdx, [rsp]                  ; rdx = dpp*
         mov     ecx, [rdx+8]                ; ecx = weight, r8d = delta
         mov     r8d, [rdx+4]
         mov     ebp, [rdi-4]
@@ -790,7 +788,7 @@ L101:   cmp     rdi, rsi                    ; compare bptr and eptr to see if we
         jb      long_default_mono_loop
 
 default_mono_done:
-        mov     rdx, [rbp+16]               ; edx = dpp*
+        mov     rdx, [rsp]                  ; edx = dpp*
         mov     [rdx+8], ecx                ; store weight_A back
         mov     ecx, [rdx]                  ; ecx = dpp->term
 
@@ -907,7 +905,7 @@ L218:   cmp     rdi, rsi                    ; compare bptr and eptr to see if we
         jb      long_mono_18_loop
 
 mono_1718_exit:
-        mov     rdx, [rsp+16]               ; edx = dpp*
+        mov     rdx, [rsp]                  ; edx = dpp*
         mov     [rdx+8], ecx                ; store weight_A back
         mov     eax, [rdi-4]                ; dpp->samples_A [0] = bptr [-1];
         mov     [rdx+16], eax
@@ -915,11 +913,14 @@ mono_1718_exit:
         mov     [rdx+20], eax
 
 mono_done:
-        mov     rdi, [rsp+24]               ; restore non-volatile registers from the shadows
-        mov     rsi, [rsp+32]
-        mov     rbx, [rsp+40]
-        pop     rbp                         ; restore rbp and return
+        add     rsp, 8                      ; begin epilog by deallocating stack
+        pop     rsi                         ; restore non-volatile registers & return
+        pop     rdi
+        pop     rbx
+        pop     rbp
         ret
+
+unpack_decorr_mono_pass_cont_x64 endp
 
 asmcode ends
 

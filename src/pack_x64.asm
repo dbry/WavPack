@@ -6,11 +6,12 @@
 ;;      Distributed under the BSD Software License (see license.txt)      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-asmcode segment page 'CODE'
+        include <ksamd64.inc>
+
         public  pack_decorr_stereo_pass_cont_rev_x64
         public  pack_decorr_stereo_pass_cont_x64
-        public  pack_decorr_mono_pass_cont_x64
-        public  log2buffer_x64
+
+asmcode segment page 'CODE'
 
 ; This module contains X64 assembly optimized versions of functions required
 ; to encode WavPack files.
@@ -43,9 +44,10 @@ asmcode segment page 'CODE'
 ; the original MMX code written by Joachim Henke that used MMX intrinsics
 ; called from C. Many thanks to Joachim for that!
 ;
-; This version is for 64-bit Windows and uses the shadow area to store the
-; non-volatile registers and the decorr_pass pointer. The arguments are
-; passed in registers:
+; This version is for 64-bit Windows. Note that the two public functions
+; are "leaf" functions that simply load rax with the direction and jump
+; into the private common "frame" function. The arguments are passed in
+; registers:
 ;
 ;   struct decorr_pass *dpp     rcx
 ;   int32_t *in_buffer          rdx
@@ -67,28 +69,28 @@ asmcode segment page 'CODE'
 ;   mm6         delta
 ;   mm7         512 (for rounding)
 ;
-; "Shadow area" usage:
+; stack usage:
 ;
-; [rbp+16] = *dpp
-; [rbp+24] = save rcx
-; [rbp+32] = save rsi
-; [rbp+40] = save rbx
+; [rsp+0] = *dpp
 ;
 
 pack_decorr_stereo_pass_cont_rev_x64:
         mov     rax, 8                      ; get value for reverse direction & jump
-        jmp     start
+        jmp     pack_decorr_stereo_pass_cont_common
 
 pack_decorr_stereo_pass_cont_x64:
-        mov     rax, -8                     ; get value for forward direction
+        mov     rax, -8                     ; get value for forward direction & jump
+        jmp     pack_decorr_stereo_pass_cont_common
 
-start:  push    rbp                         ; set up stack frame
-        mov     rbp, rsp
+pack_decorr_stereo_pass_cont_common proc frame
+        push_reg    rbp                     ; save non-volatile registers on stack
+        push_reg    rbx                     ; (alphabetically)
+        push_reg    rdi
+        push_reg    rsi
+        alloc_stack 8                       ; allocate 8 bytes on stack & align to 16 bytes
+        end_prologue
 
-        mov     [rbp+16], rcx               ; [rbp+16] = *dpp
-        mov     [rbp+24], rdi               ; save non-volatile registers in the shadows
-        mov     [rbp+32], rsi
-        mov     [rbp+40], rbx
+        mov     [rsp], rcx                  ; [rsp] = *dpp
         mov     rdi, rcx                    ; copy params from win regs to Linux regs
         mov     rsi, rdx                    ; so we can leave following code similar
         mov     rdx, r8
@@ -101,29 +103,29 @@ start:  push    rbp                         ; set up stack frame
         movd    mm7, eax
         punpckldq mm7, mm7                  ; mm7 = round (512)
 
-        mov     rax, [rbp+16]               ; access dpp
+        mov     rax, [rsp]                  ; access dpp
         mov     eax, [rax+4]
         movd    mm6, eax
         punpckldq mm6, mm6                  ; mm6 = delta (0-7)
 
-        mov     rax, [rbp+16]               ; access dpp
+        mov     rax, [rsp]                  ; access dpp
         movq    mm5, [rax+8]                ; mm5 = weight_AB
         movq    mm4, [rax+88]               ; mm4 = sum_AB
 
         mov     rbx, rdx                    ; rbx = out_buffer (rdx) - in_buffer (rdi)
         sub     rbx, rdi
 
-        mov     rax, [rbp+16]               ; *eax = dpp
+        mov     rax, [rsp]                  ; *eax = dpp
         movsxd  rax, DWORD PTR [rax]        ; get term and vector to correct loop
-        cmp     eax, 17
+        cmp     al, 17
         je      term_17_loop
-        cmp     eax, 18
+        cmp     al, 18
         je      term_18_loop
-        cmp     eax, -1
+        cmp     al, -1
         je      term_minus_1_loop
-        cmp     eax, -2
+        cmp     al, -2
         je      term_minus_2_loop
-        cmp     eax, -3
+        cmp     al, -3
         je      term_minus_3_loop
 
         sal     rax, 3
@@ -171,12 +173,12 @@ default_term_loop:
         dec     ecx
         jnz     default_term_loop
 
-        mov     rax, [rbp+16]               ; access dpp
+        mov     rax, [rsp]                  ; access dpp
         movq    [rax+8], mm5                ; put weight_AB back
         movq    [rax+88], mm4               ; put sum_AB back
         emms
 
-        mov     rdx, [rbp+16]               ; access dpp with rdx
+        mov     rdx, [rsp]                  ; access dpp with rdx
         movsxd  rcx, DWORD PTR [rdx]        ; rcx = dpp->term
 
 default_store_samples:
@@ -230,7 +232,7 @@ term_17_loop:
         dec     ecx
         jnz     term_17_loop
 
-        mov     rax, [rbp+16]               ; access dpp
+        mov     rax, [rsp]                  ; access dpp
         movq    [rax+8], mm5                ; put weight_AB back
         movq    [rax+88], mm4               ; put sum_AB back
         emms
@@ -278,14 +280,14 @@ term_18_loop:
         paddd   mm4, mm5                    ; add weights to sum
         jnz     term_18_loop
 
-        mov     rax, [rbp+16]               ; access dpp
+        mov     rax, [rsp]                  ; access dpp
         movq    [rax+8], mm5                ; put weight_AB back
         movq    [rax+88], mm4               ; put sum_AB back
         emms
 
 term_1718_common_store:
 
-        mov     rax, [rbp+16]               ; access dpp
+        mov     rax, [rsp]                  ; access dpp
         add     rdi, rsi                    ; back up a full sample
         mov     edx, [rdi+4]                ; dpp->samples_B [0] = iptr [-1];
         mov     [rax+48], edx
@@ -344,14 +346,14 @@ term_minus_1_loop:
         dec     ecx
         jnz     term_minus_1_loop
 
-        mov     rax, [rbp+16]               ; access dpp
+        mov     rax, [rsp]                  ; access dpp
         movq    [rax+8], mm5                ; put weight_AB back
         movq    [rax+88], mm4               ; put sum_AB back
         emms
 
         add     rdi, rsi                    ; back up a full sample
         mov     edx, [rdi+4]                ; dpp->samples_A [0] = iptr [-1];
-        mov     rax, [rbp+16]
+        mov     rax, [rsp]
         mov     [rax+16], edx
         jmp     done
 
@@ -401,14 +403,14 @@ term_minus_2_loop:
         dec     ecx
         jnz     term_minus_2_loop
 
-        mov     rax, [rbp+16]               ; access dpp
+        mov     rax, [rsp]                  ; access dpp
         movq    [rax+8], mm5                ; put weight_AB back
         movq    [rax+88], mm4               ; put sum_AB back
         emms
 
         add     rdi, rsi                    ; back up a full sample
         mov     edx, [rdi]                  ; dpp->samples_B [0] = iptr [-2];
-        mov     rax, [rbp+16]
+        mov     rax, [rsp]
         mov     [rax+48], edx
         jmp     done
 
@@ -459,23 +461,26 @@ term_minus_3_loop:
         dec     ecx
         jnz     term_minus_3_loop
 
-        mov     rax, [rbp+16]               ; access dpp
+        mov     rax, [rsp]                  ; access dpp
         movq    [rax+8], mm5                ; put weight_AB back
         movq    [rax+88], mm4               ; put sum_AB back
         emms
 
         add     rdi, rsi                    ; back up a full sample
         mov     edx, [rdi+4]                ; dpp->samples_A [0] = iptr [-1];
-        mov     rax, [rbp+16]
+        mov     rax, [rsp]
         mov     [rax+16], edx
         mov     edx, [rdi]                  ; dpp->samples_B [0] = iptr [-2];
         mov     [rax+48], edx
 
-done:   mov     rdi, [rsp+24]               ; restore non-volatile registers from the shadows
-        mov     rsi, [rsp+32]
-        mov     rbx, [rsp+40]
-        pop     rbp                         ; restore rbp and return
+done:   add     rsp, 8                      ; begin epilog by deallocating stack
+        pop     rsi                         ; restore non-volatile registers & return
+        pop     rdi
+        pop     rbx
+        pop     rbp
         ret
+
+pack_decorr_stereo_pass_cont_common endp
 
 ; This is an assembly optimized version of the following WavPack function:
 ;
@@ -497,21 +502,17 @@ done:   mov     rdi, [rsp+24]               ; restore non-volatile registers fro
 ; for the rest of the loop.
 ;
 ; This is written to work on an X86-64 processor (also called the AMD64)
-; running in 64-bit mode. This version is for 64-bit Windows and uses the
-; shadow area to store the non-volatile registers and the decorr_pass
-; pointer. The arguments are passed in registers:
+; running in 64-bit mode. This version is for 64-bit Windows and the
+; arguments are passed in registers:
 ;
 ;   int32_t *out_buffer         rcx
 ;   int32_t *in_buffer          rdx
 ;   struct decorr_pass *dpp     r8
 ;   int32_t sample_count        r9
 ;
-; "Shadow area" usage:
+; stack usage:
 ;
-; [rbp+16] = *dpp
-; [rbp+24] = save rcx
-; [rbp+32] = save rsi
-; [rbp+40] = save rbx
+; [rsp] = *dpp
 ;
 ; Register usage:
 ;
@@ -524,14 +525,15 @@ done:   mov     rdi, [rsp+24]               ; restore non-volatile registers fro
 ; r9  = eptr
 ;
 
-pack_decorr_mono_pass_cont_x64:
-        push    rbp                         ; set up stack frame
-        mov     rbp, rsp
+pack_decorr_mono_pass_cont_x64 proc public frame
+        push_reg    rbp                     ; save non-volatile registers on stack
+        push_reg    rbx                     ; (alphabetically)
+        push_reg    rdi
+        push_reg    rsi
+        alloc_stack 8                       ; allocate 8 bytes on stack & align to 16 bytes
+        end_prologue
 
-        mov     [rbp+16], r8                ; [rbp+16] = *dpp
-        mov     [rbp+24], rdi               ; save non-volatile registers in the shadows
-        mov     [rbp+32], rsi
-        mov     [rbp+40], rbx
+        mov     [rsp], r8                   ; [rsp] = *dpp
         mov     rdi, rcx                    ; copy params from win regs to Linux regs
         mov     rsi, rdx                    ; so we can leave following code similar
         mov     rdx, r8
@@ -545,9 +547,9 @@ pack_decorr_mono_pass_cont_x64:
         lea     r9, [rsi+rcx*4]             ; r9 = eptr
         mov     ecx, [rsi-4]                ; preload last sample
         mov     eax, [rdx]                  ; get term
-        cmp     eax, 17
+        cmp     al, 17
         je      mono_term_17_loop
-        cmp     eax, 18
+        cmp     al, 18
         je      mono_term_18_loop
 
         imul    rcx, rax, -4                ; rcx is index to correlation sample
@@ -600,7 +602,7 @@ L280:   cmp     rsi, r9
         jnz     mono_default_term_long
 
 mono_default_term_done:
-        mov     rdx, [rsp+16]               ; rdx = *dpp
+        mov     rdx, [rsp]                  ; rdx = *dpp
         mov     [rdx+8], ebp                ; put weight back
         movsxd  rcx, DWORD PTR [rdx]        ; rcx = dpp->term
 
@@ -717,7 +719,7 @@ L283:   cmp     rsi, r9
         jnz     mono_term_18_long
 
 mono_term_1718_exit:
-        mov     rdx, [rsp+16]               ; rdx = *dpp
+        mov     rdx, [rsp]                  ; rdx = *dpp
         mov     [rdx+8], ebp                ; put weight back
         mov     eax, [rsi-4]                ; dpp->samples_A [0] = bptr [-1]
         mov     [rdx+16], eax
@@ -725,11 +727,14 @@ mono_term_1718_exit:
         mov     [rdx+20], eax
 
 mono_done:
-        mov     rdi, [rsp+24]               ; restore non-volatile registers from the shadows
-        mov     rsi, [rsp+32]
-        mov     rbx, [rsp+40]
-        pop     rbp                         ; restore rbp and return
+        add     rsp, 8                      ; begin epilog by deallocating stack
+        pop     rsi                         ; restore non-volatile registers & return
+        pop     rdi
+        pop     rbx
+        pop     rbp
         ret
+
+pack_decorr_mono_pass_cont_x64 endp
 
 ; This is an assembly optimized version of the following WavPack function:
 ;
@@ -741,9 +746,8 @@ mono_done:
 ; is proportional to the base 2 log of the samples.
 ;
 ; This is written to work on an X86-64 processor (also called the AMD64)
-; running in 64-bit mode. This version is for 64-bit Windows and uses the
-; shadow area to store the non-volatile registers. The arguments are
-; passed in registers:
+; running in 64-bit mode. This version is for 64-bit Windows and the
+; arguments are passed in registers:
 ;
 ;   int32_t *samples            rcx
 ;   uint32_t num_samples        rdx
@@ -783,13 +787,14 @@ log2_table:
 
         .radix  10
 
-log2buffer_x64:
-        push    rbp
-        mov     rbp, rsp
+log2buffer_x64 proc public frame
+        push_reg    rbp                     ; save non-volatile registers on stack
+        push_reg    rbx                     ; (alphabetically)
+        push_reg    rdi
+        push_reg    rsi
+        alloc_stack 8                       ; allocate 8 bytes on stack & align to 16 bytes
+        end_prologue
 
-        mov     [rbp+24], rdi               ; save non-volatile registers in the shadows
-        mov     [rbp+32], rsi
-        mov     [rbp+40], rbx
         mov     rdi, rcx                    ; copy params from win regs to Linux regs
         mov     rsi, rdx                    ; so we can leave following code similar
         mov     rdx, r8
@@ -860,11 +865,14 @@ limit_exceeded:
 normal_exit:
         mov     eax, edi                    ; move sum accumulator into eax for return
 
-        mov     rdi, [rsp+24]               ; restore non-volatile registers from the shadows
-        mov     rsi, [rsp+32]
-        mov     rbx, [rsp+40]
-        pop     rbp                         ; restore rbp and return
+        add     rsp, 8                      ; begin epilog by deallocating stack
+        pop     rsi                         ; restore non-volatile registers & return
+        pop     rdi
+        pop     rbx
+        pop     rbp
         ret
+
+log2buffer_x64 endp
 
 asmcode ends
 
