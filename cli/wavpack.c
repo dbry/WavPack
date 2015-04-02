@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2013 Conifer Software.               //
+//                Copyright (c) 1998 - 2015 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -69,7 +69,7 @@ static char *strdup (const char *s)
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2013 Conifer Software.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2015 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *usage =
 #if defined (WIN32)
