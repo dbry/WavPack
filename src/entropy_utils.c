@@ -284,7 +284,10 @@ int FASTCALL mylog2 (uint32_t avalue)
 // This function scans a buffer of longs and accumulates the total log2 value
 // of all the samples. This is useful for determining maximum compression
 // because the bitstream storage required for entropy coding is proportional
-// to the base 2 log of the samples.
+// to the base 2 log of the samples. On some platforms there is an assembly
+// version of this.
+
+#if !defined(OPT_ASM_X86) && !defined(OPT_ASM_X64)
 
 uint32_t log2buffer (int32_t *samples, uint32_t num_samples, int limit)
 {
@@ -315,6 +318,8 @@ uint32_t log2buffer (int32_t *samples, uint32_t num_samples, int limit)
 
     return result;
 }
+
+#endif
 
 // This function returns the log2 for the specified 32-bit signed value.
 // All input values are valid and the return values are in the range of

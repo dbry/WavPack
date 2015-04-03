@@ -34,6 +34,16 @@
 
 //#define EXTRA_DUMP        // dump generated filter data  error_line()
 
+#ifdef OPT_ASM_X86
+#define LOG2BUFFER log2buffer_x86
+uint32_t log2buffer_x86 (int32_t *samples, uint32_t num_samples, int limit);
+#elif defined(OPT_ASM_X64)
+#define LOG2BUFFER log2buffer_x64
+uint32_t log2buffer_x64 (int32_t *samples, uint32_t num_samples, int limit);
+#else
+#define LOG2BUFFER log2buffer
+#endif
+
 typedef struct {
     int32_t *sampleptrs [MAX_NTERMS+2];
     struct decorr_pass dps [MAX_NTERMS];
@@ -225,7 +235,7 @@ static void recurse_mono (WavpackContext *wpc, WavpackExtraInfo *info, int depth
         info->dps [depth].term = term;
         info->dps [depth].delta = delta;
         decorr_mono_buffer (samples, outsamples, wps->wphdr.block_samples, info->dps, depth);
-        bits = log2buffer (outsamples, wps->wphdr.block_samples, info->log_limit);
+        bits = LOG2BUFFER (outsamples, wps->wphdr.block_samples, info->log_limit);
 
         if (bits != (uint32_t) -1)
             bits += log2overhead (info->dps [0].term, depth + 1);
@@ -290,7 +300,7 @@ static void delta_mono (WavpackContext *wpc, WavpackExtraInfo *info)
             decorr_mono_buffer (info->sampleptrs [i], info->sampleptrs [i+1], wps->wphdr.block_samples, info->dps, i);
         }
 
-        bits = log2buffer (info->sampleptrs [i], wps->wphdr.block_samples, info->log_limit);
+        bits = LOG2BUFFER (info->sampleptrs [i], wps->wphdr.block_samples, info->log_limit);
 
         if (bits != (uint32_t) -1)
             bits += log2overhead (wps->decorr_passes [0].term, i);
@@ -315,7 +325,7 @@ static void delta_mono (WavpackContext *wpc, WavpackExtraInfo *info)
             decorr_mono_buffer (info->sampleptrs [i], info->sampleptrs [i+1], wps->wphdr.block_samples, info->dps, i);
         }
 
-        bits = log2buffer (info->sampleptrs [i], wps->wphdr.block_samples, info->log_limit);
+        bits = LOG2BUFFER (info->sampleptrs [i], wps->wphdr.block_samples, info->log_limit);
 
         if (bits != (uint32_t) -1)
             bits += log2overhead (wps->decorr_passes [0].term, i);
@@ -359,7 +369,7 @@ static void sort_mono (WavpackContext *wpc, WavpackExtraInfo *info)
             for (i = ri; i < info->nterms && wps->decorr_passes [i].term; ++i)
                 decorr_mono_buffer (info->sampleptrs [i], info->sampleptrs [i+1], wps->wphdr.block_samples, info->dps, i);
 
-            bits = log2buffer (info->sampleptrs [i], wps->wphdr.block_samples, info->log_limit);
+            bits = LOG2BUFFER (info->sampleptrs [i], wps->wphdr.block_samples, info->log_limit);
 
             if (bits != (uint32_t) -1)
                 bits += log2overhead (wps->decorr_passes [0].term, i);
@@ -413,13 +423,13 @@ static void analyze_mono (WavpackContext *wpc, int32_t *samples, int do_samples)
     for (i = 0; i < info.nterms && info.dps [i].term; ++i)
         decorr_mono_pass (info.sampleptrs [i], info.sampleptrs [i + 1], wps->wphdr.block_samples, info.dps + i, 1);
 
-    info.best_bits = log2buffer (info.sampleptrs [info.nterms], wps->wphdr.block_samples, 0) * 1;
+    info.best_bits = LOG2BUFFER (info.sampleptrs [info.nterms], wps->wphdr.block_samples, 0) * 1;
     info.best_bits += log2overhead (info.dps [0].term, i);
     memcpy (info.sampleptrs [info.nterms + 1], info.sampleptrs [i], wps->wphdr.block_samples * 4);
 
     if (wpc->config.extra_flags & EXTRA_BRANCHES)
         recurse_mono (wpc, &info, 0, (int) floor (wps->delta_decay + 0.5),
-            log2buffer (info.sampleptrs [0], wps->wphdr.block_samples, 0));
+            LOG2BUFFER (info.sampleptrs [0], wps->wphdr.block_samples, 0));
 
     if (wpc->config.extra_flags & EXTRA_SORT_FIRST)
         sort_mono (wpc, &info);
@@ -605,7 +615,7 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
             decorr_mono_pass (temp_buffer [j&1], temp_buffer [~j&1], num_samples, &temp_decorr_pass, 1);
         }
 
-        size = log2buffer (temp_buffer [j&1], num_samples, log_limit);
+        size = LOG2BUFFER (temp_buffer [j&1], num_samples, log_limit);
 
         if (size == (uint32_t) -1 && nterms)
             nterms >>= 1;
