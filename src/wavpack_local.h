@@ -619,7 +619,7 @@ uint32_t bs_close_read (Bitstream *bs);
 #define INC_MED2() (c->median [2] += ((c->median [2] + DIV2) / DIV2) * 5)
 #define DEC_MED2() (c->median [2] -= ((c->median [2] + (DIV2-2)) / DIV2) * 2)
 
-#if 1
+#ifdef __GNUC__
 #define count_bits(av) ((av) ? 32 - __builtin_clz (av) : 0)
 #else
 #define count_bits(av) ( \
@@ -765,58 +765,5 @@ void free_tag (M_Tag *m_tag);
 int valid_tag (M_Tag *m_tag);
 int editable_tag (M_Tag *m_tag);
 
-///////////////////////////// SIMD helper macros /////////////////////////////
-
-#ifdef OPT_MMX
-
-#if defined (__GNUC__) && !defined (__INTEL_COMPILER)
-//directly map to gcc's native builtins for faster code
-
-#if __GNUC__ < 4
-typedef int __di __attribute__ ((__mode__ (__DI__)));
-typedef int __m64 __attribute__ ((__mode__ (__V2SI__)));
-typedef int __v4hi __attribute__ ((__mode__ (__V4HI__)));
-#define _m_paddsw(m1, m2) (__m64) __builtin_ia32_paddsw ((__v4hi) m1, (__v4hi) m2)
-#define _m_pand(m1, m2) (__m64) __builtin_ia32_pand ((__di) m1, (__di) m2)
-#define _m_pandn(m1, m2) (__m64) __builtin_ia32_pandn ((__di) m1, (__di) m2)
-#define _m_pmaddwd(m1, m2) __builtin_ia32_pmaddwd ((__v4hi) m1, (__v4hi) m2)
-#define _m_por(m1, m2) (__m64) __builtin_ia32_por ((__di) m1, (__di) m2)
-#define _m_pxor(m1, m2) (__m64) __builtin_ia32_pxor ((__di) m1, (__di) m2)
-#else
-typedef int __m64 __attribute__ ((__vector_size__ (8)));
-typedef short __m64_16 __attribute__ ((__vector_size__ (8)));
-#define _m_paddsw(m1, m2) (__m64) __builtin_ia32_paddsw ((__m64_16) m1, (__m64_16) m2)
-#define _m_pand(m1, m2) __builtin_ia32_pand (m1, m2)
-#define _m_pandn(m1, m2) __builtin_ia32_pandn (m1, m2)
-#define _m_pmaddwd(m1, m2) __builtin_ia32_pmaddwd ((__m64_16) m1, (__m64_16) m2)
-#define _m_por(m1, m2) __builtin_ia32_por (m1, m2)
-#define _m_pxor(m1, m2) __builtin_ia32_pxor (m1, m2)
 #endif
 
-#define _m_paddd(m1, m2) __builtin_ia32_paddd (m1, m2)
-#define _m_pcmpeqd(m1, m2) __builtin_ia32_pcmpeqd (m1, m2)
-
-#if (__GNUC__ == 4 && __GNUC_MINOR__ >= 4) || __GNUC__ > 4 || __has_builtin(__builtin_ia32_pslldi)
-#	define _m_pslldi(m1, m2) __builtin_ia32_pslldi ((__m64)m1, m2)
-#	define _m_psradi(m1, m2) __builtin_ia32_psradi ((__m64)m1, m2)
-#	define _m_psrldi(m1, m2) __builtin_ia32_psrldi ((__m64)m1, m2)
-#else
-#	define _m_pslldi(m1, m2) __builtin_ia32_pslld (m1, m2)
-#	define _m_psradi(m1, m2) __builtin_ia32_psrad (m1, m2)
-#	define _m_psrldi(m1, m2) __builtin_ia32_psrld (m1, m2)
-#endif
-
-#define _m_psubd(m1, m2) __builtin_ia32_psubd (m1, m2)
-#define _m_punpckhdq(m1, m2) __builtin_ia32_punpckhdq (m1, m2)
-#define _m_punpckldq(m1, m2) __builtin_ia32_punpckldq (m1, m2)
-#define _mm_empty() __builtin_ia32_emms ()
-#define _mm_set_pi32(m1, m2) { m2, m1 }
-#define _mm_set1_pi32(m) { m, m }
-
-#else
-#include <mmintrin.h>
-#endif
-
-#endif //OPT_MMX
-
-#endif

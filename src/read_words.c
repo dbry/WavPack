@@ -29,8 +29,12 @@
 
 #include "wavpack_local.h"
 
-#define USE_CLZ_OPTIMIZATION      // use clz intrinsic to count trailing ones
-//#define USE_NEXT8_OPTIMIZATION  // old optimization using a table to count trailing ones
+#if defined (__GNUC__) || defined (_WIN64)
+#define USE_CLZ_OPTIMIZATION    // use clz intrinsic to count trailing ones
+#else
+#define USE_NEXT8_OPTIMIZATION  // optimization using a table to count trailing ones
+#endif
+
 #define USE_BITMASK_TABLES      // use tables instead of shifting for certain masking operations
 
 ///////////////////////////// local table storage ////////////////////////////
@@ -50,7 +54,7 @@ static const char ones_count_table [] = {
 
 ///////////////////////////// executable code ////////////////////////////////
 
-static uint32_t inline read_code (Bitstream *bs, uint32_t maxcode);
+static uint32_t __inline read_code (Bitstream *bs, uint32_t maxcode);
 
 // Read the next word from the bitstream "wvbits" and return the value. This
 // function can be used for hybrid or lossless streams, but since an
@@ -64,8 +68,8 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
 {
     register struct entropy_data *c = wps->w.c + chan;
     uint32_t ones_count, low, mid, high;
-    int next8, sign;
     int32_t value;
+    int sign;
 
     if (correction)
         *correction = 0;
@@ -117,7 +121,11 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
             wps->wvbits.bc += sizeof (*(wps->wvbits.ptr)) * 8;
         }
 
+#ifdef WIN32
+        _BitScanForward (&ones_count, ~wps->wvbits.sr);
+#else
         ones_count = __builtin_ctz (~wps->wvbits.sr);
+#endif
 
         if (ones_count >= LIMIT_ONES) {
             wps->wvbits.bc -= ones_count;
@@ -155,6 +163,8 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
             wps->wvbits.sr >>= ones_count + 1;
         }
 #elif defined (USE_NEXT8_OPTIMIZATION)
+        int next8;
+
         if (wps->wvbits.bc < 8) {
             if (++(wps->wvbits.ptr) == wps->wvbits.end)
                 wps->wvbits.wrap (&wps->wvbits);
@@ -312,7 +322,10 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
     struct entropy_data *c = wps->w.c;
     uint32_t ones_count, low, high;
     Bitstream *bs = &wps->wvbits;
-    int32_t csamples, next8;
+    int32_t csamples;
+#ifdef USE_NEXT8_OPTIMIZATION
+    int32_t next8;
+#endif
 
     if (!(wps->wphdr.flags & MONO_DATA))
         nsamples *= 2;
@@ -378,7 +391,11 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
             bs->bc += sizeof (*(bs->ptr)) * 8;
         }
 
-        ones_count = __builtin_ctz (~bs->sr);
+#ifdef WIN32
+        _BitScanForward (&ones_count, ~wps->wvbits.sr);
+#else
+        ones_count = __builtin_ctz (~wps->wvbits.sr);
+#endif
 
         if (ones_count >= LIMIT_ONES) {
             bs->bc -= ones_count;
@@ -537,7 +554,7 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 // minimum number of bits and then determines whether another bit is needed
 // to define the code.
 
-static uint32_t inline read_code (Bitstream *bs, uint32_t maxcode)
+static uint32_t __inline read_code (Bitstream *bs, uint32_t maxcode)
 {
     unsigned long local_sr;
     uint32_t extras, code;
