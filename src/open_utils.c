@@ -648,7 +648,7 @@ static int read_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 
 static int read_wrapper_data (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
-    if ((wpc->open_flags & OPEN_WRAPPER) && wpc->wrapper_bytes < MAX_WRAPPER_BYTES) {
+    if ((wpc->open_flags & OPEN_WRAPPER) && wpc->wrapper_bytes < MAX_WRAPPER_BYTES && wpmd->byte_length) {
         wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + wpmd->byte_length);
 	if (!wpc->wrapper_data)
 	    return FALSE;
@@ -1086,7 +1086,7 @@ static int seek_riff_trailer (WavpackContext *wpc)
                 bcount -= 2;
             }
 
-            if ((meta_id & ID_UNIQUE) == ID_RIFF_TRAILER) {
+            if ((meta_id & ID_UNIQUE) == ID_RIFF_TRAILER && meta_bc) {
                 wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + meta_bc);
 		if (!wpc->wrapper_data)
 		    return FALSE;
