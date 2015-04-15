@@ -11,10 +11,6 @@
 #ifndef WAVPACK_LOCAL_H
 #define WAVPACK_LOCAL_H
 
-#ifndef __has_builtin
-#define __has_builtin(x) 0
-#endif
-
 #if defined(WIN32)
 #define FASTCALL __fastcall
 #else
@@ -619,8 +615,10 @@ uint32_t bs_close_read (Bitstream *bs);
 #define INC_MED2() (c->median [2] += ((c->median [2] + DIV2) / DIV2) * 5)
 #define DEC_MED2() (c->median [2] -= ((c->median [2] + (DIV2-2)) / DIV2) * 2)
 
-#ifdef __GNUC__
+#ifdef HAVE___BUILTIN_CLZ
 #define count_bits(av) ((av) ? 32 - __builtin_clz (av) : 0)
+#elif defined (WIN32)
+static __inline int count_bits (uint32_t av) { long res; return _BitScanReverse (&res, av) ? (int)(res + 1) : 0; }
 #else
 #define count_bits(av) ( \
  (av) < (1 << 8) ? nbits_table [av] : \

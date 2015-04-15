@@ -124,6 +124,24 @@ AM_CONDITIONAL([ENABLE_X86ASM], [test "x$asm_selected" = "xx86"])
 AM_CONDITIONAL([ENABLE_X64ASM], [test "x$asm_selected" = "xx64"])
 AM_CONDITIONAL([ENABLE_ARMASM], [test "x$asm_selected" = "xarm"])
 
+dnl Check for __builtin_clz
+AC_CACHE_CHECK([for __builtin_clz], ac_cv_have___builtin_clz,
+               AC_LINK_IFELSE([AC_LANG_PROGRAM(,[[return __builtin_clz(1)]])],
+               [ac_cv_have___builtin_clz="yes"], [ac_cv_have___builtin_clz="no"]))
+if test "$ac_cv_have___builtin_clz" = "yes"
+then
+    AC_DEFINE([HAVE___BUILTIN_CLZ])
+fi
+
+dnl Check for __builtin_ctz
+AC_CACHE_CHECK([for __builtin_ctz], ac_cv_have___builtin_ctz,
+               AC_LINK_IFELSE([AC_LANG_PROGRAM(,[[return __builtin_ctz(1)]])],
+               [ac_cv_have___builtin_ctz="yes"], [ac_cv_have___builtin_ctz="no"]))
+if test "$ac_cv_have___builtin_ctz" = "yes"
+then
+    AC_DEFINE([HAVE___BUILTIN_CTZ])
+fi
+
 AC_ARG_ENABLE(man,
               [AC_HELP_STRING([--enable-man],
                               [regenerate man pages from Docbook [default=no]])],enable_man=yes,
