@@ -18,7 +18,8 @@
 #endif
 
 #if defined(WIN32) || \
-    (defined(BYTE_ORDER) && defined(LITTLE_ENDIAN) && (BYTE_ORDER == LITTLE_ENDIAN))
+    (defined(BYTE_ORDER) && defined(LITTLE_ENDIAN) && (BYTE_ORDER == LITTLE_ENDIAN)) || \
+    (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
 #define BITSTREAM_SHORTS    // use "shorts" for reading/writing bitstreams
                             //  (only works on little-endian machines)
 #endif
@@ -649,8 +650,19 @@ const char nbits_table [256];
 
 int log2s (int32_t value);
 int32_t exp2s (int log);
-uint32_t log2buffer (int32_t *samples, uint32_t num_samples, int limit);
 int FASTCALL mylog2 (uint32_t avalue);
+
+#ifdef OPT_ASM_X86
+#define LOG2BUFFER log2buffer_x86
+#elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
+#define LOG2BUFFER log2buffer_x64win
+#elif defined(OPT_ASM_X64)
+#define LOG2BUFFER log2buffer_x64
+#else
+#define LOG2BUFFER log2buffer
+#endif
+
+uint32_t LOG2BUFFER (int32_t *samples, uint32_t num_samples, int limit);
 
 signed char store_weight (int weight);
 int restore_weight (signed char weight);

@@ -802,22 +802,24 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
 // the one in the WavpackStream.
 
 #ifdef OPT_ASM_X86
-void pack_decorr_stereo_pass_cont_x86 (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
-void pack_decorr_mono_pass_cont_x86 (int32_t *out_buffer, int32_t *in_buffer, struct decorr_pass *dpp, int32_t sample_count);
-static void decorr_mono_pass (int32_t *out_buffer, int32_t *in_buffer, struct decorr_pass *dpp, int32_t sample_count);
-#define DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x86
-#define DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x86
+    #define DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x86
+    #define DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x86
+#elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
+    #define DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64win
+    #define DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x64win
 #elif defined(OPT_ASM_X64)
-void pack_decorr_stereo_pass_cont_x64 (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
-void pack_decorr_mono_pass_cont_x64 (int32_t *out_buffer, int32_t *in_buffer, struct decorr_pass *dpp, int32_t sample_count);
-static void decorr_mono_pass (int32_t *out_buffer, int32_t *in_buffer, struct decorr_pass *dpp, int32_t sample_count);
-#define DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64
-#define DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x64
+    #define DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64
+    #define DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x64
 #else
-static void decorr_stereo_pass_cont (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
-#define DECORR_STEREO_PASS_CONT decorr_stereo_pass_cont
+    #define DECORR_STEREO_PASS_CONT decorr_stereo_pass_cont
 #endif
 
+#ifdef DECORR_MONO_PASS_CONT
+void DECORR_MONO_PASS_CONT (int32_t *out_buffer, int32_t *in_buffer, struct decorr_pass *dpp, int32_t sample_count);
+static void decorr_mono_pass (int32_t *out_buffer, int32_t *in_buffer, struct decorr_pass *dpp, int32_t sample_count);
+#endif
+
+void DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
 static void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
 
 static int pack_samples (WavpackContext *wpc, int32_t *buffer)
@@ -1552,7 +1554,7 @@ static void decorr_mono_pass (int32_t *out_buffer, int32_t *in_buffer, struct de
 // from the source buffer. It does, however, return the appropriate history
 // samples to the decorr_pass structure before returning.
 
-static void decorr_stereo_pass_cont (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count)
+void decorr_stereo_pass_cont (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count)
 {
     int32_t *iptr = in_buffer, *bptr, *eptr = out_buffer + (sample_count * 2);
     int32_t sam_A, sam_B, tmp;

@@ -34,16 +34,6 @@
 
 //#define EXTRA_DUMP        // dump generated filter data  error_line()
 
-#ifdef OPT_ASM_X86
-#define LOG2BUFFER log2buffer_x86
-uint32_t log2buffer_x86 (int32_t *samples, uint32_t num_samples, int limit);
-#elif defined(OPT_ASM_X64)
-#define LOG2BUFFER log2buffer_x64
-uint32_t log2buffer_x64 (int32_t *samples, uint32_t num_samples, int limit);
-#else
-#define LOG2BUFFER log2buffer
-#endif
-
 typedef struct {
     int32_t *sampleptrs [MAX_NTERMS+2];
     struct decorr_pass dps [MAX_NTERMS];

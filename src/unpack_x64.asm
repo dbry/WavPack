@@ -54,7 +54,7 @@ asmcode segment page 'CODE'
 ; [rsp+0] = *dpp
 ;
 
-unpack_decorr_stereo_pass_cont_x64 proc public frame
+unpack_decorr_stereo_pass_cont_x64win proc public frame
         push_reg    rbp                     ; save non-volatile registers on stack
         push_reg    rbx                     ; (alphabetically)
         push_reg    rdi
@@ -156,7 +156,7 @@ default_term_loop:
         movq    [rdx+8], mm5                ; put weight_AB back
         emms
 
-        mov     ecx, [edx]                  ; ecx = dpp->term
+        mov     ecx, [rdx]                  ; ecx = dpp->term
 
 default_store_samples:
         dec     ecx
@@ -641,7 +641,7 @@ done:   add     rsp, 8                      ; begin epilog by deallocating stack
         pop     rbp
         ret
 
-unpack_decorr_stereo_pass_cont_x64 endp
+unpack_decorr_stereo_pass_cont_x64win endp
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
@@ -670,7 +670,7 @@ unpack_decorr_stereo_pass_cont_x64 endp
 ; [rsp+0] = *dpp
 ;
 
-unpack_decorr_mono_pass_cont_x64 proc public frame
+unpack_decorr_mono_pass_cont_x64win proc public frame
         push_reg    rbp                     ; save non-volatile registers on stack
         push_reg    rbx                     ; (alphabetically)
         push_reg    rdi
@@ -687,6 +687,7 @@ unpack_decorr_mono_pass_cont_x64 proc public frame
         and     edx, edx                    ; if sample_count is zero, do nothing
         jz      mono_done
 
+        cld
         mov     rdi, rsi                    ; rdi = bptr
         lea     rsi, [rdi+rdx*4]            ; rsi = eptr
 
@@ -920,7 +921,7 @@ mono_done:
         pop     rbp
         ret
 
-unpack_decorr_mono_pass_cont_x64 endp
+unpack_decorr_mono_pass_cont_x64win endp
 
 asmcode ends
 

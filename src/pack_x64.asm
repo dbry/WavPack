@@ -8,8 +8,8 @@
 
         include <ksamd64.inc>
 
-        public  pack_decorr_stereo_pass_cont_rev_x64
-        public  pack_decorr_stereo_pass_cont_x64
+        public  pack_decorr_stereo_pass_cont_rev_x64win
+        public  pack_decorr_stereo_pass_cont_x64win
 
 asmcode segment page 'CODE'
 
@@ -74,11 +74,11 @@ asmcode segment page 'CODE'
 ; [rsp+0] = *dpp
 ;
 
-pack_decorr_stereo_pass_cont_rev_x64:
+pack_decorr_stereo_pass_cont_rev_x64win:
         mov     rax, 8                      ; get value for reverse direction & jump
         jmp     pack_decorr_stereo_pass_cont_common
 
-pack_decorr_stereo_pass_cont_x64:
+pack_decorr_stereo_pass_cont_x64win:
         mov     rax, -8                     ; get value for forward direction & jump
         jmp     pack_decorr_stereo_pass_cont_common
 
@@ -525,7 +525,7 @@ pack_decorr_stereo_pass_cont_common endp
 ; r9  = eptr
 ;
 
-pack_decorr_mono_pass_cont_x64 proc public frame
+pack_decorr_mono_pass_cont_x64win proc public frame
         push_reg    rbp                     ; save non-volatile registers on stack
         push_reg    rbx                     ; (alphabetically)
         push_reg    rdi
@@ -542,6 +542,7 @@ pack_decorr_mono_pass_cont_x64 proc public frame
         test    ecx, ecx                    ; test & handle zero sample count
         jz      mono_done
 
+        cld
         mov     r8d, [rdx+4]                ; rd8 = delta
         mov     ebp, [rdx+8]                ; ebp = weight
         lea     r9, [rsi+rcx*4]             ; r9 = eptr
@@ -734,7 +735,7 @@ mono_done:
         pop     rbp
         ret
 
-pack_decorr_mono_pass_cont_x64 endp
+pack_decorr_mono_pass_cont_x64win endp
 
 ; This is an assembly optimized version of the following WavPack function:
 ;
@@ -787,7 +788,7 @@ log2_table:
 
         .radix  10
 
-log2buffer_x64 proc public frame
+log2buffer_x64win proc public frame
         push_reg    rbp                     ; save non-volatile registers on stack
         push_reg    rbx                     ; (alphabetically)
         push_reg    rdi
@@ -872,7 +873,7 @@ normal_exit:
         pop     rbp
         ret
 
-log2buffer_x64 endp
+log2buffer_x64win endp
 
 asmcode ends
 

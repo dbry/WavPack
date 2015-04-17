@@ -36,25 +36,19 @@
 //#define EXTRA_DUMP        // dump generated filter data to error_line()
 
 #ifdef OPT_ASM_X86
-
-#define LOG2BUFFER log2buffer_x86
-#define PACK_DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x86
-#define PACK_DECORR_STEREO_PASS_CONT_REV pack_decorr_stereo_pass_cont_rev_x86
-void pack_decorr_stereo_pass_cont_x86 (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
-void pack_decorr_stereo_pass_cont_rev_x86 (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
-uint32_t log2buffer_x86 (int32_t *samples, uint32_t num_samples, int limit);
-
+    #define PACK_DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x86
+    #define PACK_DECORR_STEREO_PASS_CONT_REV pack_decorr_stereo_pass_cont_rev_x86
+#elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
+    #define PACK_DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64win
+    #define PACK_DECORR_STEREO_PASS_CONT_REV pack_decorr_stereo_pass_cont_rev_x64win
 #elif defined(OPT_ASM_X64)
+    #define PACK_DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64
+    #define PACK_DECORR_STEREO_PASS_CONT_REV pack_decorr_stereo_pass_cont_rev_x64
+#endif
 
-#define LOG2BUFFER log2buffer_x64
-#define PACK_DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64
-#define PACK_DECORR_STEREO_PASS_CONT_REV pack_decorr_stereo_pass_cont_rev_x64
-void pack_decorr_stereo_pass_cont_x64 (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
-void pack_decorr_stereo_pass_cont_rev_x64 (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
-uint32_t log2buffer_x64 (int32_t *samples, uint32_t num_samples, int limit);
-
-#else
-#define LOG2BUFFER log2buffer
+#ifdef PACK_DECORR_STEREO_PASS_CONT
+    void PACK_DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
+    void PACK_DECORR_STEREO_PASS_CONT_REV (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
 #endif
 
 typedef struct {

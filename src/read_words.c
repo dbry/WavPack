@@ -29,8 +29,8 @@
 
 #include "wavpack_local.h"
 
-#if defined (HAVE___BUILTIN_CTZ) || defined (_WIN64)
-#define USE_CTZ_OPTIMIZATION    // use ctz intrinsic (or Windows equivalent)to count trailing ones
+#if defined (HAVE___BUILTIN_CTZ) || defined (WIN32)
+#define USE_CTZ_OPTIMIZATION    // use ctz intrinsic (or Windows equivalent) to count trailing ones
 #else
 #define USE_NEXT8_OPTIMIZATION  // optimization using a table to count trailing ones
 #endif
@@ -113,7 +113,7 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
         ones_count = wps->w.holding_zero = 0;
     else {
 #ifdef USE_CTZ_OPTIMIZATION
-        if (wps->wvbits.bc < LIMIT_ONES) {
+        while (wps->wvbits.bc < LIMIT_ONES) {
             if (++(wps->wvbits.ptr) == wps->wvbits.end)
                 wps->wvbits.wrap (&wps->wvbits);
 
@@ -383,7 +383,7 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
         }
 
 #ifdef USE_CTZ_OPTIMIZATION
-        if (bs->bc < LIMIT_ONES) {
+        while (bs->bc < LIMIT_ONES) {
             if (++(bs->ptr) == bs->end)
                 bs->wrap (bs);
 

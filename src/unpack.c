@@ -19,20 +19,22 @@
 #include "wavpack_local.h"
 
 #ifdef OPT_ASM_X86
-extern void unpack_decorr_stereo_pass_cont_x86 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
-#define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x86
-extern void unpack_decorr_mono_pass_cont_x86 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
-#define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x86
+    #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x86
+    #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x86
+#elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
+    #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x64win
+    #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x64win
 #elif defined(OPT_ASM_X64)
-extern void unpack_decorr_stereo_pass_cont_x64 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
-#define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x64
-extern void unpack_decorr_mono_pass_cont_x64 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
-#define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x64
+    #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x64
+    #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x64
 #elif defined(OPT_ASM_ARM)
-extern void unpack_decorr_stereo_pass_cont_armv7 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
-#define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_armv7
-extern void unpack_decorr_mono_pass_cont_armv7 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
-#define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_armv7
+    #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_armv7
+    #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_armv7
+#endif
+
+#ifdef DECORR_STEREO_PASS_CONT
+extern void DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
+extern void DECORR_MONO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
 #endif
 
 // This flag provides the functionality of terminating the decoding and muting
