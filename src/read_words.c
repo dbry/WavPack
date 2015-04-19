@@ -29,7 +29,7 @@
 
 #include "wavpack_local.h"
 
-#if defined (HAVE___BUILTIN_CTZ) || defined (WIN32)
+#if defined (HAVE___BUILTIN_CTZ) || defined (_WIN64)
 #define USE_CTZ_OPTIMIZATION    // use ctz intrinsic (or Windows equivalent) to count trailing ones
 #else
 #define USE_NEXT8_OPTIMIZATION  // optimization using a table to count trailing ones

@@ -21,7 +21,7 @@
 #include "wavpack_local.h"
 #include "decorr_tables.h"      // contains data, only include from this module!
 
-#define SAMPLES_PER_CHUNK 8192  // doing decorrelation in chunks reduces cache misses
+#define SAMPLES_PER_CHUNK 4096  // doing decorrelation in chunks reduces cache misses
 
 ///////////////////////////// executable code ////////////////////////////////
 
