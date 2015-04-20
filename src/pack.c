@@ -803,23 +803,20 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
 
 #ifdef OPT_ASM_X86
     #define DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x86
-    #define DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x86
+    #define DECORR_MONO_BUFFER pack_decorr_mono_buffer_x86
 #elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
     #define DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64win
-    #define DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x64win
+    #define DECORR_MONO_BUFFER pack_decorr_mono_buffer_x64win
 #elif defined(OPT_ASM_X64)
     #define DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64
-    #define DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x64
+    #define DECORR_MONO_BUFFER pack_decorr_mono_buffer_x64
 #else
     #define DECORR_STEREO_PASS_CONT decorr_stereo_pass_cont
-#endif
-
-#ifdef DECORR_MONO_PASS_CONT
-void DECORR_MONO_PASS_CONT (int32_t *out_buffer, int32_t *in_buffer, struct decorr_pass *dpp, int32_t sample_count);
-static void decorr_mono_pass (int32_t *out_buffer, int32_t *in_buffer, struct decorr_pass *dpp, int32_t sample_count);
+    #define DECORR_MONO_BUFFER decorr_mono_buffer
 #endif
 
 void DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
+void DECORR_MONO_BUFFER (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count);
 static void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
 
 static int pack_samples (WavpackContext *wpc, int32_t *buffer)
@@ -957,79 +954,17 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     }
 
     /////////////////////// handle lossless mono mode /////////////////////////
-#ifndef DECORR_MONO_PASS_CONT
+
     if (!(flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
         if (!wps->num_passes)
-            for (bptr = buffer, i = 0; i < sample_count; ++i) {
-                int32_t code = *bptr;
-
-                for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++) {
-                    int32_t sam;
-
-                    if (dpp->term > MAX_TERM) {
-                        if (dpp->term & 1)
-                            sam = 2 * dpp->samples_A [0] - dpp->samples_A [1];
-                        else
-                            sam = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
-
-                        dpp->samples_A [1] = dpp->samples_A [0];
-                        dpp->samples_A [0] = code;
-                    }
-                    else {
-                        sam = dpp->samples_A [m];
-                        dpp->samples_A [(m + dpp->term) & (MAX_TERM - 1)] = code;
-                    }
-
-                    code -= apply_weight (dpp->weight_A, sam);
-                    update_weight (dpp->weight_A, dpp->delta, sam, code);
-                }
-
-                m = (m + 1) & (MAX_TERM - 1);
-                *bptr++ = code;
-            }
+            DECORR_MONO_BUFFER (buffer, wps->decorr_passes, wps->num_terms, sample_count);
 
         send_words_lossless (wps, buffer, sample_count);
+        m = sample_count & (MAX_TERM - 1);
     }
-#else
-    if (!(flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
-        if (!wps->num_passes) {
-            int32_t *alt_buffer = malloc (sizeof (int32_t) * SAMPLES_PER_CHUNK), samples_left = sample_count;
 
-            bptr = buffer;
-
-            while (samples_left) {
-                int32_t samples_this_chunk = samples_left < SAMPLES_PER_CHUNK ? samples_left : SAMPLES_PER_CHUNK, swapped = 0;
-
-                for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++, swapped ^= 1)
-                    if (samples_this_chunk > 16) {
-                        int pre_samples = (dpp->term > MAX_TERM) ? 2 : dpp->term;
-
-                        if (swapped) {
-                            decorr_mono_pass (bptr, alt_buffer, dpp, pre_samples);
-                            DECORR_MONO_PASS_CONT (bptr + pre_samples, alt_buffer + pre_samples, dpp, samples_this_chunk - pre_samples);
-                        }
-                        else {
-                            decorr_mono_pass (alt_buffer, bptr, dpp, pre_samples);
-                            DECORR_MONO_PASS_CONT (alt_buffer + pre_samples, bptr + pre_samples, dpp, samples_this_chunk - pre_samples);
-                        }
-                    }
-                    else if (swapped)
-                        decorr_mono_pass (bptr, alt_buffer, dpp, samples_this_chunk);
-                    else
-                        decorr_mono_pass (alt_buffer, bptr, dpp, samples_this_chunk);
-
-                send_words_lossless (wps, swapped ? alt_buffer : bptr, samples_this_chunk);
-                samples_left -= samples_this_chunk;
-                bptr += samples_this_chunk;
-            }
-
-            free (alt_buffer);
-        }
-        else
-            send_words_lossless (wps, buffer, sample_count);
-    }
-#endif
     //////////////////// handle the lossless stereo mode //////////////////////
+
     else if (!(flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
         if (!wps->num_passes) {
             int32_t *alt_buffer = malloc (sizeof (int32_t) * SAMPLES_PER_CHUNK * 2), samples_left = sample_count;
@@ -1474,74 +1409,6 @@ static void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *in_buffer, int
     }
 }
 
-// Perform a pass of the mono decorrelation as specified by the referenced
-// dpp structure, copying from the input buffer to the output buffer. Note that
-// this function returns the dpp->samples_X[] values in the "normalized" positions
-// for terms 1-8. This function is normally just used to process enough samples for
-// the "continuation" assembly language version to complete the pass, but might be
-// used for a complete pass (for example, if there are less than 16 samples).
-
-#ifdef DECORR_MONO_PASS_CONT
-
-static void decorr_mono_pass (int32_t *out_buffer, int32_t *in_buffer, struct decorr_pass *dpp, int32_t sample_count)
-{
-    int32_t *iptr, *bptr, *eptr = out_buffer + sample_count;
-    int m, k;
-
-    switch (dpp->term) {
-        case 17:
-            for (iptr = in_buffer, bptr = out_buffer; bptr < eptr; iptr++, bptr++) {
-                int32_t sam, tmp;
-
-                sam = 2 * dpp->samples_A [0] - dpp->samples_A [1];
-                dpp->samples_A [1] = dpp->samples_A [0];
-                *bptr = tmp = (dpp->samples_A [0] = *iptr) - apply_weight (dpp->weight_A, sam);
-                update_weight (dpp->weight_A, dpp->delta, sam, tmp);
-            }
-
-            break;
-
-        case 18:
-            for (iptr = in_buffer, bptr = out_buffer; bptr < eptr; iptr++, bptr++) {
-                int32_t sam, tmp;
-
-                sam = dpp->samples_A [0] + ((dpp->samples_A [0] - dpp->samples_A [1]) >> 1);
-                dpp->samples_A [1] = dpp->samples_A [0];
-                *bptr = tmp = (dpp->samples_A [0] = *iptr) - apply_weight (dpp->weight_A, sam);
-                update_weight (dpp->weight_A, dpp->delta, sam, tmp);
-            }
-
-            break;
-
-        default:
-            for (iptr = in_buffer, m = 0, k = dpp->term & (MAX_TERM - 1), bptr = out_buffer; bptr < eptr; iptr++, bptr++) {
-                int32_t sam, tmp;
-
-                sam = dpp->samples_A [m];
-                *bptr = tmp = (dpp->samples_A [k] = *iptr) - apply_weight (dpp->weight_A, sam);
-                update_weight (dpp->weight_A, dpp->delta, sam, tmp);
-
-                m = (m + 1) & (MAX_TERM - 1);
-                k = (k + 1) & (MAX_TERM - 1);
-            }
-
-            if (m) {
-                int32_t temp_A [MAX_TERM];
-
-                memcpy (temp_A, dpp->samples_A, sizeof (dpp->samples_A));
-
-                for (k = 0; k < MAX_TERM; k++) {
-                    dpp->samples_A [k] = temp_A [m];
-                    m = (m + 1) & (MAX_TERM - 1);
-                }
-            }
-
-            break;
-    }
-}
-
-#endif
-
 #if !defined(OPT_ASM_X86) && !defined(OPT_ASM_X64)
 
 // This is the "C" version of the stereo decorrelation pass function. There
@@ -1653,6 +1520,47 @@ void decorr_stereo_pass_cont (struct decorr_pass *dpp, int32_t *in_buffer, int32
             dpp->samples_A [0] = iptr [-1];
             dpp->samples_B [0] = iptr [-2];
             break;
+    }
+}
+
+// This is the "C" version of the stereo decorrelation pass function. There
+// are assembly optimized versions of this that are be used if available.
+// It decorrelates a buffer of mono samples, in place, as specified by the array
+// of decorr_pass structures. Note that this function does NOT return the
+// dpp->samples_X[] values in the "normalized" positions for terms 1-8, so if
+// the number of samples is not a multiple of MAX_TERM, these must be moved if
+// they are to be used somewhere else.
+
+void decorr_mono_buffer (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count)
+{
+    struct decorr_pass *dpp;
+    int tcount, i;
+
+    for (i = 0; i < sample_count; ++i) {
+        int32_t code = *buffer;
+
+        for (tcount = num_terms, dpp = decorr_passes; tcount--; dpp++) {
+            int32_t sam;
+
+            if (dpp->term > MAX_TERM) {
+                if (dpp->term & 1)
+                    sam = 2 * dpp->samples_A [0] - dpp->samples_A [1];
+                else
+                    sam = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
+
+                dpp->samples_A [1] = dpp->samples_A [0];
+                dpp->samples_A [0] = code;
+            }
+            else {
+                sam = dpp->samples_A [i & (MAX_TERM - 1)];
+                dpp->samples_A [(i + dpp->term) & (MAX_TERM - 1)] = code;
+            }
+
+            code -= apply_weight (dpp->weight_A, sam);
+            update_weight (dpp->weight_A, dpp->delta, sam, code);
+        }
+
+        *buffer++ = code;
     }
 }
 

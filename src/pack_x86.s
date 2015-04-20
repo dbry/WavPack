@@ -10,7 +10,7 @@
         .text
         .globl  pack_decorr_stereo_pass_cont_rev_x86
         .globl  pack_decorr_stereo_pass_cont_x86
-        .globl  pack_decorr_mono_pass_cont_x86
+        .globl  pack_decorr_mono_buffer_x86
         .globl  log2buffer_x86
 
 # This module contains X86 assembly optimized versions of functions required
@@ -471,255 +471,203 @@ done:   pop     edi
         leave
         ret
 
+
 # This is an assembly optimized version of the following WavPack function:
 #
-# void decorr_mono_pass_cont (int32_t *out_buffer,
-#                             int32_t *in_buffer,
-#                             struct decorr_pass *dpp,
-#                             int32_t sample_count);
+# void decorr_mono_buffer (int32_t *buffer,
+#                          struct decorr_pass *decorr_passes,
+#                          int32_t num_terms,
+#                          int32_t sample_count)
 #
-# It performs a single pass of mono decorrelation, transfering from the
-# input buffer to the output buffer. Note that this version of the function
-# requires that the up to 8 previous (depending on dpp->term) mono samples
-# are visible and correct. In other words, it ignores the "samples_*"
-# fields in the decorr_pass structure and gets the history data directly
-# from the source buffer. It does, however, return the appropriate history
-# samples to the decorr_pass structure before returning.
+# Decorrelate a buffer of mono samples, in place, as specified by the array
+# of decorr_pass structures. Note that this function does NOT return the
+# dpp->samples_X[] values in the "normalized" positions for terms 1-8, so if
+# the number of samples is not a multiple of MAX_TERM, these must be moved if
+# they are to be used somewhere else.
 #
 # By using the overflow detection of the multiply instruction, it detects
 # when the "long_math" varient is required and automatically branches to it
 # for the rest of the loop.
 #
-# This is written to work on an IA-32 processor. The arguments on entry:
+# This is written to work on an IA-32 processor. The arguments are on the
+# stack at these locations (after 5 pushes, we do not use ebp as a base
+# pointer):
 #
-#   int32_t *out_buffer         [ebp+8]
-#   int32_t *in_buffer          [ebp+12]
-#   struct decorr_pass *dpp     [ebp+16]
-#   int32_t sample_count        [ebp+20]
+#   int32_t *buffer             [esp+24]
+#   struct decorr_pass *dpp     [esp+28]
+#   int32_t num_terms           [esp+32]
+#   int32_t sample_count        [esp+36]
 #
-# Register / stack usage:
+# register usage:
 #
-# esi = source ptr
-# edi = destination ptr
-# ecx = term * -4 (default terms)
-# ecx = previous sample (terms 17 & 18)
-# ebp = weight
-# [esp] = delta
-# [esp+4] = eptr
+# ecx = sample being decorrelated
+# esi = sample up counter
+# edi = *buffer
+# ebp = *dpp
+#
+# stack usage:
+#
+# [esp+0] = dpp end ptr
 #
 
-pack_decorr_mono_pass_cont_x86:
-        push    ebp
-        mov     ebp, esp
-        push    ebx                         # save the registers that we need to
+pack_decorr_mono_buffer_x86:
+        push    ebp                         # save the resgister that we need to
+        push    ebx
         push    esi
         push    edi
-        cld
+        push    eax                         # this will be dpp end ptr
 
-        mov     esi, [ebp+12]
-        mov     edi, [ebp+8]
-        mov     edx, [ebp+16]               # edx = *dpp
-        mov     ecx, [ebp+20]               # ecx = sample count
-        mov     ebp, [edx+8]                # ebp = weight
-        lea     eax, [esi+ecx*4]            # calc & push eptr (access with [esp+4])
-        push    eax
-        push    [edx+4]                     # push delta (access with [esp])
-        test    ecx, ecx                    # test for and handle zero count
-        jz      mono_done
+        mov     edx, [esp+32]               # get number of terms
+        imul    eax, edx, 96                # calculate & store termination check ptr
+        add     eax, [esp+28]
+        mov     [esp], eax
 
-        mov     ecx, [esi-4]                # preload last sample
-        mov     eax, [edx]                  # get term & branch for terms 17 & 18
-        cmp     eax, 17
-        je      mono_term_17_loop
-        cmp     eax, 18
-        je      mono_term_18_loop
-        imul    ecx, eax, -4                # ecx is index to correlation sample now
-        jmp     mono_default_term_loop
+        cmp     DWORD PTR [esp+36], 0       # test & handle zero sample count & zero term count
+        jz      nothing_to_do
+        test    edx, edx
+        jz      nothing_to_do
 
-        .align  64
+        mov     edi, [esp+24]
+        mov     ebp, [esp+28]
+        xor     esi, esi                     # up counter = 0
+        jmp     decorrelate_loop
 
-mono_default_term_loop:
-        mov     edx, [esi+ecx]
-        mov     ebx, edx
-        imul    edx, ebp
-        jo      mono_default_term_long      # overflow pops us into long_math version
-        lodsd
-        sar     edx, 10
-        sbb     eax, edx
-        stosd
-        je      S280
-        test    ebx, ebx
-        je      S280
-        xor     eax, ebx
-        cdq
-        xor     ebp, edx
-        add     ebp, [esp]
-        xor     ebp, edx
-S280:   cmp     esi, [esp+4]
-        jnz     mono_default_term_loop
-        jmp     mono_default_term_done
-
-        .align  64
-
-mono_default_term_long:
-        mov     eax, [esi+ecx]
-        mov     ebx, eax
-        imul    ebp
-        shl     edx, 22
-        shr     eax, 10
-        adc     edx, eax                    # edx = apply_weight (sam_A)
-        lodsd
-        sub     eax, edx
-        stosd
-        je      L280
-        test    ebx, ebx
-        je      L280
-        xor     eax, ebx
-        cdq
-        xor     ebp, edx
-        add     ebp, [esp]
-        xor     ebp, edx
-L280:   cmp     esi, [esp+4]
-        jnz     mono_default_term_long
-
-mono_default_term_done:
-        mov     ecx, ebp                    # ecx = weight
-        mov     ebp, esp                    # restore ebp (we've pushed 5 DWORDS)
-        add     ebp, 20
-        mov     edx, [ebp+16]               # edx = *dpp
-        mov     [edx+8], ecx                # put weight back
-        mov     ecx, [edx]                  # ecx = dpp->term
-
-mono_default_store_samples:
-        dec     ecx
-        sub     esi, 4                      # back up one sample
-        mov     eax, [esi]
-        mov     [edx+ecx*4+16], eax         # store samples_A [ecx]
-        test    ecx, ecx
-        jnz     mono_default_store_samples
-        jmp     mono_done
-
-        .align  64
-
-mono_term_17_loop:
-        lea     edx, [ecx+ecx]
-        sub     edx, [esi-8]                # ebx = sam_A
-        mov     ebx, edx
-        imul    edx, ebp
-        jo      mono_term_17_long           # overflow pops us into long_math version
-        sar     edx, 10
-        lodsd
-        mov     ecx, eax
-        sbb     eax, edx
-        stosd
-        je      S282
-        test    ebx, ebx
-        je      S282
-        xor     eax, ebx
-        cdq
-        xor     ebp, edx
-        add     ebp, [esp]
-        xor     ebp, edx
-S282:   cmp     esi, [esp+4]
-        jnz     mono_term_17_loop
-        jmp     mono_term_1718_exit
-
-        .align  64
-
-mono_term_17_long:
-        lea     eax, [ecx+ecx]
-        sub     eax, [esi-8]                # ebx = sam_A
-        mov     ebx, eax
-        imul    ebp
-        shl     edx, 22
-        shr     eax, 10
-        adc     edx, eax
-        lodsd
-        mov     ecx, eax
-        sub     eax, edx
-        stosd
-        je      L282
-        test    ebx, ebx
-        je      L282
-        xor     eax, ebx
-        cdq
-        xor     ebp, edx
-        add     ebp, [esp]
-        xor     ebp, edx
-L282:   cmp     esi, [esp+4]
-        jnz     mono_term_17_long
-        jmp     mono_term_1718_exit
-
-        .align  64
-
-mono_term_18_loop:
-        lea     edx, [ecx+ecx*2]
-        sub     edx, [esi-8]
-        sar     edx, 1
-        mov     ebx, edx                    # ebx = sam_A
-        imul    edx, ebp
-        jo      mono_term_18_long           # overflow pops us into long_math version
-        sar     edx, 10
-        lodsd
-        mov     ecx, eax
-        sbb     eax, edx
-        stosd
-        je      S283
-        test    ebx, ebx
-        je      S283
-        xor     eax, ebx
-        cdq
-        xor     ebp, edx
-        add     ebp, [esp]
-        xor     ebp, edx
-S283:   cmp     esi, [esp+4]
-        jnz     mono_term_18_loop
-        jmp     mono_term_1718_exit
-
-        .align  64
-
-mono_term_18_long:
-        lea     eax, [ecx+ecx*2]
-        sub     eax, [esi-8]
-        sar     eax, 1
-        mov     ebx, eax                    # ebx = sam_A
-        imul    ebp
-        shl     edx, 22
-        shr     eax, 10
-        adc     edx, eax
-        lodsd
-        mov     ecx, eax
-        sub     eax, edx
-        stosd
-        je      L283
-        test    ebx, ebx
-        je      L283
-        xor     eax, ebx
-        cdq
-        xor     ebp, edx
-        add     ebp, [esp]
-        xor     ebp, edx
-L283:   cmp     esi, [esp+4]
-        jnz     mono_term_18_long
-
-mono_term_1718_exit:
-        mov     ecx, ebp                    # ecx = weight
-        lea     ebp, [esp+20]               # restore ebp (we've pushed 5 DWORDS)
-        mov     edx, [ebp+16]               # edx = *dpp
-        mov     [edx+8], ecx                # put weight back
-        mov     eax, [esi-4]                # dpp->samples_A [0] = bptr [-1]
-        mov     [edx+16], eax
-        mov     eax, [esi-8]                # dpp->samples_A [1] = bptr [-2]
-        mov     [edx+20], eax
-
-mono_done:
-        pop     eax                         # pop eptr and delta
+nothing_to_do:
         pop     eax
-        pop     edi                         # pop saved registers & return
+        pop     edi
         pop     esi
         pop     ebx
         pop     ebp
         ret
+
+        .align  64
+
+decorrelate_loop:
+        mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
+1:      mov     dl, [ebp]
+        cmp     dl, 17
+        jge     3f
+
+        mov     eax, esi
+        and     eax, 7
+        mov     ebx, [ebp+16+eax*4]
+        add     al, dl
+        and     al, 7
+        mov     [ebp+16+eax*4], ecx
+        jmp     decorr_continue
+
+        .align  4
+3:      mov     edx, [ebp+16]
+        mov     [ebp+16], ecx
+        je      4f
+        lea     ebx, [edx+edx*2]
+        sub     ebx, [ebp+20]
+        sar     ebx, 1
+        mov     [ebp+20], edx
+        jmp     decorr_continue
+
+        .align  4
+4:      lea     ebx, [edx+edx]
+        sub     ebx, [ebp+20]
+        mov     [ebp+20], edx
+
+decorr_continue:
+        mov     eax, [ebp+8]
+        mov     edx, eax
+        imul    eax, ebx
+        jo      long_decorr_continue        # on overflow jump to other version
+        sar     eax, 10
+        sbb     ecx, eax
+        je      2f
+        test    ebx, ebx
+        je      2f
+        xor     ebx, ecx
+        sar     ebx, 31
+        xor     edx, ebx
+        add     edx, [ebp+4]
+        xor     edx, ebx
+        mov     [ebp+8], edx
+2:      add     ebp, 96
+        cmp     ebp, [esp]
+        jnz     1b
+
+        mov     [edi+esi*4], ecx            # store completed sample
+        mov     ebp, [esp+28]               # reload decorr_passes pointer to first term
+        inc     esi                         # increment sample index
+        cmp     esi, [esp+36]
+        jnz     decorrelate_loop
+
+        pop     eax
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
+        .align  4
+
+long_decorr_loop:
+        mov     dl, [ebp]
+        cmp     dl, 17
+        jge     3f
+
+        mov     eax, esi
+        and     eax, 7
+        mov     ebx, [ebp+16+eax*4]
+        add     al, dl
+        and     al, 7
+        mov     [ebp+16+eax*4], ecx
+        jmp     long_decorr_continue
+
+        .align  4
+3:      mov     edx, [ebp+16]
+        mov     [ebp+16], ecx
+        je      4f
+        lea     ebx, [edx+edx*2]
+        sub     ebx, [ebp+20]
+        sar     ebx, 1
+        mov     [ebp+20], edx
+        jmp     long_decorr_continue
+
+        .align  4
+4:      lea     ebx, [edx+edx]
+        sub     ebx, [ebp+20]
+        mov     [ebp+20], edx
+
+long_decorr_continue:
+        mov     eax, [ebp+8]
+        imul    ebx
+        shr     eax, 10
+        sbb     ecx, eax
+        shl     edx, 22
+        sub     ecx, edx
+        je      2f
+        test    ebx, ebx
+        je      2f
+        xor     ebx, ecx
+        sar     ebx, 31
+        mov     eax, [ebp+8]
+        xor     eax, ebx
+        add     eax, [ebp+4]
+        xor     eax, ebx
+        mov     [ebp+8], eax
+2:      add     ebp, 96
+        cmp     ebp, [esp]
+        jnz     long_decorr_loop
+
+        mov     [edi+esi*4], ecx            # store completed sample
+        mov     ebp, [esp+28]               # reload decorr_passes pointer to first term
+        inc     esi                         # increment sample index
+        cmp     esi, [esp+36]
+        jnz     decorrelate_loop            # loop all the way back this time
+
+        pop     eax
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
 
 # This is an assembly optimized version of the following WavPack function:
 #
