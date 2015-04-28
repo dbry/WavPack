@@ -9,11 +9,13 @@
         .intel_syntax noprefix
         .text
 
+        .globl  pack_decorr_stereo_pass_x64win
         .globl  pack_decorr_stereo_pass_cont_rev_x64win
         .globl  pack_decorr_stereo_pass_cont_x64win
         .globl  pack_decorr_mono_buffer_x64win
         .globl  log2buffer_x64win
 
+        .globl  pack_decorr_stereo_pass_x64
         .globl  pack_decorr_stereo_pass_cont_rev_x64
         .globl  pack_decorr_stereo_pass_cont_x64
         .globl  pack_decorr_mono_buffer_x64
@@ -21,6 +23,473 @@
 
 # This module contains X64 assembly optimized versions of functions required
 # to encode WavPack files.
+
+# This is an assembly optimized version of the following WavPack function:
+#
+# void pack_decorr_stereo_pass (
+#   struct decorr_pass *dpp,
+#   int32_t *buffer,
+#   int32_t sample_count);
+#
+# It performs a single pass of stereo decorrelation, in place, as specified
+# by the decorr_pass structure. Note that this function does NOT return the
+# dpp->samples_X[] values in the "normalized" positions for terms 1-8, so if
+# the number of samples is not a multiple of MAX_TERM, these must be moved if
+# they are to be used somewhere else.
+#
+# This is written to work on an X86-64 processor (also called the AMD64)
+# running in 64-bit mode and uses the MMX extensions to improve the
+# performance by processing both stereo channels together. It is based on
+# the original MMX code written by Joachim Henke that used MMX intrinsics
+# called from C. Many thanks to Joachim for that!
+#
+# An issue with using MMX for this is that the sample history array in the
+# decorr_pass structure contains separate arrays for each channel while the
+# MMX code wants there to be a single array of dual samples. The fix for
+# this is to convert the data in the arrays on entry and exit, and this is
+# made easy by the fact that the 8 MMX regsiters hold exactly the required
+# amount of data (64 bytes)!
+#
+# This version has entry points for both the System V ABI and the Windows
+# X64 ABI. It does not use the "red zone" or the "shadow area"; it saves the
+# non-volatile registers for both ABIs on the stack and allocates another
+# 8 bytes on the stack so that it's properly aligned. Note that it does NOT
+# provide unwind data for the Windows ABI (the unpack_x64.asm module for
+# MSVC does). The arguments are passed in registers:
+#
+#                             System V  Windows  
+#   struct decorr_pass *dpp     rdi       rcx
+#   int32_t *buffer             rsi       rdx
+#   int32_t sample_count        edx       r8d
+#
+# During the processing loops, the following registers are used:
+#
+#   rdi         buffer pointer
+#   rsi         termination buffer pointer
+#   rax,rbx,rdx used in default term to reduce calculation         
+#   rbp         decorr_pass pointer
+#   mm0, mm1    scratch
+#   mm2         original sample values
+#   mm3         correlation samples
+#   mm4         0 (for pcmpeqd)
+#   mm5         weights
+#   mm6         delta
+#   mm7         512 (for rounding)
+#
+
+pack_decorr_stereo_pass_x64win:
+        push    rbp
+        push    rbx
+        push    rdi
+        push    rsi
+        sub     rsp, 8
+        mov     rdi, rcx                    # copy params from win regs to Linux regs
+        mov     rsi, rdx                    # so we can leave following code similar
+        mov     rdx, r8
+        mov     rcx, r9
+        jmp     benter
+
+pack_decorr_stereo_pass_x64:
+        push    rbp
+        push    rbx
+        push    rdi
+        push    rsi
+        sub     rsp, 8
+
+benter: mov     rbp, rdi                    # rbp = *dpp
+        mov     rdi, rsi                    # rdi = inbuffer
+        mov     esi, edx
+        sal     esi, 3
+        jz      bdone
+        add     rsi, rdi                    # rsi = termination buffer pointer
+
+        // convert samples_A and samples_B array into samples_AB array for MMX
+        // (the MMX registers provide exactly enough storage to do this easily)
+
+        movq        mm0, [rbp+16]
+        punpckldq   mm0, [rbp+48]
+        movq        mm1, [rbp+16]
+        punpckhdq   mm1, [rbp+48]
+        movq        mm2, [rbp+24]
+        punpckldq   mm2, [rbp+56]
+        movq        mm3, [rbp+24]
+        punpckhdq   mm3, [rbp+56]
+        movq        mm4, [rbp+32]
+        punpckldq   mm4, [rbp+64]
+        movq        mm5, [rbp+32]
+        punpckhdq   mm5, [rbp+64]
+        movq        mm6, [rbp+40]
+        punpckldq   mm6, [rbp+72]
+        movq        mm7, [rbp+40]
+        punpckhdq   mm7, [rbp+72]
+
+        movq    [rbp+16], mm0
+        movq    [rbp+24], mm1
+        movq    [rbp+32], mm2
+        movq    [rbp+40], mm3
+        movq    [rbp+48], mm4
+        movq    [rbp+56], mm5
+        movq    [rbp+64], mm6
+        movq    [rbp+72], mm7
+
+        mov     eax, 512
+        movd    mm7, eax
+        punpckldq mm7, mm7                  # mm7 = round (512)
+
+        mov     eax, [rbp+4]
+        movd    mm6, eax
+        punpckldq mm6, mm6                  # mm6 = delta (0-7)
+
+        mov     eax, 0xFFFF                 # mask high weights to zero for PMADDWD
+        movd    mm5, eax
+        punpckldq mm5, mm5                  # mm5 = weight mask 0x0000FFFF0000FFFF
+        pand    mm5, [rbp+8]                # mm5 = weight_AB masked to 16-bit
+
+        movq    mm4, [rbp+16]               # preload samples_AB[0]
+
+        mov     al, [rbp]                   # get term and vector to correct loop
+        cmp     al, 17
+        je      buff_term_17_loop
+        cmp     al, 18
+        je      buff_term_18_loop
+        cmp     al, -1
+        je      buff_term_minus_1_loop
+        cmp     al, -2
+        je      buff_term_minus_2_loop
+        cmp     al, -3
+        je      buff_term_minus_3_loop
+
+        pxor    mm4, mm4                    # mm4 = 0 (for pcmpeqd)
+        xor     eax, eax
+        xor     ebx, ebx
+        add     bl, [rbp]
+        mov     ecx, 7
+        and     ebx, ecx
+        jmp     buff_default_term_loop
+
+        .align  64
+
+buff_default_term_loop:
+        movq    mm2, [rdi]                  # mm2 = left_right
+        movq    mm3, [rbp+16+rax*8]
+        inc     eax
+        and     eax, ecx
+        movq    [rbp+16+rbx*8], mm2
+        inc     ebx
+        and     ebx, ecx
+
+        movq    mm1, mm3
+        paddd   mm1, mm1
+        psrlw   mm1, 1
+        pmaddwd mm1, mm5
+
+        movq    mm0, mm3
+        psrld   mm0, 15
+        pmaddwd mm0, mm5
+
+        pslld   mm0, 5
+        paddd   mm1, mm7                    # add 512 for rounding
+        psrad   mm1, 10
+        psubd   mm2, mm0
+        psubd   mm2, mm1                    # add shifted sums
+        movq    mm0, mm3
+        movq    [rdi], mm2                  # store result
+        pxor    mm0, mm2
+        psrad   mm0, 31                     # mm0 = sign (sam_AB ^ left_right)
+        add     rdi, 8
+        pcmpeqd mm2, mm4                    # mm2 = 1s if left_right was zero
+        pcmpeqd mm3, mm4                    # mm3 = 1s if sam_AB was zero
+        por     mm2, mm3                    # mm2 = 1s if either was zero
+        pandn   mm2, mm6                    # mask delta with zeros check
+        pxor    mm5, mm0
+        paddw   mm5, mm2                    # and add to weight_AB
+        pxor    mm5, mm0
+        cmp     rdi, rsi
+        jnz     buff_default_term_loop
+
+        jmp     bdone
+
+        .align  64
+
+buff_term_17_loop:
+        movq    mm3, mm4                    # get previous calculated value
+        paddd   mm3, mm4
+        psubd   mm3, [rbp+24]
+        movq    [rbp+24], mm4
+
+        movq    mm1, mm3
+        paddd   mm1, mm1
+        psrlw   mm1, 1
+        pmaddwd mm1, mm5
+
+        movq    mm0, mm3
+        psrld   mm0, 15
+        pmaddwd mm0, mm5
+
+        movq    mm2, [rdi]                  # mm2 = left_right
+        movq    mm4, mm2
+        pslld   mm0, 5
+        paddd   mm1, mm7                    # add 512 for rounding
+        psrad   mm1, 10
+        psubd   mm2, mm0
+        psubd   mm2, mm1                    # add shifted sums
+        movq    mm0, mm3
+        movq    [rdi], mm2                  # store result
+        pxor    mm1, mm1
+        pxor    mm0, mm2
+        psrad   mm0, 31                     # mm0 = sign (sam_AB ^ left_right)
+        add     rdi, 8
+        pcmpeqd mm2, mm1                    # mm2 = 1s if left_right was zero
+        pcmpeqd mm3, mm1                    # mm3 = 1s if sam_AB was zero
+        por     mm2, mm3                    # mm2 = 1s if either was zero
+        pandn   mm2, mm6                    # mask delta with zeros check
+        pxor    mm5, mm0
+        paddw   mm5, mm2                    # and add to weight_AB
+        pxor    mm5, mm0
+        cmp     rdi, rsi
+        jnz     buff_term_17_loop
+
+        movq    [rbp+16], mm4               # post-store samples_AB[0]
+        jmp     bdone
+
+        .align  64
+
+buff_term_18_loop:
+        movq    mm3, mm4                    # get previous calculated value
+        psubd   mm3, [rbp+24]
+        psrad   mm3, 1
+        paddd   mm3, mm4                    # mm3 = sam_AB
+        movq    [rbp+24], mm4
+
+        movq    mm1, mm3
+        paddd   mm1, mm1
+        psrlw   mm1, 1
+        pmaddwd mm1, mm5
+
+        movq    mm0, mm3
+        psrld   mm0, 15
+        pmaddwd mm0, mm5
+
+        movq    mm2, [rdi]                  # mm2 = left_right
+        movq    mm4, mm2
+        pslld   mm0, 5
+        paddd   mm1, mm7                    # add 512 for rounding
+        psrad   mm1, 10
+        psubd   mm2, mm0
+        psubd   mm2, mm1                    # add shifted sums
+        movq    mm0, mm3
+        movq    [rdi], mm2                  # store result
+        pxor    mm1, mm1
+        pxor    mm0, mm2
+        psrad   mm0, 31                     # mm0 = sign (sam_AB ^ left_right)
+        add     rdi, 8
+        pcmpeqd mm2, mm1                    # mm2 = 1s if left_right was zero
+        pcmpeqd mm3, mm1                    # mm3 = 1s if sam_AB was zero
+        por     mm2, mm3                    # mm2 = 1s if either was zero
+        pandn   mm2, mm6                    # mask delta with zeros check
+        pxor    mm5, mm0
+        paddw   mm5, mm2                    # and add to weight_AB
+        pxor    mm5, mm0
+        cmp     rdi, rsi
+        jnz     buff_term_18_loop
+
+        movq    [rbp+16], mm4               # post-store samples_AB[0]
+        jmp     bdone
+
+        .align  64
+
+buff_term_minus_1_loop:
+        movq    mm3, mm4                    # mm3 = previous calculated value
+        movq    mm2, [rdi]                  # mm2 = left_right
+        movq    mm4, mm2
+        psrlq   mm4, 32
+        punpckldq mm3, mm2                  # mm3 = sam_AB
+
+        movq    mm1, mm3
+        paddd   mm1, mm1
+        psrlw   mm1, 1
+        pmaddwd mm1, mm5
+
+        movq    mm0, mm3
+        psrld   mm0, 15
+        pmaddwd mm0, mm5
+
+        pslld   mm0, 5
+        paddd   mm1, mm7                    # add 512 for rounding
+        psrad   mm1, 10
+        psubd   mm2, mm0
+        psubd   mm2, mm1                    # add shifted sums
+        movq    mm0, mm3
+        movq    [rdi], mm2                  # store result
+        pxor    mm1, mm1
+        pxor    mm0, mm2
+        psrad   mm0, 31                     # mm0 = sign (sam_AB ^ left_right)
+        add     rdi, 8
+        pcmpeqd mm2, mm1                    # mm2 = 1s if left_right was zero
+        pcmpeqd mm3, mm1                    # mm3 = 1s if sam_AB was zero
+        por     mm2, mm3                    # mm2 = 1s if either was zero
+        pandn   mm2, mm6                    # mask delta with zeros check
+        pcmpeqd mm1, mm1
+        psubd   mm1, mm7
+        psubd   mm1, mm7
+        psubd   mm1, mm0
+        pxor    mm5, mm0
+        paddw   mm5, mm1
+        paddusw mm5, mm2                    # and add to weight_AB
+        psubw   mm5, mm1
+        pxor    mm5, mm0
+        cmp     rdi, rsi
+        jnz     buff_term_minus_1_loop
+
+        movq    [rbp+16], mm4               # post-store samples_AB[0]
+        jmp     bdone
+
+        .align  64
+
+buff_term_minus_2_loop:
+        movq    mm2, [rdi]                  # mm2 = left_right
+        movq    mm3, mm2
+        psrlq   mm3, 32
+        por     mm3, mm4
+        punpckldq mm4, mm2
+
+        movq    mm1, mm3
+        paddd   mm1, mm1
+        psrlw   mm1, 1
+        pmaddwd mm1, mm5
+
+        movq    mm0, mm3
+        psrld   mm0, 15
+        pmaddwd mm0, mm5
+
+        pslld   mm0, 5
+        paddd   mm1, mm7                    # add 512 for rounding
+        psrad   mm1, 10
+        psubd   mm2, mm0
+        psubd   mm2, mm1                    # add shifted sums
+        movq    mm0, mm3
+        movq    [rdi], mm2                  # store result
+        pxor    mm1, mm1
+        pxor    mm0, mm2
+        psrad   mm0, 31                     # mm0 = sign (sam_AB ^ left_right)
+        add     rdi, 8
+        pcmpeqd mm2, mm1                    # mm2 = 1s if left_right was zero
+        pcmpeqd mm3, mm1                    # mm3 = 1s if sam_AB was zero
+        por     mm2, mm3                    # mm2 = 1s if either was zero
+        pandn   mm2, mm6                    # mask delta with zeros check
+        pcmpeqd mm1, mm1
+        psubd   mm1, mm7
+        psubd   mm1, mm7
+        psubd   mm1, mm0
+        pxor    mm5, mm0
+        paddw   mm5, mm1
+        paddusw mm5, mm2                    # and add to weight_AB
+        psubw   mm5, mm1
+        pxor    mm5, mm0
+        cmp     rdi, rsi
+        jnz     buff_term_minus_2_loop
+
+        movq    [rbp+16], mm4               # post-store samples_AB[0]
+        jmp     bdone
+
+        .align  64
+
+buff_term_minus_3_loop:
+        movq    mm2, [rdi]                  # mm2 = left_right
+        movq    mm3, mm4                    # mm3 = previous calculated value
+        movq    mm4, mm2                    # mm0 = swap dwords of new data
+        psrlq   mm4, 32
+        punpckldq mm4, mm2                  # mm3 = sam_AB
+
+        movq    mm1, mm3
+        paddd   mm1, mm1
+        psrlw   mm1, 1
+        pmaddwd mm1, mm5
+
+        movq    mm0, mm3
+        psrld   mm0, 15
+        pmaddwd mm0, mm5
+
+        pslld   mm0, 5
+        paddd   mm1, mm7                    # add 512 for rounding
+        psrad   mm1, 10
+        psubd   mm2, mm0
+        psubd   mm2, mm1                    # add shifted sums
+        movq    mm0, mm3
+        movq    [rdi], mm2                  # store result
+        pxor    mm1, mm1
+        pxor    mm0, mm2
+        psrad   mm0, 31                     # mm0 = sign (sam_AB ^ left_right)
+        add     rdi, 8
+        pcmpeqd mm2, mm1                    # mm2 = 1s if left_right was zero
+        pcmpeqd mm3, mm1                    # mm3 = 1s if sam_AB was zero
+        por     mm2, mm3                    # mm2 = 1s if either was zero
+        pandn   mm2, mm6                    # mask delta with zeros check
+        pcmpeqd mm1, mm1
+        psubd   mm1, mm7
+        psubd   mm1, mm7
+        psubd   mm1, mm0
+        pxor    mm5, mm0
+        paddw   mm5, mm1
+        paddusw mm5, mm2                    # and add to weight_AB
+        psubw   mm5, mm1
+        pxor    mm5, mm0
+        cmp     rdi, rsi
+        jnz     buff_term_minus_3_loop
+
+        movq    [rbp+16], mm4               # post-store samples_AB[0]
+
+bdone:  pslld   mm5, 16                     # sign-extend 16-bit weights back to dwords
+        psrad   mm5, 16
+        movq    [rbp+8], mm5                # put weight_AB back
+
+        // convert samples_AB array back into samples_A and samples_B
+
+        movq    mm0, [rbp+16]
+        movq    mm1, [rbp+24]
+        movq    mm2, [rbp+32]
+        movq    mm3, [rbp+40]
+        movq    mm4, [rbp+48]
+        movq    mm5, [rbp+56]
+        movq    mm6, [rbp+64]
+        movq    mm7, [rbp+72]
+
+        movd    [rbp+16], mm0
+        movd    [rbp+20], mm1
+        movd    [rbp+24], mm2
+        movd    [rbp+28], mm3
+        movd    [rbp+32], mm4
+        movd    [rbp+36], mm5
+        movd    [rbp+40], mm6
+        movd    [rbp+44], mm7
+
+        punpckhdq   mm0, mm0
+        punpckhdq   mm1, mm1
+        punpckhdq   mm2, mm2
+        punpckhdq   mm3, mm3
+        punpckhdq   mm4, mm4
+        punpckhdq   mm5, mm5
+        punpckhdq   mm6, mm6
+        punpckhdq   mm7, mm7
+
+        movd    [rbp+48], mm0
+        movd    [rbp+52], mm1
+        movd    [rbp+56], mm2
+        movd    [rbp+60], mm3
+        movd    [rbp+64], mm4
+        movd    [rbp+68], mm5
+        movd    [rbp+72], mm6
+        movd    [rbp+76], mm7
+
+        emms
+
+        add     rsp, 8
+        pop     rsi
+        pop     rdi
+        pop     rbx
+        pop     rbp
+        ret
+
 
 # These are assembly optimized version of the following WavPack functions:
 #
@@ -534,8 +1003,8 @@ done:   add     rsp, 8
 #
 # stack usage:
 #
-# [rsp+8] = sample_count (from rcx)
-# [rsp+0] = decorr_passes (from rsi)
+# [rsp+8] = sample_count
+# [rsp+0] = decorr_passes
 #
 # register usage:
 #
