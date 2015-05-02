@@ -25,6 +25,13 @@
 // 17 & 18 are special functions using the previous 2 samples, and negative
 // values indicate cross channel decorrelation (in stereo only).
 //
+// It would be ideal if this was the only source for the decorrelation tables,
+// but unfortunately the defaults (first entry) are duplicated in the assembly
+// code for the function pack_decorr_mono_buffer() and there is no check in
+// that code to make sure the correct filter is being passed in. SO, IF A
+// CHANGE IS MADE HERE TO ONE OF THE DEFAULT FILTERS, THEN THE CORRESPONDING
+// ASSEMBLY CODE MUST BE CHANGED ALSO, OR VERY CORRUPT FILES WILL RESULT!!
+//
 // Since this include file contains that actual tables as static const data,
 // it should only be included from ONE source file (currently pack.c)!
 
