@@ -953,37 +953,32 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     /////////////////////// handle lossless mono mode /////////////////////////
 
     if (!(flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
-        if (!wps->num_passes)
+        if (!wps->num_passes) {
             DECORR_MONO_BUFFER (buffer, wps->decorr_passes, wps->num_terms, sample_count);
+            m = sample_count & (MAX_TERM - 1);
+        }
 
         send_words_lossless (wps, buffer, sample_count);
-        m = sample_count & (MAX_TERM - 1);
     }
 
     //////////////////// handle the lossless stereo mode //////////////////////
 
     else if (!(flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
         if (!wps->num_passes) {
-                if (flags & JOINT_STEREO) {
-                    int32_t *eptr = buffer + (sample_count * 2);
+            if (flags & JOINT_STEREO) {
+                int32_t *eptr = buffer + (sample_count * 2);
 
-                    for (bptr = buffer; bptr < eptr; bptr += 2)
-                        bptr [1] += ((bptr [0] -= bptr [1]) >> 1);
-                }
-
-                for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
-                    if (sample_count > 1024) {
-                        DECORR_STEREO_PASS (dpp, buffer, 1024);
-                        DECORR_STEREO_PASS (dpp, buffer + (1024 * 2), sample_count - 1024);
-                    }
-                    else
-                        DECORR_STEREO_PASS (dpp, buffer, sample_count);
-
-                send_words_lossless (wps, buffer, sample_count);
-                m = sample_count & (MAX_TERM - 1);
+                for (bptr = buffer; bptr < eptr; bptr += 2)
+                    bptr [1] += ((bptr [0] -= bptr [1]) >> 1);
             }
-        else
-            send_words_lossless (wps, buffer, sample_count);
+
+            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
+                DECORR_STEREO_PASS (dpp, buffer, sample_count);
+
+            m = sample_count & (MAX_TERM - 1);
+        }
+
+        send_words_lossless (wps, buffer, sample_count);
     }
 
     /////////////////// handle the lossy/hybrid mono mode /////////////////////
