@@ -921,6 +921,7 @@ done:   pop     edi
         leave
         ret
 
+
 ; This is an assembly optimized version of the following WavPack function:
 ;
 ; void decorr_mono_buffer (int32_t *buffer,
@@ -934,9 +935,21 @@ done:   pop     edi
 ; the number of samples is not a multiple of MAX_TERM, these must be moved if
 ; they are to be used somewhere else.
 ;
-; By using the overflow detection of the multiply instruction, it detects
-; when the "long_math" varient is required and automatically branches to it
-; for the rest of the loop.
+; IMPORTANT: There are two version of this function, but only one is enabled.
+;
+; The first is provided as a reference and takes arbitrary decorr_pass arrays
+; with any combination of terms and deltas. The second is similar, but instead
+; is hardcoded with the only four possible decorr_pass arrays that can be
+; used here (see decorr_tables.h), and selects the appropriate one using
+; only the "num_terms" parameter. This is significantly faster, especially
+; in the "high" and "very high" modes. Note that there is no checking to make
+; sure that the terms and deltas of the passed decorr_pass array match the
+; hardcoded one, and that if they do not match then a very corrupt file
+; will be generated. If in doubt, or when implementing for another processor,
+; use the general purpose version.
+;
+; By using the overflow detection of the multiply instruction, these detect
+; when the "long_math" varient is required.
 ;
 ; This is written to work on an IA-32 processor. The arguments are on the
 ; stack at these locations (after 5 pushes, we do not use ebp as a base
@@ -959,6 +972,10 @@ done:   pop     edi
 ; [esp+0] = dpp end ptr
 ;
 
+        if     0                            ; general-purpose version that handles all
+                                            ; valid decorr_pass arrays - disable for
+                                            ; hardcoded, faster in-line version
+
 _pack_decorr_mono_buffer_x86:
         push    ebp                         ; save the resgister that we need to
         push    ebx
@@ -972,38 +989,30 @@ _pack_decorr_mono_buffer_x86:
         mov     [esp], eax
 
         cmp     DWORD PTR [esp+36], 0       ; test & handle zero sample count & zero term count
-        jz      nothing_to_do
+        jz      mexit
         test    edx, edx
-        jz      nothing_to_do
+        jz      mexit
 
         mov     edi, [esp+24]
         mov     ebp, [esp+28]
         xor     esi, esi                     ; up counter = 0
         jmp     decorrelate_loop
 
-nothing_to_do:
-        pop     eax
-        pop     edi
-        pop     esi
-        pop     ebx
-        pop     ebp
-        ret
-
         align  64
 
 decorrelate_loop:
         mov     ecx, [edi+esi*4]             ; ecx is the sample we're decorrelating
-dlp1:   mov     dl, [ebp]
+nxterm: mov     edx, [ebp]
         cmp     dl, 17
         jge     @f
 
         mov     eax, esi
         and     eax, 7
         mov     ebx, [ebp+16+eax*4]
-        add     al, dl
-        and     al, 7
+        add     eax, edx
+        and     eax, 7
         mov     [ebp+16+eax*4], ecx
-        jmp     decorr_continue
+        jmp     domult
 
         align  4
 @@:     mov     edx, [ebp+16]
@@ -1013,18 +1022,17 @@ dlp1:   mov     dl, [ebp]
         sub     ebx, [ebp+20]
         sar     ebx, 1
         mov     [ebp+20], edx
-        jmp     decorr_continue
+        jmp     domult
 
         align  4
 @@:     lea     ebx, [edx+edx]
         sub     ebx, [ebp+20]
         mov     [ebp+20], edx
 
-decorr_continue:
-        mov     eax, [ebp+8]
+domult: mov     eax, [ebp+8]
         mov     edx, eax
         imul    eax, ebx
-        jo      long_decorr_continue        ; on overflow jump to other version
+        jo      multov                      ; on overflow, jump to use 64-bit imul varient
         sar     eax, 10
         sbb     ecx, eax
         je      @f
@@ -1038,53 +1046,17 @@ decorr_continue:
         mov     [ebp+8], edx
 @@:     add     ebp, 96
         cmp     ebp, [esp]
-        jnz     dlp1
+        jnz     nxterm
 
         mov     [edi+esi*4], ecx            ; store completed sample
         mov     ebp, [esp+28]               ; reload decorr_passes pointer to first term
         inc     esi                         ; increment sample index
         cmp     esi, [esp+36]
         jnz     decorrelate_loop
-
-        pop     eax
-        pop     edi
-        pop     esi
-        pop     ebx
-        pop     ebp
-        ret
+        jmp     mexit
 
         align  4
-
-long_decorr_loop:
-        mov     dl, [ebp]
-        cmp     dl, 17
-        jge     @f
-
-        mov     eax, esi
-        and     eax, 7
-        mov     ebx, [ebp+16+eax*4]
-        add     al, dl
-        and     al, 7
-        mov     [ebp+16+eax*4], ecx
-        jmp     long_decorr_continue
-
-        align  4
-@@:     mov     edx, [ebp+16]
-        mov     [ebp+16], ecx
-        je      @f
-        lea     ebx, [edx+edx*2]
-        sub     ebx, [ebp+20]
-        sar     ebx, 1
-        mov     [ebp+20], edx
-        jmp     long_decorr_continue
-
-        align  4
-@@:     lea     ebx, [edx+edx]
-        sub     ebx, [ebp+20]
-        mov     [ebp+20], edx
-
-long_decorr_continue:
-        mov     eax, [ebp+8]
+multov: mov     eax, [ebp+8]
         imul    ebx
         shr     eax, 10
         sbb     ecx, eax
@@ -1102,7 +1074,7 @@ long_decorr_continue:
         mov     [ebp+8], eax
 @@:     add     ebp, 96
         cmp     ebp, [esp]
-        jnz     long_decorr_loop
+        jnz     nxterm
 
         mov     [edi+esi*4], ecx            ; store completed sample
         mov     ebp, [esp+28]               ; reload decorr_passes pointer to first term
@@ -1110,12 +1082,233 @@ long_decorr_continue:
         cmp     esi, [esp+36]
         jnz     decorrelate_loop            ; loop all the way back this time
 
-        pop     eax
+mexit:  pop     eax
         pop     edi
         pop     esi
         pop     ebx
         pop     ebp
         ret
+
+        else
+
+; This version of pack_decorr_mono_buffer() is hardcoded for four specific decorr_pass arrays
+; corresponding to the fast, normal, high, and very high modes. The terms of these filters
+; are the first element in the tables defined in decorr_tables.h (with the negative terms
+; replaced with 1). This macro processes the single specified term (with a fixed delta of 2)
+; and updates the term pointer (ebp) with the specified offset when done. It assumes the
+; following registers:
+;
+; ecx = sample being decorrelated
+; esi = sample up counter (used for terms 1-8)
+; ebp = decorr_pass pointer for this term (updated with "ebp_offset" when done)
+; eax, ebx, edx = scratch
+;
+
+exeterm macro   term, ebp_offset
+        local   over, cont, done
+
+        if      term le 8
+        mov     eax, esi
+        and     eax, 7
+        mov     ebx, [ebp+16+eax*4]
+        if      term ne 8
+        add     eax, term
+        and     eax, 7
+        endif
+        mov     [ebp+16+eax*4], ecx
+
+        elseif  term eq 17
+
+        mov     edx, [ebp+16]               ; handle term 17
+        mov     [ebp+16], ecx
+        lea     ebx, [edx+edx]
+        sub     ebx, [ebp+20]
+        mov     [ebp+20], edx
+
+        else
+
+        mov     edx, [ebp+16]               ; handle term 18
+        mov     [ebp+16], ecx
+        lea     ebx, [edx+edx*2]
+        sub     ebx, [ebp+20]
+        sar     ebx, 1
+        mov     [ebp+20], edx
+
+        endif
+
+        mov     eax, [ebp+8]
+        imul    eax, ebx                    ; 32-bit multiply is almost always enough
+        jo      over                        ; but handle overflow if it happens
+        sar     eax, 10
+        sbb     ecx, eax                    ; borrow flag provides rounding
+        jmp     cont
+over:   mov     eax, [ebp+8]                ; perform 64-bit multiply on overflow
+        imul    ebx
+        shr     eax, 10
+        sbb     ecx, eax
+        shl     edx, 22
+        sub     ecx, edx
+cont:   je      done
+        test    ebx, ebx
+        je      done
+        xor     ebx, ecx
+        sar     ebx, 30
+        or      ebx, 1                      ; this generates delta of 1
+        sal     ebx, 1                      ; this generates delta of 2
+        add     [ebp+8], ebx
+done:   add     ebp, ebp_offset
+
+        endm
+
+; This is the function entry point that uses the above macro for inline decorrelation. Only
+; four different decorrelation filters are allowed and are hardcoded into this function.
+;
+; !!! NO CHECK PERFORMED TO MAKE SURE THE PASSED DECORR_PASS ARRAY MATCHES THE CODE !!!
+
+_pack_decorr_mono_buffer_x86:
+        push    ebp                         ; save the resgister that we need to
+        push    ebx
+        push    esi
+        push    edi
+        push    eax                         ; this will be sample count
+
+        mov     eax, [esp+36]               ; load, test, & store sample count on stack
+        and     eax, eax
+        jz      @f
+        mov     [esp], eax
+
+        mov     edi, [esp+24]               ; edi = sample pointer, ebp = decorr_pass pointer
+        mov     ebp, [esp+28]
+        xor     esi, esi                    ; up counter = 0
+
+        cmp     BYTE PTR [ebp], 18          ; for sanity check, make sure first term = 18, delta = 2
+        jnz     @f
+        cmp     BYTE PTR [ebp+4], 2
+        jnz     @f
+
+        mov     edx, [esp+32]               ; get number of terms
+        cmp     dl, 2                       ; now use the term count to choose the loop
+        jz      mono_fast_loop
+        cmp     dl, 5
+        jz      mono_normal_loop
+        cmp     dl, 10
+        jz      mono_high_loop
+        cmp     dl, 16
+        jz      mono_vhigh_loop
+
+@@:     pop     eax                         ; pop sample count, saved regs, and return
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
+        align  64
+
+mono_fast_loop:
+        mov     ecx, [edi+esi*4]             ; ecx is the sample we're decorrelating
+
+        exeterm 18,  96
+        exeterm 17, -96
+
+        mov     [edi+esi*4], ecx            ; store completed sample
+        inc     esi                         ; increment sample index
+        cmp     esi, [esp]
+        jnz     mono_fast_loop              ; loop back for all samples
+
+        pop     eax                         ; pop sample count, saved regs, and return
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
+        align  64
+
+mono_normal_loop:
+        mov     ecx, [edi+esi*4]             ; ecx is the sample we're decorrelating
+
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 2,  96
+        exeterm 17, 96
+        exeterm 3,  96*-4
+
+        mov     [edi+esi*4], ecx            ; store completed sample
+        inc     esi                         ; increment sample index
+        cmp     esi, [esp]
+        jnz     mono_normal_loop            ; loop back for all samples
+
+        pop     eax                         ; pop sample count, saved regs, and return
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
+        align  64
+
+mono_high_loop:
+        mov     ecx, [edi+esi*4]             ; ecx is the sample we're decorrelating
+
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 1,  96
+        exeterm 2,  96
+        exeterm 3,  96
+        exeterm 5,  96
+        exeterm 1,  96
+        exeterm 17, 96
+        exeterm 4,  96*-9
+
+        mov     [edi+esi*4], ecx            ; store completed sample
+        inc     esi                         ; increment sample index
+        cmp     esi, [esp]
+        jnz     mono_high_loop              ; loop back for all samples
+
+        pop     eax                         ; pop sample count, saved regs, and return
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
+        align  64
+
+mono_vhigh_loop:
+        mov     ecx, [edi+esi*4]             ; ecx is the sample we're decorrelating
+
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 2,  96
+        exeterm 3,  96
+        exeterm 1,  96
+        exeterm 18, 96
+        exeterm 2,  96
+        exeterm 4,  96
+        exeterm 7,  96
+        exeterm 5,  96
+        exeterm 3,  96
+        exeterm 6,  96
+        exeterm 8,  96
+        exeterm 1,  96
+        exeterm 18, 96
+        exeterm 2,  96*-15
+
+        mov     [edi+esi*4], ecx            ; store completed sample
+        inc     esi                         ; increment sample index
+        cmp     esi, [esp]
+        jnz     mono_vhigh_loop             ; loop back for all samples
+
+        pop     eax                         ; pop sample count, saved regs, and return
+        pop     edi
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
+        endif
 
 ; This is an assembly optimized version of the following WavPack function:
 ;
