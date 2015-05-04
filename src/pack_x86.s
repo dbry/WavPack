@@ -8,6 +8,13 @@
 
         .intel_syntax noprefix
         .text
+
+        .globl  _pack_decorr_stereo_pass_x86
+        .globl  _pack_decorr_stereo_pass_cont_rev_x86
+        .globl  _pack_decorr_stereo_pass_cont_x86
+        .globl  _pack_decorr_mono_buffer_x86
+        .globl  _log2buffer_x86
+
         .globl  pack_decorr_stereo_pass_x86
         .globl  pack_decorr_stereo_pass_cont_rev_x86
         .globl  pack_decorr_stereo_pass_cont_x86
@@ -65,6 +72,7 @@
 #   mm7         512 (for rounding)
 #
 
+_pack_decorr_stereo_pass_x86:
 pack_decorr_stereo_pass_x86:
         push    ebp
         push    ebx
@@ -515,6 +523,7 @@ bdone:  pslld   mm5, 16                     # sign-extend 16-bit weights back to
 #   mm7         512 (for rounding)
 #
 
+_pack_decorr_stereo_pass_cont_rev_x86:
 pack_decorr_stereo_pass_cont_rev_x86:
         push    ebp
         mov     ebp, esp
@@ -525,6 +534,7 @@ pack_decorr_stereo_pass_cont_rev_x86:
         mov     esi, 8                      # esi indicates direction (inverted)
         jmp     start
 
+_pack_decorr_stereo_pass_cont_x86:
 pack_decorr_stereo_pass_cont_x86:
         push    ebp
         mov     ebp, esp
@@ -974,6 +984,7 @@ done:   pop     edi
                                             # valid decorr_pass arrays - disable for
                                             # hardcoded, faster in-line version
 
+_pack_decorr_mono_buffer_x86:
 pack_decorr_mono_buffer_x86:
         push    ebp                         # save the resgister that we need to
         push    ebx
@@ -1162,6 +1173,7 @@ mexit:  pop     eax
 #
 # !!! NO CHECK PERFORMED TO MAKE SURE THE PASSED DECORR_PASS ARRAY MATCHES THE CODE !!!
 
+_pack_decorr_mono_buffer_x86:
 pack_decorr_mono_buffer_x86:
         push    ebp                         # save the resgister that we need to
         push    ebx
@@ -1355,6 +1367,7 @@ log2_table:
         .byte   0xe8, 0xe9, 0xea, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xee, 0xef, 0xf0, 0xf1, 0xf1, 0xf2, 0xf3, 0xf4
         .byte   0xf4, 0xf5, 0xf6, 0xf7, 0xf7, 0xf8, 0xf9, 0xf9, 0xfa, 0xfb, 0xfc, 0xfc, 0xfd, 0xfe, 0xff, 0xff
 
+_log2buffer_x86:
 log2buffer_x86:
         push    ebp
         mov     ebp, esp

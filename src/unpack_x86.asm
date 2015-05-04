@@ -9,7 +9,7 @@
         .686
         .mmx
         .model  flat
-asmcode segment page
+asmcode segment page 'CODE'
         public  _unpack_decorr_stereo_pass_cont_x86
         public  _unpack_decorr_mono_pass_cont_x86
 

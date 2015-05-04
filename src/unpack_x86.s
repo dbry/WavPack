@@ -8,6 +8,10 @@
 
         .intel_syntax noprefix
         .text
+
+        .globl  _unpack_decorr_stereo_pass_cont_x86
+        .globl  _unpack_decorr_mono_pass_cont_x86
+
         .globl  unpack_decorr_stereo_pass_cont_x86
         .globl  unpack_decorr_mono_pass_cont_x86
 
@@ -53,6 +57,7 @@
 #   int32_t delta             DWORD [esp]
 #
 
+_unpack_decorr_stereo_pass_cont_x86:
 unpack_decorr_stereo_pass_cont_x86:
         push    ebp
         mov     ebp, esp
@@ -673,6 +678,7 @@ done:   pop     eax                         # pop delta & saved regs
 #   int16_t delta             DWORD [esp]
 #
 
+_unpack_decorr_mono_pass_cont_x86:
 unpack_decorr_mono_pass_cont_x86:
         push    ebp
         mov     ebp, esp
