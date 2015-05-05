@@ -115,7 +115,11 @@ static const char *usage =
 "                %t = tag field name (note: comes from data for binary tags)\n"
 "                %e = extension from binary tag source file, or 'txt' for text tag\n"
 "          -y  = yes to overwrite warning (use with caution!)\n"
+#if defined (WIN32)
 "          -z  = don't set console title to indicate progress\n\n"
+#else
+"          -z1 = set console title to indicate progress\n\n"
+#endif
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
 // this global is used to indicate the special "debug" mode where extra debug messages
@@ -124,7 +128,7 @@ static const char *usage =
 int debug_logging_mode;
 
 static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info,
-    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, no_console_title;
+    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, set_console_title;
 
 static int num_files, file_index, outbuf_k;
 
@@ -321,7 +325,8 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'Z': case 'z':
-                        no_console_title = 1;
+                        set_console_title = strtol (++*argv, argv, 10);
+                        --*argv;
                         break;
 
                     case 'X': case 'x':
@@ -658,7 +663,7 @@ int main (argc, argv) int argc; char **argv;
     error_line ("malloc_count = %d", dump_alloc ());
 #endif
 
-    if (!no_console_title)
+    if (set_console_title)
         DoSetConsoleTitle ("WvUnpack Completed");
 
     return error_count ? 1 : 0;
@@ -741,7 +746,7 @@ static FILE *open_output_file (char *filename, char **tempfilename)
             if (!overwrite_all) {
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (filename));
 
-                if (!no_console_title)
+                if (set_console_title)
                     DoSetConsoleTitle ("overwrite?");
 
                 switch (yna ()) {
@@ -1354,7 +1359,7 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
                 DoCloseHandle (outfile);
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (full_filename));
 
-                if (!no_console_title)
+                if (set_console_title)
                     DoSetConsoleTitle ("overwrite?");
 
                 switch (yna ()) {
@@ -2054,7 +2059,7 @@ void display_progress (double file_progress)
 {
     char title [40];
 
-    if (!no_console_title) {
+    if (set_console_title) {
         file_progress = (file_index + file_progress) / num_files;
         sprintf (title, "%d%% (WvUnpack)", (int) ((file_progress * 100.0) + 0.5));
         DoSetConsoleTitle (title);

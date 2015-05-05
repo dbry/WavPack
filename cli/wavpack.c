@@ -186,7 +186,11 @@ static const char *help =
 "                             -x1 to -x3 to choose best of predefined filters\n"
 "                             -x4 to -x6 to generate custom filters (very slow!)\n"
 "    -y                      yes to all warnings (use with caution!)\n"
+#if defined (WIN32)
 "    -z                      don't set console title to indicate progress\n\n"
+#else
+"    -z1                     set console title to indicate progress\n\n"
+#endif
 " Web:\n"
 "     Visit www.wavpack.com for latest version and complete information\n";
 
@@ -203,7 +207,7 @@ static const char *speakers [] = {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source, store_floats_as_ints,
-    adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert, no_console_title, allow_huge_tags;
+    adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert, set_console_title, allow_huge_tags;
 
 static int num_channels_order;
 static unsigned char channel_order [18], channel_order_undefined;
@@ -256,6 +260,10 @@ int main (argc, argv) int argc; char **argv;
     char **matches = NULL;
     WavpackConfig config;
     int result, i;
+
+#if defined (WIN32)
+    set_console_title = 1;      // on Windows, we default to messing with the console title
+#endif                          // on Linux, this is considered uncool to do by default
 
 #if defined(WIN32)
     struct _finddata_t _finddata_t;
@@ -541,7 +549,8 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'Z': case 'z':
-                        no_console_title = 1;
+                        set_console_title = strtol (++*argv, argv, 10);
+                        --*argv;
                         break;
 
                     case 'M': case 'm':
@@ -1154,7 +1163,7 @@ int main (argc, argv) int argc; char **argv;
     error_line ("malloc_count = %d", dump_alloc ());
 #endif
 
-    if (!no_console_title)
+    if (set_console_title)
         DoSetConsoleTitle ("WavPack Completed");
 
     return error_count ? 1 : 0;
@@ -1369,7 +1378,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             if (!overwrite_all) {
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
 
-                if (!no_console_title)
+                if (set_console_title)
                     DoSetConsoleTitle ("overwrite?");
 
                 switch (yna ()) {
@@ -1393,7 +1402,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         if (res == 1) {
             fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
 
-            if (!no_console_title)
+            if (set_console_title)
                 DoSetConsoleTitle ("overwrite?");
 
             switch (yna ()) {
@@ -2327,7 +2336,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             else
                 fprintf (stderr, "overwrite %s with lossy transcode (yes/no/all)? ", FN_FIT (outfilename));
 
-            if (!no_console_title)
+            if (set_console_title)
                 DoSetConsoleTitle ("overwrite?");
 
             switch (yna ()) {
@@ -2346,7 +2355,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         DoCloseHandle (wvc_file.file);
         fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
 
-        if (!no_console_title)
+        if (set_console_title)
             DoSetConsoleTitle ("overwrite?");
 
         switch (yna ()) {
@@ -3216,7 +3225,7 @@ static void display_progress (double file_progress)
 {
     char title [40];
 
-    if (!no_console_title) {
+    if (set_console_title) {
         file_progress = (file_index + file_progress) / num_files;
         sprintf (title, "%d%% (WavPack)", (int) ((file_progress * 100.0) + 0.5));
         DoSetConsoleTitle (title);

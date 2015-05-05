@@ -88,7 +88,11 @@ static const char *usage =
 "          -q  = quiet (keep console output to a minimum)\n"
 "          -v  = write the version to stdout\n"
 "          -s  = show stored values only (no analysis)\n"
+#if defined (WIN32)
 "          -z  = don't set console title to indicate progress\n\n"
+#else
+"          -z1 = set console title to indicate progress\n\n"
+#endif
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
 // this global is used to indicate the special "debug" mode where extra debug messages
@@ -99,7 +103,7 @@ int debug_logging_mode;
 #define HISTOGRAM_SLOTS 12000
 static uint32_t track_histogram [HISTOGRAM_SLOTS], album_histogram [HISTOGRAM_SLOTS];
 
-static char album_mode, clean_mode, display_mode, ignore_wvc, quiet_mode, show_mode, new_mode, no_console_title;
+static char album_mode, clean_mode, display_mode, ignore_wvc, quiet_mode, show_mode, new_mode, set_console_title;
 static int num_files, file_index;
 
 /////////////////////////// local function declarations ///////////////////////
@@ -200,7 +204,8 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'Z': case 'z':
-                        no_console_title = 1;
+                        set_console_title = strtol (++*argv, argv, 10);
+                        --*argv;
                         break;
 
                     case 'I': case 'i':
@@ -478,7 +483,7 @@ int main (argc, argv) int argc; char **argv;
     error_line ("malloc_count = %d", dump_alloc ());
 #endif
 
-    if (!no_console_title)
+    if (set_console_title)
         DoSetConsoleTitle ("WvGain Completed");
 
     return error_count ? 1 : 0;
@@ -591,7 +596,11 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
             break;
 
         if (check_break ()) {
+#if defined(WIN32)
             fprintf (stderr, "^C\n");
+#else
+            fprintf (stderr, "\n");
+#endif
             result = HARD_ERROR;
             break;
         }
@@ -1176,7 +1185,7 @@ void display_progress (double file_progress)
 {
     char title [40];
 
-    if (!no_console_title) {
+    if (set_console_title) {
         file_progress = (file_index + file_progress) / num_files;
         sprintf (title, "%d%% (WvGain)", (int) ((file_progress * 100.0) + 0.5));
         DoSetConsoleTitle (title);
