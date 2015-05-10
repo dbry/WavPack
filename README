@@ -1,14 +1,16 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2015 Conifer Software.               //
+//                Copyright (c) 1998 - 2015 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
 
 This package contains all the source code required to build the WavPack
-command-line programs and the WavPack library and it has been tested on many
-platforms.
+library (libwavpack) and the command-line programs and it has been tested
+on many platforms. Assembly language optimizations are provided for x86
+and x86-64 (AMD64) processors (encoding and decoding) and ARMv7 (decoding
+only).
 
 On Windows there are solution and project files for Visual Studio 2008 and
 additional sourcecode to build the CoolEdit/Audition plugin and the winamp

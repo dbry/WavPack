@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: wavpack
 .\"    Author: Sebastian Dröge <slomo@debian.org>
-.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2013-05-24
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 2015-05-10
 .\"    Manual: WavPack Executable Programs
-.\"    Source: WavPack 4.70.0
+.\"    Source: WavPack 4.75.0
 .\"  Language: English
 .\"
-.TH "WAVPACK" "1" "2013\-05\-24" "WavPack 4\&.70\&.0" "WavPack Executable Programs"
+.TH "WAVPACK" "1" "2015\-05\-10" "WavPack 4\&.75\&.0" "WavPack Executable Programs"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,7 +34,6 @@ wavpack \- encode wav files to wavpack
 \fBwavpack\fR [\fB\fI\-options\fR\fR] \fB\fIINFILE\fR\fR... [\fB\-o\ \fR\fB\fIOUTFILE\fR\fR]
 .SH "DESCRIPTION"
 .PP
-
 \fBwavpack\fR
 encodes the specified source file(s) into WavPack files using the options provided\&. The source files may be uncompressed WAV files, existing WavPack files, or raw
 PCM
@@ -253,9 +252,9 @@ extra encode processing (optional n = 1 to 6, 1=default), \-x1 to \-x3 to choose
 yes to all warnings (use with caution!)
 .RE
 .PP
-\fB\-z\fR
+\fB\-z[\fR\fB\fIn\fR\fR\fB]\fR
 .RS 4
-don\*(Aqt set console title to indicate progress (prevents console from staying "WavPack Completed")
+don\*(Aqt set (n = 0 or omitted) or set (n = 1) console title to indicate progress (leaves "WavPack Completed")
 .RE
 .SH "SEE ALSO"
 .PP
@@ -266,9 +265,9 @@ Please visit www\&.wavpack\&.com for more information
 .SH "COPYRIGHT"
 .PP
 This manual page was written by Sebastian Dröge
-slomo@debian\&.org
+<slomo@debian\&.org>
 and David Bryant
-david@wavpack\&.com\&. Permission is granted to copy, distribute and/or modify this document under the terms of the
+<david@wavpack\&.com>\&. Permission is granted to copy, distribute and/or modify this document under the terms of the
 BSD
 License\&.
 .SH "AUTHORS"
@@ -286,5 +285,5 @@ Updates
 .br
 Copyright \(co 2005 Sebastian Dröge
 .br
-Copyright \(co 2013 David Bryant
+Copyright \(co 2015 David Bryant
 .br

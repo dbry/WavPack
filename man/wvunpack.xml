@@ -21,16 +21,16 @@
       <holder>Sebastian Dröge</holder>
     </copyright>
     <copyright>
-      <year>2013</year>
+      <year>2015</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2013-05-24</date>
+    <date>2015-05-10</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvunpack</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">4.70.0</refmiscinfo>
+    <refmiscinfo class="version">4.75.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
@@ -196,8 +196,9 @@
           <listitem> <para>yes to overwrite warning (use with caution!)</para> </listitem>
         </varlistentry>
         <varlistentry>
-          <term> <option>-z</option> </term>
-          <listitem> <para>don't set console title to indicate progress (prevents console from staying "WvUnpack Completed")</para> </listitem>
+          <term> <option>-z[<replaceable>n</replaceable>]</option> </term>
+          <listitem> <para>
+            don't set (n = 0 or omitted) or set (n = 1) console title to indicate progress (leaves "WvUnpack Completed")</para> </listitem>
         </varlistentry>
       </variablelist>
     </para>

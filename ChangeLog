@@ -1,3 +1,24 @@
+                      -----------------------------
+                      Release 4.75.0 - May 10, 2015
+                      -----------------------------
+
+ WavPack Library Source Code - 4.75.0
+ ------------------------------------
+  improved: reorganization for modularity and to improve linking
+  added: assembler optimizations for encode/decode on x86 and x64
+  added: assembler optimizations for decoding on ARMv7 (Linux)
+  improved: several minor speed optimizations using intrinsics
+  fixed: wavpack.pc.in not working correctly on some Linux distros
+  fixed: memcpy() issue causing abort() on OpenBSD
+
+ wavpack.exe (command-line encoder) - 4.75.0
+ wvunpack.exe (command-line decoder) - 4.75.0
+ wvgain.exe (command-line ReplayGain scanner) - 4.75.0
+ -----------------------------------------------------
+  changed: writing to console title default is off (Linux only, -z1 to enable)
+  fixed: wvgain crashes on bad file arguments (Debian bug #716478)
+
+
                           -------------------------
                           Update - December 7, 2013
                           -------------------------
