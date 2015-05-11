@@ -18,6 +18,13 @@ plugin. The CoolEdit/Audition plugin provides a good example for using the
 library to both read and write WavPack files. Both 32-bit and 64-bit
 platforms are provided.
 
+However, Visual Studio 2008 does not support projects with x64 assembly
+very well. I have provided a copy of the edited masm.rules file that works
+for me, but I can't provide support if your build does not work. Please make
+a copy of your masm.rules file first. On my system it lives here:
+
+C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\VCProjectDefaults
+
 To build everything on Linux, type:
 
 1. ./configure [--disable-asm] [--enable-man]
