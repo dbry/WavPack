@@ -158,6 +158,10 @@ int main (argc, argv) int argc; char **argv;
     }
 #endif
 
+#if defined (WIN32)
+   set_console_title = 1;      // on Windows, we default to messing with the console title
+#endif                          // on Linux, this is considered uncool to do by default
+
     // loop through command-line arguments
 
     while (--argc) {
@@ -204,7 +208,7 @@ int main (argc, argv) int argc; char **argv;
                         break;
 
                     case 'Z': case 'z':
-                        set_console_title = strtol (++*argv, argv, 10);
+                        set_console_title = (char) strtol (++*argv, argv, 10);
                         --*argv;
                         break;
 

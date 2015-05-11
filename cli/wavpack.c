@@ -261,10 +261,6 @@ int main (argc, argv) int argc; char **argv;
     WavpackConfig config;
     int result, i;
 
-#if defined (WIN32)
-    set_console_title = 1;      // on Windows, we default to messing with the console title
-#endif                          // on Linux, this is considered uncool to do by default
-
 #if defined(WIN32)
     struct _finddata_t _finddata_t;
     char selfname [MAX_PATH];
@@ -293,6 +289,10 @@ int main (argc, argv) int argc; char **argv;
                 error_line ("arg %d: %s", argc - argc_t, *++argv_t);
     }
 #endif
+
+#if defined (WIN32)
+   set_console_title = 1;      // on Windows, we default to messing with the console title
+#endif                          // on Linux, this is considered uncool to do by default
 
     CLEAR (config);
 
