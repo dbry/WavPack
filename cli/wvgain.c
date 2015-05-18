@@ -69,6 +69,9 @@ static const char *sign_on = "\n"
 " WVGAIN  ReplayGain Scanner/Tagger for WavPack  %s Version %s\n"
 " Copyright (c) 2005 - 2015 David Bryant.  All Rights Reserved.\n\n";
 
+static const char *version_warning = "\n"
+" WARNING: WVGAIN using libwavpack version %s, expected %s (see README)\n\n";
+
 static const char *usage =
 " Usage:   WVGAIN [-options] [@]infile[.wv] [...]\n"
 #if defined (WIN32) || defined (__OS2__)
@@ -248,7 +251,9 @@ int main (argc, argv) int argc; char **argv;
         ++error_count;
     }
 
-    if (!quiet_mode && !error_count)
+    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION))
+        fprintf (stderr, version_warning, WavpackGetLibraryVersionString (), PACKAGE_VERSION);
+    else if (!quiet_mode && !error_count)
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
 
     if (!num_files) {

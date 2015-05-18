@@ -71,6 +71,9 @@ static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
 " Copyright (c) 1998 - 2015 David Bryant.  All Rights Reserved.\n\n";
 
+static const char *version_warning = "\n"
+" WARNING: WAVPACK using libwavpack version %s, expected %s (see README)\n\n";
+
 static const char *usage =
 #if defined (WIN32)
 " Usage:   WAVPACK [-options] infile[.wav]|infile.wv|- [outfile[.wv]|outpath|-]\n"
@@ -750,7 +753,9 @@ int main (argc, argv) int argc; char **argv;
         ++error_count;
     }
 
-    if (!quiet_mode && !error_count)
+    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION))
+        fprintf (stderr, version_warning, WavpackGetLibraryVersionString (), PACKAGE_VERSION);
+    else if (!quiet_mode && !error_count)
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
 
     // Loop through any tag specification strings and check for file access, convert text
