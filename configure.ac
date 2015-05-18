@@ -103,6 +103,11 @@ AC_SUBST(ICONV_LIBS)
 AC_SUBST(ICONV)
 fi
 
+AC_ARG_ENABLE([rpath],
+    AS_HELP_STRING([--enable-rpath], [hardcode library path in executables]))
+
+AM_CONDITIONAL([ENABLE_RPATH], [test "x$enable_rpath" == "xyes"])
+
 AC_ARG_ENABLE([asm],
     [AS_HELP_STRING([--disable-asm], [disable assembly optimizations])],,
     [enable_asm=check])

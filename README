@@ -27,7 +27,7 @@ C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\VCProjectDefaults
 
 To build everything on Linux, type:
 
-1. ./configure [--disable-asm] [--enable-man]
+1. ./configure [--disable-asm] [--enable-man] [--enable-rpath]
 2. make
 3. make install (optionally, to install into /usr/local/bin)
 
@@ -35,7 +35,14 @@ If you are using the code directly from Git (rather than a distribution)
 then you will need to do a ./autogen.sh instead of the configure step. If
 assembly optimizations are available for your processor they will be
 automatically enabled, but if there is a problem with them then use the
---disable-asm option to use pure C.
+--disable-asm option to revert to pure C.
+
+If you get a WARNING about unexpected libwavpack version when you run the
+command-line programs, you might need to move /usr/local/lib (or wherever
+the newer libwavpack got installed) earlier in the library seach path. If
+you don't know what that means or how to do it (I don't) then try using
+--enable-rpath to hardcode the library location in the executables, or
+simply force static linking with --disable-shared.
 
 Notes:
 
