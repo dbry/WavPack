@@ -38,12 +38,15 @@
 #ifdef OPT_ASM_X86
     #define PACK_DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x86
     #define PACK_DECORR_STEREO_PASS_CONT_REV pack_decorr_stereo_pass_cont_rev_x86
+    #define PACK_DECORR_STEREO_PASS_CONT_AVAILABLE pack_cpu_has_feature_x86(CPU_FEATURE_MMX)
 #elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
     #define PACK_DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64win
     #define PACK_DECORR_STEREO_PASS_CONT_REV pack_decorr_stereo_pass_cont_rev_x64win
+    #define PACK_DECORR_STEREO_PASS_CONT_AVAILABLE 1
 #elif defined(OPT_ASM_X64)
     #define PACK_DECORR_STEREO_PASS_CONT pack_decorr_stereo_pass_cont_x64
     #define PACK_DECORR_STEREO_PASS_CONT_REV pack_decorr_stereo_pass_cont_rev_x64
+    #define PACK_DECORR_STEREO_PASS_CONT_AVAILABLE 1
 #endif
 
 #ifdef PACK_DECORR_STEREO_PASS_CONT
@@ -64,7 +67,7 @@ static void decorr_stereo_pass (int32_t *in_samples, int32_t *out_samples, int32
     int m = 0, i;
 
 #ifdef PACK_DECORR_STEREO_PASS_CONT
-    if (num_samples > 16) {
+    if (num_samples > 16 && PACK_DECORR_STEREO_PASS_CONT_AVAILABLE) {
         int32_t pre_samples = (dpp->term < 0 || dpp->term > MAX_TERM) ? 2 : dpp->term;
         cont_samples = num_samples - pre_samples;
         num_samples = pre_samples;

@@ -10,7 +10,8 @@ This package contains all the source code required to build the WavPack
 library (libwavpack) and the command-line programs and it has been tested
 on many platforms. Assembly language optimizations are provided for x86
 and x86-64 (AMD64) processors (encoding and decoding) and ARMv7 (decoding
-only).
+only). The x86 assembly code includes a runtime check for MMX capability,
+so it will work on legacy i386 processors.
 
 On Windows there are solution and project files for Visual Studio 2008 and
 additional sourcecode to build the CoolEdit/Audition plugin and the winamp

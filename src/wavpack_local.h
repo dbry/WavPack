@@ -512,6 +512,12 @@ void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening
 void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
 void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
 
+///////////////////////////////// CPU feature detection ////////////////////////////////
+
+int unpack_cpu_has_feature_x86 (int findex), pack_cpu_has_feature_x86 (int findex);
+
+#define CPU_FEATURE_MMX     23
+
 ///////////////////////////// pre-4.0 version decoding ////////////////////////////
 // modules: unpack3.c, unpack3_open.c, unpack3_seek.c
 

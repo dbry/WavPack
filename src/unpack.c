@@ -20,15 +20,19 @@
 
 #ifdef OPT_ASM_X86
     #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x86
+    #define DECORR_STEREO_PASS_CONT_AVAILABLE unpack_cpu_has_feature_x86(CPU_FEATURE_MMX)
     #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x86
 #elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
     #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x64win
+    #define DECORR_STEREO_PASS_CONT_AVAILABLE 1
     #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x64win
 #elif defined(OPT_ASM_X64)
     #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x64
+    #define DECORR_STEREO_PASS_CONT_AVAILABLE 1
     #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x64
 #elif defined(OPT_ASM_ARM)
     #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_armv7
+    #define DECORR_STEREO_PASS_CONT_AVAILABLE 1
     #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_armv7
 #endif
 
@@ -165,7 +169,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
             i = get_words_lossless (wps, buffer, sample_count);
 
 #ifdef DECORR_STEREO_PASS_CONT
-        if (sample_count < 16) {
+        if (sample_count < 16 || !DECORR_STEREO_PASS_CONT_AVAILABLE) {
             for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
                 decorr_stereo_pass (dpp, buffer, sample_count);
 

@@ -816,6 +816,10 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
 void DECORR_STEREO_PASS (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 void DECORR_MONO_BUFFER (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count);
 
+#ifdef OPT_ASM_X86
+void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
+#endif
+
 static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
@@ -973,8 +977,14 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             }
 
             for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
+#ifdef OPT_ASM_X86
+                if (pack_cpu_has_feature_x86 (CPU_FEATURE_MMX))
+                    DECORR_STEREO_PASS (dpp, buffer, sample_count);
+                else
+                    decorr_stereo_pass (dpp, buffer, sample_count);
+#else
                 DECORR_STEREO_PASS (dpp, buffer, sample_count);
-
+#endif
             m = sample_count & (MAX_TERM - 1);
         }
 
@@ -1254,7 +1264,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     return TRUE;
 }
 
-#if !defined(OPT_ASM_X86) && !defined(OPT_ASM_X64)
+#if !defined(OPT_ASM_X64)
 
 // This is the "C" version of the stereo decorrelation pass function. There
 // are assembly optimized versions of this that are be used if available.
@@ -1369,6 +1379,10 @@ void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sampl
             break;
     }
 }
+
+#endif
+
+#if !defined(OPT_ASM_X86) && !defined(OPT_ASM_X64)
 
 // This is the "C" version of the mono decorrelation pass function. There
 // are assembly optimized versions of this that are be used if available.
