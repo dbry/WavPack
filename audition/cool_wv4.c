@@ -24,7 +24,7 @@
 // Version 2.9 - May 24, 2008  (library ver 4.50, add About, make "extra" into slider)
 // Version 2.10 - Sept 25, 2009 (library ver 4.60)
 // Version 2.11 - Nov 22, 2009 (library ver 4.60.1)
-// Version 2.12 - May 10, 2015 (library ver 4.75.1)
+// Version 2.12 - May 10, 2015 (library ver 4.75.0)
 
 #include <windows.h>
 #include <commctrl.h>
