@@ -17,6 +17,9 @@
 		/>
 	</Platforms>
 	<ToolFiles>
+		<DefaultToolFile
+			FileName="masm.rules"
+		/>
 	</ToolFiles>
 	<Configurations>
 		<Configuration
@@ -29,7 +32,13 @@
 				Name="VCPreBuildEventTool"
 			/>
 			<Tool
+				Name="MASM"
+			/>
+			<Tool
 				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="MASM64"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -64,7 +73,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode&#x0D;&#x0A;/export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples&#x0D;&#x0A;/export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem&#x0D;&#x0A;/export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput&#x0D;&#x0A;/export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples&#x0D;&#x0A;/export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum&#x0D;&#x0A;/export:WavpackUpdateNumSamples /export:WavpackGetWrapperLocation&#x0D;&#x0A;/export:WavpackAppendTagItem /export:WavpackAppendBinaryTagItem /export:WavpackDeleteTagItem /export:WavpackWriteTag&#x0D;&#x0A;/export:WavpackGetNumSamples /export:WavpackGetSampleIndex /export:WavpackGetNumErrors&#x0D;&#x0A;/export:WavpackLossyBlocks /export:WavpackGetProgress /export:WavpackGetFileSize&#x0D;&#x0A;/export:WavpackGetRatio /export:WavpackGetAverageBitrate /export:WavpackGetInstantBitrate&#x0D;&#x0A;/export:WavpackCloseFile /export:WavpackGetSampleRate /export:WavpackGetNumChannels&#x0D;&#x0A;/export:WavpackGetChannelMask /export:WavpackGetFloatNormExp&#x0D;&#x0A;/export:WavpackGetBitsPerSample /export:WavpackGetBytesPerSample&#x0D;&#x0A;/export:WavpackGetReducedChannels /export:WavpackGetWrapperBytes&#x0D;&#x0A;/export:WavpackGetWrapperData /export:WavpackFreeWrapper&#x0D;&#x0A;/export:WavpackSeekTrailingWrapper /export:WavpackGetMD5Sum&#x0D;&#x0A;/export:WavpackLittleEndianToNative /export:WavpackNativeToLittleEndian&#x0D;&#x0A;/export:WavpackGetLibraryVersion /export:WavpackGetLibraryVersionString&#x0D;&#x0A;"
+				AdditionalOptions="/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode&#x0D;&#x0A;/export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples&#x0D;&#x0A;/export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem&#x0D;&#x0A;/export:WavpackGetEncodedNoise&#x0D;&#x0A;&#x0D;&#x0A;/export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput&#x0D;&#x0A;/export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples&#x0D;&#x0A;/export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum&#x0D;&#x0A;/export:WavpackUpdateNumSamples /export:WavpackGetWrapperLocation&#x0D;&#x0A;/export:WavpackAppendTagItem /export:WavpackAppendBinaryTagItem /export:WavpackDeleteTagItem /export:WavpackWriteTag&#x0D;&#x0A;/export:WavpackGetNumSamples /export:WavpackGetSampleIndex /export:WavpackGetNumErrors&#x0D;&#x0A;/export:WavpackLossyBlocks /export:WavpackGetProgress /export:WavpackGetFileSize&#x0D;&#x0A;/export:WavpackGetRatio /export:WavpackGetAverageBitrate /export:WavpackGetInstantBitrate&#x0D;&#x0A;/export:WavpackCloseFile /export:WavpackGetSampleRate /export:WavpackGetNumChannels&#x0D;&#x0A;/export:WavpackGetChannelMask /export:WavpackGetFloatNormExp&#x0D;&#x0A;/export:WavpackGetBitsPerSample /export:WavpackGetBytesPerSample&#x0D;&#x0A;/export:WavpackGetReducedChannels /export:WavpackGetWrapperBytes&#x0D;&#x0A;/export:WavpackGetWrapperData /export:WavpackFreeWrapper&#x0D;&#x0A;/export:WavpackSeekTrailingWrapper /export:WavpackGetMD5Sum&#x0D;&#x0A;/export:WavpackLittleEndianToNative /export:WavpackNativeToLittleEndian&#x0D;&#x0A;/export:WavpackGetLibraryVersion /export:WavpackGetLibraryVersionString&#x0D;&#x0A;"
 				OutputFile="$(OutDir)\wavpackdll.dll"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
@@ -105,7 +114,13 @@
 				Name="VCPreBuildEventTool"
 			/>
 			<Tool
+				Name="MASM"
+			/>
+			<Tool
 				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="MASM64"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -182,7 +197,13 @@
 				Name="VCPreBuildEventTool"
 			/>
 			<Tool
+				Name="MASM"
+			/>
+			<Tool
 				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="MASM64"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -201,7 +222,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				WholeProgramOptimization="false"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;WAVPACKDLL_EXPORTS;_CRT_SECURE_NO_DEPRECATE;OPT_MMX"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;WAVPACKDLL_EXPORTS;_CRT_SECURE_NO_DEPRECATE;OPT_ASM_X86"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -220,10 +241,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode&#x0D;&#x0A;/export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples&#x0D;&#x0A;/export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem&#x0D;&#x0A;/export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput&#x0D;&#x0A;/export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples&#x0D;&#x0A;/export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum&#x0D;&#x0A;/export:WavpackUpdateNumSamples /export:WavpackGetWrapperLocation&#x0D;&#x0A;/export:WavpackAppendTagItem /export:WavpackAppendBinaryTagItem /export:WavpackDeleteTagItem /export:WavpackWriteTag&#x0D;&#x0A;/export:WavpackGetNumSamples /export:WavpackGetSampleIndex /export:WavpackGetNumErrors&#x0D;&#x0A;/export:WavpackLossyBlocks /export:WavpackGetProgress /export:WavpackGetFileSize&#x0D;&#x0A;/export:WavpackGetRatio /export:WavpackGetAverageBitrate /export:WavpackGetInstantBitrate&#x0D;&#x0A;/export:WavpackCloseFile /export:WavpackGetSampleRate /export:WavpackGetNumChannels&#x0D;&#x0A;/export:WavpackGetChannelMask /export:WavpackGetFloatNormExp&#x0D;&#x0A;/export:WavpackGetBitsPerSample /export:WavpackGetBytesPerSample&#x0D;&#x0A;/export:WavpackGetReducedChannels /export:WavpackGetWrapperBytes&#x0D;&#x0A;/export:WavpackGetWrapperData /export:WavpackFreeWrapper&#x0D;&#x0A;/export:WavpackSeekTrailingWrapper /export:WavpackGetMD5Sum&#x0D;&#x0A;/export:WavpackLittleEndianToNative /export:WavpackNativeToLittleEndian&#x0D;&#x0A;/export:WavpackGetLibraryVersion /export:WavpackGetLibraryVersionString&#x0D;&#x0A;"
+				AdditionalOptions="/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode&#x0D;&#x0A;/export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples&#x0D;&#x0A;/export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem&#x0D;&#x0A;/export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput&#x0D;&#x0A;/export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples&#x0D;&#x0A;/export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum&#x0D;&#x0A;/export:WavpackUpdateNumSamples /export:WavpackGetWrapperLocation&#x0D;&#x0A;/export:WavpackAppendTagItem /export:WavpackAppendBinaryTagItem /export:WavpackDeleteTagItem /export:WavpackWriteTag&#x0D;&#x0A;/export:WavpackGetNumSamples /export:WavpackGetSampleIndex /export:WavpackGetNumErrors&#x0D;&#x0A;/export:WavpackLossyBlocks /export:WavpackGetProgress /export:WavpackGetFileSize&#x0D;&#x0A;/export:WavpackGetRatio /export:WavpackGetAverageBitrate /export:WavpackGetInstantBitrate&#x0D;&#x0A;/export:WavpackCloseFile /export:WavpackGetSampleRate /export:WavpackGetNumChannels&#x0D;&#x0A;/export:WavpackGetChannelMask /export:WavpackGetFloatNormExp&#x0D;&#x0A;/export:WavpackGetBitsPerSample /export:WavpackGetBytesPerSample&#x0D;&#x0A;/export:WavpackGetReducedChannels /export:WavpackGetWrapperBytes&#x0D;&#x0A;/export:WavpackGetWrapperData /export:WavpackFreeWrapper&#x0D;&#x0A;/export:WavpackSeekTrailingWrapper /export:WavpackGetMD5Sum&#x0D;&#x0A;/export:WavpackLittleEndianToNative /export:WavpackNativeToLittleEndian&#x0D;&#x0A;/export:WavpackGetLibraryVersion /export:WavpackGetLibraryVersionString&#x0D;&#x0A;/export:WavpackGetEncodedNoise&#x0D;&#x0A;"
 				OutputFile="$(OutDir)\wavpackdll.dll"
 				LinkIncremental="1"
-				GenerateDebugInformation="true"
+				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -263,7 +284,13 @@
 				Name="VCPreBuildEventTool"
 			/>
 			<Tool
+				Name="MASM"
+			/>
+			<Tool
 				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="MASM64"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -283,7 +310,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				WholeProgramOptimization="false"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;WAVPACKDLL_EXPORTS;_CRT_SECURE_NO_DEPRECATE"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;WAVPACKDLL_EXPORTS;_CRT_SECURE_NO_DEPRECATE;OPT_ASM_X64"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -302,10 +329,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode&#x0D;&#x0A;/export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples&#x0D;&#x0A;/export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem&#x0D;&#x0A;/export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput&#x0D;&#x0A;/export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples&#x0D;&#x0A;/export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum&#x0D;&#x0A;/export:WavpackUpdateNumSamples /export:WavpackGetWrapperLocation&#x0D;&#x0A;/export:WavpackAppendTagItem /export:WavpackAppendBinaryTagItem /export:WavpackDeleteTagItem /export:WavpackWriteTag&#x0D;&#x0A;/export:WavpackGetNumSamples /export:WavpackGetSampleIndex /export:WavpackGetNumErrors&#x0D;&#x0A;/export:WavpackLossyBlocks /export:WavpackGetProgress /export:WavpackGetFileSize&#x0D;&#x0A;/export:WavpackGetRatio /export:WavpackGetAverageBitrate /export:WavpackGetInstantBitrate&#x0D;&#x0A;/export:WavpackCloseFile /export:WavpackGetSampleRate /export:WavpackGetNumChannels&#x0D;&#x0A;/export:WavpackGetChannelMask /export:WavpackGetFloatNormExp&#x0D;&#x0A;/export:WavpackGetBitsPerSample /export:WavpackGetBytesPerSample&#x0D;&#x0A;/export:WavpackGetReducedChannels /export:WavpackGetWrapperBytes&#x0D;&#x0A;/export:WavpackGetWrapperData /export:WavpackFreeWrapper&#x0D;&#x0A;/export:WavpackSeekTrailingWrapper /export:WavpackGetMD5Sum&#x0D;&#x0A;/export:WavpackLittleEndianToNative /export:WavpackNativeToLittleEndian&#x0D;&#x0A;/export:WavpackGetLibraryVersion /export:WavpackGetLibraryVersionString&#x0D;&#x0A;"
+				AdditionalOptions="/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode&#x0D;&#x0A;/export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples&#x0D;&#x0A;/export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem&#x0D;&#x0A;/export:WavpackGetEncodedNoise&#x0D;&#x0A;&#x0D;&#x0A;/export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput&#x0D;&#x0A;/export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples&#x0D;&#x0A;/export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum&#x0D;&#x0A;/export:WavpackUpdateNumSamples /export:WavpackGetWrapperLocation&#x0D;&#x0A;/export:WavpackAppendTagItem /export:WavpackAppendBinaryTagItem /export:WavpackDeleteTagItem /export:WavpackWriteTag&#x0D;&#x0A;/export:WavpackGetNumSamples /export:WavpackGetSampleIndex /export:WavpackGetNumErrors&#x0D;&#x0A;/export:WavpackLossyBlocks /export:WavpackGetProgress /export:WavpackGetFileSize&#x0D;&#x0A;/export:WavpackGetRatio /export:WavpackGetAverageBitrate /export:WavpackGetInstantBitrate&#x0D;&#x0A;/export:WavpackCloseFile /export:WavpackGetSampleRate /export:WavpackGetNumChannels&#x0D;&#x0A;/export:WavpackGetChannelMask /export:WavpackGetFloatNormExp&#x0D;&#x0A;/export:WavpackGetBitsPerSample /export:WavpackGetBytesPerSample&#x0D;&#x0A;/export:WavpackGetReducedChannels /export:WavpackGetWrapperBytes&#x0D;&#x0A;/export:WavpackGetWrapperData /export:WavpackFreeWrapper&#x0D;&#x0A;/export:WavpackSeekTrailingWrapper /export:WavpackGetMD5Sum&#x0D;&#x0A;/export:WavpackLittleEndianToNative /export:WavpackNativeToLittleEndian&#x0D;&#x0A;/export:WavpackGetLibraryVersion /export:WavpackGetLibraryVersionString&#x0D;&#x0A;"
 				OutputFile="$(OutDir)\wavpackdll.dll"
 				LinkIncremental="1"
-				GenerateDebugInformation="true"
+				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -345,11 +372,11 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath=".\resource.h"
+				RelativePath="..\src\decorr_tables.h"
 				>
 			</File>
 			<File
-				RelativePath="..\src\decorr_tables.h"
+				RelativePath=".\resource.h"
 				>
 			</File>
 			<File
@@ -421,6 +448,61 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\pack_x64.asm"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM64"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM64"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\src\pack_x86.asm"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="MASM"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM64"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM64"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath="..\src\read_words.c"
 				>
 			</File>
@@ -437,6 +519,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\unpack3.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\unpack3_open.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\unpack3_seek.c"
+				>
+			</File>
+			<File
 				RelativePath="..\src\unpack_floats.c"
 				>
 			</File>
@@ -449,16 +543,59 @@
 				>
 			</File>
 			<File
-				RelativePath="..\src\unpack3.c"
+				RelativePath="..\src\unpack_x64.asm"
 				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM64"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM64"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\src\unpack3_open.c"
+				RelativePath="..\src\unpack_x86.asm"
 				>
-			</File>
-			<File
-				RelativePath="..\src\unpack3_seek.c"
-				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="MASM"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM64"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="MASM64"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\write_words.c"
