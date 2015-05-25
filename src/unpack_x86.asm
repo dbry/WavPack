@@ -12,6 +12,7 @@
 asmcode segment page 'CODE'
         public  _unpack_decorr_stereo_pass_cont_x86
         public  _unpack_decorr_mono_pass_cont_x86
+        public  _unpack_cpu_has_feature_x86
 
 ; This is an assembly optimized version of the following WavPack function:
 ;
@@ -923,6 +924,33 @@ mono_done:
         pop     ebx
         pop     ebp
         ret
+
+; Helper function to determine if specified CPU feature is available (used here for MMX).
+; Input parameter is index of feature to be checked (EDX from CPUID(1) only, MMX = 23).
+; Return value is the specified bit (0 or 1) or 0 if CPUID is not supported.
+
+_unpack_cpu_has_feature_x86:
+        pushfd                              ; save eflags
+        pushfd                              ; push another copy
+        xor     dword ptr [esp], 200000h    ; toggle ID bit on stack & pop it back into eflags
+        popfd
+        pushfd                              ; store possibly modified eflags
+        pop     eax                         ; and pop back into eax
+        xor     eax, [esp]                  ; compare to original pushed eflags
+        popfd                               ; restore original eflags
+        and     eax, 200000h                ; eax = 1 if eflags ID bit was changable
+        jz      oldcpu                      ; return zero if CPUID is not available (wow!)
+
+        push    ebx                         ; we must save ebx
+        mov     eax, 1                      ; do cpuid (1) to get features into edx
+        cpuid
+        mov     eax, edx                    ; copy into eax for shift
+        mov     cl, [esp+8]                 ; get parameter and shift that bit index into LSB
+        sar     eax, cl
+        and     eax, 1
+        pop     ebx                         ; restore ebx and return 0 or 1
+
+oldcpu: ret                                 ; return value in eax
 
 asmcode ends
 
