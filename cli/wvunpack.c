@@ -79,8 +79,8 @@ static const char *usage =
 "             (infile may contain wildcards: ?,*)\n\n"
 #else
 " Usage:   WVUNPACK [-options] infile[.wv]|- [...] [-o outfile[.wav]|outpath|-]\n"
-#endif
 "             (multiple input files are allowed)\n\n"
+#endif
 " Options: -b  = blindly decode all stream blocks & ignore length info\n"
 "          -c  = extract cuesheet only to stdout (no audio decode)\n"
 "               (note: equivalent to -x \"cuesheet\")\n"
