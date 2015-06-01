@@ -123,7 +123,7 @@ static const char *help =
 "                             decode speed and may result in lower quality)\n"
 "    --channel-order=<list>  specify (comma separated) channel order if not\n"
 "                             Microsoft standard (which is FL,FR,FC,LFE,BL,BR,\n"
-"                             LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR);\n"
+"                             FLC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR);\n"
 "                             specify '...' to indicate that channels are not\n"
 "                             assigned to specific speakers, or terminate list\n"
 "                             with '...' to indicate that any channels beyond\n"

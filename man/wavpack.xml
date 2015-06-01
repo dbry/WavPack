@@ -102,7 +102,7 @@
           <term> <option>--channel-order=<replaceable>list</replaceable></option> </term>
           <listitem> <para>
             specify (comma separated) channel order if not Microsoft standard (which is
-            FL,FR,FC,LFE,BL,BR,LC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR);
+            FL,FR,FC,LFE,BL,BR,FLC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR);
             specify <quote>...</quote> to indicate that channels are not assigned to specific speakers, or terminate list with <quote>...</quote>
             to indicate that any channels beyond those specified are unassigned
         </para> </listitem>
