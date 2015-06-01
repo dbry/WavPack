@@ -1350,6 +1350,220 @@ pack_decorr_mono_buffer_x64win endp
 
 ; This is an assembly optimized version of the following WavPack function:
 ;
+; void decorr_mono_pass_cont (int32_t *out_buffer,
+;                             int32_t *in_buffer,
+;                             struct decorr_pass *dpp,
+;                             int32_t sample_count);
+;
+; It performs a single pass of mono decorrelation, transfering from the
+; input buffer to the output buffer. Note that this version of the function
+; requires that the up to 8 previous (depending on dpp->term) mono samples
+; are visible and correct. In other words, it ignores the "samples_*"
+; fields in the decorr_pass structure and gets the history data directly
+; from the source buffer. It does, however, return the appropriate history
+; samples to the decorr_pass structure before returning.
+;
+; By using the overflow detection of the multiply instruction, it detects
+; when the "long_math" varient is required and automatically does it.
+;
+; This version has entry points for both the System V ABI and the Windows
+; X64 ABI. It does not use the "red zone" or the "shadow area"; it saves the
+; non-volatile registers for both ABIs on the stack and allocates another
+; 8 bytes on the stack to store the dpp pointer. Note that it does NOT
+; provide unwind data for the Windows ABI (the pack_x64.asm module for
+; MSVC does). The arguments are passed in registers:
+;
+;                             System V  Windows  
+;   int32_t *out_buffer         rdi       rcx
+;   int32_t *in_buffer          rsi       rdx
+;   struct decorr_pass *dpp     rdx       r8
+;   int32_t sample_count        ecx       r9
+;
+; Stack usage:
+;
+; [rsp+0] = *dpp
+;
+; Register usage:
+;
+; rsi = source ptr
+; rdi = destination ptr
+; rcx = term * -4 (default terms)
+; rcx = previous sample (terms 17 & 18)
+; ebp = weight
+; r8d = delta
+; r9d = weight sum
+; r10 = eptr
+;
+
+pack_decorr_mono_pass_cont_x64win proc public frame
+        push_reg    rbp
+        push_reg    rbx
+        push_reg    rdi
+        push_reg    rsi
+        alloc_stack 8                       ; allocate 8 bytes on stack & align to 16 bytes
+        end_prologue
+
+        mov     rdi, rcx                    ; copy params from win regs to Linux regs
+        mov     rsi, rdx                    ; so we can leave following code similar
+        mov     rdx, r8
+        mov     rcx, r9
+
+        mov     [rsp], rdx
+        and     ecx, ecx                    ; test & handle zero sample count
+        jz      mono_done
+
+        cld
+        mov     r8d, [rdx+4]                ; rd8 = delta
+        mov     ebp, [rdx+8]                ; ebp = weight
+        mov     r9d, [rdx+88]               ; r9d = weight sum
+        lea     r10, [rsi+rcx*4]            ; r10 = eptr
+        mov     ecx, [rsi-4]                ; preload last sample
+        mov     eax, [rdx]                  ; get term
+        cmp     al, 17
+        je      mono_term_17_loop
+        cmp     al, 18
+        je      mono_term_18_loop
+
+        imul    rcx, rax, -4                ; rcx is index to correlation sample
+        jmp     mono_default_term_loop
+
+        align  64
+
+mono_default_term_loop:
+        mov     edx, [rsi+rcx]
+        mov     ebx, edx
+        imul    edx, ebp
+        jo      over
+        lodsd
+        sar     edx, 10
+        sbb     eax, edx
+        jmp     @f
+over:   mov     eax, ebx
+        imul    ebp
+        shl     edx, 22
+        shr     eax, 10
+        adc     edx, eax                    ; edx = apply_weight (sam_A)
+        lodsd
+        sub     eax, edx
+@@:     stosd
+        je      @f
+        test    ebx, ebx
+        je      @f
+        xor     eax, ebx
+        cdq
+        xor     ebp, edx
+        add     ebp, r8d
+        xor     ebp, edx
+@@:     add     r9d, ebp
+        cmp     rsi, r10
+        jnz     mono_default_term_loop
+
+        mov     rdx, [rsp]                  ; rdx = *dpp
+        mov     [rdx+8], ebp                ; put weight back
+        mov     [rdx+88], r9d               ; put weight sum back
+        movsxd  rcx, DWORD PTR [rdx]        ; rcx = dpp->term
+
+mono_default_store_samples:
+        dec     rcx
+        sub     rsi, 4                      ; back up one sample
+        mov     eax, [rsi]
+        mov     [rdx+rcx*4+16], eax         ; store samples_A [ecx]
+        test    rcx, rcx
+        jnz     mono_default_store_samples
+        jmp     mono_done
+
+        align  64
+
+mono_term_17_loop:
+        lea     edx, [rcx+rcx]
+        sub     edx, [rsi-8]                ; ebx = sam_A
+        mov     ebx, edx
+        imul    edx, ebp
+        jo      over17
+        sar     edx, 10
+        lodsd
+        mov     ecx, eax
+        sbb     eax, edx
+        jmp     @f
+over17: mov     eax, ebx
+        imul    ebp
+        shl     edx, 22
+        shr     eax, 10
+        adc     edx, eax                    ; edx = apply_weight (sam_A)
+        lodsd
+        mov     ecx, eax
+        sub     eax, edx
+@@:     stosd
+        je      @f
+        test    ebx, ebx
+        je      @f
+        xor     eax, ebx
+        cdq
+        xor     ebp, edx
+        add     ebp, r8d
+        xor     ebp, edx
+@@:     add     r9d, ebp
+        cmp     rsi, r10
+        jnz     mono_term_17_loop
+        jmp     mono_term_1718_exit
+
+        align  64
+
+mono_term_18_loop:
+        lea     edx, [rcx+rcx*2]
+        sub     edx, [rsi-8]
+        sar     edx, 1
+        mov     ebx, edx                    ; ebx = sam_A
+        imul    edx, ebp
+        jo      over18
+        sar     edx, 10
+        lodsd
+        mov     ecx, eax
+        sbb     eax, edx
+        jmp     @f
+over18: mov     eax, ebx
+        imul    ebp
+        shl     edx, 22
+        shr     eax, 10
+        adc     edx, eax                    ; edx = apply_weight (sam_A)
+        lodsd
+        mov     ecx, eax
+        sub     eax, edx
+@@:     stosd
+        je      @f
+        test    ebx, ebx
+        je      @f
+        xor     eax, ebx
+        cdq
+        xor     ebp, edx
+        add     ebp, r8d
+        xor     ebp, edx
+@@:     add     r9d, ebp
+        cmp     rsi, r10
+        jnz     mono_term_18_loop
+
+mono_term_1718_exit:
+        mov     rdx, [rsp]                  ; rdx = *dpp
+        mov     [rdx+8], ebp                ; put weight back
+        mov     [rdx+88], r9d               ; put weight sum back
+        mov     eax, [rsi-4]                ; dpp->samples_A [0] = bptr [-1]
+        mov     [rdx+16], eax
+        mov     eax, [rsi-8]                ; dpp->samples_A [1] = bptr [-2]
+        mov     [rdx+20], eax
+
+mono_done:
+        add     rsp, 8
+        pop     rsi
+        pop     rdi
+        pop     rbx
+        pop     rbp
+        ret
+
+pack_decorr_mono_pass_cont_x64win endp
+
+
+; This is an assembly optimized version of the following WavPack function:
+;
 ; uint32_t log2buffer (int32_t *samples, uint32_t num_samples, int limit);
 ;
 ; This function scans a buffer of 32-bit ints and accumulates the total
