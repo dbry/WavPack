@@ -13,6 +13,7 @@
         .globl  _pack_decorr_stereo_pass_cont_rev_x86
         .globl  _pack_decorr_stereo_pass_cont_x86
         .globl  _pack_decorr_mono_buffer_x86
+        .globl  _pack_decorr_mono_pass_cont_x86
         .globl  _pack_cpu_has_feature_x86
         .globl  _log2buffer_x86
 
@@ -20,6 +21,7 @@
         .globl  pack_decorr_stereo_pass_cont_rev_x86
         .globl  pack_decorr_stereo_pass_cont_x86
         .globl  pack_decorr_mono_buffer_x86
+        .globl  pack_decorr_mono_pass_cont_x86
         .globl  pack_cpu_has_feature_x86
         .globl  log2buffer_x86
 
@@ -1322,6 +1324,213 @@ mono_vhigh_loop:
         ret
 
         .endif
+
+# This is an assembly optimized version of the following WavPack function:
+#
+# void decorr_mono_pass_cont (int32_t *out_buffer,
+#                             int32_t *in_buffer,
+#                             struct decorr_pass *dpp,
+#                             int32_t sample_count);
+#
+# It performs a single pass of mono decorrelation, transfering from the
+# input buffer to the output buffer. Note that this version of the function
+# requires that the up to 8 previous (depending on dpp->term) mono samples
+# are visible and correct. In other words, it ignores the "samples_*"
+# fields in the decorr_pass structure and gets the history data directly
+# from the source buffer. It does, however, return the appropriate history
+# samples to the decorr_pass structure before returning.
+#
+# By using the overflow detection of the multiply instruction, it detects
+# when the "long_math" varient is required and automatically does it.
+#
+# This is written to work on an IA-32 processor. The arguments on entry:
+#
+#   int32_t *out_buffer         [ebp+8]
+#   int32_t *in_buffer          [ebp+12]
+#   struct decorr_pass *dpp     [ebp+16]
+#   int32_t sample_count        [ebp+20]
+#
+# Register / stack usage:
+#
+# esi = source ptr
+# edi = destination ptr
+# ecx = term * -4 (default terms)
+# ecx = previous sample (terms 17 & 18)
+# ebp = weight
+# [esp] = delta
+# [esp+4] = weight sum
+# [esp+8] = eptr
+#
+
+_pack_decorr_mono_pass_cont_x86:
+pack_decorr_mono_pass_cont_x86:
+        push    ebp
+        mov     ebp, esp
+        push    ebx                         # save the registers that we need to
+        push    esi
+        push    edi
+        cld
+
+        mov     esi, [ebp+12]
+        mov     edi, [ebp+8]
+        mov     edx, [ebp+16]               # edx = *dpp
+        mov     ecx, [ebp+20]               # ecx = sample count
+        mov     ebp, [edx+8]                # ebp = weight
+        lea     eax, [esi+ecx*4]            # calc & push eptr (access with [esp+8])
+        push    eax
+        push    [edx+88]                    # push dpp->sum_A (access with [esp+4])
+        push    [edx+4]                     # push delta (access with [esp])
+        test    ecx, ecx                    # test for and handle zero count
+        jz      mono_done
+
+        cld                                 # we use lodsd/stosd
+        mov     ecx, [esi-4]                # preload last sample
+        mov     eax, [edx]                  # get term & branch for terms 17 & 18
+        cmp     eax, 17
+        je      mono_term_17_loop
+        cmp     eax, 18
+        je      mono_term_18_loop
+
+        imul    ecx, eax, -4                # ecx is index to correlation sample now
+        jmp     mono_default_term_loop
+
+        .align  64
+
+mono_default_term_loop:
+        mov     edx, [esi+ecx]
+        mov     ebx, edx
+        imul    edx, ebp
+        jo      1f
+        lodsd
+        sar     edx, 10
+        sbb     eax, edx
+        jmp     2f
+1:      mov     eax, ebx
+        imul    ebp
+        shl     edx, 22
+        shr     eax, 10
+        adc     edx, eax                    # edx = apply_weight (sam_A)
+        lodsd
+        sub     eax, edx
+2:      stosd
+        je      3f
+        test    ebx, ebx
+        je      3f
+        xor     eax, ebx
+        cdq
+        xor     ebp, edx
+        add     ebp, [esp]
+        xor     ebp, edx
+3:      add     [esp+4], ebp
+        cmp     esi, [esp+8]
+        jnz     mono_default_term_loop
+
+        mov     ecx, ebp                    # ecx = weight
+        mov     eax, [esp+4]                # eax = weight sum
+        lea     ebp, [esp+24]               # restore ebp (we've pushed 6 DWORDS)
+        mov     edx, [ebp+16]               # edx = *dpp
+        mov     [edx+8], ecx                # put weight back
+        mov     [edx+88], eax               # put dpp->sum_A back
+        mov     ecx, [edx]                  # ecx = dpp->term
+
+mono_default_store_samples:
+        dec     ecx
+        sub     esi, 4                      # back up one sample
+        mov     eax, [esi]
+        mov     [edx+ecx*4+16], eax         # store samples_A [ecx]
+        test    ecx, ecx
+        jnz     mono_default_store_samples
+        jmp     mono_done
+
+        .align  64
+
+mono_term_17_loop:
+        lea     edx, [ecx+ecx]
+        sub     edx, [esi-8]                # ebx = sam_A
+        mov     ebx, edx
+        imul    edx, ebp
+        jo      1f
+        sar     edx, 10
+        lodsd
+        mov     ecx, eax
+        sbb     eax, edx
+        jmp     2f
+1:      mov     eax, ebx
+        imul    ebp
+        shl     edx, 22
+        shr     eax, 10
+        adc     edx, eax                    # edx = apply_weight (sam_A)
+        lodsd
+        mov     ecx, eax
+        sub     eax, edx
+2:      stosd
+        je      3f
+        test    ebx, ebx
+        je      3f
+        xor     eax, ebx
+        cdq
+        xor     ebp, edx
+        add     ebp, [esp]
+        xor     ebp, edx
+3:      add     [esp+4], ebp
+        cmp     esi, [esp+8]
+        jnz     mono_term_17_loop
+        jmp     mono_term_1718_exit
+
+        .align  64
+
+mono_term_18_loop:
+        lea     edx, [ecx+ecx*2]
+        sub     edx, [esi-8]
+        sar     edx, 1
+        mov     ebx, edx                    # ebx = sam_A
+        imul    edx, ebp
+        jo      1f
+        sar     edx, 10
+        lodsd
+        mov     ecx, eax
+        sbb     eax, edx
+        jmp     2f
+1:      mov     eax, ebx
+        imul    ebp
+        shl     edx, 22
+        shr     eax, 10
+        adc     edx, eax                    # edx = apply_weight (sam_A)
+        lodsd
+        mov     ecx, eax
+        sub     eax, edx
+2:      stosd
+        je      3f
+        test    ebx, ebx
+        je      3f
+        xor     eax, ebx
+        cdq
+        xor     ebp, edx
+        add     ebp, [esp]
+        xor     ebp, edx
+3:      add     [esp+4], ebp
+        cmp     esi, [esp+8]
+        jnz     mono_term_18_loop
+
+mono_term_1718_exit:
+        mov     ecx, ebp                    # ecx = weight
+        mov     eax, [esp+4]                # eax = weight sum
+        lea     ebp, [esp+24]               # restore ebp (we've pushed 6 DWORDS)
+        mov     edx, [ebp+16]               # edx = *dpp
+        mov     [edx+8], ecx                # put weight back
+        mov     [edx+88], eax               # put dpp->sum_A back
+        mov     eax, [esi-4]                # dpp->samples_A [0] = bptr [-1]
+        mov     [edx+16], eax
+        mov     eax, [esi-8]                # dpp->samples_A [1] = bptr [-2]
+        mov     [edx+20], eax
+
+mono_done:
+        add     esp, 12                     # deallocate stack space
+        pop     edi                         # pop saved registers & return
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
 
 
 # This is an assembly optimized version of the following WavPack function:

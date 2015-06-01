@@ -34,6 +34,18 @@
 
 //#define EXTRA_DUMP        // dump generated filter data  error_line()
 
+#ifdef OPT_ASM_X86
+    #define PACK_DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x86
+#elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
+    #define PACK_DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x64win
+#elif defined(OPT_ASM_X64)
+    #define PACK_DECORR_MONO_PASS_CONT pack_decorr_mono_pass_cont_x64
+#endif
+
+#ifdef PACK_DECORR_MONO_PASS_CONT
+    void PACK_DECORR_MONO_PASS_CONT (int32_t *out_buffer, int32_t *in_buffer,  struct decorr_pass *dpp, int32_t sample_count);
+#endif
+
 typedef struct {
     int32_t *sampleptrs [MAX_NTERMS+2];
     struct decorr_pass dps [MAX_NTERMS];
@@ -43,13 +55,23 @@ typedef struct {
 
 static void decorr_mono_pass (int32_t *in_samples, int32_t *out_samples, uint32_t num_samples, struct decorr_pass *dpp, int dir)
 {
+    int32_t *out_samples_base = out_samples;
+    int32_t cont_samples = 0;
     int m = 0, i;
+
+#ifdef PACK_DECORR_MONO_PASS_CONT
+    if (num_samples > 16 && dir > 0) {
+        int32_t pre_samples = (dpp->term > MAX_TERM) ? 2 : dpp->term;
+        cont_samples = num_samples - pre_samples;
+        num_samples = pre_samples;
+    }
+#endif
 
     dpp->sum_A = 0;
 
     if (dir < 0) {
-        out_samples += (num_samples - 1);
-        in_samples += (num_samples - 1);
+        out_samples += (num_samples + cont_samples - 1);
+        in_samples += (num_samples + cont_samples - 1);
         dir = -1;
     }
     else
@@ -109,6 +131,11 @@ static void decorr_mono_pass (int32_t *in_samples, int32_t *out_samples, uint32_
             m = (m + 1) & (MAX_TERM - 1);
         }
     }
+
+#ifdef PACK_DECORR_MONO_PASS_CONT
+    if (cont_samples)
+        PACK_DECORR_MONO_PASS_CONT (out_samples, in_samples, dpp, cont_samples);
+#endif
 }
 
 static void reverse_mono_decorr (struct decorr_pass *dpp)
