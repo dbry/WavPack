@@ -1366,18 +1366,15 @@ pack_decorr_mono_buffer_x64win endp
 ; By using the overflow detection of the multiply instruction, it detects
 ; when the "long_math" varient is required and automatically does it.
 ;
-; This version has entry points for both the System V ABI and the Windows
-; X64 ABI. It does not use the "red zone" or the "shadow area"; it saves the
-; non-volatile registers for both ABIs on the stack and allocates another
-; 8 bytes on the stack to store the dpp pointer. Note that it does NOT
-; provide unwind data for the Windows ABI (the pack_x64.asm module for
-; MSVC does). The arguments are passed in registers:
+; This is written to work on an X86-64 processor (also called the AMD64)
+; running in 64-bit mode. This version is for the 64-bit Windows ABI and
+; provides appropriate prologs and epilogs for stack unwinding. The
+; arguments are passed in registers:
 ;
-;                             System V  Windows  
-;   int32_t *out_buffer         rdi       rcx
-;   int32_t *in_buffer          rsi       rdx
-;   struct decorr_pass *dpp     rdx       r8
-;   int32_t sample_count        ecx       r9
+;   int32_t *out_buffer         rcx
+;   int32_t *in_buffer          rdx
+;   struct decorr_pass *dpp     r8
+;   int32_t sample_count        r9
 ;
 ; Stack usage:
 ;
