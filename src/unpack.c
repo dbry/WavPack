@@ -126,18 +126,10 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
                 DECORR_MONO_PASS_CONT (dpp, buffer + pre_samples, sample_count - pre_samples,
                     ((flags & MAG_MASK) >> MAG_LSB) > 15);
             }
-
-        for (bptr = buffer; bptr < eptr; ++bptr) {
-            if (labs (bptr [0]) > mute_limit) {
-                i = (uint32_t)(bptr - buffer);
-                break;
-            }
-
-            crc = crc * 3 + bptr [0];
-        }
 #else
         for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
             decorr_mono_pass (dpp, buffer, sample_count);
+#endif
 
         for (bptr = buffer; bptr < eptr; ++bptr) {
             if (labs (bptr [0]) > mute_limit) {
@@ -147,7 +139,6 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 
             crc = crc * 3 + bptr [0];
         }
-#endif
     }
 
     /////////////// handle lossless or hybrid lossy stereo data ///////////////
@@ -494,9 +485,8 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 // General function to perform mono decorrelation pass on specified buffer
 // (although since this is the reverse function it might technically be called
 // "correlation" instead). This version handles all sample resolutions and
-// weight deltas. The dpp->samples_X[] data is *not* returned normalized for
-// term values 1-8, so it should be normalized if it is going to be used to
-// call this function again.
+// weight deltas. The dpp->samples_X[] data is returned normalized for term
+// values 1-8.
 
 static void decorr_mono_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count)
 {
