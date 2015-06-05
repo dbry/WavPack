@@ -88,7 +88,7 @@ pack_decorr_stereo_pass_x86:
         mov     ebp, [esp+20]               # ebp = *dpp
         mov     edi, [esp+24]               # edi = buffer
         mov     esi, [esp+28]
-        sal     esi, 3
+        shl     esi, 3
         jz      bdone
         add     esi, edi                    # esi = termination buffer pointer
 
@@ -584,7 +584,7 @@ start:  mov     eax, 512
         cmp     eax, -3
         je      term_minus_3_loop
 
-        sal     eax, 3
+        shl     eax, 3
         mov     edx, eax                    # edx = term * 8 to index correlation sample
         test    esi, esi                    # test direction
         jns     default_term_loop
@@ -1168,7 +1168,7 @@ mexit:  pop     eax
         xor     ebx, ecx
         sar     ebx, 30
         or      ebx, 1                      # this generates delta of 1
-        sal     ebx, 1                      # this generates delta of 2
+        shl     ebx, 1                      # this generates delta of 2
         add     [ebp+8], ebx
 3:      add     ebp, \ebp_offset
 
@@ -1616,7 +1616,7 @@ limit_loop:
         lea     eax, [ecx+1]                # eax = number used bits in sample (1 - 32)
         sub     ecx, 8                      # ecx = shift right amount (-8 to 23)
         ror     edx, cl                     # use rotate to do "signed" shift 
-        sal     eax, 8                      # move nbits to integer portion of log
+        shl     eax, 8                      # move nbits to integer portion of log
         movzx   edx, dl                     # dl = mantissa, look up log fraction in table 
         mov     al, [log2_table+edx]        # eax = combined integer and fraction for full log
         add     edi, eax                    # add to running sum and compare to limit
@@ -1642,7 +1642,7 @@ no_limit_loop:
         lea     eax, [ecx+1]                # eax = number used bits in sample (1 - 32)
         sub     ecx, 8                      # ecx = shift right amount (-8 to 23)
         ror     edx, cl                     # use rotate to do "signed" shift 
-        sal     eax, 8                      # move nbits to integer portion of log
+        shl     eax, 8                      # move nbits to integer portion of log
         movzx   edx, dl                     # dl = mantissa, look up log fraction in table 
         mov     al, [log2_table+edx]        # eax = combined integer and fraction for full log
         add     edi, eax                    # add to running sum

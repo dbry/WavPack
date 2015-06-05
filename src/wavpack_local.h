@@ -650,9 +650,9 @@ int32_t nosend_word (WavpackStream *wps, int32_t value, int chan);
 void scan_word (WavpackStream *wps, int32_t *samples, uint32_t num_samples, int dir);
 void update_error_limit (WavpackStream *wps);
 
-const uint32_t bitset [32];
-const uint32_t bitmask [32];
-const char nbits_table [256];
+extern const uint32_t bitset [32];
+extern const uint32_t bitmask [32];
+extern const char nbits_table [256];
 
 int log2s (int32_t value);
 int32_t exp2s (int log);
@@ -734,7 +734,7 @@ void *WavpackGetWrapperLocation (void *first_block, uint32_t *size);
 /////////////////////////////////// common utilities ////////////////////////////////////
 // module: common_utils.c
 
-const uint32_t sample_rates [16];
+extern const uint32_t sample_rates [16];
 uint32_t WavpackGetLibraryVersion (void);
 const char *WavpackGetLibraryVersionString (void);
 uint32_t WavpackGetSampleRate (WavpackContext *wpc);

@@ -79,7 +79,7 @@ unpack_decorr_stereo_pass_cont_x86:
 
         mov     edi, [ebp+12]               # edi = buffer
         mov     eax, [ebp+16]               # get sample_count and divide by 8
-        sal     eax, 3
+        shl     eax, 3
         jz      done                        # exit now if there's nothing to do
 
         add     eax, edi                    # else add to buffer point to make eptr
@@ -701,7 +701,7 @@ unpack_decorr_mono_pass_cont_x86:
 
         mov     edi, [ebp+12]               # edi = buffer
         mov     eax, [ebp+16]               # get sample_count and multiply by 4
-        sal     eax, 2
+        shl     eax, 2
         jz      mono_done                   # exit now if there's nothing to do
         lea     esi, [edi+eax]              # else add to buffer point to make eptr
 
