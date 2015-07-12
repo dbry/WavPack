@@ -9,8 +9,14 @@
         .intel_syntax noprefix
         .text
 
+        .globl  _unpack_decorr_stereo_pass_cont_x64win
+        .globl  _unpack_decorr_mono_pass_cont_x64win
+
         .globl  unpack_decorr_stereo_pass_cont_x64win
         .globl  unpack_decorr_mono_pass_cont_x64win
+
+        .globl  _unpack_decorr_stereo_pass_cont_x64
+        .globl  _unpack_decorr_mono_pass_cont_x64
 
         .globl  unpack_decorr_stereo_pass_cont_x64
         .globl  unpack_decorr_mono_pass_cont_x64
@@ -64,6 +70,7 @@
 # [rsp+0] = *dpp
 #
 
+_unpack_decorr_stereo_pass_cont_x64win:
 unpack_decorr_stereo_pass_cont_x64win:
         push    rbp
         push    rbx
@@ -76,6 +83,7 @@ unpack_decorr_stereo_pass_cont_x64win:
         mov     rcx, r9
         jmp     entry                       # jump into common portion
 
+_unpack_decorr_stereo_pass_cont_x64:
 unpack_decorr_stereo_pass_cont_x64:
         push    rbp
         push    rbx
@@ -683,6 +691,7 @@ done:   add     rsp, 8
 # [rsp+0] = *dpp
 #
 
+_unpack_decorr_mono_pass_cont_x64win:
 unpack_decorr_mono_pass_cont_x64win:
         push    rbp
         push    rbx
@@ -696,6 +705,7 @@ unpack_decorr_mono_pass_cont_x64win:
         mov     rcx, r9
         jmp     mentry                      # jump into common portion
 
+_unpack_decorr_mono_pass_cont_x64:
 unpack_decorr_mono_pass_cont_x64:
         push    rbp
         push    rbx

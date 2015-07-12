@@ -9,12 +9,26 @@
         .intel_syntax noprefix
         .text
 
+        .globl  _pack_decorr_stereo_pass_x64win
+        .globl  _pack_decorr_stereo_pass_cont_rev_x64win
+        .globl  _pack_decorr_stereo_pass_cont_x64win
+        .globl  _pack_decorr_mono_buffer_x64win
+        .globl  _pack_decorr_mono_pass_cont_x64win
+        .globl  _log2buffer_x64win
+
         .globl  pack_decorr_stereo_pass_x64win
         .globl  pack_decorr_stereo_pass_cont_rev_x64win
         .globl  pack_decorr_stereo_pass_cont_x64win
         .globl  pack_decorr_mono_buffer_x64win
         .globl  pack_decorr_mono_pass_cont_x64win
         .globl  log2buffer_x64win
+
+        .globl  _pack_decorr_stereo_pass_x64
+        .globl  _pack_decorr_stereo_pass_cont_rev_x64
+        .globl  _pack_decorr_stereo_pass_cont_x64
+        .globl  _pack_decorr_mono_buffer_x64
+        .globl  _pack_decorr_mono_pass_cont_x64
+        .globl  _log2buffer_x64
 
         .globl  pack_decorr_stereo_pass_x64
         .globl  pack_decorr_stereo_pass_cont_rev_x64
@@ -79,6 +93,7 @@
 #   mm7         512 (for rounding)
 #
 
+_pack_decorr_stereo_pass_x64win:
 pack_decorr_stereo_pass_x64win:
         push    rbp
         push    rbx
@@ -91,6 +106,7 @@ pack_decorr_stereo_pass_x64win:
         mov     rcx, r9
         jmp     benter
 
+_pack_decorr_stereo_pass_x64:
 pack_decorr_stereo_pass_x64:
         push    rbp
         push    rbx
@@ -554,10 +570,12 @@ bdone:  pslld   mm5, 16                     # sign-extend 16-bit weights back to
 # [rsp+0] = *dpp
 #
 
+_pack_decorr_stereo_pass_cont_rev_x64win:
 pack_decorr_stereo_pass_cont_rev_x64win:
         mov     rax, 8
         jmp     wstart
 
+_pack_decorr_stereo_pass_cont_x64win:
 pack_decorr_stereo_pass_cont_x64win:
         mov     rax, -8
         jmp     wstart
@@ -573,10 +591,12 @@ wstart: push    rbp
         mov     rcx, r9
         jmp     enter
 
+_pack_decorr_stereo_pass_cont_rev_x64:
 pack_decorr_stereo_pass_cont_rev_x64:
         mov     rax, 8
         jmp     start
 
+_pack_decorr_stereo_pass_cont_x64:
 pack_decorr_stereo_pass_cont_x64:
         mov     rax, -8
         jmp     start
@@ -1033,6 +1053,7 @@ done:   add     rsp, 8
                                             # valid decorr_pass arrays - disable for
                                             # hardcoded, faster in-line version
 
+_pack_decorr_mono_buffer_x64win:
 pack_decorr_mono_buffer_x64win:
         push    rbp
         push    rbx
@@ -1045,6 +1066,7 @@ pack_decorr_mono_buffer_x64win:
         mov     rcx, r9
         jmp     mentry
 
+_pack_decorr_mono_buffer_x64:
 pack_decorr_mono_buffer_x64:
         push    rbp
         push    rbx
@@ -1233,6 +1255,7 @@ mexit:  add     rsp, 24
 #
 # !!! NO CHECK PERFORMED TO MAKE SURE THE PASSED DECORR_PASS ARRAY MATCHES THE CODE !!!
 
+_pack_decorr_mono_buffer_x64win:
 pack_decorr_mono_buffer_x64win:
         push    rbp
         push    rbx
@@ -1245,6 +1268,7 @@ pack_decorr_mono_buffer_x64win:
         mov     rcx, r9
         jmp     mentry
 
+_pack_decorr_mono_buffer_x64:
 pack_decorr_mono_buffer_x64:
         push    rbp
         push    rbx
@@ -1437,6 +1461,7 @@ mono_vhigh_loop:
 # r10 = eptr
 #
 
+_pack_decorr_mono_pass_cont_x64win:
 pack_decorr_mono_pass_cont_x64win:
         push    rbp
         push    rbx
@@ -1449,6 +1474,7 @@ pack_decorr_mono_pass_cont_x64win:
         mov     rcx, r9
         jmp     menter
 
+_pack_decorr_mono_pass_cont_x64:
 pack_decorr_mono_pass_cont_x64:
         push    rbp
         push    rbx
@@ -1660,6 +1686,7 @@ log2_table:
         .byte   0xe8, 0xe9, 0xea, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xee, 0xef, 0xf0, 0xf1, 0xf1, 0xf2, 0xf3, 0xf4
         .byte   0xf4, 0xf5, 0xf6, 0xf7, 0xf7, 0xf8, 0xf9, 0xf9, 0xfa, 0xfb, 0xfc, 0xfc, 0xfd, 0xfe, 0xff, 0xff
 
+_log2buffer_x64win:
 log2buffer_x64win:
         push    rbp
         push    rbx
@@ -1672,6 +1699,7 @@ log2buffer_x64win:
         mov     rcx, r9
         jmp     log2bf
 
+_log2buffer_x64:
 log2buffer_x64:
         push    rbp
         push    rbx
@@ -1682,7 +1710,7 @@ log2buffer_x64:
 log2bf: mov     ebx, esi                    # ebx = num_samples
         mov     rsi, rdi                    # rsi = *samples
         xor     edi, edi                    # initialize sum
-        lea     r8, log2_table [rip]
+        lea     r8, [log2_table+rip]
         test    ebx, ebx                    # test count for zero
         jz      normal_exit
         mov     ebp, edx                    # ebp = limit
