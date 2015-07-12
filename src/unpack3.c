@@ -1180,7 +1180,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
             }
 
             while (1) {
-                bcount = wpc->reader->read_bytes (wpc->wv_in, temp, sizeof (temp));
+                bcount = wpc->reader->read_bytes (wpc->wv_in, temp, 1024);
 
                 if (!bcount)
                     break;
@@ -1198,7 +1198,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                 for (c = 0; c < 16 && wpc->wrapper_data [c] == 0xff; ++c);
 
                 if (c == 16) {
-                    memcpy (wpc->wrapper_data, wpc->wrapper_data + 16, wpc->wrapper_bytes - 16);
+                    memmove (wpc->wrapper_data, wpc->wrapper_data + 16, wpc->wrapper_bytes - 16);
                     wpc->wrapper_bytes -= 16;
                 }
                 else {

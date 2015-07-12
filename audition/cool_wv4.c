@@ -1266,14 +1266,18 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
             in->special_bytes -= sizeof (in->listhdr.formType);
             in->special_data += sizeof (in->listhdr.formType);
 
-            if ((in->listhdr.ckSize -= sizeof (in->listhdr.formType)) < 0)
+            if (in->listhdr.ckSize >= sizeof (in->listhdr.formType))
+                in->listhdr.ckSize -= sizeof (in->listhdr.formType);
+            else
                 in->listhdr.ckSize = 0;
 
             continue;
         }
 
         if (in->listhdr.ckSize) {
-            if ((in->listhdr.ckSize -= sizeof (ChunkHeader)) < 0)
+            if (in->listhdr.ckSize >= sizeof (ChunkHeader))
+                in->listhdr.ckSize -= sizeof (ChunkHeader);
+            else
                 in->listhdr.ckSize = 0;
 
             strncpy (psp->szListType, in->listhdr.formType, 4);
@@ -1301,7 +1305,9 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
         in->special_bytes -= (psp->dwSize + 1) & ~1;
 
         if (in->listhdr.ckSize)
-            if ((in->listhdr.ckSize -= (ChunkHeader.ckSize + 1) & ~1) < 0)
+            if (in->listhdr.ckSize >= ((ChunkHeader.ckSize + 1) & ~1))
+                in->listhdr.ckSize -= (ChunkHeader.ckSize + 1) & ~1;
+            else
                 in->listhdr.ckSize = 0;
 
         if (!strncmp (ChunkHeader.ckID, "cue ", 4)) {
