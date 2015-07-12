@@ -420,6 +420,7 @@
 					>
 					<Tool
 						Name="MASM"
+						UseSafeExceptionHandlers="true"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -427,6 +428,7 @@
 					>
 					<Tool
 						Name="MASM"
+						UseSafeExceptionHandlers="true"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -515,6 +517,7 @@
 					>
 					<Tool
 						Name="MASM"
+						UseSafeExceptionHandlers="true"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -522,6 +525,7 @@
 					>
 					<Tool
 						Name="MASM"
+						UseSafeExceptionHandlers="true"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
