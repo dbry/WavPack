@@ -32,12 +32,6 @@
 #include "utils.h"
 
 #ifdef WIN32
-#define fileno _fileno
-#define stat64 __stat64
-#define fstat64 _fstat64
-#endif
-
-#ifdef WIN32
 
 int copy_timestamp (const char *src_filename, const char *dst_filename)
 {
@@ -300,7 +294,7 @@ static int is_second_byte (char *filespec, char *pos)
 {
     unsigned char *cp = pos;
 
-    while (cp > filespec && ((cp [-1] >= 0x81 && cp [-1] <= 0x9f) ||
+    while (cp > (unsigned char *)filespec && ((cp [-1] >= 0x81 && cp [-1] <= 0x9f) ||
                              (cp [-1] >= 0xe0 && cp [-1] <= 0xfc)))
         cp--;
 

@@ -245,6 +245,7 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source);
 static void display_progress (double file_progress);
 static void TextToUTF8 (void *string, int len);
 
+#undef NO_ERROR
 #define NO_ERROR 0L
 #define SOFT_ERROR 1
 #define HARD_ERROR 2
@@ -1317,7 +1318,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     int result;
 
 #if defined(WIN32)
-    struct _timeb time1, time2;
+    struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
     struct timezone timez;
@@ -1485,7 +1486,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     }
 
 #if defined(WIN32)
-    _ftime (&time1);
+    _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
 #endif
@@ -2061,7 +2062,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // the packing operation, and then return NO_ERROR
 
 #if defined(WIN32)
-    _ftime (&time2);
+    _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;
 #else
@@ -2292,7 +2293,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     int result;
 
 #if defined(WIN32)
-    struct _timeb time1, time2;
+    struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
     struct timezone timez;
@@ -2429,7 +2430,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     }
 
 #if defined(WIN32)
-    _ftime (&time1);
+    _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
 #endif
@@ -2761,7 +2762,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // the packing operation, and then return NO_ERROR
 
 #if defined(WIN32)
-    _ftime (&time2);
+    _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;
 #else

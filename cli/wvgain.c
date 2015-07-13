@@ -117,6 +117,7 @@ static int show_file_info (char *infilename, FILE *dst);
 static float calc_replaygain (uint32_t *histogram);
 static void display_progress (double file_progress);
 
+#undef NO_ERROR
 #define NO_ERROR 0L
 #define SOFT_ERROR 1
 #define HARD_ERROR 2

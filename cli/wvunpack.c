@@ -151,6 +151,7 @@ static void parse_sample_time_index (struct sample_time_index *dst, char *src);
 static int unpack_file (char *infilename, char *outfilename);
 static void display_progress (double file_progress);
 
+#undef NO_ERROR
 #define NO_ERROR 0L
 #define SOFT_ERROR 1
 #define HARD_ERROR 2
@@ -840,7 +841,7 @@ static int unpack_file (char *infilename, char *outfilename)
     FILE *outfile;
 
 #if defined(WIN32)
-    struct _timeb time1, time2;
+    struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
     struct timezone timez;
@@ -988,7 +989,7 @@ static int unpack_file (char *infilename, char *outfilename)
     }
 
 #if defined(WIN32)
-    _ftime (&time1);
+    _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
 #endif
@@ -1219,7 +1220,7 @@ static int unpack_file (char *infilename, char *outfilename)
     // the unpacking operation (assuming there was no error).
 
 #if defined(WIN32)
-    _ftime (&time2);
+    _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;
 #else
