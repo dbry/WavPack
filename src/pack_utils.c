@@ -325,19 +325,83 @@ int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sa
             sptr = source_pointer;
             cnt = samples_to_copy;
 
+            // This code used to just copy the 32-bit samples regardless of the actual size with the
+            // assumption that the caller had properly sign-extended the values (if they were smaller
+            // than 32 bits). However, several people have discovered that if the data isn't properly
+            // sign extended then ugly things happen (e.g. CRC errors that show up only on decode).
+            // To prevent this, we now explicitly sign-extend samples smaller than 32-bit when we
+            // copy, and the performance hit from doing this is very small (generally < 1%).
+
             if (wps->wphdr.flags & MONO_FLAG) {
-                while (cnt--) {
-                    *dptr++ = *sptr;
-                    sptr += nch;
+                switch (wpc->config.bytes_per_sample) {
+                    case 1:
+                        while (cnt--) {
+                            *dptr++ = (signed char) *sptr;
+                            sptr += nch;
+                        }
+
+                        break;
+
+                    case 2:
+                        while (cnt--) {
+                            *dptr++ = (int16_t) *sptr;
+                            sptr += nch;
+                        }
+
+                        break;
+
+                    case 3:
+                        while (cnt--) {
+                            *dptr++ = (*sptr << 8) >> 8;
+                            sptr += nch;
+                        }
+
+                        break;
+
+                    default:
+                        while (cnt--) {
+                            *dptr++ = *sptr;
+                            sptr += nch;
+                        }
                 }
 
                 source_pointer++;
             }
             else {
-                while (cnt--) {
-                    *dptr++ = sptr [0];
-                    *dptr++ = sptr [1];
-                    sptr += nch;
+                switch (wpc->config.bytes_per_sample) {
+                    case 1:
+                        while (cnt--) {
+                            *dptr++ = (signed char) sptr [0];
+                            *dptr++ = (signed char) sptr [1];
+                            sptr += nch;
+                        }
+
+                        break;
+
+                    case 2:
+                        while (cnt--) {
+                            *dptr++ = (int16_t) sptr [0];
+                            *dptr++ = (int16_t) sptr [1];
+                            sptr += nch;
+                        }
+
+                        break;
+
+                    case 3:
+                        while (cnt--) {
+                            *dptr++ = (sptr [0] << 8) >> 8;
+                            *dptr++ = (sptr [1] << 8) >> 8;
+                            sptr += nch;
+                        }
+
+                        break;
+
+                    default:
+                        while (cnt--) {
+                            *dptr++ = sptr [0];
+                            *dptr++ = sptr [1];
+                            sptr += nch;
+                        }
                 }
 
                 source_pointer += 2;
