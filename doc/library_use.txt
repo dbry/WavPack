@@ -676,7 +676,11 @@ indicates an error.
   ----------------------------------------------
 
 Pack the specified samples. Samples must be stored in 32-bit longs in the
-native endian format of the executing processor. The number of samples specified
+native endian format of the executing processor, and should be in the numerical
+range corresponding to config->bytes_per_sample, i.e. any extra high-order bytes
+in the input data should be a pure sign-extension of the low (significant)
+bytes. Otherwise, since samples are sign-extended during encode, out-of-range
+values will be aliased to a valid value. The number of samples specified
 indicates composite samples (sometimes called "frames"). So, the actual number
 of data points would be this "sample_count" times the number of channels. Note
 that samples are accumulated here until enough exist to create a complete
