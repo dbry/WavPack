@@ -129,7 +129,7 @@ default_term_entry:
         pxor    mm4, mm4                    # mm4 = zero (for pcmpeqd)
         jmp     default_term_loop
 
-        .align  64
+        .balign  64
 default_term_loop:
         movq    mm3, [edi+ebx]              # mm3 = sam_AB
         movq    mm1, mm3
@@ -210,7 +210,7 @@ term_17_entry:
         movq    mm4, [edi-8]                # preload previous calculated values
         jmp     term_17_loop
 
-        .align  64
+        .balign  64
 term_17_loop:
         paddd   mm4, mm4
         psubd   mm4, [edi-16]               # mm3 = sam_AB
@@ -265,7 +265,7 @@ term_18_entry:
         movq    mm4, [edi-8]                # preload previous calculated value
         jmp     term_18_loop
 
-        .align  64
+        .balign  64
 term_18_loop:
         movq    mm3, mm4
         psubd   mm3, [edi-16]
@@ -336,7 +336,7 @@ term_minus_1_entry:
         mov     eax, [edi-4]
         jmp     term_minus_1_loop
 
-        .align  64
+        .balign  64
 term_minus_1_loop:
         mov     ebx, eax
         imul    eax, ecx
@@ -390,7 +390,7 @@ OV11:   mov     eax, ebx                    # restore previous sample into eax
 OV12:   mov     eax, ebx                    # restore previous sample into eax
         jmp     L282
 
-        .align  64
+        .balign  64
 long_term_minus_1_loop:
         mov     ebx, eax
         imul    ecx
@@ -458,7 +458,7 @@ term_minus_2_entry:
         mov     eax, [edi-8]
         jmp     term_minus_2_loop
 
-        .align  64
+        .balign  64
 term_minus_2_loop:
         mov     ebx, eax
         imul    eax, ebp
@@ -513,7 +513,7 @@ OV21:   mov     eax, ebx                    # restore previous sample into eax
 OV22:   mov     eax, ebx                    # restore previous sample into eax
         jmp     L294
 
-        .align  64
+        .balign  64
 long_term_minus_2_loop:
         mov     ebx, eax
         imul    ebp
@@ -603,7 +603,7 @@ term_minus_3_entry:
         movq    mm4, [edi-8]                # preload previous calculated values
         jmp     term_minus_3_loop
 
-        .align  64
+        .balign  64
 term_minus_3_loop:
         movq    mm3, mm4                    # mm3 = swap dwords (mm4)
         psrlq   mm3, 32
@@ -750,7 +750,7 @@ mono_18_entry:
         mov     ebp, [edi-4]
         jmp     mono_18_loop
 
-        .align  64
+        .balign  64
 default_mono_loop:
         mov     eax, [edi+ebx]
         imul    eax, ecx
@@ -774,7 +774,7 @@ L100:   cmp     edi, esi                    # compare bptr and eptr to see if we
         jb      default_mono_loop
         jmp     default_mono_done
 
-        .align  64
+        .balign  64
 long_default_mono_loop:
         mov     eax, [edi+ebx]
         imul    ecx
@@ -812,7 +812,7 @@ default_mono_store_samples:
         jnz     default_mono_store_samples
         jmp     mono_done
 
-        .align  64
+        .balign  64
 mono_17_loop:
         lea     ebx, [ebp+ebp]
         sub     ebx, [edi-8]
@@ -838,7 +838,7 @@ L117:   cmp     edi, esi                    # compare bptr and eptr to see if we
         jb      mono_17_loop
         jmp     mono_1718_exit
 
-        .align  64
+        .balign  64
 long_mono_17_loop:
         lea     ebx, [ebp+ebp]
         sub     ebx, [edi-8]
@@ -865,7 +865,7 @@ L217:   cmp     edi, esi                    # compare bptr and eptr to see if we
         jb      long_mono_17_loop
         jmp     mono_1718_exit
 
-        .align  64
+        .balign  64
 mono_18_loop:
         lea     ebx, [ebp+ebp*2]
         sub     ebx, [edi-8]
@@ -892,7 +892,7 @@ L118:   cmp     edi, esi                    # compare bptr and eptr to see if we
         jb      mono_18_loop
         jmp     mono_1718_exit
 
-        .align  64
+        .balign  64
 long_mono_18_loop:
         lea     ebx, [ebp+ebp*2]
         sub     ebx, [edi-8]

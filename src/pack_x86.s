@@ -156,7 +156,7 @@ pack_decorr_stereo_pass_x86:
         and     ebx, ecx
         jmp     buff_default_term_loop
 
-        .align  64
+        .balign  64
 
 buff_default_term_loop:
         movq    mm2, [edi]                  # mm2 = left_right
@@ -198,7 +198,7 @@ buff_default_term_loop:
 
         jmp     bdone
 
-        .align  64
+        .balign  64
 
 buff_term_17_loop:
         movq    mm3, mm4                    # get previous calculated value
@@ -241,7 +241,7 @@ buff_term_17_loop:
         movq    [ebp+16], mm4               # post-store samples_AB[0]
         jmp     bdone
 
-        .align  64
+        .balign  64
 
 buff_term_18_loop:
         movq    mm3, mm4                    # get previous calculated value
@@ -285,7 +285,7 @@ buff_term_18_loop:
         movq    [ebp+16], mm4               # post-store samples_AB[0]
         jmp     bdone
 
-        .align  64
+        .balign  64
 
 buff_term_minus_1_loop:
         movq    mm3, mm4                    # mm3 = previous calculated value
@@ -333,7 +333,7 @@ buff_term_minus_1_loop:
         movq    [ebp+16], mm4               # post-store samples_AB[0]
         jmp     bdone
 
-        .align  64
+        .balign  64
 
 buff_term_minus_2_loop:
         movq    mm2, [edi]                  # mm2 = left_right
@@ -381,7 +381,7 @@ buff_term_minus_2_loop:
         movq    [ebp+16], mm4               # post-store samples_AB[0]
         jmp     bdone
 
-        .align  64
+        .balign  64
 
 buff_term_minus_3_loop:
         movq    mm2, [edi]                  # mm2 = left_right
@@ -591,7 +591,7 @@ start:  mov     eax, 512
         neg     edx
         jmp     default_term_loop
 
-        .align  64
+        .balign  64
 
 default_term_loop:
         movq    mm3, [edi+edx]              # mm3 = sam_AB
@@ -648,7 +648,7 @@ default_store_samples:
         jnz     default_store_samples
         jmp     done
 
-        .align  64
+        .balign  64
 
 term_17_loop:
         movq    mm3, [edi+esi]              # get previous calculated value
@@ -694,7 +694,7 @@ term_17_loop:
         emms
         jmp     term_1718_common_store
 
-        .align  64
+        .balign  64
 
 term_18_loop:
         movq    mm3, [edi+esi]              # get previous calculated value
@@ -756,7 +756,7 @@ term_1718_common_store:
         mov     [eax+20], edx
         jmp     done
 
-        .align  64
+        .balign  64
 
 term_minus_1_loop:
         movq    mm3, [edi+esi]              # mm3 = previous calculated value
@@ -813,7 +813,7 @@ term_minus_1_loop:
         mov     [eax+16], edx
         jmp     done
 
-        .align  64
+        .balign  64
 
 term_minus_2_loop:
         movq    mm2, [edi]                  # mm2 = left_right
@@ -870,7 +870,7 @@ term_minus_2_loop:
         mov     [eax+48], edx
         jmp     done
 
-        .align  64
+        .balign  64
 
 term_minus_3_loop:
         movq    mm0, [edi+esi]              # mm0 = previous calculated value
@@ -1013,7 +1013,7 @@ pack_decorr_mono_buffer_x86:
         xor     esi, esi                     # up counter = 0
         jmp     decorrelate_loop
 
-        .align  64
+        .balign  64
 
 decorrelate_loop:
         mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
@@ -1029,7 +1029,7 @@ nxterm: mov     edx, [ebp]
         mov     [ebp+16+eax*4], ecx
         jmp     domult
 
-        .align  4
+        .balign  4
 3:      mov     edx, [ebp+16]
         mov     [ebp+16], ecx
         je      4f
@@ -1039,7 +1039,7 @@ nxterm: mov     edx, [ebp]
         mov     [ebp+20], edx
         jmp     domult
 
-        .align  4
+        .balign  4
 4:      lea     ebx, [edx+edx]
         sub     ebx, [ebp+20]
         mov     [ebp+20], edx
@@ -1070,7 +1070,7 @@ domult: mov     eax, [ebp+8]
         jnz     decorrelate_loop
         jmp     mexit
 
-        .align  4
+        .balign  4
 multov: mov     eax, [ebp+8]
         imul    ebx
         shr     eax, 10
@@ -1218,7 +1218,7 @@ pack_decorr_mono_buffer_x86:
         pop     ebp
         ret
 
-        .align  64
+        .balign  64
 
 mono_fast_loop:
         mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
@@ -1238,7 +1238,7 @@ mono_fast_loop:
         pop     ebp
         ret
 
-        .align  64
+        .balign  64
 
 mono_normal_loop:
         mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
@@ -1261,7 +1261,7 @@ mono_normal_loop:
         pop     ebp
         ret
 
-        .align  64
+        .balign  64
 
 mono_high_loop:
         mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
@@ -1289,7 +1289,7 @@ mono_high_loop:
         pop     ebp
         ret
 
-        .align  64
+        .balign  64
 
 mono_vhigh_loop:
         mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
@@ -1394,7 +1394,7 @@ pack_decorr_mono_pass_cont_x86:
         imul    ecx, eax, -4                # ecx is index to correlation sample now
         jmp     mono_default_term_loop
 
-        .align  64
+        .balign  64
 
 mono_default_term_loop:
         mov     edx, [esi+ecx]
@@ -1442,7 +1442,7 @@ mono_default_store_samples:
         jnz     mono_default_store_samples
         jmp     mono_done
 
-        .align  64
+        .balign  64
 
 mono_term_17_loop:
         lea     edx, [ecx+ecx]
@@ -1477,7 +1477,7 @@ mono_term_17_loop:
         jnz     mono_term_17_loop
         jmp     mono_term_1718_exit
 
-        .align  64
+        .balign  64
 
 mono_term_18_loop:
         lea     edx, [ecx+ecx*2]
@@ -1560,7 +1560,7 @@ mono_done:
 #   eax,ecx,edx     scratch
 #
 
-        .align  256
+        .balign  256
 
 log2_table:
         .byte   0x00, 0x01, 0x03, 0x04, 0x06, 0x07, 0x09, 0x0a, 0x0b, 0x0d, 0x0e, 0x10, 0x11, 0x12, 0x14, 0x15
@@ -1600,7 +1600,7 @@ log2buffer_x86:
         jz      no_limit_loop
         jmp     limit_loop
 
-        .align  64
+        .balign  64
 
 limit_loop:
         mov     eax, [esi]                  # get next sample into eax
@@ -1626,7 +1626,7 @@ L40:    sub     ebx, 1                      # loop back if more samples
         jne     limit_loop
         jmp     normal_exit
 
-        .align  64
+        .balign  64
 
 no_limit_loop:
         mov     eax, [esi]                  # get next sample into eax
