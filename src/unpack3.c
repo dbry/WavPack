@@ -136,7 +136,7 @@ static int unpack_size (WavpackStream3 *wps)
     }
 
     if (flags & (HIGH_FLAG | NEW_HIGH_FLAG))
-        for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
+        for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++) {
             if (dpp->term > 0) {
                 byte_sum += sizeof (dpp->samples_A [0]) * dpp->term;
                 byte_sum += sizeof (dpp->weight_A);
@@ -150,6 +150,7 @@ static int unpack_size (WavpackStream3 *wps)
                 byte_sum += sizeof (dpp->samples_A [0]) + sizeof (dpp->samples_B [0]);
                 byte_sum += sizeof (dpp->weight_A) + sizeof (dpp->weight_B);
             }
+        }
 
     return byte_sum;
 }
@@ -204,7 +205,7 @@ static void *unpack_save (WavpackStream3 *wps, void *destin)
     }
 
     if (flags & (HIGH_FLAG | NEW_HIGH_FLAG))
-        for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
+        for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++) {
             if (dpp->term > 0) {
                 int count = dpp->term;
                 int index = wps->dc.m;
@@ -234,6 +235,7 @@ static void *unpack_save (WavpackStream3 *wps, void *destin)
                 SAVE (destin, dpp->samples_A [0]);
                 SAVE (destin, dpp->samples_B [0]);
             }
+        }
 
     return destin;
 }

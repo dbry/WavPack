@@ -152,7 +152,7 @@ static void *unpack_restore (WavpackStream3 *wps, void *source, int keep_resourc
     }
 
     if (flags & (HIGH_FLAG | NEW_HIGH_FLAG))
-        for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
+        for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++) {
             if (dpp->term > 0) {
                 int count = dpp->term;
                 int index = wps->dc.m;
@@ -182,6 +182,7 @@ static void *unpack_restore (WavpackStream3 *wps, void *source, int keep_resourc
                 RESTORE (dpp->samples_A [0], source);
                 RESTORE (dpp->samples_B [0], source);
             }
+        }
 
     return source;
 }
