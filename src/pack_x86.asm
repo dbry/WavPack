@@ -1528,21 +1528,20 @@ mono_done:
 ; compression because the bitstream storage required for entropy coding
 ; is proportional to the base 2 log of the samples.
 ;
-; This is written to work on all IA-32 processors (i386, i486, etc.)
+; This is written to work on an IA-32 processor. The arguments are on the
+; stack at these locations (after 4 pushes, we do not use ebp as a base
+; pointer):
 ;
-; No additional stack space is used; all storage is done in registers. The
-; arguments on entry:
-;
-;   int32_t *samples            [ebp+8]
-;   uint32_t num_samples        [ebp+12]
-;   int limit                   [ebp+16]
+;   int32_t *samples            [esp+20]
+;   uint32_t num_samples        [esp+24]
+;   int limit                   [esp+28]
 ;
 ; During the processing loops, the following registers are used:
 ;
 ;   esi             input buffer pointer
 ;   edi             sum accumulator
 ;   ebx             sample count
-;   ebp             limit (if specified non-zero)
+;   ebp             log2_table pointer
 ;   eax,ecx,edx     scratch
 ;
 
@@ -1571,20 +1570,26 @@ log2_table:
 
 _log2buffer_x86:
         push    ebp
-        mov     ebp, esp
         push    ebx
         push    esi
         push    edi
         cld
 
-        mov     esi, [ebp+8]                ; esi = sample source pointer
+        mov     esi, [esp+20]               ; esi = sample source pointer
         xor     edi, edi                    ; edi = 0 (accumulator)
-        mov     ebx, [ebp+12]               ; ebx = num_samples
+        mov     ebx, [esp+24]               ; ebx = num_samples
         test    ebx, ebx                    ; exit now if none, sum = 0
         jz      normal_exit
 
-        mov     ebp, [ebp+16]               ; ebp = limit
-        test    ebp, ebp                    ; we have separate loops for limit and no limit
+; These three instructions allow this to be PIC (position independent code). The purpose is to
+; load the address of the log2_table into ebp regardless of where this is all loaded in memory.
+
+        call    nexti                       ; push address of nexti (return address)
+nexti:  pop     ebp                         ; pop address of nexti into ebp
+        sub     ebp, nexti - log2_table     ; offset to log2_table
+
+        mov     eax, [esp+28]               ; eax = limit
+        test    eax, eax                    ; we have separate loops for limit and no limit
         jz      no_limit_loop
         jmp     limit_loop
 
@@ -1606,9 +1611,9 @@ limit_loop:
         ror     edx, cl                     ; use rotate to do "signed" shift 
         sal     eax, 8                      ; move nbits to integer portion of log
         movzx   edx, dl                     ; dl = mantissa, look up log fraction in table 
-        mov     al, BYTE PTR [log2_table+edx] ; eax = combined integer and fraction for full log
+        mov     al, BYTE PTR [ebp+edx]      ; eax = combined integer and fraction for full log
         add     edi, eax                    ; add to running sum and compare to limit
-        cmp     eax, ebp
+        cmp     eax, [esp+28]
         jge     limit_exceeded
 L40:    sub     ebx, 1                      ; loop back if more samples
         jne     limit_loop
@@ -1632,7 +1637,7 @@ no_limit_loop:
         ror     edx, cl                     ; use rotate to do "signed" shift 
         sal     eax, 8                      ; move nbits to integer portion of log
         movzx   edx, dl                     ; dl = mantissa, look up log fraction in table 
-        mov     al, BYTE PTR [log2_table+edx] ; eax = combined integer and fraction for full log
+        mov     al, BYTE PTR [ebp+edx]      ; eax = combined integer and fraction for full log
         add     edi, eax                    ; add to running sum
 L45:    sub     ebx, 1                      ; loop back if more samples
         jne     no_limit_loop
