@@ -10,7 +10,7 @@
 
 // This is the main module for the WavPack command-line decompressor.
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <io.h>
@@ -30,7 +30,7 @@
 #endif
 #endif
 
-#if defined(__GNUC__) && !defined(WIN32)
+#if defined(__GNUC__) && !defined(_WIN32)
 #include <sys/time.h>
 #else
 #include <sys/timeb.h>
@@ -47,21 +47,9 @@
 #include "utils.h"
 #include "md5.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #define strdup(x) _strdup(x)
 #define fileno _fileno
-#endif
-
-#ifdef DEBUG_ALLOC
-#define malloc malloc_db
-#define realloc realloc_db
-#define free free_db
-void *malloc_db (uint32_t size);
-void *realloc_db (void *ptr, uint32_t size);
-void free_db (void *ptr);
-int32_t dump_alloc (void);
-static char *strdup (const char *s)
- { char *d = malloc (strlen (s) + 1); return strcpy (d, s); }
 #endif
 
 ///////////////////////////// local variable storage //////////////////////////
@@ -74,7 +62,7 @@ static const char *version_warning = "\n"
 " WARNING: WVUNPACK using libwavpack version %s, expected %s (see README)\n\n";
 
 static const char *usage =
-#if defined (WIN32)
+#if defined (_WIN32)
 " Usage:   WVUNPACK [-options] infile[.wv]|- [outfile[.wav]|outpath|-]\n"
 "             (infile may contain wildcards: ?,*)\n\n"
 #else
@@ -90,13 +78,13 @@ static const char *usage =
 "          -f  = file info to stdout in machine-parsable format\n"
 "          --help = this help display\n"
 "          -i  = ignore .wvc file (forces hybrid lossy decompression)\n"
-#if defined (WIN32) || defined (__OS2__)
+#if defined (_WIN32) || defined (__OS2__)
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
 "          -m  = calculate and display MD5 signature; verify if lossless\n"
 "          -n  = no audio decoding (use with -xx to extract tags only)\n"
 "          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
-#if !defined (WIN32)
+#if !defined (_WIN32)
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
 "          -q  = quiet (keep console output to a minimum)\n"
@@ -118,7 +106,7 @@ static const char *usage =
 "                %t = tag field name (note: comes from data for binary tags)\n"
 "                %e = extension from binary tag source file, or 'txt' for text tag\n"
 "          -y  = yes to overwrite warning (use with caution!)\n"
-#if defined (WIN32)
+#if defined (_WIN32)
 "          -z  = don't set console title to indicate progress\n\n"
 #else
 "          -z1 = set console title to indicate progress\n\n"
@@ -151,10 +139,9 @@ static void parse_sample_time_index (struct sample_time_index *dst, char *src);
 static int unpack_file (char *infilename, char *outfilename);
 static void display_progress (double file_progress);
 
-#undef NO_ERROR
-#define NO_ERROR 0L
-#define SOFT_ERROR 1
-#define HARD_ERROR 2
+#define WAVPACK_NO_ERROR    0
+#define WAVPACK_SOFT_ERROR  1
+#define WAVPACK_HARD_ERROR  2
 
 //////////////////////////////////////////////////////////////////////////////
 // The "main" function for the command-line WavPack decompressor.           //
@@ -169,7 +156,7 @@ int main (argc, argv) int argc; char **argv;
     char outpath, **matches = NULL, *outfilename = NULL;
     int result;
 
-#if defined(WIN32)
+#if defined(_WIN32)
     struct _finddata_t _finddata_t;
     char selfname [MAX_PATH];
 
@@ -196,7 +183,7 @@ int main (argc, argv) int argc; char **argv;
     }
 #endif
 
-#if defined (WIN32)
+#if defined (_WIN32)
    set_console_title = 1;      // on Windows, we default to messing with the console title
 #endif                          // on Linux, this is considered uncool to do by default
 
@@ -242,7 +229,7 @@ int main (argc, argv) int argc; char **argv;
                 ++error_count;
             }
         }
-#if defined (WIN32)
+#if defined (_WIN32)
         else if ((**argv == '-' || **argv == '/') && (*argv)[1])
 #else
         else if ((**argv == '-') && (*argv)[1])
@@ -265,7 +252,7 @@ int main (argc, argv) int argc; char **argv;
                         delete_source = 1;
                         break;
 
-#if defined (WIN32)
+#if defined (_WIN32)
                     case 'L': case 'l':
                         SetPriorityClass (GetCurrentProcess(), IDLE_PRIORITY_CLASS);
                         break;
@@ -274,7 +261,7 @@ int main (argc, argv) int argc; char **argv;
                         DosSetPriority (0, PRTYC_IDLETIME, 0, 0);
                         break;
 #endif
-#if defined (WIN32)
+#if defined (_WIN32)
                     case 'O': case 'o':  // ignore -o in Windows to be Linux compatible
                         break;
 #else
@@ -371,7 +358,7 @@ int main (argc, argv) int argc; char **argv;
 
                 x_count = 0;
             }
-#if defined (WIN32)
+#if defined (_WIN32)
             else if (!num_files) {
                 matches = realloc (matches, (num_files + 1) * sizeof (*matches));
                 matches [num_files] = malloc (strlen (*argv) + 10);
@@ -516,7 +503,7 @@ int main (argc, argv) int argc; char **argv;
             fclose (list);
             free (infilename);
         }
-#if defined (WIN32)
+#if defined (_WIN32)
         else if (filespec_wild (infilename)) {
             FILE *list = fopen (infilename+1, "rt");
             intptr_t file;
@@ -634,10 +621,10 @@ int main (argc, argv) int argc; char **argv;
 
             result = unpack_file (matches [file_index], verify_only ? NULL : outfilename);
 
-            if (result != NO_ERROR)
+            if (result != WAVPACK_NO_ERROR)
                 ++error_count;
 
-            if (result == HARD_ERROR)
+            if (result == WAVPACK_HARD_ERROR)
                 break;
 
             // clean up in preparation for potentially another file
@@ -668,10 +655,6 @@ int main (argc, argv) int argc; char **argv;
 
     if (outfilename)
         free (outfilename);
-
-#ifdef DEBUG_ALLOC
-    error_line ("malloc_count = %d", dump_alloc ());
-#endif
 
     if (set_console_title)
         DoSetConsoleTitle ("WvUnpack Completed");
@@ -734,7 +717,7 @@ static FILE *open_output_file (char *filename, char **tempfilename)
     *tempfilename = NULL;
 
     if (*filename == '-') {
-#if defined(WIN32)
+#if defined(_WIN32)
         _setmode (fileno (stdout), O_BINARY);
 #endif
 #if defined(__OS2__)
@@ -827,7 +810,7 @@ static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst);
 
 static int unpack_file (char *infilename, char *outfilename)
 {
-    int result = NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
+    int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
     uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
     uint32_t skip_sample_index = 0, until_samples_total = 0;
@@ -840,7 +823,7 @@ static int unpack_file (char *infilename, char *outfilename)
     char error [80];
     FILE *outfile;
 
-#if defined(WIN32)
+#if defined(_WIN32)
     struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
@@ -866,7 +849,7 @@ static int unpack_file (char *infilename, char *outfilename)
 
     if (!wpc) {
         error_line (error);
-        return SOFT_ERROR;
+        return WAVPACK_SOFT_ERROR;
     }
 
     if (calc_md5)
@@ -886,7 +869,7 @@ static int unpack_file (char *infilename, char *outfilename)
         if (skip_sample_index && !WavpackSeekSample (wpc, skip_sample_index)) {
             error_line ("can't seek to specified --skip point!");
             WavpackCloseFile (wpc);
-            return SOFT_ERROR;
+            return WAVPACK_SOFT_ERROR;
         }
 
         if (WavpackGetNumSamples (wpc) != (uint32_t) -1)
@@ -901,7 +884,7 @@ static int unpack_file (char *infilename, char *outfilename)
             if (WavpackGetNumSamples (wpc) == (uint32_t) -1) {
                 error_line ("can't use negative relative --until command with files of unknown length!");
                 WavpackCloseFile (wpc);
-                return SOFT_ERROR;
+                return WAVPACK_SOFT_ERROR;
             }
 
             if ((uint32_t) until.value + skip_sample_index < WavpackGetNumSamples (wpc))
@@ -925,7 +908,7 @@ static int unpack_file (char *infilename, char *outfilename)
         if (!until_samples_total) {
             error_line ("--until command results in no samples to decode!");
             WavpackCloseFile (wpc);
-            return SOFT_ERROR;
+            return WAVPACK_SOFT_ERROR;
         }
     }
 
@@ -937,13 +920,13 @@ static int unpack_file (char *infilename, char *outfilename)
         if (!dump_tag_item_to_file (wpc, tag_extract_stdout, stdout, NULL)) {
             error_line ("tag \"%s\" not found!", tag_extract_stdout);
             WavpackCloseFile (wpc);
-            return SOFT_ERROR;
+            return WAVPACK_SOFT_ERROR;
         }
     }
     else if (num_tag_extractions && outfilename && *outfilename != '-' && filespec_name (outfilename)) {
         result = do_tag_extractions (wpc, outfilename);
 
-        if (result != NO_ERROR) {
+        if (result != WAVPACK_NO_ERROR) {
             WavpackCloseFile (wpc);
             return result;
         }
@@ -951,13 +934,13 @@ static int unpack_file (char *infilename, char *outfilename)
 
     if (no_audio_decode) {
         WavpackCloseFile (wpc);
-        return NO_ERROR;
+        return WAVPACK_NO_ERROR;
     }
 
     if (outfilename) {
         if ((outfile = open_output_file (outfilename, &outfilename_temp)) == NULL) {
             WavpackCloseFile (wpc);
-            return SOFT_ERROR;
+            return WAVPACK_SOFT_ERROR;
         }
         else if (*outfilename == '-') {
             if (!quiet_mode)
@@ -977,7 +960,7 @@ static int unpack_file (char *infilename, char *outfilename)
         if (!output_buffer) {
             error_line ("can't allocate buffer for decoding!");
             WavpackCloseFile (wpc);
-            return HARD_ERROR;
+            return WAVPACK_HARD_ERROR;
         }
     }
     else {      // in verify only mode we don't worry about headers
@@ -988,7 +971,7 @@ static int unpack_file (char *infilename, char *outfilename)
                 FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
     }
 
-#if defined(WIN32)
+#if defined(_WIN32)
     _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
@@ -998,7 +981,7 @@ static int unpack_file (char *infilename, char *outfilename)
         if (until_samples_total) {
             if (!write_riff_header (outfile, wpc, until_samples_total)) {
                 DoTruncateFile (outfile);
-                result = HARD_ERROR;
+                result = WAVPACK_HARD_ERROR;
             }
             else
                 created_riff_header = TRUE;
@@ -1008,14 +991,14 @@ static int unpack_file (char *infilename, char *outfilename)
                 bcount != WavpackGetWrapperBytes (wpc)) {
                     error_line ("can't write .WAV data, disk probably full!");
                     DoTruncateFile (outfile);
-                    result = HARD_ERROR;
+                    result = WAVPACK_HARD_ERROR;
             }
 
             WavpackFreeWrapper (wpc);
         }
         else if (!write_riff_header (outfile, wpc, WavpackGetNumSamples (wpc))) {
             DoTruncateFile (outfile);
-            result = HARD_ERROR;
+            result = WAVPACK_HARD_ERROR;
         }
         else
             created_riff_header = TRUE;
@@ -1023,7 +1006,7 @@ static int unpack_file (char *infilename, char *outfilename)
 
     temp_buffer = malloc (4096L * num_channels * 4);
 
-    while (result == NO_ERROR) {
+    while (result == WAVPACK_NO_ERROR) {
         uint32_t samples_to_unpack, samples_unpacked;
 
         if (output_buffer) {
@@ -1050,7 +1033,7 @@ static int unpack_file (char *infilename, char *outfilename)
                     bcount != output_pointer - output_buffer) {
                         error_line ("can't write .WAV data, disk probably full!");
                         DoTruncateFile (outfile);
-                        result = HARD_ERROR;
+                        result = WAVPACK_HARD_ERROR;
                         break;
                 }
 
@@ -1067,13 +1050,13 @@ static int unpack_file (char *infilename, char *outfilename)
             break;
 
         if (check_break ()) {
-#if defined(WIN32)
+#if defined(_WIN32)
             fprintf (stderr, "^C\n");
 #else
             fprintf (stderr, "\n");
 #endif
             DoTruncateFile (outfile);
-            result = SOFT_ERROR;
+            result = WAVPACK_SOFT_ERROR;
             break;
         }
 
@@ -1120,12 +1103,12 @@ static int unpack_file (char *infilename, char *outfilename)
     }
 
     while (!created_riff_header && WavpackGetWrapperBytes (wpc)) {
-        if (outfile && result == NO_ERROR &&
+        if (outfile && result == WAVPACK_NO_ERROR &&
             (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
             bcount != WavpackGetWrapperBytes (wpc))) {
                 error_line ("can't write .WAV data, disk probably full!");
                 DoTruncateFile (outfile);
-                result = HARD_ERROR;
+                result = WAVPACK_HARD_ERROR;
         }
 
         WavpackFreeWrapper (wpc);
@@ -1134,14 +1117,14 @@ static int unpack_file (char *infilename, char *outfilename)
 
     free (temp_buffer);
 
-    if (result == NO_ERROR && outfile && created_riff_header &&
+    if (result == WAVPACK_NO_ERROR && outfile && created_riff_header &&
         (WavpackGetNumSamples (wpc) == (uint32_t) -1 ||
          (until_samples_total ? until_samples_total : WavpackGetNumSamples (wpc)) != total_unpacked_samples)) {
             if (*outfilename == '-' || DoSetFilePositionAbsolute (outfile, 0))
                 error_line ("can't update RIFF header with actual size");
             else if (!write_riff_header (outfile, wpc, total_unpacked_samples)) {
                 DoTruncateFile (outfile);
-                result = HARD_ERROR;
+                result = WAVPACK_HARD_ERROR;
             }
     }
 
@@ -1156,7 +1139,7 @@ static int unpack_file (char *infilename, char *outfilename)
 
             if (!DoCloseHandle (outfile)) {
                 error_line ("can't close file %s!", FN_FIT (outfilename));
-                result = SOFT_ERROR;
+                result = WAVPACK_SOFT_ERROR;
             }
 
             if (!outfile_length)
@@ -1167,59 +1150,59 @@ static int unpack_file (char *infilename, char *outfilename)
     // if we were writing to a temp file because the target file already existed,
     // do the rename / overwrite now (and if that fails, flag the error)
 
-#if defined(WIN32)
-    if (result == NO_ERROR && outfilename && outfilename_temp) {
+#if defined(_WIN32)
+    if (result == WAVPACK_NO_ERROR && outfilename && outfilename_temp) {
         if (remove (outfilename)) {
             error_line ("can not remove file %s, result saved in %s!", outfilename, outfilename_temp);
-            result = SOFT_ERROR;
+            result = WAVPACK_SOFT_ERROR;
         }
         else if (rename (outfilename_temp, outfilename)) {
             error_line ("can not rename temp file %s to %s!", outfilename_temp, outfilename);
-            result = SOFT_ERROR;
+            result = WAVPACK_SOFT_ERROR;
         }
     }
 #else
-    if (result == NO_ERROR && outfilename && outfilename_temp && rename (outfilename_temp, outfilename)) {
+    if (result == WAVPACK_NO_ERROR && outfilename && outfilename_temp && rename (outfilename_temp, outfilename)) {
         error_line ("can not rename temp file %s to %s!", outfilename_temp, outfilename);
-        result = SOFT_ERROR;
+        result = WAVPACK_SOFT_ERROR;
     }
 #endif
 
     if (outfilename && outfilename_temp) free (outfilename_temp);
 
-    if (result == NO_ERROR && copy_time && outfilename &&
+    if (result == WAVPACK_NO_ERROR && copy_time && outfilename &&
         !copy_timestamp (infilename, outfilename))
             error_line ("failure copying time stamp!");
 
-    if (result == NO_ERROR) {
+    if (result == WAVPACK_NO_ERROR) {
         if (!until_samples_total && WavpackGetNumSamples (wpc) != (uint32_t) -1) {
             if (total_unpacked_samples < WavpackGetNumSamples (wpc)) {
                 error_line ("file is missing %u samples!",
                     WavpackGetNumSamples (wpc) - total_unpacked_samples);
-                result = SOFT_ERROR;
+                result = WAVPACK_SOFT_ERROR;
             }
             else if (total_unpacked_samples > WavpackGetNumSamples (wpc)) {
                 error_line ("file has %u extra samples!",
                     total_unpacked_samples - WavpackGetNumSamples (wpc));
-                result = SOFT_ERROR;
+                result = WAVPACK_SOFT_ERROR;
             }
         }
 
         if (WavpackGetNumErrors (wpc)) {
             error_line ("missing data or crc errors detected in %d block(s)!", WavpackGetNumErrors (wpc));
-            result = SOFT_ERROR;
+            result = WAVPACK_SOFT_ERROR;
         }
     }
 
-    if (result == NO_ERROR && md5_diff && (WavpackGetMode (wpc) & MODE_LOSSLESS) && !until_samples_total) {
+    if (result == WAVPACK_NO_ERROR && md5_diff && (WavpackGetMode (wpc) & MODE_LOSSLESS) && !until_samples_total) {
         error_line ("MD5 signatures should match, but do not!");
-        result = SOFT_ERROR;
+        result = WAVPACK_SOFT_ERROR;
     }
 
     // Compute and display the time consumed along with some other details of
     // the unpacking operation (assuming there was no error).
 
-#if defined(WIN32)
+#if defined(_WIN32)
     _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;
@@ -1229,7 +1212,7 @@ static int unpack_file (char *infilename, char *outfilename)
     dtime -= time1.tv_sec + time1.tv_usec / 1000000.0;
 #endif
 
-    if (result == NO_ERROR && !quiet_mode) {
+    if (result == WAVPACK_NO_ERROR && !quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
 
         if (outfilename && *outfilename != '-') {
@@ -1261,7 +1244,7 @@ static int unpack_file (char *infilename, char *outfilename)
 
     WavpackCloseFile (wpc);
 
-    if (result == NO_ERROR && delete_source) {
+    if (result == WAVPACK_NO_ERROR && delete_source) {
         int res = DoDeleteFile (infilename);
 
         if (!quiet_mode || !res)
@@ -1294,10 +1277,10 @@ static void add_tag_extraction_to_list (char *spec)
 
 static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 {
-    int result = NO_ERROR, i;
+    int result = WAVPACK_NO_ERROR, i;
     FILE *outfile;
 
-    for (i = 0; result == NO_ERROR && i < num_tag_extractions; ++i) {
+    for (i = 0; result == WAVPACK_NO_ERROR && i < num_tag_extractions; ++i) {
         char *extraction_spec = strdup (tag_extractions [i]);
         char *output_spec = strchr (extraction_spec, '=');
         char tag_filename [256];
@@ -1388,14 +1371,14 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
             if (*full_filename) {
                 if ((outfile = fopen (full_filename, "w")) == NULL) {
                     error_line ("can't create file %s!", FN_FIT (full_filename));
-                    result = SOFT_ERROR;
+                    result = WAVPACK_SOFT_ERROR;
                 }
                 else {
                     dump_tag_item_to_file (wpc, extraction_spec, outfile, NULL);
 
                     if (!DoCloseHandle (outfile)) {
                         error_line ("can't close file %s!", FN_FIT (full_filename));
-                        result = SOFT_ERROR;
+                        result = WAVPACK_SOFT_ERROR;
                     }
                     else if (!quiet_mode)
                         error_line ("extracted tag \"%s\" to file %s", extraction_spec, FN_FIT (full_filename));
@@ -1847,7 +1830,7 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
             if (!value_len || !dst)
                 return value_len;
 
-#if defined(WIN32)
+#if defined(_WIN32)
             _setmode (fileno (dst), O_TEXT);
 #endif
 #if defined(__OS2__)
@@ -1871,7 +1854,7 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
                 if (!value [i]) {
 
                     if (dst) {
-#if defined(WIN32)
+#if defined(_WIN32)
                         _setmode (fileno (dst), O_BINARY);
 #endif
 #if defined(__OS2__)
@@ -1952,7 +1935,7 @@ static void dump_UTF8_string (char *string, FILE *dst)
     }
 }
 
-#if defined (WIN32)
+#if defined (_WIN32)
 
 // Convert Unicode UTF-8 string to wide format. UTF-8 string must be NULL
 // terminated. Resulting wide string must be able to fit in provided space
@@ -2010,7 +1993,7 @@ static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide)
 static void UTF8ToAnsi (char *string, int len)
 {
     int max_chars = (int) strlen (string);
-#if defined (WIN32)
+#if defined (_WIN32)
     unsigned short *temp = malloc ((max_chars + 1) * 2);
     int act_chars = UTF8ToWideChar (string, temp);
 

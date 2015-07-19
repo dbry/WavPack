@@ -285,8 +285,6 @@ BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
     return FALSE;
 }
 
-extern long dump_alloc (void);
-
 void about (HWND hwndParent)
 {
 	char about_title [128], about_string [256], about_format [256];
@@ -298,12 +296,7 @@ void about (HWND hwndParent)
 	    !LoadString (hResources, IDS_FORMAT, about_format, sizeof (about_format)))
 			return;
 
-#ifdef DEBUG_ALLOC
-    sprintf (about_string, "alloc_count = %d", dump_alloc ());
-#else
 	sprintf (about_string, about_format, PLUGIN_VERSION, 2013);
-#endif
-
     MessageBox (hwndParent, about_string, about_title, MB_OK);
 }
 

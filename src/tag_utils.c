@@ -17,7 +17,7 @@
 
 #include "wavpack_local.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #define stricmp(x,y) _stricmp(x,y)
 #else
 #define stricmp strcasecmp

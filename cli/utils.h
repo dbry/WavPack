@@ -21,7 +21,7 @@
 #endif
 #endif
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #undef VERSION_OS
 #ifdef _WIN64
 #define VERSION_OS "Win64"

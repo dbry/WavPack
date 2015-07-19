@@ -11,7 +11,7 @@
 // This module provides general purpose utilities for the WavPack command-line
 // utilities and the self-extraction module.
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <io.h>
@@ -31,7 +31,7 @@
 #include "wavpack.h"
 #include "utils.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 
 int copy_timestamp (const char *src_filename, const char *dst_filename)
 {
@@ -98,7 +98,7 @@ int copy_timestamp(const char *src_filename, const char *dst_filename)
 // then NULL is returned. Extensions with more than 3 letters don't count.  //
 //////////////////////////////////////////////////////////////////////////////
 
-#if defined(WIN32)
+#if defined(_WIN32)
 
 static int is_second_byte (char *filespec, char *pos);
 
@@ -159,7 +159,7 @@ char *filespec_ext (char *filespec)
 // returned.                                                                //
 //////////////////////////////////////////////////////////////////////////////
 
-#if (defined(__GNUC__) || defined(__sun)) && !defined(WIN32)
+#if (defined(__GNUC__) || defined(__sun)) && !defined(_WIN32)
 
 char *filespec_path (char *filespec)
 {
@@ -243,7 +243,7 @@ char *filespec_wild (char *filespec)
 // a pointer to the actual filename, or NULL if no filename can be found.   //
 //////////////////////////////////////////////////////////////////////////////
 
-#if defined(WIN32)
+#if defined(_WIN32)
 
 char *filespec_name (char *filespec)
 {
@@ -288,7 +288,7 @@ char *filespec_name (char *filespec)
 // shift-JIS.                                                               //
 //////////////////////////////////////////////////////////////////////////////
 
-#if defined(WIN32)
+#if defined(_WIN32)
 
 static int is_second_byte (char *filespec, char *pos)
 {
@@ -319,7 +319,7 @@ char yna (void)
     waiting_input = 1;
 
     while (1) {
-#if defined(WIN32)
+#if defined(_WIN32)
         key = _getch ();
 #else
         key = fgetc(stdin);
@@ -341,19 +341,19 @@ char yna (void)
                 fprintf (stderr, "%c", 7);
         }
         else if (key == 'Y' || key == 'y') {
-#ifdef WIN32
+#ifdef _WIN32
             fprintf (stderr, "%c\b", key);
 #endif
             choice = 'y';
         }
         else if (key == 'N' || key == 'n') {
-#ifdef WIN32
+#ifdef _WIN32
             fprintf (stderr, "%c\b", key);
 #endif
             choice = 'n';
         }
         else if (key == 'A' || key == 'a') {
-#ifdef WIN32
+#ifdef _WIN32
             fprintf (stderr, "%c\b", key);
 #endif
             choice = 'a';
@@ -376,7 +376,7 @@ char yna (void)
 
 extern int debug_logging_mode;
 
-#ifdef WIN32
+#ifdef _WIN32
 
 int get_app_path (char *app_path)
 {
@@ -518,7 +518,7 @@ void debug_line (char *error, ...)
 //////////////////////////////////////////////////////////////////////////////
 // Function to intercept ^C or ^Break typed at the console.                 //
 //////////////////////////////////////////////////////////////////////////////
-#if defined(WIN32)
+#if defined(_WIN32)
 static int break_flag;
 
 BOOL WINAPI ctrl_handler (DWORD ctrl)
@@ -672,7 +672,7 @@ int DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, ui
     return !ferror (hFile);
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 
 int64_t DoGetFileSize (FILE *hFile)
 {
@@ -740,7 +740,7 @@ int DoTruncateFile (FILE *hFile)
 {
     if (hFile) {
         fflush (hFile);
-#if defined(WIN32)
+#if defined(_WIN32)
         return !_chsize (_fileno (hFile), 0);
 #else
         return !ftruncate(fileno (hFile), 0);
@@ -760,7 +760,7 @@ int DoDeleteFile (char *filename)
 // displaying progress of batch operations with the console window minimized.  //
 /////////////////////////////////////////////////////////////////////////////////
 
-#ifdef WIN32
+#ifdef _WIN32
 
 void DoSetConsoleTitle (char *text)
 {

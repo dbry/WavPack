@@ -16,7 +16,7 @@
 
 // ReplayGain's [somewhat outdated] website: http://replaygain.org/
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <io.h>
@@ -36,7 +36,7 @@
 #endif
 #endif
 
-#if defined(__GNUC__) && !defined(WIN32)
+#if defined(__GNUC__) && !defined(_WIN32)
 #include <sys/time.h>
 #else
 #include <sys/timeb.h>
@@ -51,18 +51,6 @@
 #include "wavpack.h"
 #include "utils.h"
 
-#ifdef DEBUG_ALLOC
-#define malloc malloc_db
-#define realloc realloc_db
-#define free free_db
-void *malloc_db (uint32_t size);
-void *realloc_db (void *ptr, uint32_t size);
-void free_db (void *ptr);
-int32_t dump_alloc (void);
-static char *strdup (const char *s)
- { char *d = malloc (strlen (s) + 1); return strcpy (d, s); }
-#endif
-
 ///////////////////////////// local variable storage //////////////////////////
 
 static const char *sign_on = "\n"
@@ -74,7 +62,7 @@ static const char *version_warning = "\n"
 
 static const char *usage =
 " Usage:   WVGAIN [-options] [@]infile[.wv] [...]\n"
-#if defined (WIN32) || defined (__OS2__)
+#if defined (_WIN32) || defined (__OS2__)
 "             (infiles may contain wildcards: ?,*)\n\n"
 #else
 "             (multiple input files are allowed)\n\n"
@@ -83,7 +71,7 @@ static const char *usage =
 "          -c  = clean ReplayGain values from all files (no analysis)\n"
 "          -d  = display calculated values only (no files are modified)\n"
 "          -i  = ignore .wvc file (forces hybrid lossy)\n"
-#if defined (WIN32) || defined (__OS2__)
+#if defined (_WIN32) || defined (__OS2__)
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
 "          -n  = new files only (skip files with track info, or album\n"
@@ -91,7 +79,7 @@ static const char *usage =
 "          -q  = quiet (keep console output to a minimum)\n"
 "          -v  = write the version to stdout\n"
 "          -s  = show stored values only (no analysis)\n"
-#if defined (WIN32)
+#if defined (_WIN32)
 "          -z  = don't set console title to indicate progress\n\n"
 #else
 "          -z1 = set console title to indicate progress\n\n"
@@ -117,10 +105,9 @@ static int show_file_info (char *infilename, FILE *dst);
 static float calc_replaygain (uint32_t *histogram);
 static void display_progress (double file_progress);
 
-#undef NO_ERROR
-#define NO_ERROR 0L
-#define SOFT_ERROR 1
-#define HARD_ERROR 2
+#define WAVPACK_NO_ERROR    0
+#define WAVPACK_SOFT_ERROR  1
+#define WAVPACK_HARD_ERROR  2
 
 ///////////////////////////////////////////////////////////////////////////////////
 // The "main" function for the command-line WavPack ReplayGain Scanner/Processor //
@@ -133,9 +120,9 @@ int main (argc, argv) int argc; char **argv;
 #endif
     int  error_count = 0;
     char **matches = NULL;
-    int result = NO_ERROR;
+    int result = WAVPACK_NO_ERROR;
 
-#if defined(WIN32)
+#if defined(_WIN32)
     struct _finddata_t _finddata_t;
     char selfname [MAX_PATH];
 
@@ -162,14 +149,14 @@ int main (argc, argv) int argc; char **argv;
     }
 #endif
 
-#if defined (WIN32)
+#if defined (_WIN32)
    set_console_title = 1;      // on Windows, we default to messing with the console title
 #endif                          // on Linux, this is considered uncool to do by default
 
     // loop through command-line arguments
 
     while (--argc) {
-#if defined (WIN32)
+#if defined (_WIN32)
         if ((**++argv == '-' || **argv == '/') && (*argv)[1])
 #else
         if ((**++argv == '-') && (*argv)[1])
@@ -194,7 +181,7 @@ int main (argc, argv) int argc; char **argv;
                         display_mode = 1;
                         break;
 
-#if defined (WIN32)
+#if defined (_WIN32)
                     case 'L': case 'l':
                         SetPriorityClass (GetCurrentProcess(), IDLE_PRIORITY_CLASS);
                         break;
@@ -318,7 +305,7 @@ int main (argc, argv) int argc; char **argv;
             fclose (list);
             free (infilename);
         }
-#if defined (WIN32)
+#if defined (_WIN32)
         else if (filespec_wild (infilename)) {
             FILE *list = fopen (infilename+1, "rt");
             intptr_t file;
@@ -387,7 +374,7 @@ int main (argc, argv) int argc; char **argv;
                     if (alreadyHasTag) {
                         if (album_mode) {
                             error_line ("ReplayGain album information already present...aborting");
-                            result = HARD_ERROR;
+                            result = WAVPACK_HARD_ERROR;
                             break;
                         }
                         else {
@@ -400,11 +387,11 @@ int main (argc, argv) int argc; char **argv;
 
             result = analyze_file (matches [file_index], track_histogram, &track_peak);
 
-            if (result != NO_ERROR) {
+            if (result != WAVPACK_NO_ERROR) {
                 ++error_count;
 
-                if (album_mode || result == HARD_ERROR) {
-                    result = HARD_ERROR;
+                if (album_mode || result == WAVPACK_HARD_ERROR) {
+                    result = WAVPACK_HARD_ERROR;
                     break;
                 }
                 else
@@ -429,16 +416,16 @@ int main (argc, argv) int argc; char **argv;
             else if (!display_mode) {
                 result = update_file (matches [file_index], track_gains [file_index], track_peaks [file_index], 0, 0);
 
-                if (result != NO_ERROR) {
+                if (result != WAVPACK_NO_ERROR) {
                     ++error_count;
 
-                    if (result == HARD_ERROR)
+                    if (result == WAVPACK_HARD_ERROR)
                         break;
                 }
             }
         }
 
-        if (result != HARD_ERROR) {
+        if (result != WAVPACK_HARD_ERROR) {
             album_gain = calc_replaygain (album_histogram);
 
             if (album_mode && !quiet_mode && num_files > 1) {
@@ -451,7 +438,7 @@ int main (argc, argv) int argc; char **argv;
         // If we are in album mode or clear mode, this is where we loop through and modify
         // the tags (or just show existing stored values).
 
-        if (result != HARD_ERROR)
+        if (result != WAVPACK_HARD_ERROR)
             for (file_index = 0; (clean_mode || album_mode || show_mode) && !display_mode && file_index < num_files; ++file_index) {
                 if (check_break ())
                     break;
@@ -466,10 +453,10 @@ int main (argc, argv) int argc; char **argv;
 
                 free (matches [file_index]);
 
-                if (result != NO_ERROR) {
+                if (result != WAVPACK_NO_ERROR) {
                     ++error_count;
 
-                    if (result == HARD_ERROR)
+                    if (result == WAVPACK_HARD_ERROR)
                         break;
                 }
             }
@@ -489,10 +476,6 @@ int main (argc, argv) int argc; char **argv;
         error_line ("nothing to do!");
     }
 
-#ifdef DEBUG_ALLOC
-    error_line ("malloc_count = %d", dump_alloc ());
-#endif
-
     if (set_console_title)
         DoSetConsoleTitle ("WvGain Completed");
 
@@ -510,7 +493,7 @@ static void float_samples (float *dst, int32_t *src, uint32_t samcnt, float scal
 
 static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 {
-    int result = NO_ERROR, open_flags = 0, num_channels, wvc_mode;
+    int result = WAVPACK_NO_ERROR, open_flags = 0, num_channels, wvc_mode;
     uint32_t total_unpacked_samples = 0, window_samples;
     double progress = -1.0;
     int32_t *temp_buffer;
@@ -531,7 +514,7 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 
     if (!wpc) {
         error_line (error);
-        return SOFT_ERROR;
+        return WAVPACK_SOFT_ERROR;
     }
 
     wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
@@ -539,7 +522,7 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 
     if (num_channels > 2) {
         error_line ("can't handle multichannel files yet!");
-        return SOFT_ERROR;
+        return WAVPACK_SOFT_ERROR;
     }
 
     if (!quiet_mode)
@@ -550,9 +533,9 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
     temp_buffer = malloc (window_samples * 8);
 
     if (!filter_init (WavpackGetSampleRate (wpc)))
-        result = SOFT_ERROR;
+        result = WAVPACK_SOFT_ERROR;
 
-    while (result == NO_ERROR) {
+    while (result == WAVPACK_NO_ERROR) {
         uint32_t samples_to_unpack, samples_unpacked;
         int32_t level;
 
@@ -606,12 +589,12 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
             break;
 
         if (check_break ()) {
-#if defined(WIN32)
+#if defined(_WIN32)
             fprintf (stderr, "^C\n");
 #else
             fprintf (stderr, "\n");
 #endif
-            result = HARD_ERROR;
+            result = WAVPACK_HARD_ERROR;
             break;
         }
 
@@ -631,15 +614,15 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 
     free (temp_buffer);
 
-    if (result == NO_ERROR && WavpackGetNumSamples (wpc) != (uint32_t) -1 &&
+    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples (wpc) != (uint32_t) -1 &&
         total_unpacked_samples != WavpackGetNumSamples (wpc)) {
             error_line ("incorrect number of samples!");
-            result = SOFT_ERROR;
+            result = WAVPACK_SOFT_ERROR;
     }
 
-    if (result == NO_ERROR && WavpackGetNumErrors (wpc)) {
+    if (result == WAVPACK_NO_ERROR && WavpackGetNumErrors (wpc)) {
         error_line ("crc errors detected in %d block(s)!", WavpackGetNumErrors (wpc));
-        result = SOFT_ERROR;
+        result = WAVPACK_SOFT_ERROR;
     }
 
     WavpackCloseFile (wpc);
@@ -661,7 +644,7 @@ static int update_file (char *infilename, float track_gain, float track_peak, fl
 
     if (!wpc) {
         error_line (error);
-        return SOFT_ERROR;
+        return WAVPACK_SOFT_ERROR;
     }
 
     if (clean_mode) {
@@ -741,11 +724,11 @@ static int update_file (char *infilename, float track_gain, float track_peak, fl
 
     if (write_tag && !WavpackWriteTag (wpc)) {
         error_line ("%s", WavpackGetErrorMessage (wpc));
-        return SOFT_ERROR;
+        return WAVPACK_SOFT_ERROR;
     }
 
     WavpackCloseFile (wpc);
-    return NO_ERROR;
+    return WAVPACK_NO_ERROR;
 }
 
 // Just show any ReplayGain tags for the specified file
@@ -762,7 +745,7 @@ static int show_file_info (char *infilename, FILE *dst)
 
     if (!wpc) {
         error_line (error);
-        return SOFT_ERROR;
+        return WAVPACK_SOFT_ERROR;
     }
 
     fprintf (dst, "\nfile: %s\n", infilename);
@@ -791,7 +774,7 @@ static int show_file_info (char *infilename, FILE *dst)
         fprintf (dst, "no ReplayGain values found\n");
 
     WavpackCloseFile (wpc);
-    return NO_ERROR;
+    return WAVPACK_NO_ERROR;
 }
 
 // Calculate the ReplayGain value from the specified loudness histogram; clip to -24 / +64 dB

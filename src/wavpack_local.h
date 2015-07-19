@@ -11,13 +11,13 @@
 #ifndef WAVPACK_LOCAL_H
 #define WAVPACK_LOCAL_H
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #define FASTCALL __fastcall
 #else
 #define FASTCALL
 #endif
 
-#if defined(WIN32) || \
+#if defined(_WIN32) || \
     (defined(BYTE_ORDER) && defined(LITTLE_ENDIAN) && (BYTE_ORDER == LITTLE_ENDIAN)) || \
     (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
 #define BITSTREAM_SHORTS    // use "shorts" for reading/writing bitstreams
