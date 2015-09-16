@@ -546,7 +546,10 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
     }
 
 #ifdef LOG_LIMIT
-    log_limit = (((wps->wphdr.flags & MAG_MASK) >> MAG_LSB) + 4) * 256;
+    // Don't use the LOG_LIMIT magnitude check if num_passes is 1 because that means we are just
+    // asking for one of the four standard filters, which should be returned unmodified (especially
+    // now that we have assembly code for mono with those filters hardcoded).
+    log_limit = (wps->num_passes > 1) ? (((wps->wphdr.flags & MAG_MASK) >> MAG_LSB) + 4) * 256 : 0;
 
     if (log_limit > LOG_LIMIT)
         log_limit = LOG_LIMIT;
