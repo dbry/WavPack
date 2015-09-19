@@ -54,6 +54,7 @@ typedef __int8  int8_t;
 typedef int32_t f32;
 
 #define get_mantissa(f)     ((f) & 0x7fffff)
+#define get_magnitude(f)    ((f) & 0x7fffffff)
 #define get_exponent(f)     (((f) >> 23) & 0xff)
 #define get_sign(f)         (((f) >> 31) & 0x1)
 
