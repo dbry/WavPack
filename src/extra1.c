@@ -55,7 +55,6 @@ typedef struct {
 
 static void decorr_mono_pass (int32_t *in_samples, int32_t *out_samples, uint32_t num_samples, struct decorr_pass *dpp, int dir)
 {
-    int32_t *out_samples_base = out_samples;
     int32_t cont_samples = 0;
     int m = 0, i;
 
