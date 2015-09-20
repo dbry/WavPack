@@ -80,8 +80,10 @@ iconv (cd, NULL, NULL, NULL, NULL);],[
             AC_MSG_RESULT(no)
             AC_MSG_CHECKING(for iconv in -liconv)
 
+            old_cflags="${CFLAGS}"
             old_ldflags="${LDFLAGS}"
             old_libs="${LIBS}"
+            CFLAGS="${ICONV_CFLAGS} ${CFLAGS}"
             LDFLAGS="${LDFLAGS} ${ICONV_LIBS}"
             LIBS="${LIBS} -liconv"
 
@@ -94,6 +96,7 @@ iconv (cd, NULL, NULL, NULL, NULL);],[
                 ICONV_LIBS="${ICONV_LIBS} -liconv"
                 ICONV="-liconv"],[
                 AC_MSG_ERROR([[Can't find iconv libraries.]])])
+            CFLAGS=$old_cflags
             LDFLAGS=$old_ldflags
             LIBS=$old_libs
             ]),
