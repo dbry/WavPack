@@ -21,6 +21,16 @@ wvgain_LDFLAGS = -rpath $(libdir)
 endif
 wvgain_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
 
+if ENABLE_TESTS
+bin_PROGRAMS += wvtest
+wvtest_SOURCES = wvtest.c md5.c
+wvtest_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
+if ENABLE_RPATH
+wvtest_LDFLAGS = -rpath $(libdir)
+endif
+wvtest_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM) -lpthread
+endif
+
 noinst_HEADERS = \
 	utils.h \
 	md5.h
