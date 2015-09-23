@@ -25,11 +25,9 @@
  * from the buffer. It does, however, return the appropriate history samples
  * to the decorr_pass structure before returning.
  *
- * This is written to work on a ARM7TDMI processor. Based on the "long_math"
- * parameter, this code selects between loop versions that use the 32-bit
- * multiply-accumulate instruction (and so will overflow with 24-bit
- * WavPack files) and loop versions that use the 64-bit multiply-accumulate
- * instruction (which can be slower).
+ * This is written to work on a ARM7TDMI processor. This version of the code
+ * checks the magnitude of the decorrelation sample with the SSAT instruction
+ * to avoid possible overflow (and therefore ignores the "long_math" arg).
  *
  * A mono version follows below. 
  */
@@ -46,8 +44,6 @@
 unpack_decorr_stereo_pass_cont_armv7:
 
         stmfd   sp!, {r4 - r8, r10, r11, lr}
-        cmp     r3, #0                  @ check for long versions required
-        bne     long_versions           @ branch if yes
 
         mov     r5, r0                  @ r5 = dpp
         mov     r11, #512               @ r11 = 512 for rounding
@@ -101,24 +97,48 @@ minus_term:
  */
 
 term_17_loop:
-        rsbs    ip, lr, r8, asl #1      @ decorr value = (2 * prev) - 2nd prev
+        rsb     ip, lr, r8, asl #1      @ decorr value = (2 * prev) - 2nd prev
         mov     lr, r8                  @ previous becomes 2nd previous
         ldr     r2, [r1], #4            @ get sample & update pointer
+        ssat    r8, #21, ip             @ check for saturation and branch
+        cmp     r8, ip                  @  to 64-bit math version if so
+        bne     S117
+        cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
         add     r8, r2, r8, asr #10     @  shift, and add to new sample
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
+        b       S118
+
+S117:   mov     r8, #0                  @ use 64-bit multiply to avoid overflow
+        smlal   r11, r8, r4, ip
+        add     r8, r2, r8, lsl #22
+        add     r8, r8, r11, lsr #10
+        mov     r11, #512
+
+S118:   strne   r8, [r1, #-4]           @ if change possible, store sample back
         cmpne   r2, #0
         beq     S325
         teq     ip, r2                  @ update weight based on signs
         submi   r4, r4, r6
         addpl   r4, r4, r6
 
-S325:   rsbs    ip, r10, r3, asl #1     @ do same thing for right channel
+S325:   rsb     ip, r10, r3, asl #1     @ do same thing for right channel
         mov     r10, r3
         ldr     r2, [r1], #4
+        ssat    r3, #21, ip
+        cmp     r3, ip
+        bne     S119
+        cmp     ip, #0
         mla     r3, ip, r0, r11
         add     r3, r2, r3, asr #10
-        strne   r3, [r1, #-4]
+        b       S120
+
+S119:   mov     r3, #0
+        smlal   r11, r3, r0, ip
+        add     r3, r2, r3, lsl #22
+        add     r3, r3, r11, lsr #10
+        mov     r11, #512
+
+S120:   strne   r3, [r1, #-4]
         cmpne   r2, #0
         beq     S329
         teq     ip, r2
@@ -147,11 +167,23 @@ S329:   cmp     r7, r1                  @ loop back if more samples to do
 term_18_loop:
         sub     ip, r8, lr              @ decorr value =
         mov     lr, r8                  @  ((3 * prev) - 2nd prev) >> 1
-        adds    ip, r8, ip, asr #1
+        add     ip, r8, ip, asr #1
         ldr     r2, [r1], #4            @ get sample & update pointer
+        ssat    r8, #21, ip             @ check for saturation and branch
+        cmp     r8, ip                  @  to 64-bit math version if so
+        bne     S121
+        cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
         add     r8, r2, r8, asr #10     @  shift, and add to new sample
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
+        b       S122
+
+S121:   mov     r8, #0                  @ use 64-bit multiply to avoid overflow
+        smlal   r11, r8, r4, ip
+        add     r8, r2, r8, lsl #22
+        add     r8, r8, r11, lsr #10
+        mov     r11, #512
+
+S122:   strne   r8, [r1, #-4]           @ if change possible, store sample back
         cmpne   r2, #0
         beq     S337
         teq     ip, r2                  @ update weight based on signs
@@ -160,11 +192,23 @@ term_18_loop:
 
 S337:   sub     ip, r3, r10             @ do same thing for right channel
         mov     r10, r3
-        adds    ip, r3, ip, asr #1
+        add     ip, r3, ip, asr #1
         ldr     r2, [r1], #4
+        ssat    r3, #21, ip
+        cmp     r3, ip
+        bne     S123
+        cmp     ip, #0
         mla     r3, ip, r0, r11
         add     r3, r2, r3, asr #10
-        strne   r3, [r1, #-4]
+        b       S124
+
+S123:   mov     r3, #0
+        smlal   r11, r3, r0, ip
+        add     r3, r2, r3, lsl #22
+        add     r3, r3, r11, lsr #10
+        mov     r11, #512
+
+S124:   strne   r3, [r1, #-4]
         cmpne   r2, #0
         beq     S341
         teq     ip, r2
@@ -201,24 +245,48 @@ store_1718:
  */
 
 term_2_loop:
-        movs    ip, lr                  @ get decorrelation value & test
+        mov     ip, lr                  @ get decorrelation value
         mov     lr, r8                  @ previous becomes 2nd previous
         ldr     r2, [r1], #4            @ get sample & update pointer
+        ssat    r8, #21, ip             @ check for saturation and branch
+        cmp     r8, ip                  @  to 64-bit math version if so
+        bne     S125
+        cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
         add     r8, r2, r8, asr #10     @  shift, and add to new sample
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
+        b       S126
+
+S125:   mov     r8, #0                  @ use 64-bit multiply to avoid overflow
+        smlal   r11, r8, r4, ip
+        add     r8, r2, r8, lsl #22
+        add     r8, r8, r11, lsr #10
+        mov     r11, #512
+
+S126:   strne   r8, [r1, #-4]           @ if change possible, store sample back
         cmpne   r2, #0
         beq     S225
         teq     ip, r2                  @ update weight based on signs
         submi   r4, r4, r6
         addpl   r4, r4, r6
 
-S225:   movs    ip, r10                 @ do same thing for right channel
+S225:   mov     ip, r10                 @ do same thing for right channel
         mov     r10, r3
         ldr     r2, [r1], #4
+        ssat    r3, #21, ip
+        cmp     r3, ip
+        bne     S127
+        cmp     ip, #0
         mla     r3, ip, r0, r11
         add     r3, r2, r3, asr #10
-        strne   r3, [r1, #-4]
+        b       S128
+
+S127:   mov     r3, #0
+        smlal   r11, r3, r0, ip
+        add     r3, r2, r3, lsl #22
+        add     r3, r3, r11, lsr #10
+        mov     r11, #512
+
+S128:   strne   r3, [r1, #-4]
         cmpne   r2, #0
         beq     S229
         teq     ip, r2
@@ -247,10 +315,21 @@ S229:   cmp     r7, r1                  @ loop back if more samples to do
 term_default_loop:
         ldr     ip, [r1]                @ get original sample
         ldr     r3, [r1, -r2, asl #3]   @ get decorrelation value based on term
+        ssat    r8, #21, r3             @ check for saturation and branch
+        cmp     r8, r3                  @  to 64-bit math version if so
+        bne     S135
+        cmp     r3, #0
         mla     r8, r3, r4, r11         @ mult decorr value by weight, round,
         add     r8, ip, r8, asr #10     @  shift and add to new sample
-        str     r8, [r1], #4            @ store update sample
-        cmp     r3, #0
+        b       S136
+
+S135:   mov     r8, #0                  @ use 64-bit multiply to avoid overflow
+        smlal   r11, r8, r4, r3
+        add     r8, ip, r8, lsl #22
+        add     r8, r8, r11, lsr #10
+        mov     r11, #512
+
+S136:   str     r8, [r1], #4            @ store update sample
         cmpne   ip, #0
         beq     S350
         teq     ip, r3                  @ update weight based on signs
@@ -259,10 +338,21 @@ term_default_loop:
 
 S350:   ldr     ip, [r1]                @ do the same thing for right channel
         ldr     r3, [r1, -r2, asl #3]
+        ssat    r8, #21, r3
+        cmp     r8, r3
+        bne     S137
+        cmp     r3, #0
         mla     r8, r3, r0, r11
         add     r8, ip, r8, asr #10
-        str     r8, [r1], #4
-        cmp     r3, #0
+        b       S138
+
+S137:   mov     r8, #0
+        smlal   r11, r8, r0, r3
+        add     r8, ip, r8, lsl #22
+        add     r8, r8, r11, lsr #10
+        mov     r11, #512
+
+S138:   str     r8, [r1], #4
         cmpne   ip, #0
         beq     S354
         teq     ip, r3
@@ -312,10 +402,22 @@ term_minus_1:
 
 term_minus_1_loop:
         ldr     ip, [r1]                @ for left channel the decorrelation value
-        mla     r2, r3, r4, r11         @  is the previous right sample (in r3)
-        add     lr, ip, r2, asr #10
-        str     lr, [r1], #8
+                                        @  is the previous right sample (in r3)
+        ssat    lr, #21, r3             @ check for saturation and branch
+        cmp     lr, r3                  @  to 64-bit math version if so
+        bne     S142
         cmp     r3, #0
+        mla     r2, r3, r4, r11
+        add     lr, ip, r2, asr #10
+        b       S143
+
+S142:   mov     lr, #0                  @ use 64-bit multiply to avoid overflow
+        smlal   r11, lr, r4, r3
+        add     lr, ip, lr, lsl #22
+        add     lr, lr, r11, lsr #10
+        mov     r11, #512
+
+S143:   str     lr, [r1], #8
         cmpne   ip, #0
         beq     S361
         teq     ip, r3                  @ update weight based on signs
@@ -327,10 +429,22 @@ term_minus_1_loop:
         movlt   r4, r10
 
 S361:   ldr     r2, [r1, #-4]           @ for right channel the decorrelation value
-        mla     r3, lr, r0, r11         @  is the just updated right sample (in lr)
-        add     r3, r2, r3, asr #10
-        str     r3, [r1, #-4]
+                                        @  is the just updated right sample (in lr)
+        ssat    r3, #21, lr
+        cmp     r3, lr
+        bne     S144
         cmp     lr, #0
+        mla     r3, lr, r0, r11
+        add     r3, r2, r3, asr #10
+        b       S145
+
+S144:   mov     r3, #0
+        smlal   r11, r3, r0, lr
+        add     r3, r2, r3, lsl #22
+        add     r3, r3, r11, lsr #10
+        mov     r11, #512
+
+S145:   strne   r3, [r1, #-4]
         cmpne   r2, #0
         beq     S369
         teq     r2, lr
@@ -368,10 +482,22 @@ term_minus_2:
 
 term_minus_2_loop:
         ldr     ip, [r1, #4]            @ for right channel the decorrelation value
-        mla     r2, r3, r0, r11         @  is the previous left sample (in r3)
-        add     lr, ip, r2, asr #10
-        str     lr, [r1, #4]
+                                        @  is the previous left sample (in r3)
+        ssat    lr, #21, r3             @ check for saturation and branch
+        cmp     lr, r3                  @  to 64-bit math version if so
+        bne     S146
         cmp     r3, #0
+        mla     r2, r3, r0, r11
+        add     lr, ip, r2, asr #10
+        b       S147
+
+S146:   mov     lr, #0                  @ use 64-bit multiply to avoid overflow
+        smlal   r11, lr, r0, r3
+        add     lr, ip, lr, lsl #22
+        add     lr, lr, r11, lsr #10
+        mov     r11, #512
+
+S147:   strne   lr, [r1, #4]
         cmpne   ip, #0
         beq     S380
         teq     ip, r3                  @ update weight based on signs
@@ -383,10 +509,22 @@ term_minus_2_loop:
         movlt   r0, r10
 
 S380:   ldr     r2, [r1, #0]            @ for left channel the decorrelation value
-        mla     r3, lr, r4, r11         @  is the just updated left sample (in lr)
-        add     r3, r2, r3, asr #10
-        str     r3, [r1], #8
+                                        @  is the just updated left sample (in lr)
+        ssat    r3, #21, lr
+        cmp     r3, lr
+        bne     S148
         cmp     lr, #0
+        mla     r3, lr, r4, r11
+        add     r3, r2, r3, asr #10
+        b       S149
+
+S148:   mov     r3, #0
+        smlal   r11, r3, r4, lr
+        add     r3, r2, r3, lsl #22
+        add     r3, r3, r11, lsr #10
+        mov     r11, #512
+
+S149:   str     r3, [r1], #8
         cmpne   r2, #0
         beq     S388
         teq     r2, lr
@@ -424,10 +562,21 @@ term_minus_3:
 
 term_minus_3_loop:
         ldr     ip, [r1]
+        ssat    r2, #21, r3             @ check for saturation and branch
+        cmp     r2, r3                  @  to 64-bit math version if so
+        bne     S160
+        cmp     r3, #0
         mla     r2, r3, r4, r11
         add     r2, ip, r2, asr #10
-        str     r2, [r1], #4
-        cmp     r3, #0
+        b       S161
+
+S160:   mov     r2, #0                  @ use 64-bit multiply to avoid overflow
+        smlal   r11, r2, r4, r3
+        add     r2, ip, r2, lsl #22
+        add     r2, r2, r11, lsr #10
+        mov     r11, #512
+
+S161:   str     r2, [r1], #4
         cmpne   ip, #0
         beq     S399
         teq     ip, r3                  @ update weight based on signs
@@ -438,12 +587,24 @@ term_minus_3_loop:
         cmp     r4, r10
         movlt   r4, r10
 
-S399:   movs    ip, r8                  @ ip = previous left we use now
+S399:   mov     ip, r8                  @ ip = previous left we use now
         mov     r8, r2                  @ r8 = current left we use next time
         ldr     r2, [r1], #4
+        ssat    r3, #21, ip
+        cmp     r3, ip
+        bne     S162
+        cmp     ip, #0
         mla     r3, ip, r0, r11
         add     r3, r2, r3, asr #10
-        strne   r3, [r1, #-4]
+        b       S163
+
+S162:   mov     r3, #0
+        smlal   r11, r3, r0, ip
+        add     r3, r2, r3, lsl #22
+        add     r3, r3, r11, lsr #10
+        mov     r11, #512
+
+S163:   strne   r3, [r1, #-4]
         cmpne   r2, #0
         beq     S407
         teq     ip, r2
@@ -469,477 +630,6 @@ common_exit:
         str     r0, [r5, #12]
         ldmfd   sp!, {r4 - r8, r10, r11, pc}
 
-/*
- * on entry:
- *
- * r0 = struct decorr_pass *dpp
- * r1 = int32_t *buffer
- * r2 = int32_t sample_count
- */
-
-long_versions:
-        mov     r5, r0                  @ r5 = dpp
-        ldr     r6, [r0, #4]            @ r6 = dpp->delta
-        ldr     r4, [r0, #8]            @ r4 = dpp->weight_A
-        ldr     r0, [r0, #12]           @ r0 = dpp->weight_B
-        cmp     r2, #0                  @ exit if no samples to process
-        beq     long_common_exit
-
-        add     r7, r1, r2, asl #3      @ r7 = buffer ending position
-        ldr     r2, [r5, #0]            @ r2 = dpp->term
-        cmp     r2, #0
-        blt     long_minus_term
-
-        ldr     lr, [r1, #-16]          @ load 2 sample history from buffer
-        ldr     r10, [r1, #-12]         @  for terms 2, 17, and 18
-        ldr     r8, [r1, #-8]
-        ldr     r3, [r1, #-4]
-
-        cmp     r2, #18
-        beq     long_term_18_loop
-        cmp     r2, #2
-        beq     long_term_2_loop
-        cmp     r2, #17
-        beq     long_term_17_loop
-        b       long_term_default_loop
-
-long_minus_term:
-        mov     r10, #1024              @ r10 = -1024 for weight clipping
-        rsb     r10, r10, #0            @  (only used for negative terms)
-        cmn     r2, #1
-        beq     long_term_minus_1
-        cmn     r2, #2
-        beq     long_term_minus_2
-        cmn     r2, #3
-        beq     long_term_minus_3
-        b       long_common_exit
-
-/*
- ******************************************************************************
- * Loop to handle term = 17 condition
- *
- * r0 = dpp->weight_B           r8 = previous left sample
- * r1 = bptr                    r9 =
- * r2 = current sample          r10 = second previous right sample
- * r3 = previous right sample   r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = current decorrelation value
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr = second previous left sample
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-long_term_17_loop:
-        rsbs    ip, lr, r8, asl #1      @ decorr value = (2 * prev) - 2nd prev
-        mov     lr, r8                  @ previous becomes 2nd previous
-        ldr     r2, [r1], #4            @ get sample & update pointer
-        mov     r8, #0
-        movne   r11, #512
-        smlalne r11, r8, r4, ip
-        add     r8, r2, r8, lsl #22
-        addne   r8, r8, r11, lsr #10
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
-        cmpne   r2, #0
-        beq     L325
-        teq     ip, r2                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-
-L325:   rsbs    ip, r10, r3, asl #1     @ do same thing for right channel
-        mov     r10, r3
-        ldr     r2, [r1], #4
-        mov     r3, #0
-        movne   r11, #512
-        smlalne r11, r3, r0, ip
-        add     r3, r2, r3, lsl #22
-        addne   r3, r3, r11, lsr #10
-        strne   r3, [r1, #-4]
-        cmpne   r2, #0
-        beq     L329
-        teq     ip, r2
-        submi   r0, r0, r6
-        addpl   r0, r0, r6
-
-L329:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     long_term_17_loop
-        b       long_store_1718         @ common exit for terms 17 & 18
-
-/*
- ******************************************************************************
- * Loop to handle term = 18 condition
- *
- * r0 = dpp->weight_B           r8 = previous left sample
- * r1 = bptr                    r9 =
- * r2 = current sample          r10 = second previous right sample
- * r3 = previous right sample   r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = decorrelation value
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr = second previous left sample
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-long_term_18_loop:
-        rsb     ip, lr, r8              @ decorr value =
-        mov     lr, r8                  @  ((3 * prev) - 2nd prev) >> 1
-        adds    ip, lr, ip, asr #1
-        ldr     r2, [r1], #4            @ get sample & update pointer
-        mov     r8, #0
-        movne   r11, #512
-        smlalne r11, r8, r4, ip
-        add     r8, r2, r8, lsl #22
-        addne   r8, r8, r11, lsr #10
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
-        cmpne   r2, #0
-        beq     L337
-        teq     ip, r2                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-
-L337:   rsb     ip, r10, r3             @ do same thing for right channel
-        mov     r10, r3
-        adds    ip, r10, ip, asr #1
-        ldr     r2, [r1], #4
-        mov     r3, #0
-        movne   r11, #512
-        smlalne r11, r3, r0, ip
-        add     r3, r2, r3, lsl #22
-        addne   r3, r3, r11, lsr #10
-        strne   r3, [r1, #-4]
-        cmpne   r2, #0
-        beq     L341
-        teq     ip, r2
-        submi   r0, r0, r6
-        addpl   r0, r0, r6
-
-L341:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     long_term_18_loop
-
-/* common exit for terms 17 & 18 */
-
-long_store_1718:
-        str     r3, [r5, #48]           @ store sample history into struct
-        str     r8, [r5, #16]
-        str     r10, [r5, #52]
-        str     lr, [r5, #20]
-        b       long_common_exit        @ and return
-
-/*
- ******************************************************************************
- * Loop to handle term = 2 condition
- * (note that this case can be handled by the default term handler (1-8), but
- * this special case is faster because it doesn't have to read memory twice)
- *
- * r0 = dpp->weight_B           r8 = previous left sample
- * r1 = bptr                    r9 =
- * r2 = current sample          r10 = second previous right sample
- * r3 = previous right sample   r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = decorrelation value
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr = second previous left sample
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-long_term_2_loop:
-        movs    ip, lr                  @ get decorrelation value & test
-        ldr     r2, [r1], #4            @ get sample & update pointer
-        mov     lr, r8                  @ previous becomes 2nd previous
-        mov     r8, #0
-        movne   r11, #512
-        smlalne r11, r8, r4, ip
-        add     r8, r2, r8, lsl #22
-        addne   r8, r8, r11, lsr #10
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
-        cmpne   r2, #0
-        beq     L225
-        teq     ip, r2                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-
-L225:   movs    ip, r10                 @ do same thing for right channel
-        ldr     r2, [r1], #4
-        mov     r10, r3
-        mov     r3, #0
-        movne   r11, #512
-        smlalne r11, r3, r0, ip
-        add     r3, r2, r3, lsl #22
-        addne   r3, r3, r11, lsr #10
-        strne   r3, [r1, #-4]
-        cmpne   r2, #0
-        beq     L229
-        teq     ip, r2
-        submi   r0, r0, r6
-        addpl   r0, r0, r6
-
-L229:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     long_term_2_loop
-
-        b       long_default_term_exit  @ this exit updates all dpp->samples
-
-/*
- ******************************************************************************
- * Loop to handle default term condition
- *
- * r0 = dpp->weight_B           r8 = result accumulator
- * r1 = bptr                    r9 =
- * r2 = dpp->term               r10 =
- * r3 = decorrelation value     r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = current sample
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr =
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-long_term_default_loop:
-        ldr     r3, [r1, -r2, asl #3]   @ get decorrelation value based on term
-        ldr     ip, [r1], #4            @ get original sample and bump ptr
-        cmp     r3, #0
-        mov     r8, #0
-        movne   r11, #512
-        smlalne r11, r8, r4, r3
-        add     r8, ip, r8, lsl #22
-        addne   r8, r8, r11, lsr #10
-        strne   r8, [r1, #-4]           @ if possibly changed, store updated sample
-        cmpne   ip, #0
-        beq     L350
-        teq     ip, r3                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-
-L350:   ldr     r3, [r1, -r2, asl #3]   @ do the same thing for right channel
-        ldr     ip, [r1], #4
-        cmp     r3, #0
-        mov     r8, #0
-        movne   r11, #512
-        smlalne r11, r8, r0, r3
-        add     r8, ip, r8, lsl #22
-        addne   r8, r8, r11, lsr #10
-        strne   r8, [r1, #-4]
-        cmpne   ip, #0
-        beq     L354
-        teq     ip, r3
-        submi   r0, r0, r6
-        addpl   r0, r0, r6
-
-L354:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     long_term_default_loop
-
-/*
- * This exit is used by terms 1-8 to store the previous "term" samples (up to 8)
- * into the decorr pass structure history
- */
-
-long_default_term_exit:
-        ldr     r2, [r5, #0]            @ r2 = dpp->term
-
-L358:   sub     r2, r2, #1
-        sub     r1, r1, #8
-        ldr     r3, [r1, #4]            @ get right sample and store in dpp->samples_B [r2]
-        add     r6, r5, #48
-        str     r3, [r6, r2, asl #2]
-        ldr     r3, [r1, #0]            @ get left sample and store in dpp->samples_A [r2]
-        add     r6, r5, #16
-        str     r3, [r6, r2, asl #2]
-        cmp     r2, #0
-        bne     L358
-        b       long_common_exit
-
-/*
- ******************************************************************************
- * Loop to handle term = -1 condition
- *
- * r0 = dpp->weight_B           r8 =
- * r1 = bptr                    r9 =
- * r2 = intermediate result     r10 = -1024 (for clipping)
- * r3 = previous right sample   r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = current sample
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr = updated left sample
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-long_term_minus_1:
-        ldr     r3, [r1, #-4]
-
-long_term_minus_1_loop:
-        ldr     ip, [r1], #8            @ for left channel the decorrelation value
-        cmp     r3, #0                  @  is the previous right sample (in r3)
-        mov     lr, #0
-        movne   r11, #512
-        smlalne r11, lr, r4, r3
-        add     lr, ip, lr, lsl #22
-        addne   lr, lr, r11, lsr #10
-        strne   lr, [r1, #-8]
-        cmpne   ip, #0
-        beq     L361
-        teq     ip, r3                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-        cmp     r4, #1024
-        movgt   r4, #1024
-        cmp     r4, r10
-        movlt   r4, r10
-
-L361:   ldr     r2, [r1, #-4]           @ for right channel the decorrelation value
-        cmp     lr, #0
-        mov     r3, #0
-        movne   r11, #512
-        smlalne r11, r3, r0, lr
-        add     r3, r2, r3, lsl #22
-        addne   r3, r3, r11, lsr #10
-        strne   r3, [r1, #-4]
-        cmpne   r2, #0
-        beq     L369
-        teq     r2, lr
-        submi   r0, r0, r6
-        addpl   r0, r0, r6
-        cmp     r0, #1024               @ then clip weight to +/-1024
-        movgt   r0, #1024
-        cmp     r0, r10
-        movlt   r0, r10
-
-L369:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     long_term_minus_1_loop
-
-        str     r3, [r5, #16]           @ else store right sample and exit
-        b       long_common_exit
-
-/*
- ******************************************************************************
- * Loop to handle term = -2 condition
- * (note that the channels are processed in the reverse order here)
- *
- * r0 = dpp->weight_B           r8 =
- * r1 = bptr                    r9 =
- * r2 = intermediate result     r10 = -1024 (for clipping)
- * r3 = previous left sample    r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = current sample
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr = updated right sample
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-long_term_minus_2:
-        ldr     r3, [r1, #-8]
-
-long_term_minus_2_loop:
-        ldr     ip, [r1, #4]            @ for right channel the decorrelation value
-        cmp     r3, #0                  @  is the previous left sample (in r3)
-        mov     lr, #0
-        movne   r11, #512
-        smlalne r11, lr, r0, r3
-        add     lr, ip, lr, lsl #22
-        addne   lr, lr, r11, lsr #10
-        strne   lr, [r1, #4]
-        cmpne   ip, #0
-        beq     L380
-        teq     ip, r3                  @ update weight based on signs
-        submi   r0, r0, r6
-        addpl   r0, r0, r6
-        cmp     r0, #1024               @ then clip weight to +/-1024
-        movgt   r0, #1024
-        cmp     r0, r10
-        movlt   r0, r10
-
-L380:   ldr     r2, [r1], #8            @ for left channel the decorrelation value
-        cmp     lr, #0
-        mov     r3, #0
-        movne   r11, #512
-        smlalne r11, r3, r4, lr
-        add     r3, r2, r3, lsl #22
-        addne   r3, r3, r11, lsr #10
-        strne   r3, [r1, #-8]
-        cmpne   r2, #0
-        beq     L388
-        teq     r2, lr
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-        cmp     r4, #1024
-        movgt   r4, #1024
-        cmp     r4, r10
-        movlt   r4, r10
-
-L388:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     long_term_minus_2_loop
-
-        str     r3, [r5, #48]           @ else store left channel and exit
-        b       long_common_exit
-
-/*
- ******************************************************************************
- * Loop to handle term = -3 condition
- *
- * r0 = dpp->weight_B           r8 = previous left sample
- * r1 = bptr                    r9 =
- * r2 = current left sample     r10 = -1024 (for clipping)
- * r3 = previous right sample   r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = intermediate result
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr =
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-long_term_minus_3:
-        ldr     r3, [r1, #-4]           @ load previous samples
-        ldr     r8, [r1, #-8]
-
-long_term_minus_3_loop:
-        ldr     ip, [r1], #4
-        cmp     r3, #0
-        mov     r2, #0
-        movne   r11, #512
-        smlalne r11, r2, r4, r3
-        add     r2, ip, r2, lsl #22
-        addne   r2, r2, r11, lsr #10
-        strne   r2, [r1, #-4]
-        cmpne   ip, #0
-        beq     L399
-        teq     ip, r3                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-        cmp     r4, #1024               @ then clip weight to +/-1024
-        movgt   r4, #1024
-        cmp     r4, r10
-        movlt   r4, r10
-
-L399:   movs    ip, r8                  @ ip = previous left we use now
-        mov     r8, r2                  @ r8 = current left we use next time
-        ldr     r2, [r1], #4
-        mov     r3, #0
-        movne   r11, #512
-        smlalne r11, r3, r0, ip
-        add     r3, r2, r3, lsl #22
-        addne   r3, r3, r11, lsr #10
-        strne   r3, [r1, #-4]
-        cmpne   r2, #0
-        beq     L407
-        teq     ip, r2
-        submi   r0, r0, r6
-        addpl   r0, r0, r6
-        cmp     r0, #1024
-        movgt   r0, #1024
-        cmp     r0, r10
-        movlt   r0, r10
-
-L407:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     long_term_minus_3_loop
-
-        str     r3, [r5, #16]           @ else store previous samples & exit
-        str     r8, [r5, #48]
-
-/*
- * Before finally exiting we must store weights back for next time
- */
-
-long_common_exit:
-        str     r4, [r5, #8]
-        str     r0, [r5, #12]
-        ldmfd   sp!, {r4 - r8, r10, r11, pc}
 
 
 /* This is a mono version of the function above. It does not handle negative terms.
@@ -959,8 +649,6 @@ long_common_exit:
 unpack_decorr_mono_pass_cont_armv7:
 
         stmfd   sp!, {r4 - r8, r11, lr}
-        cmp     r3, #0                  @ check for long versions required
-        bne     mono_long_versions      @ branch if yes
 
         mov     r5, r0                  @ r5 = dpp
         mov     r11, #512               @ r11 = 512 for rounding
@@ -998,12 +686,24 @@ unpack_decorr_mono_pass_cont_armv7:
  */
 
 mono_term_17_loop:
-        rsbs    ip, lr, r8, asl #1      @ decorr value = (2 * prev) - 2nd prev
+        rsb     ip, lr, r8, asl #1      @ decorr value = (2 * prev) - 2nd prev
         mov     lr, r8                  @ previous becomes 2nd previous
         ldr     r2, [r1], #4            @ get sample & update pointer
+        ssat    r8, #21, ip             @ check for saturation and branch
+        cmp     r8, ip                  @  to 64-bit math version if so
+        bne     S717
+        cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
         add     r8, r2, r8, asr #10     @  shift, and add to new sample
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
+        b       S718
+
+S717:   mov     r8, #0
+        smlal   r11, r8, r4, ip
+        add     r8, r2, r8, lsl #22
+        add     r8, r8, r11, lsr #10
+        mov     r11, #512
+
+S718:   strne   r8, [r1, #-4]           @ if change possible, store sample back
         cmpne   r2, #0
         beq     S129
         teq     ip, r2                  @ update weight based on signs
@@ -1032,11 +732,23 @@ S129:   cmp     r7, r1                  @ loop back if more samples to do
 mono_term_18_loop:
         sub     ip, r8, lr              @ decorr value =
         mov     lr, r8                  @  ((3 * prev) - 2nd prev) >> 1
-        adds    ip, r8, ip, asr #1
+        add     ip, r8, ip, asr #1
         ldr     r2, [r1], #4            @ get sample & update pointer
+        ssat    r8, #21, ip             @ check for saturation and branch
+        cmp     r8, ip                  @  to 64-bit math version if so
+        bne     S817
+        cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
         add     r8, r2, r8, asr #10     @  shift, and add to new sample
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
+        b       S818
+
+S817:   mov     r8, #0
+        smlal   r11, r8, r4, ip
+        add     r8, r2, r8, lsl #22
+        add     r8, r8, r11, lsr #10
+        mov     r11, #512
+
+S818:   strne   r8, [r1, #-4]           @ if change possible, store sample back
         cmpne   r2, #0
         beq     S141
         teq     ip, r2                  @ update weight based on signs
@@ -1071,12 +783,24 @@ mono_store_1718:
  */
 
 mono_term_2_loop:
-        movs    ip, lr                  @ get decorrelation value & test
+        mov     ip, lr                  @ get decorrelation value
         mov     lr, r8                  @ previous becomes 2nd previous
         ldr     r2, [r1], #4            @ get sample & update pointer
+        ssat    r8, #21, ip             @ check for saturation and branch
+        cmp     r8, ip                  @  to 64-bit math version if so
+        bne     S917
+        cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
         add     r8, r2, r8, asr #10     @  shift, and add to new sample
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
+        b       S918
+
+S917:   mov     r8, #0
+        smlal   r11, r8, r4, ip
+        add     r8, r2, r8, lsl #22
+        add     r8, r8, r11, lsr #10
+        mov     r11, #512
+
+S918:   strne   r8, [r1, #-4]           @ if change possible, store sample back
         cmpne   r2, #0
         beq     S029
         teq     ip, r2                  @ update weight based on signs
@@ -1105,9 +829,20 @@ S029:   cmp     r7, r1                  @ loop back if more samples to do
 mono_term_default_loop:
         ldr     ip, [r1]                @ get original sample
         ldr     r3, [r1, -r2, asl #2]   @ get decorrelation value based on term
+        ssat    r8, #21, r3             @ check for saturation and branch
+        cmp     r8, r3                  @  to 64-bit math version if so
+        bne     S617
         mla     r8, r3, r4, r11         @ mult decorr value by weight, round,
         add     r8, ip, r8, asr #10     @  shift and add to new sample
-        str     r8, [r1], #4            @ store update sample
+        b       S618
+
+S617:   mov     r8, #0
+        smlal   r11, r8, r4, r3
+        add     r8, ip, r8, lsl #22
+        add     r8, r8, r11, lsr #10
+        mov     r11, #512
+
+S618:   str     r8, [r1], #4            @ store update sample
         cmp     r3, #0
         cmpne   ip, #0
         beq     S154
@@ -1140,209 +875,6 @@ S158:   sub     r2, r2, #1
  */
 
 mono_common_exit:
-        str     r4, [r5, #8]
-        ldmfd   sp!, {r4 - r8, r11, pc}
-
-/*
- * on entry:
- *
- * r0 = struct decorr_pass *dpp
- * r1 = int32_t *buffer
- * r2 = int32_t sample_count
- */
-
-mono_long_versions:
-        mov     r5, r0                  @ r5 = dpp
-        ldr     r6, [r0, #4]            @ r6 = dpp->delta
-        ldr     r4, [r0, #8]            @ r4 = dpp->weight_A
-        cmp     r2, #0                  @ exit if no samples to process
-        beq     mono_long_common_exit
-
-        add     r7, r1, r2, asl #2      @ r7 = buffer ending position
-        ldr     r2, [r5, #0]            @ r2 = dpp->term
-
-        ldr     lr, [r1, #-8]           @ load 2 sample history from buffer
-        ldr     r8, [r1, #-4]           @  for terms 2, 17, and 18
-
-        cmp     r2, #18
-        beq     mono_long_term_18_loop
-        cmp     r2, #2
-        beq     mono_long_term_2_loop
-        cmp     r2, #17
-        beq     mono_long_term_17_loop
-        b       mono_long_term_default_loop
-
-/*
- ******************************************************************************
- * Loop to handle term = 17 condition
- *
- * r0 =                         r8 = previous sample
- * r1 = bptr                    r9 =
- * r2 = current sample          r10 =
- * r3 =                         r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = current decorrelation value
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr = second previous sample
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-mono_long_term_17_loop:
-        rsbs    ip, lr, r8, asl #1      @ decorr value = (2 * prev) - 2nd prev
-        mov     lr, r8                  @ previous becomes 2nd previous
-        ldr     r2, [r1], #4            @ get sample & update pointer
-        mov     r8, #0
-        movne   r11, #512
-        smlalne r11, r8, r4, ip
-        add     r8, r2, r8, lsl #22
-        addne   r8, r8, r11, lsr #10
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
-        cmpne   r2, #0
-        beq     L129
-        teq     ip, r2                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-
-L129:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     mono_long_term_17_loop
-        b       mono_long_store_1718    @ common exit for terms 17 & 18
-
-/*
- ******************************************************************************
- * Loop to handle term = 18 condition
- *
- * r0 =                         r8 = previous sample
- * r1 = bptr                    r9 =
- * r2 = current sample          r10 =
- * r3 =                         r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = decorrelation value
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr = second previous sample
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-mono_long_term_18_loop:
-        rsb     ip, lr, r8              @ decorr value =
-        mov     lr, r8                  @  ((3 * prev) - 2nd prev) >> 1
-        adds    ip, lr, ip, asr #1
-        ldr     r2, [r1], #4            @ get sample & update pointer
-        mov     r8, #0
-        movne   r11, #512
-        smlalne r11, r8, r4, ip
-        add     r8, r2, r8, lsl #22
-        addne   r8, r8, r11, lsr #10
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
-        cmpne   r2, #0
-        beq     L141
-        teq     ip, r2                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-
-L141:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     mono_long_term_18_loop
-
-/* common exit for terms 17 & 18 */
-
-mono_long_store_1718:
-        str     r8, [r5, #16]           @ store sample history into struct
-        str     lr, [r5, #20]
-        b       mono_long_common_exit   @ and return
-
-/*
- ******************************************************************************
- * Loop to handle term = 2 condition
- * (note that this case can be handled by the default term handler (1-8), but
- * this special case is faster because it doesn't have to read memory twice)
- *
- * r0 =                         r8 = previous sample
- * r1 = bptr                    r9 =
- * r2 = current sample          r10 =
- * r3 =                         r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = decorrelation value
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr = second previous sample
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-mono_long_term_2_loop:
-        movs    ip, lr                  @ get decorrelation value & test
-        ldr     r2, [r1], #4            @ get sample & update pointer
-        mov     lr, r8                  @ previous becomes 2nd previous
-        mov     r8, #0
-        movne   r11, #512
-        smlalne r11, r8, r4, ip
-        add     r8, r2, r8, lsl #22
-        addne   r8, r8, r11, lsr #10
-        strne   r8, [r1, #-4]           @ if change possible, store sample back
-        cmpne   r2, #0
-        beq     L029
-        teq     ip, r2                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-
-L029:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     mono_long_term_2_loop
-
-        b       mono_long_default_term_exit  @ this exit updates all dpp->samples
-
-/*
- ******************************************************************************
- * Loop to handle default term condition
- *
- * r0 =                         r8 = result accumulator
- * r1 = bptr                    r9 =
- * r2 = dpp->term               r10 =
- * r3 = decorrelation value     r11 = lo accumulator (for rounding)
- * r4 = dpp->weight_A           ip = current sample
- * r5 = dpp                     sp =
- * r6 = dpp->delta              lr =
- * r7 = eptr                    pc =
- *******************************************************************************
- */
-
-mono_long_term_default_loop:
-        ldr     r3, [r1, -r2, asl #2]   @ get decorrelation value based on term
-        ldr     ip, [r1], #4            @ get original sample and bump ptr
-        cmp     r3, #0
-        mov     r8, #0
-        movne   r11, #512
-        smlalne r11, r8, r4, r3
-        add     r8, ip, r8, lsl #22
-        addne   r8, r8, r11, lsr #10
-        strne   r8, [r1, #-4]           @ if possibly changed, store updated sample
-        cmpne   ip, #0
-        beq     L154
-        teq     ip, r3                  @ update weight based on signs
-        submi   r4, r4, r6
-        addpl   r4, r4, r6
-
-L154:   cmp     r7, r1                  @ loop back if more samples to do
-        bhi     mono_long_term_default_loop
-
-/*
- * This exit is used by terms 1-8 to store the previous "term" samples (up to 8)
- * into the decorr pass structure history
- */
-
-mono_long_default_term_exit:
-        ldr     r2, [r5, #0]            @ r2 = dpp->term
-
-L158:   sub     r2, r2, #1
-        sub     r1, r1, #4
-        ldr     r3, [r1, #0]            @ get sample and store in dpp->samples_A [r2]
-        add     r6, r5, #16
-        str     r3, [r6, r2, asl #2]
-        cmp     r2, #0
-        bne     L158
-        b       mono_long_common_exit
-
-/*
- * Before finally exiting we must store weights back for next time
- */
-
-mono_long_common_exit:
         str     r4, [r5, #8]
         ldmfd   sp!, {r4 - r8, r11, pc}
 
