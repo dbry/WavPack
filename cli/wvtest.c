@@ -314,9 +314,11 @@ static int run_test_size_modes (int wpconfig_flags, int test_flags, int base_min
         }
     }
 
-    printf ("\n   *** 32-bit float, 5.1 channels ***\n");
-    res = run_test_speed_modes (wpconfig_flags, test_flags | TEST_FLAG_FLOAT_DATA, 32, 6, base_minutes*60);
-    if (res) return res;
+    if (!(test_flags & TEST_FLAG_NO_FLOATS)) {
+        printf ("\n   *** 32-bit float, 5.1 channels ***\n");
+        res = run_test_speed_modes (wpconfig_flags, test_flags | TEST_FLAG_FLOAT_DATA, 32, 6, base_minutes*60);
+        if (res) return res;
+    }
 
     return 0;
 }
