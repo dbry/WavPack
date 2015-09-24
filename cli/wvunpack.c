@@ -437,10 +437,14 @@ int main (argc, argv) int argc; char **argv;
         ++error_count;
     }
 
-    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION))
+    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION)) {
         fprintf (stderr, version_warning, WavpackGetLibraryVersionString (), PACKAGE_VERSION);
-    else if (!quiet_mode && !error_count)
+        fflush (stderr);
+    }
+    else if (!quiet_mode && !error_count) {
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
+        fflush (stderr);
+    }
 
     if (!num_files) {
         printf ("%s", usage);
@@ -616,8 +620,10 @@ int main (argc, argv) int argc; char **argv;
             if (outfilename && *outfilename != '-' && add_extension)
                 strcat (outfilename, raw_decode ? ".raw" : ".wav");
 
-            if (num_files > 1 && !quiet_mode)
+            if (num_files > 1 && !quiet_mode) {
                 fprintf (stderr, "\n%s:\n", matches [file_index]);
+                fflush (stderr);
+            }
 
             result = unpack_file (matches [file_index], verify_only ? NULL : outfilename);
 
@@ -640,10 +646,14 @@ int main (argc, argv) int argc; char **argv;
         }
 
         if (num_files > 1) {
-            if (error_count)
+            if (error_count) {
                 fprintf (stderr, "\n **** warning: errors occurred in %d of %d files! ****\n", error_count, num_files);
-            else if (!quiet_mode)
+                fflush (stderr);
+            }
+            else if (!quiet_mode) {
                 fprintf (stderr, "\n **** %d files successfully processed ****\n", num_files);
+                fflush (stderr);
+            }
         }
 
         free (matches);
@@ -738,6 +748,7 @@ static FILE *open_output_file (char *filename, char **tempfilename)
 
             if (!overwrite_all) {
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (filename));
+                fflush (stderr);
 
                 if (set_console_title)
                     DoSetConsoleTitle ("overwrite?");
@@ -943,12 +954,16 @@ static int unpack_file (char *infilename, char *outfilename)
             return WAVPACK_SOFT_ERROR;
         }
         else if (*outfilename == '-') {
-            if (!quiet_mode)
+            if (!quiet_mode) {
                 fprintf (stderr, "unpacking %s%s to stdout,", *infilename == '-' ?
                     "stdin" : FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
+                fflush (stderr);
+            }
         }
-        else if (!quiet_mode)
+        else if (!quiet_mode) {
             fprintf (stderr, "restoring %s,", FN_FIT (outfilename));
+            fflush (stderr);
+        }
 
         if (outbuf_k)
             output_buffer_size = outbuf_k * 1024;
@@ -966,9 +981,11 @@ static int unpack_file (char *infilename, char *outfilename)
     else {      // in verify only mode we don't worry about headers
         outfile = NULL;
 
-        if (!quiet_mode)
+        if (!quiet_mode) {
             fprintf (stderr, "verifying %s%s,", *infilename == '-' ? "stdin" :
                 FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
+            fflush (stderr);
+        }
     }
 
 #if defined(_WIN32)
@@ -1055,6 +1072,7 @@ static int unpack_file (char *infilename, char *outfilename)
 #else
             fprintf (stderr, "\n");
 #endif
+            fflush (stderr);
             DoTruncateFile (outfile);
             result = WAVPACK_SOFT_ERROR;
             break;
@@ -1068,9 +1086,11 @@ static int unpack_file (char *infilename, char *outfilename)
                 display_progress (progress);
                 progress = floor (progress * 100.0 + 0.5);
 
-                if (!quiet_mode)
+                if (!quiet_mode) {
                     fprintf (stderr, "%s%3d%% done...",
                         nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+                    fflush (stderr);
+                }
         }
     }
 
@@ -1351,6 +1371,7 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
             if (!overwrite_all && (outfile = fopen (full_filename, "r")) != NULL) {
                 DoCloseHandle (outfile);
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (full_filename));
+                fflush (stderr);
 
                 if (set_console_title)
                     DoSetConsoleTitle ("overwrite?");

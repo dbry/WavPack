@@ -335,31 +335,39 @@ char yna (void)
         else if (key == '\r' || key == '\n') {
             if (choice) {
                 fprintf (stderr, "\r\n");
+                fflush (stderr);
                 break;
             }
-            else
+            else {
                 fprintf (stderr, "%c", 7);
+                fflush (stderr);
+            }
         }
         else if (key == 'Y' || key == 'y') {
 #ifdef _WIN32
             fprintf (stderr, "%c\b", key);
+            fflush (stderr);
 #endif
             choice = 'y';
         }
         else if (key == 'N' || key == 'n') {
 #ifdef _WIN32
             fprintf (stderr, "%c\b", key);
+            fflush (stderr);
 #endif
             choice = 'n';
         }
         else if (key == 'A' || key == 'a') {
 #ifdef _WIN32
             fprintf (stderr, "%c\b", key);
+            fflush (stderr);
 #endif
             choice = 'a';
         }
-        else
+        else {
             fprintf (stderr, "%c", 7);
+            fflush (stderr);
+        }
     }
 
     waiting_input = 0;
@@ -583,6 +591,8 @@ void finish_line (void)
     }
     else
         fputc ('\n', stderr);
+
+    fflush (stderr);
 }
 #else
 //////////////////////////////////////////////////////////////////////////////
@@ -593,6 +603,7 @@ void finish_line (void)
 void finish_line (void)
 {
     fprintf (stderr, "        \n");
+    fflush (stderr);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -772,6 +783,7 @@ void DoSetConsoleTitle (char *text)
 void DoSetConsoleTitle (char *text)
 {
     fprintf (stderr, "\033]0;%s\007", text);
+    fflush (stderr);
 }
 
 #endif

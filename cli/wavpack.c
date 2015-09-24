@@ -741,10 +741,14 @@ int main (argc, argv) int argc; char **argv;
         ++error_count;
     }
 
-    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION))
+    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION)) {
         fprintf (stderr, version_warning, WavpackGetLibraryVersionString (), PACKAGE_VERSION);
-    else if (!quiet_mode && !error_count)
+        fflush (stderr);
+    }
+    else if (!quiet_mode && !error_count) {
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
+        fflush (stderr);
+    }
 
     // Loop through any tag specification strings and check for file access, convert text
     // strings to UTF-8, and otherwise prepare for writing to APE tags. This is done here
@@ -843,6 +847,7 @@ int main (argc, argv) int argc; char **argv;
 
     if (error_count) {
         fprintf (stderr, "\ntype 'wavpack' for short help or 'wavpack --help' for full help\n");
+        fflush (stderr);
         return 1;
     }
 
@@ -1104,8 +1109,10 @@ int main (argc, argv) int argc; char **argv;
             else
                 out2filename = NULL;
 
-            if (num_files > 1 && !quiet_mode)
+            if (num_files > 1 && !quiet_mode) {
                 fprintf (stderr, "\n%s:\n", matches [file_index]);
+                fflush (stderr);
+            }
 
             if (filespec_ext (matches [file_index]) && !stricmp (filespec_ext (matches [file_index]), ".wv"))
                 result = repack_file (matches [file_index], outfilename, out2filename, &config);
@@ -1136,10 +1143,14 @@ int main (argc, argv) int argc; char **argv;
         }
 
         if (num_files > 1) {
-            if (error_count)
+            if (error_count) {
                 fprintf (stderr, "\n **** warning: errors occurred in %d of %d files! ****\n", error_count, num_files);
-            else if (!quiet_mode)
+                fflush (stderr);
+            }
+            else if (!quiet_mode) {
                 fprintf (stderr, "\n **** %d files successfully processed ****\n", num_files);
+                fflush (stderr);
+            }
         }
 
         free (matches);
@@ -1366,6 +1377,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
             if (!overwrite_all) {
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
+                fflush (stderr);
 
                 if (set_console_title)
                     DoSetConsoleTitle ("overwrite?");
@@ -1390,6 +1402,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
         if (res == 1) {
             fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
+            fflush (stderr);
 
             if (set_console_title)
                 DoSetConsoleTitle ("overwrite?");
@@ -1499,6 +1512,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             fprintf (stderr, "creating %s (+%s),", FN_FIT (outfilename), filespec_ext (out2filename));
         else
             fprintf (stderr, "creating %s,", FN_FIT (outfilename));
+
+        fflush (stderr);
     }
 
 #if defined (_WIN32)
@@ -2222,6 +2237,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
 #else
             fprintf (stderr, "\n");
 #endif
+            fflush (stderr);
             free (sample_buffer);
             free (input_buffer);
             return WAVPACK_SOFT_ERROR;
@@ -2234,9 +2250,11 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
                 progress = floor (WavpackGetProgress (wpc) * encode_time_percent + 0.5);
                 display_progress (progress / 100.0);
 
-                if (!quiet_mode)
+                if (!quiet_mode) {
                     fprintf (stderr, "%s%3d%% done...",
                         nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+                    fflush (stderr);
+                }
         }
     }
 
@@ -2325,6 +2343,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             else
                 fprintf (stderr, "overwrite %s with lossy transcode (yes/no/all)? ", FN_FIT (outfilename));
 
+            fflush (stderr);
+
             if (set_console_title)
                 DoSetConsoleTitle ("overwrite?");
 
@@ -2343,6 +2363,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     if (out2filename && !overwrite_all && (wvc_file.file = fopen (out2filename, "rb")) != NULL) {
         DoCloseHandle (wvc_file.file);
         fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
+        fflush (stderr);
 
         if (set_console_title)
             DoSetConsoleTitle ("overwrite?");
@@ -2443,6 +2464,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             fprintf (stderr, "creating %s (+%s),", FN_FIT (outfilename), filespec_ext (out2filename));
         else
             fprintf (stderr, "creating %s,", FN_FIT (outfilename));
+
+        fflush (stderr);
     }
 
 #if defined (_WIN32)
@@ -2868,6 +2891,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
 #else
             fprintf (stderr, "\n");
 #endif
+            fflush (stderr);
             free (sample_buffer);
             return WAVPACK_SOFT_ERROR;
         }
@@ -2879,9 +2903,11 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
                 progress = floor (WavpackGetProgress (outfile) * encode_time_percent + 0.5);
                 display_progress (progress / 100.0);
 
-                if (!quiet_mode)
+                if (!quiet_mode) {
                     fprintf (stderr, "%s%3d%% done...",
                         nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+                    fflush (stderr);
+                }
         }
     }
 
@@ -2979,6 +3005,7 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 #else
             fprintf (stderr, "\n");
 #endif
+            fflush (stderr);
             result = WAVPACK_SOFT_ERROR;
             break;
         }
@@ -2989,9 +3016,11 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
                 progress = floor (WavpackGetProgress (wpc) * (100.0 - encode_time_percent) + encode_time_percent + 0.5);
                 display_progress (progress / 100.0);
 
-                if (!quiet_mode)
+                if (!quiet_mode) {
                     fprintf (stderr, "%s%3d%% done...",
                         "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+                    fflush (stderr);
+                }
         }
     }
 

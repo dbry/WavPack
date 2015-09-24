@@ -239,10 +239,14 @@ int main (argc, argv) int argc; char **argv;
         ++error_count;
     }
 
-    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION))
+    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION)) {
         fprintf (stderr, version_warning, WavpackGetLibraryVersionString (), PACKAGE_VERSION);
-    else if (!quiet_mode && !error_count)
+        fflush (stderr);
+    }
+    else if (!quiet_mode && !error_count) {
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
+        fflush (stderr);
+    }
 
     if (!num_files) {
         printf ("%s", usage);
@@ -358,8 +362,10 @@ int main (argc, argv) int argc; char **argv;
             if (check_break ())
                 break;
 
-            if (num_files > 1 && !quiet_mode)
+            if (num_files > 1 && !quiet_mode) {
                 fprintf (stderr, "\n%s:\n", matches [file_index]);
+                fflush (stderr);
+            }
 
             if (new_mode) {
                 WavpackContext *wpc;
@@ -443,8 +449,10 @@ int main (argc, argv) int argc; char **argv;
                 if (check_break ())
                     break;
 
-                if (num_files > 1 && !quiet_mode)
+                if (num_files > 1 && !quiet_mode) {
                     fprintf (stderr, "\n%s:\n", matches [file_index]);
+                    fflush (stderr);
+                }
 
                 if (show_mode)
                     result = show_file_info (matches [file_index], stdout);
@@ -462,10 +470,13 @@ int main (argc, argv) int argc; char **argv;
             }
 
         if (num_files > 1) {
-            if (error_count)
+            if (error_count) {
                 fprintf (stderr, "\n **** warning: errors occurred in %d of %d files! ****\n", error_count, num_files);
+                fflush (stderr);
+            }
             else if (!quiet_mode) {
                 fprintf (stderr, "\n **** %d files successfully processed ****\n", num_files);
+                fflush (stderr);
             }
         }
 
@@ -525,9 +536,11 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
         return WAVPACK_SOFT_ERROR;
     }
 
-    if (!quiet_mode)
+    if (!quiet_mode) {
         fprintf (stderr, "analyzing %s%s,", *infilename == '-' ? "stdin" :
             FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
+        fflush (stderr);
+    }
 
     window_samples = WavpackGetSampleRate (wpc) / 20;
     temp_buffer = malloc (window_samples * 8);
@@ -594,6 +607,7 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 #else
             fprintf (stderr, "\n");
 #endif
+            fflush (stderr);
             result = WAVPACK_HARD_ERROR;
             break;
         }
@@ -606,9 +620,11 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
                 display_progress (progress);
                 progress = floor (progress * 100.0 + 0.5);
 
-                if (!quiet_mode)
+                if (!quiet_mode) {
                     fprintf (stderr, "%s%3d%% done...",
                         nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+                    fflush (stderr);
+                }
         }
     }
 
