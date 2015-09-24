@@ -39,11 +39,17 @@ automatically enabled, but if there is a problem with them then use the
 --disable-asm option to revert to pure C.
 
 If you get a WARNING about unexpected libwavpack version when you run the
-command-line programs, you might need to move /usr/local/lib (or wherever
-the newer libwavpack got installed) earlier in the library seach path. If
-you don't know what that means or how to do it (I don't) then try using
---enable-rpath to hardcode the library location in the executables, or
-simply force static linking with --disable-shared.
+command-line programs, you might try using --enable-rpath to hardcode the
+library location in the executables, or simply force static linking with
+--disable-shared.
+
+There is now a cli program to do a full suite of stress tests for libwavpack,
+and this is particularly useful for packagers to make sure that the assembly
+language optimizations are working correctly on various platforms. It is
+built with the configure option --enable-tests and requires Pthreads (it
+worked out-of-the-box on all the platforms I tried it on). There are lots of
+options, but the default test suite (consisting of 192 tests) is executed
+with "wvtest --default".
 
 Notes:
 
@@ -70,7 +76,7 @@ Notes:
    To maintain compatibility on various platforms, the following conventions
    are used: A "short" must be 16-bits and an "int" must be 32-bits.
    The "long" type is not used. The "char" type must be 8-bits, signed or
-   unsigned. The WIN32 macro must be defined on Windows.
+   unsigned.
 
 3. For opening WavPack files for reading, a library interface in "open_utils.c"
    provides all the functionality required for both the winamp plugin and the
