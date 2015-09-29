@@ -25,6 +25,7 @@
 // Version 2.10 - Sept 25, 2009 (library ver 4.60)
 // Version 2.11 - Nov 22, 2009 (library ver 4.60.1)
 // Version 2.12 - May 10, 2015 (library ver 4.75.0)
+// Version 2.13 - Sept 29, 2015 (library ver 4.75.2)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -919,7 +920,7 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
 
                 case IDABOUT:
                     MessageBox (hDlg,
-                        "WavPack Filter Version 2.12\n"
+                        "WavPack Filter Version 2.13\n"
                         "Copyright (c) 2015 David Bryant  ", "About WavPack Filter", MB_OK);
                     break;
             }
