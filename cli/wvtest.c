@@ -254,13 +254,12 @@ int main (argc, argv) int argc; char **argv;
         }
     }
 
-    printf ("\nall tests pass\n\n");
-    pthread_exit (NULL);
-    return res;
-
 done:
-    printf ("\ntest failed!\n\n");
-    pthread_exit (NULL);
+    if (res)
+        printf ("\ntest failed!\n\n");
+    else
+        printf ("\nall tests pass\n\n");
+
     return res;
 }
 
