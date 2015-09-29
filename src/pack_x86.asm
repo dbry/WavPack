@@ -1364,8 +1364,10 @@ _pack_decorr_mono_pass_cont_x86:
         mov     ebp, [edx+8]                ; ebp = weight
         lea     eax, [esi+ecx*4]            ; calc & push eptr (access with [esp+8])
         push    eax
-        push    [edx+88]                    ; push dpp->sum_A (access with [esp+4])
-        push    [edx+4]                     ; push delta (access with [esp])
+        mov     eax, [edx+88]               ; push dpp->sum_A (access with [esp+4])
+        push    eax
+        mov     eax, [edx+4]                ; push delta (access with [esp])
+        push    eax
         test    ecx, ecx                    ; test for and handle zero count
         jz      mono_done
 
