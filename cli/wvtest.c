@@ -18,9 +18,14 @@
 #include <pthread.h>
 
 #include "wavpack.h"
+#include "utils.h"                  // for PACKAGE_VERSION, etc.
 #include "md5.h"
 
 #define CLEAR(destin) memset (&destin, 0, sizeof (destin));
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323
+#endif
 
 static const char *sign_on = "\n"
 " WVTEST  libwavpack Tester/Exerciser for WavPack  %s Version %s\n"
@@ -425,6 +430,8 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
 
     float sequencing_angle = 0.0, speed = 60.0, width = 200.0, *source, *destin, ratio, bps;
     int lossless = !(wpconfig_flags & CONFIG_HYBRID_FLAG) || ((wpconfig_flags & CONFIG_CREATE_WVC) && !(test_flags & TEST_FLAG_IGNORE_WVC));
+    char md5_string1 [] = "????????????????????????????????";
+    char md5_string2 [] = "????????????????????????????????";
     uint32_t total_encoded_bytes, total_encoded_samples;
     struct audio_generator generators [NUM_GENERATORS];
     int seconds = 0, samples = 0, wc = 0, chan_mask;
@@ -720,9 +727,6 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
     }
 
-    char md5_string1 [] = "????????????????????????????????";
-    char md5_string2 [] = "????????????????????????????????";
-
     if (!(test_flags & TEST_FLAG_NO_DECODE)) {
         for (i = 0; i < 16; ++i) {
             sprintf (md5_string1 + (i * 2), "%02x", md5_encoded [i]);
@@ -795,6 +799,7 @@ static void *decode_thread (void *threadid)
     free (decoded_samples);
     WavpackCloseFile (wpc);
     pthread_exit (NULL);
+    return NULL;
 }
 
 // This code implements a simple virtual "file" so that we can have a WavPack encoding process and
@@ -819,8 +824,8 @@ static int write_block (void *id, void *data, int32_t length)
     if (ws->file && !ws->error) {
         if (!fwrite (data, 1, length, ws->file)) {
             ws->error = 1;
-	    fclose (ws->file);
-	    ws->file = NULL;
+            fclose (ws->file);
+            ws->file = NULL;
         }
     }
 
@@ -957,6 +962,7 @@ static void initialize_stream (StreamingFile *ws, int buffer_size)
         ws->buffer_base = malloc (ws->buffer_size = buffer_size);
         ws->buffer_head = ws->buffer_tail = ws->buffer_base;
         pthread_cond_init (&ws->cond_write, NULL);
+        pthread_cond_init (&ws->cond_read, NULL);
         pthread_mutex_init (&ws->mutex, NULL);
     }
 }

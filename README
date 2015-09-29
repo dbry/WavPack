@@ -28,7 +28,7 @@ C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\VCProjectDefaults
 
 To build everything on Linux, type:
 
-1. ./configure [--disable-asm] [--enable-man] [--enable-rpath]
+1. ./configure [--disable-asm] [--enable-man] [--enable-rpath] [--enable-tests]
 2. make
 3. make install (optionally, to install into /usr/local/bin)
 
@@ -36,7 +36,8 @@ If you are using the code directly from Git (rather than a distribution)
 then you will need to do a ./autogen.sh instead of the configure step. If
 assembly optimizations are available for your processor they will be
 automatically enabled, but if there is a problem with them then use the
---disable-asm option to revert to pure C.
+--disable-asm option to revert to pure C. For Clang-based build systems
+(Darwin, FreeBSD, etc.) Clang version 3.5 or higher is required.
 
 If you get a WARNING about unexpected libwavpack version when you run the
 command-line programs, you might try using --enable-rpath to hardcode the
@@ -49,7 +50,8 @@ language optimizations are working correctly on various platforms. It is
 built with the configure option --enable-tests and requires Pthreads (it
 worked out-of-the-box on all the platforms I tried it on). There are lots of
 options, but the default test suite (consisting of 192 tests) is executed
-with "wvtest --default".
+with "wvtest --default". On Windows a third-party Pthreads library is
+required, so I am not including this in the build for now.
 
 Notes:
 
