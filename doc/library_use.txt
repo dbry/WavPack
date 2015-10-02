@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2009 Conifer Software.               //
+//                Copyright (c) 1998 - 2015 David Bryant                  //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -15,6 +15,7 @@
                            updated: April 29, 2007
                            updated: June 7, 2008
                            updated: Sept 26, 2009
+                           updated: July 14, 2015
 
 
 ******************************************************************************

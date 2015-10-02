@@ -275,6 +275,13 @@ a:hover {
 					actual value that WavPack can achieve is usually much higher than that. For example,
 					with CD-audio sampled at 44.1k the lower limit is about 196 kbps.
 				</p>
+				<p>
+					The hybrid mode can be used quite successfully with floating-point audio, however
+					it should <b>not</b> be used for scientific type floating-point
+					data because the hybrid algorithm might not be application appropriate (and
+					floating-point "exception" values like infinities or NaNs will not be properly encoded).
+					Use only the pure lossless mode with non-audio floating-point data.
+				</p>
 
 				<p>
      <b><tt>--blocksize=n = specify block size in samples (n = 128 - 131072)</tt></b>

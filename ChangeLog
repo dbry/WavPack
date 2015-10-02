@@ -1,3 +1,33 @@
+                      --------------------------------
+                      Release 4.75.2 - October 1, 2015
+                      --------------------------------
+
+ WavPack Library Source Code - 4.75.2
+ ------------------------------------
+  fixed: corrupt mono or multichannel files created with assembly code (rare)
+  fixed: building on Clang systems like Darwin and FreeBSD (req. Clang 3.5+)
+  fixed: explicitly sign-extend audio data (< 4-byte) to avoid corrupt files
+  fixed: rare decoding errors due to integer overflow (ARM assembly code)
+  added: assembly optimizations for "extra" mode on mono or multichannel
+
+ wvtest.exe (command-line libwavpack test suite) - 4.75.2
+ --------------------------------------------------------
+  all new program to stress-test libwavpack (requires Pthreads)
+
+ wavpack.exe (command-line encoder) - 4.75.2
+ wvunpack.exe (command-line decoder) - 4.75.2
+ wvgain.exe (command-line ReplayGain scanner) - 4.75.2
+ -----------------------------------------------------
+  fixed: corrupt mono or multichannel files created with assembly code (rare)
+  added: assembly optimizations for "extra" mode on mono or multichannel
+  improved: flush stderr after all writes
+
+ cool_wv4.flt (CoolEdit / Audition filter) - 2.13
+ AmioWavpack.amio (Adobe Audition Plugins) - 1.4
+ ------------------------------------------------
+  fixed: corrupt mono or multichannel files (rare)
+
+
                       -----------------------------
                       Release 4.75.0 - May 25, 2015
                       -----------------------------
@@ -5,8 +35,8 @@
  WavPack Library Source Code - 4.75.0
  ------------------------------------
   improved: reorganization for modularity and to improve linking
-  added: assembler optimizations for encode/decode on x86 and x64
-  added: assembler optimizations for decoding on ARMv7 (Linux)
+  added: assembly optimizations for encode/decode on x86 and x64
+  added: assembly optimizations for decoding on ARMv7 (Linux)
   improved: several minor speed optimizations using intrinsics
   fixed: wavpack.pc.in not working correctly on some Linux distros
   fixed: memcpy() issue causing abort() on OpenBSD
@@ -20,7 +50,7 @@
 
  cool_wv4.flt (CoolEdit / Audition filter) - 2.12
  ------------------------------------------------
-  improved: performance (from assembler optimizations)
+  improved: performance (from assembly optimizations)
 
 
                           -------------------------
