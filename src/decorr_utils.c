@@ -44,8 +44,9 @@ int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
         dpp->term = (int)(*byteptr & 0x1f) - 5;
         dpp->delta = (*byteptr++ >> 5) & 0x7;
 
-        if (!dpp->term || dpp->term < -3 || (dpp->term > MAX_TERM && dpp->term < 17) || dpp->term > 18)
-            return FALSE;
+        if (!dpp->term || dpp->term < -3 || (dpp->term > MAX_TERM && dpp->term < 17) || dpp->term > 18 ||
+            ((wps->wphdr.flags & MONO_DATA) && dpp->term < 0))
+                return FALSE;
     }
 
     return TRUE;
