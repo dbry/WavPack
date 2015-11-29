@@ -7,6 +7,7 @@ libwavpack_la_SOURCES = \
 	extra1.c \
 	extra2.c \
 	open_utils.c \
+	open_filename.c \
 	pack.c \
 	pack_dns.c \
 	pack_floats.c \

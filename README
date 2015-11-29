@@ -108,7 +108,6 @@ Notes:
 
    VER4_ONLY       to only handle WavPack files from versions 4.0 onward
    NO_SEEKING      to not allow seeking to a specific sample index
-   NO_USE_FSTREAMS to not open WavPack files by name using fstreams
    NO_TAGS         to not read specified fields from ID3v1 and APEv2 tags and
                     not create or edit APEv2 tags
 

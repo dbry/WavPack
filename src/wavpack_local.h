@@ -414,10 +414,11 @@ typedef struct {
     void *wv_out, *wvc_out;
 
     WavpackStreamReader *reader;
+    int (*close_file)(void*);
     void *wv_in, *wvc_in;
 
     uint32_t filelen, file2len, filepos, file2pos, total_samples, crc_errors, first_flags;
-    int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, close_files;
+    int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks;
     uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, initial_index, riff_trailer_bytes;
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
