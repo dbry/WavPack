@@ -47,6 +47,11 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 #endif
 
     while (samples) {
+
+        // if the current block has no audio, or it's not the first block of a multichannel
+        // sequence, or the sample we're on is past the last sample in this block...we need
+        // to free up the streams and read the next block
+
         if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
             wps->sample_index >= wps->wphdr.block_index + wps->wphdr.block_samples) {
 
@@ -62,17 +67,20 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                 if (bcount == (uint32_t) -1)
                     break;
 
-                wpc->filepos = nexthdrpos;
+                wpc->filepos = nexthdrpos + bcount;
 
                 if (wpc->open_flags & OPEN_STREAMING)
                     wps->wphdr.block_index = wps->sample_index = 0;
                 else
                     wps->wphdr.block_index -= wpc->initial_index;
 
-                wpc->filepos += bcount;
+                // allocate the memory for the entire raw block and read it in
+
                 wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
+
                 if (!wps->blockbuff)
                     break;
+
                 memcpy (wps->blockbuff, &wps->wphdr, 32);
 
                 if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + 32, wps->wphdr.ckSize - 24) !=
@@ -83,13 +91,19 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                         break;
                 }
 
-                wps->init_done = FALSE;
+                wps->init_done = FALSE;     // we have not yet called unpack_init() for this block
+
+                // if this block has audio, but not the sample index we were expecting, flag an error
 
                 if (wps->wphdr.block_samples && wps->sample_index != wps->wphdr.block_index)
                     wpc->crc_errors++;
 
+                // if this block has audio, and we're in hybrid lossless mode, read the matching wvc block
+
                 if (wps->wphdr.block_samples && wpc->wvc_flag)
                     read_wvc_block (wpc);
+
+                // if the block does NOT have any audio, call unpack_init() to process non-audio stuff
 
                 if (!wps->wphdr.block_samples) {
                     if (!wps->init_done && !unpack_init (wpc))
@@ -99,9 +113,16 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                 }
         }
 
+        // if the current block has no audio, or it's not the first block of a multichannel
+        // sequence, or the sample we're on is past the last sample in this block...we need
+        // to loop back and read the next block
+
         if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
             wps->sample_index >= wps->wphdr.block_index + wps->wphdr.block_samples)
                 continue;
+
+        // There seems to be some missing data, like a block was corrupted or something.
+        // If it's not too much data, just fill in with silence here and loop back.
 
         if (wps->sample_index < wps->wphdr.block_index) {
             samples_to_unpack = wps->wphdr.block_index - wps->sample_index;
@@ -131,6 +152,9 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
             continue;
         }
 
+        // calculate number of samples to process from this block, then initialize the decoder for
+        // this block if we haven't already
+
         samples_to_unpack = wps->wphdr.block_index + wps->wphdr.block_samples - wps->sample_index;
 
         if (samples_to_unpack > samples)
@@ -141,22 +165,37 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
         wps->init_done = TRUE;
 
+        // if this block is not the final block of a multichannel sequence (and we're not truncating
+        // to stereo), then enter this conditional block...otherwise we just unpack the samples directly
+
         if (!wpc->reduced_channels && !(wps->wphdr.flags & FINAL_BLOCK)) {
             int32_t *temp_buffer = malloc (samples_to_unpack * 8), *src, *dst;
-            int offset = 0;
+            int offset = 0;     // offset to next channel in sequence (0 to num_channels - 1)
             uint32_t samcnt;
+
+            // since we are getting samples from multiple bocks in a multichannel sequence, we must
+            // allocate a temporary buffer to unpack to so that we can re-interleave the samples
 
 	    if (!temp_buffer)
 		break;
 
+            // loop through all the streams...
+
             while (1) {
+
+                // if the stream has not been allocated and corresponding block read, do that here...
+
                 if (wpc->current_stream == wpc->num_streams) {
                     wpc->streams = realloc (wpc->streams, (wpc->num_streams + 1) * sizeof (wpc->streams [0]));
+
                     if (!wpc->streams)
-		        break;
+			break;
+
                     wps = wpc->streams [wpc->num_streams++] = malloc (sizeof (WavpackStream));
+
                     if (!wps)
 			break;
+
                     CLEAR (*wps);
                     bcount = read_next_header (wpc->reader, wpc->wv_in, &wps->wphdr);
 
@@ -173,8 +212,10 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                         wps->wphdr.block_index -= wpc->initial_index;
 
                     wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
+
                     if (!wps->blockbuff)
 		        break;
+
                     memcpy (wps->blockbuff, &wps->wphdr, 32);
 
                     if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + 32, wps->wphdr.ckSize - 24) !=
@@ -185,12 +226,14 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                             break;
                     }
 
-                    wps->init_done = FALSE;
+                    // if this block has audio, and we're in hybrid lossless mode, read the matching wvc block
 
                     if (wpc->wvc_flag)
                         read_wvc_block (wpc);
 
-                    if (!wps->init_done && !unpack_init (wpc))
+                    // initialize the unpacker for this block
+
+                    if (!unpack_init (wpc))
                         wpc->crc_errors++;
 
                     wps->init_done = TRUE;
@@ -198,9 +241,14 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                 else
                     wps = wpc->streams [wpc->current_stream];
 
+                // unpack the correct number of samples (either mono or stereo) into the temp buffer
+
                 unpack_samples (wpc, src = temp_buffer, samples_to_unpack);
                 samcnt = samples_to_unpack;
                 dst = buffer + offset;
+
+                // if the block is mono, copy the samples from the single channel into the destination
+                // using num_channels as the stride
 
                 if (wps->wphdr.flags & MONO_FLAG) {
                     while (samcnt--) {
@@ -210,6 +258,10 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                     offset++;
                 }
+
+                // if the block is stereo, and we don't have room for two more channels, just copy one
+                // and flag an error
+
                 else if (offset == num_channels - 1) {
                     while (samcnt--) {
                         dst [0] = src [0];
@@ -220,6 +272,9 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                     wpc->crc_errors++;
                     offset++;
                 }
+
+                // otherwise copy the stereo samples into the destination
+
                 else {
                     while (samcnt--) {
                         dst [0] = *src++;
@@ -230,14 +285,26 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                     offset += 2;
                 }
 
+                // check several clues that we're done with this set of blocks and exit if we are; else do next stream
+
                 if ((wps->wphdr.flags & FINAL_BLOCK) || wpc->current_stream == wpc->max_streams - 1 || offset == num_channels)
                     break;
                 else
                     wpc->current_stream++;
             }
 
+            // go back to the first stream (we're going to leave them all loaded for now because they might have more samples)
+            // and free the temp buffer
+
             wps = wpc->streams [wpc->current_stream = 0];
             free (temp_buffer);
+        }
+        // catch the error situation where we have only one channel but run into a stereo block
+        // (this avoids overwriting the caller's buffer)
+        else if (!(wps->wphdr.flags & MONO_FLAG) && (num_channels == 1 || wpc->reduced_channels == 1)) {
+            memset (buffer, 0, samples_to_unpack * sizeof (*buffer));
+            wps->sample_index += samples_to_unpack;
+            wpc->crc_errors++;
         }
         else
             unpack_samples (wpc, buffer, samples_to_unpack);
@@ -255,10 +322,13 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         samples_unpacked += samples_to_unpack;
         samples -= samples_to_unpack;
 
-        if (wps->sample_index == wps->wphdr.block_index + wps->wphdr.block_samples) {
-            if (check_crc_error (wpc) && wps->blockbuff) {
+        // if we just finished a block, check for a calculated crc error
+        // (and back up the streams a little if possible in case we passed a header)
 
-                if (wpc->reader->can_seek (wpc->wv_in)) {
+        if (wps->sample_index == wps->wphdr.block_index + wps->wphdr.block_samples) {
+            if (check_crc_error (wpc)) {
+
+                if (wps->blockbuff && wpc->reader->can_seek (wpc->wv_in)) {
                     int32_t rseek = ((WavpackHeader *) wps->blockbuff)->ckSize / 3;
                     wpc->reader->set_pos_rel (wpc->wv_in, (rseek > 16384) ? -16384 : -rseek, SEEK_CUR);
                 }

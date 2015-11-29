@@ -411,6 +411,7 @@ int unpack_init (WavpackContext *wpc)
     unsigned char *blockptr, *block2ptr;
     WavpackMetadata wpmd;
 
+    wps->num_terms = 0;
     wps->mute_error = FALSE;
     wps->crc = wps->crc_x = 0xffffffff;
     CLEAR (wps->wvbits);
@@ -565,7 +566,7 @@ static int read_float_info (WavpackStream *wps, WavpackMetadata *wpmd)
 
 static int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
-    int bytecnt = wpmd->byte_length, shift = 0;
+    int bytecnt = wpmd->byte_length, shift = 0, mask_bits;
     unsigned char *byteptr = wpmd->data;
     uint32_t mask = 0;
 
@@ -599,6 +600,10 @@ static int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
             return FALSE;
 
         wpc->config.channel_mask = mask;
+
+        for (mask_bits = 0; mask; mask >>= 1)
+            if (++mask_bits > wpc->config.num_channels)
+                return FALSE;
     }
 
     return TRUE;
