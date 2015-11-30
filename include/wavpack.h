@@ -219,6 +219,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 #define OPEN_STREAMING  0x20    // "streaming" mode blindly unpacks blocks
                                 // w/o regard to header file position info
 #define OPEN_EDIT_TAGS  0x40    // allow editing of tags
+#define OPEN_FILE_UTF8  0x80    // assume filenames are UTF-8 encoded, not ANSI (Windows only)
 
 int WavpackGetMode (WavpackContext *wpc);
 
