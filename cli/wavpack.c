@@ -46,9 +46,13 @@
 #endif
 
 #ifdef _WIN32
+#include "win32_unicode_support.h"
+#define remove(f) unlink_utf8(f)
+#define rename(o,n) rename_utf8(o,n)
+#define fopen(f,m) fopen_utf8(f,m)
+#define strdup(x) _strdup(x)
 #define stricmp(x,y) _stricmp(x,y)
 #define strdup(x) _strdup(x)
-#define fileno _fileno
 #else
 #define stricmp strcasecmp
 #endif
@@ -140,9 +144,9 @@ static const char *help =
 "                             decoded HDCD files)\n"
 "    -n                      calculate average and peak quantization noise\n"
 "                             (for hybrid mode only, reference fullscale sine)\n"
+#if !defined (_WIN32)
 "    --no-utf8-convert       don't recode passed tags from local encoding to\n"
 "                             UTF-8, assume they are in UTF-8 already.\n"
-#if !defined (_WIN32)
 "    -o FILENAME | PATH      specify output filename or path\n"
 #endif
 "    --optimize-mono         optimization for stereo files that are really mono\n"
@@ -237,11 +241,16 @@ static void TextToUTF8 (void *string, int len);
 #define WAVPACK_SOFT_ERROR  1
 #define WAVPACK_HARD_ERROR  2
 
-//////////////////////////////////////////////////////////////////////////////
-// The "main" function for the command-line WavPack compressor.             //
-//////////////////////////////////////////////////////////////////////////////
+// The "main" function for the command-line WavPack compressor. Note that on Windows
+// this is actually a static function that is called from the "real" main() defined
+// immediately afterward that converts the wchar argument list into UTF-8 strings
+// and sets the console to UTF-8 for better Unicode support.
 
-int main (argc, argv) int argc; char **argv;
+#ifdef _WIN32
+static int wavpack_main(int argc, char **argv)
+#else
+int main (int argc, char **argv)
+#endif
 {
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
@@ -253,7 +262,6 @@ int main (argc, argv) int argc; char **argv;
     int result, i;
 
 #if defined(_WIN32)
-    struct _finddata_t _finddata_t;
     char selfname [MAX_PATH];
 
     if (GetModuleFileName (NULL, selfname, sizeof (selfname)) && filespec_name (selfname) &&
@@ -282,7 +290,8 @@ int main (argc, argv) int argc; char **argv;
 #endif
 
 #if defined (_WIN32)
-   set_console_title = 1;      // on Windows, we default to messing with the console title
+    no_utf8_convert = 1;        // we're Unicode now, so don't mess with ANSI
+    set_console_title = 1;      // on Windows, we default to messing with the console title
 #endif                          // on Linux, this is considered uncool to do by default
 
     CLEAR (config);
@@ -906,8 +915,9 @@ int main (argc, argv) int argc; char **argv;
         // frontends, but could be used for other purposes.
 
         if (*infilename == '@') {
-            FILE *list = fopen (infilename+1, "rt");
-            int di, c;
+            FILE *list = fopen (infilename+1, "rb");
+            char *listbuff = NULL, *cp;
+            int listbytes = 0, di, c;
 
             for (di = file_index; di < num_files - 1; di++)
                 matches [di] = matches [di + 1];
@@ -921,21 +931,37 @@ int main (argc, argv) int argc; char **argv;
                 return 1;
             }
 
-            while ((c = getc (list)) != EOF) {
+            while (1) {
+                int bytes_read;
 
-                while (c == '\n')
-                    c = getc (list);
+                listbuff = realloc (listbuff, listbytes + 1024);
+                memset (listbuff + listbytes, 0, 1024);
+                listbytes += bytes_read = fread (listbuff + listbytes, 1, 1024, list);
 
-                if (c != EOF) {
+                if (bytes_read < 1024)
+                    break;
+            }
+
+#if defined (_WIN32)
+            listbuff = realloc (listbuff, listbytes *= 2);
+            TextToUTF8 (listbuff, listbytes);
+#endif
+            cp = listbuff;
+
+            while (c = *cp++) {
+
+                while (c == '\n' || c == '\r')
+                    c = *cp++;
+
+                if (c) {
                     char *fname = malloc (PATH_MAX);
                     int ci = 0;
 
                     do
                         fname [ci++] = c;
-                    while ((c = getc (list)) != '\n' && c != EOF && ci < PATH_MAX);
+                    while ((c = *cp++) != '\n' && c != '\r' && c && ci < PATH_MAX);
 
                     fname [ci++] = '\0';
-                    fname = realloc (fname, ci);
                     matches = realloc (matches, ++num_files * sizeof (*matches));
 
                     for (di = num_files - 1; di > file_index + 1; di--)
@@ -943,14 +969,19 @@ int main (argc, argv) int argc; char **argv;
 
                     matches [++file_index] = fname;
                 }
+
+                if (!c)
+                    break;
             }
 
             fclose (list);
+            free (listbuff);
             free (infilename);
         }
 #if defined (_WIN32)
         else if (filespec_wild (infilename)) {
-            FILE *list = fopen (infilename+1, "rt");
+            wchar_t *winfilename = utf8_to_utf16(infilename);
+            struct _wfinddata_t _wfinddata_t;
             intptr_t file;
             int di;
 
@@ -960,24 +991,28 @@ int main (argc, argv) int argc; char **argv;
             file_index--;
             num_files--;
 
-            if ((file = _findfirst (infilename, &_finddata_t)) != (intptr_t) -1) {
+            if ((file = _wfindfirst (winfilename, &_wfinddata_t)) != (intptr_t) -1) {
                 do {
-                    if (!(_finddata_t.attrib & _A_SUBDIR)) {
+                    char *name_utf8;
+
+                    if (!(_wfinddata_t.attrib & _A_SUBDIR) && (name_utf8 = utf16_to_utf8(_wfinddata_t.name))) {
                         matches = realloc (matches, ++num_files * sizeof (*matches));
 
                         for (di = num_files - 1; di > file_index + 1; di--)
                             matches [di] = matches [di - 1];
 
-                        matches [++file_index] = malloc (strlen (infilename) + strlen (_finddata_t.name) + 10);
+                        matches [++file_index] = malloc (strlen (infilename) + strlen (name_utf8) + 10);
                         strcpy (matches [file_index], infilename);
                         *filespec_name (matches [file_index]) = '\0';
-                        strcat (matches [file_index], _finddata_t.name);
+                        strcat (matches [file_index], name_utf8);
+                        free (name_utf8);
                     }
-                } while (_findnext (file, &_finddata_t) == 0);
+                } while (_wfindnext (file, &_wfinddata_t) == 0);
 
                 _findclose (file);
             }
 
+            free (winfilename);
             free (infilename);
         }
 #endif
@@ -989,7 +1024,8 @@ int main (argc, argv) int argc; char **argv;
     // be passed on the command-line, but could be used for other purposes.
 
     if (outfilename && outfilename [0] == '@') {
-        FILE *list = fopen (outfilename+1, "rt");
+        char listbuff [PATH_MAX * 2], *lp = listbuff;
+        FILE *list = fopen (outfilename+1, "rb");
         int c;
 
         if (list == NULL) {
@@ -998,14 +1034,21 @@ int main (argc, argv) int argc; char **argv;
             return 1;
         }
 
-        while ((c = getc (list)) == '\n');
+        memset (listbuff, 0, sizeof (listbuff));
+        fread (listbuff, 1, sizeof (listbuff) - 1, list);
 
-        if (c != EOF) {
+#if defined (_WIN32)
+        TextToUTF8 (listbuff, PATH_MAX * 2);
+#endif
+
+        while ((c = *lp++) == '\n' || c == '\r');
+
+        if (c) {
             int ci = 0;
 
             do
                 outfilename [ci++] = c;
-            while ((c = getc (list)) != '\n' && c != EOF && ci < PATH_MAX);
+            while ((c = *lp++) != '\n' && c != '\r' && c && ci < PATH_MAX);
 
             outfilename [ci] = '\0';
         }
@@ -1169,6 +1212,30 @@ int main (argc, argv) int argc; char **argv;
     return error_count ? 1 : 0;
 }
 
+#ifdef _WIN32
+
+// On Windows, this "real" main() acts as a shell to our static wavpack_main().
+// Its purpose is to convert the wchar command-line arguments into UTF-8 encoded
+// strings and set the console output to UTF-8.
+
+int main(int argc, char **argv)
+{
+    int ret = -1, argc_utf8 = -1;
+    char **argv_utf8 = NULL;
+
+    init_console_utf8();
+    init_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
+
+    ret = wavpack_main(argc_utf8, argv_utf8);
+
+    free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
+    uninit_console_utf8();
+
+    return ret;
+}
+
+#endif
+
 // This structure and function are used to write completed WavPack blocks in
 // a device independent way.
 
@@ -1213,29 +1280,38 @@ static int write_block (void *id, void *data, int32_t length)
 
 static FILE *wild_fopen (char *filename, const char *mode)
 {
-    struct _finddata_t _finddata_t;
+    struct _wfinddata_t _wfinddata_t;
     char *matchname = NULL;
+    wchar_t *wfilename;
     FILE *res = NULL;
     intptr_t file;
 
     if (!filespec_wild (filename) || !filespec_name (filename))
         return fopen (filename, mode);
 
-    if ((file = _findfirst (filename, &_finddata_t)) != (intptr_t) -1) {
+    wfilename = utf8_to_utf16(filename);
+
+    if (!wfilename)
+        return NULL;
+
+    if ((file = _wfindfirst (wfilename, &_wfinddata_t)) != (intptr_t) -1) {
         do {
-            if (!(_finddata_t.attrib & _A_SUBDIR)) {
+            if (!(_wfinddata_t.attrib & _A_SUBDIR)) {
+                char *name_utf8;
+
                 if (matchname) {
                     free (matchname);
                     matchname = NULL;
                     break;
                 }
-                else {
-                    matchname = malloc (strlen (filename) + strlen (_finddata_t.name));
+                else if (name_utf8 = utf16_to_utf8(_wfinddata_t.name)) {
+                    matchname = malloc (strlen (filename) + strlen(name_utf8));
                     strcpy (matchname, filename);
-                    strcpy (filespec_name (matchname), _finddata_t.name);
+                    strcpy (filespec_name (matchname), name_utf8);
+                    free (name_utf8);
                 }
             }
-        } while (_findnext (file, &_finddata_t) == 0);
+        } while (_wfindnext (file, &_wfinddata_t) == 0);
 
         _findclose (file);
     }
@@ -1245,6 +1321,7 @@ static FILE *wild_fopen (char *filename, const char *mode)
         free (matchname);
     }
 
+    free (wfilename);
     return res;
 }
 
@@ -1329,7 +1406,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     if (*infilename == '-') {
         infile = stdin;
 #if defined(_WIN32)
-        _setmode (fileno (stdin), O_BINARY);
+        _setmode (_fileno (stdin), O_BINARY);
 #endif
 #if defined(__OS2__)
         setmode (fileno (stdin), O_BINARY);
@@ -1492,7 +1569,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     if (*outfilename == '-') {
         wv_file.file = stdout;
 #if defined(_WIN32)
-        _setmode (fileno (stdout), O_BINARY);
+        _setmode (_fileno (stdout), O_BINARY);
 #endif
 #if defined(__OS2__)
         setmode (fileno (stdout), O_BINARY);
@@ -2302,7 +2379,11 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     // use library to open input WavPack file
 
+#if defined(_WIN32)
+    infile = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_TAGS | OPEN_WRAPPER | OPEN_FILE_UTF8, 0);
+#else
     infile = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_TAGS | OPEN_WRAPPER, 0);
+#endif
 
     if (!infile) {
         error_line (error);
@@ -2444,7 +2525,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     if (*outfilename == '-') {
         wv_file.file = stdout;
 #if defined(_WIN32)
-        _setmode (fileno (stdout), O_BINARY);
+        _setmode (_fileno (stdout), O_BINARY);
 #endif
 #if defined(__OS2__)
         setmode (fileno (stdout), O_BINARY);
@@ -2971,7 +3052,11 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 
     // use library to open WavPack file
 
+#ifdef _WIN32
+    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_FILE_UTF8, 0);
+#else
     wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC, 0);
+#endif
 
     if (!wpc) {
         error_line (error);

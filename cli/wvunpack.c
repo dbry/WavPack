@@ -48,8 +48,11 @@
 #include "md5.h"
 
 #ifdef _WIN32
+#include "win32_unicode_support.h"
+#define remove(f) unlink_utf8(f)
+#define rename(o,n) rename_utf8(o,n)
+#define fopen(f,m) fopen_utf8(f,m)
 #define strdup(x) _strdup(x)
-#define fileno _fileno
 #endif
 
 ///////////////////////////// local variable storage //////////////////////////
@@ -83,8 +86,8 @@ static const char *usage =
 #endif
 "          -m  = calculate and display MD5 signature; verify if lossless\n"
 "          -n  = no audio decoding (use with -xx to extract tags only)\n"
-"          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
 #if !defined (_WIN32)
+"          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
 "          -q  = quiet (keep console output to a minimum)\n"
@@ -138,16 +141,22 @@ static void add_tag_extraction_to_list (char *spec);
 static void parse_sample_time_index (struct sample_time_index *dst, char *src);
 static int unpack_file (char *infilename, char *outfilename);
 static void display_progress (double file_progress);
+static void TextToUTF8 (void *string, int len);
 
 #define WAVPACK_NO_ERROR    0
 #define WAVPACK_SOFT_ERROR  1
 #define WAVPACK_HARD_ERROR  2
 
-//////////////////////////////////////////////////////////////////////////////
-// The "main" function for the command-line WavPack decompressor.           //
-//////////////////////////////////////////////////////////////////////////////
+// The "main" function for the command-line WavPack decompressor. Note that on Windows
+// this is actually a static function that is called from the "real" main() defined
+// immediately afterward that converts the wchar argument list into UTF-8 strings
+// and sets the console to UTF-8 for better Unicode support.
 
-int main (argc, argv) int argc; char **argv;
+#ifdef _WIN32
+static int wvunpack_main(int argc, char **argv)
+#else
+int main(int argc, char **argv)
+#endif
 {
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
@@ -157,7 +166,6 @@ int main (argc, argv) int argc; char **argv;
     int result;
 
 #if defined(_WIN32)
-    struct _finddata_t _finddata_t;
     char selfname [MAX_PATH];
 
     if (GetModuleFileName (NULL, selfname, sizeof (selfname)) && filespec_name (selfname) &&
@@ -184,7 +192,8 @@ int main (argc, argv) int argc; char **argv;
 #endif
 
 #if defined (_WIN32)
-   set_console_title = 1;      // on Windows, we default to messing with the console title
+    no_utf8_convert = 1;        // we're Unicode now, so don't mess with ANSI
+    set_console_title = 1;      // on Windows, we default to messing with the console title
 #endif                          // on Linux, this is considered uncool to do by default
 
     // loop through command-line arguments
@@ -465,8 +474,9 @@ int main (argc, argv) int argc; char **argv;
         // frontends, but could be used for other purposes.
 
         if (*infilename == '@') {
-            FILE *list = fopen (infilename+1, "rt");
-            int di, c;
+            FILE *list = fopen (infilename+1, "rb");
+            char *listbuff = NULL, *cp;
+            int listbytes = 0, di, c;
 
             for (di = file_index; di < num_files - 1; di++)
                 matches [di] = matches [di + 1];
@@ -480,21 +490,37 @@ int main (argc, argv) int argc; char **argv;
                 return 1;
             }
 
-            while ((c = getc (list)) != EOF) {
+            while (1) {
+                int bytes_read;
 
-                while (c == '\n')
-                    c = getc (list);
+                listbuff = realloc (listbuff, listbytes + 1024);
+                memset (listbuff + listbytes, 0, 1024);
+                listbytes += bytes_read = fread (listbuff + listbytes, 1, 1024, list);
 
-                if (c != EOF) {
+                if (bytes_read < 1024)
+                    break;
+            }
+
+#if defined (_WIN32)
+            listbuff = realloc (listbuff, listbytes *= 2);
+            TextToUTF8 (listbuff, listbytes);
+#endif
+            cp = listbuff;
+
+            while (c = *cp++) {
+
+                while (c == '\n' || c == '\r')
+                    c = *cp++;
+
+                if (c) {
                     char *fname = malloc (PATH_MAX);
                     int ci = 0;
 
                     do
                         fname [ci++] = c;
-                    while ((c = getc (list)) != '\n' && c != EOF && ci < PATH_MAX);
+                    while ((c = *cp++) != '\n' && c != '\r' && c && ci < PATH_MAX);
 
                     fname [ci++] = '\0';
-                    fname = realloc (fname, ci);
                     matches = realloc (matches, ++num_files * sizeof (*matches));
 
                     for (di = num_files - 1; di > file_index + 1; di--)
@@ -502,14 +528,19 @@ int main (argc, argv) int argc; char **argv;
 
                     matches [++file_index] = fname;
                 }
+
+                if (!c)
+                    break;
             }
 
             fclose (list);
+            free (listbuff);
             free (infilename);
         }
 #if defined (_WIN32)
         else if (filespec_wild (infilename)) {
-            FILE *list = fopen (infilename+1, "rt");
+            wchar_t *winfilename = utf8_to_utf16(infilename);
+            struct _wfinddata_t _wfinddata_t;
             intptr_t file;
             int di;
 
@@ -519,24 +550,28 @@ int main (argc, argv) int argc; char **argv;
             file_index--;
             num_files--;
 
-            if ((file = _findfirst (infilename, &_finddata_t)) != (intptr_t) -1) {
+            if ((file = _wfindfirst (winfilename, &_wfinddata_t)) != (intptr_t) -1) {
                 do {
-                    if (!(_finddata_t.attrib & _A_SUBDIR)) {
+                    char *name_utf8;
+
+                    if (!(_wfinddata_t.attrib & _A_SUBDIR) && (name_utf8 = utf16_to_utf8(_wfinddata_t.name))) {
                         matches = realloc (matches, ++num_files * sizeof (*matches));
 
                         for (di = num_files - 1; di > file_index + 1; di--)
                             matches [di] = matches [di - 1];
 
-                        matches [++file_index] = malloc (strlen (infilename) + strlen (_finddata_t.name) + 10);
+                        matches [++file_index] = malloc (strlen (infilename) + strlen (name_utf8) + 10);
                         strcpy (matches [file_index], infilename);
                         *filespec_name (matches [file_index]) = '\0';
-                        strcat (matches [file_index], _finddata_t.name);
+                        strcat (matches [file_index], name_utf8);
+                        free (name_utf8);
                     }
-                } while (_findnext (file, &_finddata_t) == 0);
+                } while (_wfindnext (file, &_wfinddata_t) == 0);
 
                 _findclose (file);
             }
 
+            free (winfilename);
             free (infilename);
         }
 #endif
@@ -548,7 +583,8 @@ int main (argc, argv) int argc; char **argv;
     // be passed on the command-line, but could be used for other purposes.
 
     if (outfilename && outfilename [0] == '@') {
-        FILE *list = fopen (outfilename+1, "rt");
+        char listbuff [PATH_MAX * 2], *lp = listbuff;
+        FILE *list = fopen (outfilename+1, "rb");
         int c;
 
         if (list == NULL) {
@@ -557,14 +593,21 @@ int main (argc, argv) int argc; char **argv;
             return 1;
         }
 
-        while ((c = getc (list)) == '\n');
+        memset (listbuff, 0, sizeof (listbuff));
+        fread (listbuff, 1, sizeof (listbuff) - 1, list);
 
-        if (c != EOF) {
+#if defined (_WIN32)
+        TextToUTF8 (listbuff, PATH_MAX * 2);
+#endif
+
+        while ((c = *lp++) == '\n' || c == '\r');
+
+        if (c) {
             int ci = 0;
 
             do
                 outfilename [ci++] = c;
-            while ((c = getc (list)) != '\n' && c != EOF && ci < PATH_MAX);
+            while ((c = *lp++) != '\n' && c != '\r' && c && ci < PATH_MAX);
 
             outfilename [ci] = '\0';
         }
@@ -672,6 +715,30 @@ int main (argc, argv) int argc; char **argv;
     return error_count ? 1 : 0;
 }
 
+#ifdef _WIN32
+
+// On Windows, this "real" main() acts as a shell to our static wvunpack_main().
+// Its purpose is to convert the wchar command-line arguments into UTF-8 encoded
+// strings and set the console output to UTF-8.
+
+int main(int argc, char **argv)
+{
+    int ret = -1, argc_utf8 = -1;
+    char **argv_utf8 = NULL;
+
+    init_console_utf8();
+    init_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
+
+    ret = wvunpack_main(argc_utf8, argv_utf8);
+
+    free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
+    uninit_console_utf8();
+
+    return ret;
+}
+
+#endif
+
 // Parse the parameter of the --skip and --until commands, which are of the form:
 //   [+|-] [samples | hh:mm:ss.ss]
 // The value is returned in a double (in the "dst" struct) as either samples or
@@ -728,7 +795,7 @@ static FILE *open_output_file (char *filename, char **tempfilename)
 
     if (*filename == '-') {
 #if defined(_WIN32)
-        _setmode (fileno (stdout), O_BINARY);
+        _setmode (_fileno (stdout), O_BINARY);
 #endif
 #if defined(__OS2__)
         setmode (fileno (stdout), O_BINARY);
@@ -842,6 +909,10 @@ static int unpack_file (char *infilename, char *outfilename)
 #endif
 
     // use library to open WavPack file
+
+#ifdef _WIN32
+    open_flags |= OPEN_FILE_UTF8;
+#endif
 
     if ((outfilename && !raw_decode && !blind_decode && !wav_decode &&
         !skip.value_is_valid && !until.value_is_valid) || summary > 1)
@@ -1852,7 +1923,7 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
                 return value_len;
 
 #if defined(_WIN32)
-            _setmode (fileno (dst), O_TEXT);
+            _setmode (_fileno (dst), O_TEXT);
 #endif
 #if defined(__OS2__)
             setmode (fileno (dst), O_TEXT);
@@ -1876,7 +1947,7 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
 
                     if (dst) {
 #if defined(_WIN32)
-                        _setmode (fileno (dst), O_BINARY);
+                        _setmode (_fileno (dst), O_BINARY);
 #endif
 #if defined(__OS2__)
                         setmode (fileno (dst), O_BINARY);
@@ -2001,6 +2072,62 @@ static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide)
 
     pWide [chrcnt] = 0;
     return chrcnt;
+}
+
+// Convert the Unicode wide-format string into a UTF-8 string using no more
+// than the specified buffer length. The wide-format string must be NULL
+// terminated and the resulting string will be NULL terminated. The actual
+// number of characters converted (not counting terminator) is returned, which
+// may be less than the number of characters in the wide string if the buffer
+// length is exceeded.
+
+static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len)
+{
+    const wchar_t *pWide = Wide;
+    int outndx = 0;
+
+    while (*pWide) {
+        if (*pWide < 0x80 && outndx + 1 < len)
+            pUTF8 [outndx++] = (unsigned char) *pWide++;
+        else if (*pWide < 0x800 && outndx + 2 < len) {
+            pUTF8 [outndx++] = (unsigned char) (0xc0 | ((*pWide >> 6) & 0x1f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
+        }
+        else if (outndx + 3 < len) {
+            pUTF8 [outndx++] = (unsigned char) (0xe0 | ((*pWide >> 12) & 0xf));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | ((*pWide >> 6) & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
+        }
+        else
+            break;
+    }
+
+    pUTF8 [outndx] = 0;
+    return (int)(pWide - Wide);
+}
+
+// Convert a text string into its Unicode UTF-8 format equivalent. The
+// conversion is done in-place so the maximum length of the string buffer must
+// be specified because the string may become longer or shorter. If the
+// resulting string will not fit in the specified buffer size then it is
+// truncated.
+
+static void TextToUTF8 (void *string, int len)
+{
+    if (* (wchar_t *) string == 0xFEFF) {
+        wchar_t *temp = _wcsdup (string);
+
+        WideCharToUTF8 (temp + 1, (unsigned char *) string, len);
+        free (temp);
+    }
+    else {
+        int max_chars = (int) strlen (string);
+        wchar_t *temp = (wchar_t *) malloc ((max_chars + 1) * 2);
+
+        MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
+        WideCharToUTF8 (temp, (unsigned char *) string, len);
+        free (temp);
+    }
 }
 
 #endif

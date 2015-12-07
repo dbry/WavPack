@@ -30,11 +30,14 @@
 
 #include "wavpack.h"
 #include "utils.h"
+#include "win32_unicode_support.h"
 
 #ifdef _WIN32
 
 int copy_timestamp (const char *src_filename, const char *dst_filename)
 {
+	wchar_t *src_filename_utf16 = utf8_to_utf16(src_filename);
+	wchar_t *dst_filename_utf16 = utf8_to_utf16(dst_filename);
     FILETIME last_modified;
     HANDLE src, dst;
     int res = TRUE;
@@ -42,10 +45,13 @@ int copy_timestamp (const char *src_filename, const char *dst_filename)
     if (*src_filename == '-' || *dst_filename == '-')
         return res;
 
-    src = CreateFile (src_filename, GENERIC_READ, FILE_SHARE_READ, NULL,
+    if (!src_filename_utf16 || !dst_filename_utf16)
+        return FALSE;
+
+    src = CreateFileW (src_filename_utf16, GENERIC_READ, FILE_SHARE_READ, NULL,
          OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 
-    dst = CreateFile (dst_filename, GENERIC_WRITE, FILE_SHARE_WRITE, NULL,
+    dst = CreateFileW (dst_filename_utf16, GENERIC_WRITE, FILE_SHARE_WRITE, NULL,
          OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 
     if (src == INVALID_HANDLE_VALUE || dst == INVALID_HANDLE_VALUE ||
@@ -58,6 +64,9 @@ int copy_timestamp (const char *src_filename, const char *dst_filename)
 
     if (dst != INVALID_HANDLE_VALUE)
         CloseHandle (dst);
+
+    free (src_filename_utf16);
+    free (dst_filename_utf16);
 
     return res;
 }
@@ -100,17 +109,11 @@ int copy_timestamp(const char *src_filename, const char *dst_filename)
 
 #if defined(_WIN32)
 
-static int is_second_byte (char *filespec, char *pos);
-
 char *filespec_ext (char *filespec)
 {
     char *cp = filespec + strlen (filespec);
-    LANGID langid = GetSystemDefaultLangID ();
 
     while (--cp >= filespec) {
-
-        if (langid == 0x411 && is_second_byte (filespec, cp))
-            --cp;
 
         if (*cp == '\\' || *cp == ':')
             return NULL;
@@ -197,8 +200,8 @@ char *filespec_path (char *filespec)
 char *filespec_path (char *filespec)
 {
     char *cp = filespec + strlen (filespec);
-    LANGID langid = GetSystemDefaultLangID ();
-    struct _finddata_t finddata;
+    struct _wfinddata_t wfinddata;
+	wchar_t *filespec_utf16;
     intptr_t file;
 
     if (cp == filespec || filespec_wild (filespec))
@@ -206,22 +209,25 @@ char *filespec_path (char *filespec)
 
     --cp;
 
-    if (langid == 0x411 && is_second_byte (filespec, cp))
-        --cp;
-
     if (*cp == '\\' || *cp == ':')
         return filespec;
 
     if (*cp == '.' && cp == filespec)
         return strcat (filespec, "\\");
 
-    if ((file = _findfirst (filespec, &finddata)) != (intptr_t) -1 &&
-        (finddata.attrib & _A_SUBDIR)) {
+	filespec_utf16 = utf8_to_utf16(filespec);
+
+    if (!filespec_utf16)
+        return NULL;
+
+    if ((file = _wfindfirst (filespec_utf16, &wfinddata)) != (intptr_t) -1 &&
+        (wfinddata.attrib & _A_SUBDIR)) {
             _findclose (file);
             return strcat (filespec, "\\");
     }
+
     if (file != -1L)
-            _findclose(file);
+        _findclose(file);
 
     return NULL;
 }
@@ -248,11 +254,8 @@ char *filespec_wild (char *filespec)
 char *filespec_name (char *filespec)
 {
     char *cp = filespec + strlen (filespec);
-    LANGID langid = GetSystemDefaultLangID ();
 
     while (--cp >= filespec) {
-        if (langid == 0x411 && is_second_byte (filespec, cp))
-            --cp;
 
         if (*cp == '\\' || *cp == ':')
             break;
@@ -278,27 +281,6 @@ char *filespec_name (char *filespec)
         return cp + 1;
     else
         return NULL;
-}
-
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
-// This function returns TRUE if "pos" is pointing to the second byte of a  //
-// double-byte character in the string "filespec" which is assumed to be    //
-// shift-JIS.                                                               //
-//////////////////////////////////////////////////////////////////////////////
-
-#if defined(_WIN32)
-
-static int is_second_byte (char *filespec, char *pos)
-{
-    unsigned char *cp = pos;
-
-    while (cp > (unsigned char *)filespec && ((cp [-1] >= 0x81 && cp [-1] <= 0x9f) ||
-                             (cp [-1] >= 0xe0 && cp [-1] <= 0xfc)))
-        cp--;
-
-    return (int)((unsigned char *)pos - cp) & 1;
 }
 
 #endif

@@ -382,6 +382,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\cli\win32_unicode_support.c"
+				>
+			</File>
+			<File
 				RelativePath="..\cli\wavpack.c"
 				>
 			</File>

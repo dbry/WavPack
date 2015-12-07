@@ -42,6 +42,7 @@ void init_commandline_arguments_utf8(int *argc, char ***argv);
 void free_commandline_arguments_utf8(int *argc, char ***argv);
 FILE *fopen_utf8(const char *filename_utf8, const char *mode_utf8);
 int stat_utf8(const char *path_utf8, struct _stat *buf);
+int rename_utf8(const char *oldname_utf8, const char *newname_utf8);
 int unlink_utf8(const char *path_utf8);
 void init_console_utf8(void);
 void uninit_console_utf8(void);
