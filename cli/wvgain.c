@@ -541,11 +541,23 @@ int main(int argc, char **argv)
 {
     int ret = -1, argc_utf8 = -1;
     char **argv_utf8 = NULL;
+    char **argv_copy = NULL;
 
     init_console_utf8();
     init_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
 
-    ret = wvgain_main(argc_utf8, argv_utf8);
+    // we have to make a copy of the argv pointer array because the command parser
+    // sometimes modifies them, which is problematic when it comes time to free them
+
+    if (argc_utf8 && argv_utf8) {
+        argv_copy = malloc (sizeof (char*) * argc_utf8);
+        memcpy (argv_copy, argv_utf8, sizeof (char*) * argc_utf8);
+    }
+
+    ret = wvgain_main(argc_utf8, argv_copy);
+
+    if (argv_copy)
+        free (argv_copy);
 
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
     uninit_console_utf8();
