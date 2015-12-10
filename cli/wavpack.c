@@ -144,11 +144,12 @@ static const char *help =
 "                             decoded HDCD files)\n"
 "    -n                      calculate average and peak quantization noise\n"
 "                             (for hybrid mode only, reference fullscale sine)\n"
-"    --no-utf8-convert       don't recode passed tags from local encoding to\n"
-"                             UTF-8, assume they are in UTF-8 already\n"
-#if !defined (_WIN32)
+#ifdef _WIN32
 "    --no-utf8-convert       assume tag values read from files are already UTF-8,\n"
 "                             don't attempt to convert from local encoding\n"
+#else
+"    --no-utf8-convert       don't recode passed tags from local encoding to\n"
+"                             UTF-8, assume they are in UTF-8 already\n"
 "    -o FILENAME | PATH      specify output filename or path\n"
 #endif
 "    --optimize-mono         optimization for stereo files that are really mono\n"

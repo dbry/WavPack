@@ -86,9 +86,10 @@ static const char *usage =
 #endif
 "          -m  = calculate and display MD5 signature; verify if lossless\n"
 "          -n  = no audio decoding (use with -xx to extract tags only)\n"
-"          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
-#if !defined (_WIN32)
+#ifdef _WIN32
 "          --no-utf8-convert = leave tag items in UTF-8 when extracting to files\n"
+#else
+"          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
 "          -q  = quiet (keep console output to a minimum)\n"
