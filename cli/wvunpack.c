@@ -86,8 +86,9 @@ static const char *usage =
 #endif
 "          -m  = calculate and display MD5 signature; verify if lossless\n"
 "          -n  = no audio decoding (use with -xx to extract tags only)\n"
-#if !defined (_WIN32)
 "          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
+#if !defined (_WIN32)
+"          --no-utf8-convert = leave tag items in UTF-8 when extracting to files\n"
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
 "          -q  = quiet (keep console output to a minimum)\n"
@@ -192,7 +193,6 @@ int main(int argc, char **argv)
 #endif
 
 #if defined (_WIN32)
-    no_utf8_convert = 1;        // we're Unicode now, so don't mess with ANSI
     set_console_title = 1;      // on Windows, we default to messing with the console title
 #endif                          // on Linux, this is considered uncool to do by default
 
@@ -2031,7 +2031,11 @@ static void dump_UTF8_string (char *string, FILE *dst)
 
         *p = 0;
 
+#ifdef _WIN32
+        if (!no_utf8_convert && dst != stdout && dst != stderr)
+#else
         if (!no_utf8_convert)
+#endif
             UTF8ToAnsi (temp, len * 2);
 
         fputs (temp, dst);

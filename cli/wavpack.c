@@ -144,9 +144,11 @@ static const char *help =
 "                             decoded HDCD files)\n"
 "    -n                      calculate average and peak quantization noise\n"
 "                             (for hybrid mode only, reference fullscale sine)\n"
-#if !defined (_WIN32)
 "    --no-utf8-convert       don't recode passed tags from local encoding to\n"
-"                             UTF-8, assume they are in UTF-8 already.\n"
+"                             UTF-8, assume they are in UTF-8 already\n"
+#if !defined (_WIN32)
+"    --no-utf8-convert       assume tag values read from files are already UTF-8,\n"
+"                             don't attempt to convert from local encoding\n"
 "    -o FILENAME | PATH      specify output filename or path\n"
 #endif
 "    --optimize-mono         optimization for stereo files that are really mono\n"
@@ -290,7 +292,6 @@ int main (int argc, char **argv)
 #endif
 
 #if defined (_WIN32)
-    no_utf8_convert = 1;        // we're Unicode now, so don't mess with ANSI
     set_console_title = 1;      // on Windows, we default to messing with the console title
 #endif                          // on Linux, this is considered uncool to do by default
 
@@ -764,6 +765,8 @@ int main (int argc, char **argv)
     // rather than after encoding so that any errors can be reported to the user now.
 
     for (i = 0; i < num_tag_items; ++i) {
+        int tag_came_from_file = 0;
+
         if (*tag_items [i].value == '@') {
             char *fn = tag_items [i].value + 1, *new_value = NULL;
             FILE *file = wild_fopen (fn, "rb");
@@ -818,6 +821,7 @@ int main (int argc, char **argv)
             else {
                 free (tag_items [i].value);
                 tag_items [i].value = new_value;
+                tag_came_from_file = 1;
             }
         }
         else if (tag_items [i].binary) {
@@ -841,7 +845,11 @@ int main (int argc, char **argv)
         else if (tag_items [i].vsize) {
             tag_items [i].value = realloc (tag_items [i].value, tag_items [i].vsize * 2 + 1);
 
+#ifdef _WIN32
+            if (tag_came_from_file && !no_utf8_convert)
+#else
             if (!no_utf8_convert)
+#endif
                 TextToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
 
             tag_items [i].vsize = (int) strlen (tag_items [i].value);
