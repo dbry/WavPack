@@ -30,14 +30,20 @@
 
 #include "wavpack.h"
 #include "utils.h"
+
+#ifdef _WIN32
 #include "win32_unicode_support.h"
+#define fprintf fprintf_utf8
+#define fputs fputs_utf8
+#define remove(f) unlink_utf8(f)
+#endif
 
 #ifdef _WIN32
 
 int copy_timestamp (const char *src_filename, const char *dst_filename)
 {
-	wchar_t *src_filename_utf16 = utf8_to_utf16(src_filename);
-	wchar_t *dst_filename_utf16 = utf8_to_utf16(dst_filename);
+    wchar_t *src_filename_utf16 = utf8_to_utf16(src_filename);
+    wchar_t *dst_filename_utf16 = utf8_to_utf16(dst_filename);
     FILETIME last_modified;
     HANDLE src, dst;
     int res = TRUE;
@@ -201,7 +207,7 @@ char *filespec_path (char *filespec)
 {
     char *cp = filespec + strlen (filespec);
     struct _wfinddata_t wfinddata;
-	wchar_t *filespec_utf16;
+    wchar_t *filespec_utf16;
     intptr_t file;
 
     if (cp == filespec || filespec_wild (filespec))
@@ -215,7 +221,7 @@ char *filespec_path (char *filespec)
     if (*cp == '.' && cp == filespec)
         return strcat (filespec, "\\");
 
-	filespec_utf16 = utf8_to_utf16(filespec);
+    filespec_utf16 = utf8_to_utf16(filespec);
 
     if (!filespec_utf16)
         return NULL;
@@ -223,12 +229,14 @@ char *filespec_path (char *filespec)
     if ((file = _wfindfirst (filespec_utf16, &wfinddata)) != (intptr_t) -1 &&
         (wfinddata.attrib & _A_SUBDIR)) {
             _findclose (file);
+            free (filespec_utf16);
             return strcat (filespec, "\\");
     }
 
     if (file != -1L)
         _findclose(file);
 
+    free (filespec_utf16);
     return NULL;
 }
 
@@ -478,32 +486,6 @@ void error_line (char *error, ...)
 }
 
 #endif
-
-void debug_line (char *error, ...)
-{
-    char error_msg [512];
-    va_list argptr;
-
-    if (!debug_logging_mode)
-        return;
-
-    error_msg [0] = '\r';
-    va_start (argptr, error);
-    vsprintf (error_msg + 1, error, argptr);
-    va_end (argptr);
-    fputs (error_msg, stderr);
-    finish_line ();
-
-    if (debug_logging_mode) {
-        FILE *error_log = fopen ("c:\\wavpack.log", "a+");
-
-        if (error_log) {
-            fputs (error_msg + 1, error_log);
-            fputc ('\n', error_log);
-            fclose (error_log);
-        }
-    }
-}
 
 //////////////////////////////////////////////////////////////////////////////
 // Function to intercept ^C or ^Break typed at the console.                 //

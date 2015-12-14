@@ -53,6 +53,8 @@
 
 #ifdef _WIN32
 #include "win32_unicode_support.h"
+#define fputs fputs_utf8
+#define fprintf fprintf_utf8
 #define fopen(f,m) fopen_utf8(f,m)
 #endif
 
@@ -543,7 +545,6 @@ int main(int argc, char **argv)
     char **argv_utf8 = NULL;
     char **argv_copy = NULL;
 
-    init_console_utf8();
     init_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
 
     // we have to make a copy of the argv pointer array because the command parser
@@ -560,7 +561,6 @@ int main(int argc, char **argv)
         free (argv_copy);
 
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
-    uninit_console_utf8();
 
     return ret;
 }

@@ -135,6 +135,50 @@ void free_commandline_arguments_utf8(int *argc, char ***argv)
 	}
 }
 
+int fprintf_utf8 (FILE *stream, const char *format, ...)
+{
+    char string_buffer [1024];
+    va_list argptr;
+    int ret = -1;
+
+    va_start (argptr, format);
+    ret = vsnprintf (string_buffer, sizeof (string_buffer), format, argptr);
+    va_end (argptr);
+    fputs_utf8 (string_buffer, stream);
+    return ret;
+}
+
+int fputs_utf8 (const char *string_utf8, FILE *stream)
+{
+    HANDLE hConsoleOutput;
+    DWORD dwConsoleMode;
+    wchar_t *wide_string;
+    int ret = -1;
+
+    if (stream == stdout)
+        hConsoleOutput = GetStdHandle (STD_OUTPUT_HANDLE);
+    else if (stream == stderr)
+        hConsoleOutput = GetStdHandle (STD_ERROR_HANDLE);
+    else
+        return fputs (string_utf8, stream);
+
+    if (!GetConsoleMode (hConsoleOutput, &dwConsoleMode))
+        return fputs (string_utf8, stream);
+
+    wide_string = utf8_to_utf16(string_utf8);
+
+    if (wide_string) {
+        ret = wcslen (wide_string);
+
+        if (!WriteConsoleW (hConsoleOutput, wide_string, ret, NULL, NULL))
+            fputs (string_utf8, stream);
+
+        free (wide_string);
+    }
+
+    return ret;
+}
+
 FILE *fopen_utf8(const char *filename_utf8, const char *mode_utf8)
 {
 	FILE *ret = NULL;
