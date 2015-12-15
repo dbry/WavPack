@@ -71,6 +71,9 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
     int32_t value;
     int sign;
 
+    if (!wps->wvbits.ptr)
+        return WORD_EOF;
+
     if (correction)
         *correction = 0;
 
@@ -326,6 +329,11 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 #ifdef USE_NEXT8_OPTIMIZATION
     int32_t next8;
 #endif
+
+    if (nsamples && !bs->ptr) {
+        memset (buffer, 0, (wps->wphdr.flags & MONO_DATA) ? nsamples * 4 : nsamples * 8);
+        return nsamples;
+    }
 
     if (!(wps->wphdr.flags & MONO_DATA))
         nsamples *= 2;

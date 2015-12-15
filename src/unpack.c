@@ -83,6 +83,9 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
     if (wps->sample_index + sample_count > wps->wphdr.block_index + wps->wphdr.block_samples)
         sample_count = wps->wphdr.block_index + wps->wphdr.block_samples - wps->sample_index;
 
+    if (wps->wphdr.block_index > wps->sample_index || wps->wphdr.block_samples < sample_count)
+        wps->mute_error = TRUE;
+
     if (wps->mute_error) {
         if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))
             memset (buffer, 0, sample_count * 4);
