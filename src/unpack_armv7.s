@@ -1,10 +1,10 @@
-////////////////////////////////////////////////////////////////////////////
-//                           **** WAVPACK ****                            //
-//                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2015 Conifer Software.               //
-//                          All Rights Reserved.                          //
-//      Distributed under the BSD Software License (see license.txt)      //
-////////////////////////////////////////////////////////////////////////////
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@                           **** WAVPACK ****                            @@
+@@                  Hybrid Lossless Wavefile Compressor                   @@
+@@              Copyright (c) 1998 - 2015 Conifer Software.               @@
+@@                          All Rights Reserved.                          @@
+@@      Distributed under the BSD Software License (see license.txt)      @@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
         .text
         .align
