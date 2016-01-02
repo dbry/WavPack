@@ -1046,7 +1046,7 @@ int main (int argc, char **argv)
         }
 
         memset (listbuff, 0, sizeof (listbuff));
-        fread (listbuff, 1, sizeof (listbuff) - 1, list);
+        c = fread (listbuff, 1, sizeof (listbuff) - 1, list);   // assign c only to suppress warning
 
 #if defined (_WIN32)
         TextToUTF8 (listbuff, PATH_MAX * 2);
