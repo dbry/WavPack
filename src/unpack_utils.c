@@ -293,6 +293,13 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                     wpc->current_stream++;
             }
 
+            // if we didn't get all the channels we expected, mute the buffer and flag an error
+
+            if (offset != num_channels) {
+                memset (buffer, 0, samples_to_unpack * num_channels * 4);
+                wpc->crc_errors++;
+            }
+
             // go back to the first stream (we're going to leave them all loaded for now because they might have more samples)
             // and free the temp buffer
 
