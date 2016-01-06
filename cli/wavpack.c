@@ -159,6 +159,9 @@ static const char *help =
 "    -p                      practical float storage (also affects 32-bit\n"
 "                             integers, no longer technically lossless)\n"
 "    --pair-unassigned-chans encode unassigned channels into stereo pairs\n"
+"    --quantize-to=bits      quantize samples to <bits> before encoding\n"
+"                             (LOSSY -- common use would be --quantize-to=20\n"
+"                             for 24-bit material recorded with noisy converters\n"
 "    -q                      quiet (keep console output to a minimum)\n"
 "    -r                      generate a new RIFF wav header (removes any\n"
 "                             extra chunk info from existing header)\n"
@@ -207,7 +210,7 @@ static const char *speakers [] = {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source, store_floats_as_ints,
-    adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert, set_console_title, allow_huge_tags;
+    adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits;
 
 static int num_channels_order;
 static unsigned char channel_order [18], channel_order_undefined;
@@ -455,6 +458,14 @@ int main (int argc, char **argv)
                 else {
                     channel_order_mask = mask;
                     num_channels_order = chan;
+                }
+            }
+            else if (!strncmp (long_option, "quantize-to",11)) {          // --quantize-to=
+                quantize_bits = strtol(long_param, NULL, 10);
+
+                if (quantize_bits < 4 || quantize_bits > 32) {
+                    error_line ("invalid quantize-bits!");
+                    ++error_count;
                 }
             }
             else {
@@ -2245,6 +2256,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
     int32_t *sample_buffer;
     unsigned char *input_buffer;
     MD5_CTX md5_context;
+    int32_t quantize_bit_mask = 0;
 
     // don't use an absurd amount of memory just because we have an absurd number of channels
 
@@ -2259,6 +2271,10 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
     input_buffer = malloc (input_samples * bytes_per_sample);
     sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc));
     samples_remaining = WavpackGetNumSamples (wpc);
+
+    if (quantize_bits && quantize_bits < WavpackGetBytesPerSample (wpc) * 8 && 0 == (WavpackGetMode(wpc) & MODE_FLOAT)) {
+        quantize_bit_mask = ~((1<<(WavpackGetBytesPerSample (wpc)*8-quantize_bits))-1);
+    }
 
     while (1) {
         uint32_t bytes_to_read, bytes_read = 0;
@@ -2319,6 +2335,11 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
                     }
 
                     break;
+            }
+
+            if (quantize_bit_mask) {
+                unsigned int x,l = sample_count * WavpackGetNumChannels (wpc);
+                for (x = 0; x < l; x ++) sample_buffer[x] &= quantize_bit_mask;
             }
         }
 
@@ -2956,6 +2977,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     int32_t *sample_buffer;
     double progress = -1.0;
     MD5_CTX md5_context;
+    int32_t quantize_bit_mask = 0;
 
     // don't use an absurd amount of memory just because we have an absurd number of channels
 
@@ -2970,11 +2992,20 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     WavpackPackInit (outfile);
     sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackGetNumChannels (outfile));
 
+    if (quantize_bits && quantize_bits < bps*8 && 0 == (WavpackGetMode(infile) & MODE_FLOAT)) {
+        quantize_bit_mask = ~((1<<(bps*8-quantize_bits))-1);
+    }
+
     while (1) {
         unsigned int sample_count = WavpackUnpackSamples (infile, sample_buffer, input_samples);
 
         if (!sample_count)
             break;
+
+        if (quantize_bit_mask) {
+            unsigned int x,l = sample_count * num_channels;
+            for (x = 0; x < l; x ++) sample_buffer[x] &= quantize_bit_mask;
+        }
 
         if (md5_digest_source) {
             format_samples (bps, format_buffer, sample_buffer, sample_count * num_channels);
