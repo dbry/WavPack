@@ -244,6 +244,7 @@ static int repack_audio (WavpackContext *wpc, WavpackContext *infile, unsigned c
 static int verify_audio (char *infilename, unsigned char *md5_digest_source);
 static void display_progress (double file_progress);
 static void TextToUTF8 (void *string, int len);
+static unsigned char *format_samples (int bps, unsigned char *dst, int32_t *src, uint32_t samcnt);
 
 #define WAVPACK_NO_ERROR    0
 #define WAVPACK_SOFT_ERROR  1
@@ -2293,7 +2294,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
             reorder_channels (input_buffer, new_order, WavpackGetNumChannels (wpc),
                 sample_count, WavpackGetBytesPerSample (wpc));
 
-        if (md5_digest_source)
+        if (md5_digest_source && quantize_bit_mask == 0)
             MD5Update (&md5_context, input_buffer, sample_count * bytes_per_sample);
 
         if (!sample_count)
@@ -2340,6 +2341,11 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
             if (quantize_bit_mask) {
                 unsigned int x,l = sample_count * WavpackGetNumChannels (wpc);
                 for (x = 0; x < l; x ++) sample_buffer[x] &= quantize_bit_mask;
+
+                if (md5_digest_source) {
+                    format_samples (WavpackGetBytesPerSample (wpc), input_buffer, sample_buffer, l);
+                    MD5Update (&md5_context, input_buffer, WavpackGetBytesPerSample (wpc) * l);
+                }
             }
         }
 
@@ -2672,7 +2678,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             result = WAVPACK_SOFT_ERROR;
         }
 
-        if (input_mode & MODE_LOSSLESS) {
+        if ((input_mode & MODE_LOSSLESS) && !quantize_bits) {
             unsigned char md5_source [16];
 
             if (WavpackGetMD5Sum (infile, md5_source) && memcmp (md5_source, md5_verify, sizeof (md5_source))) {
@@ -2687,8 +2693,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     if (result == WAVPACK_NO_ERROR) {
         if (WavpackGetMD5Sum (infile, md5_display)) {
-            if (input_mode & MODE_LOSSLESS)
-                memcpy (md5_verify, md5_display, sizeof (md5_verify));
+            if ((input_mode & MODE_LOSSLESS) && quantize_bits)
+                memcpy (md5_display, md5_verify, sizeof (md5_verify));
                 
             WavpackStoreMD5Sum (outfile, md5_display);
         }
@@ -2966,8 +2972,6 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 // and stored there at the completion. Note that the md5 requires a conversion
 // to the native data format (endianness and bytes per sample) that is not
 // required overwise.
-
-static unsigned char *format_samples (int bps, unsigned char *dst, int32_t *src, uint32_t samcnt);
 
 static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsigned char *md5_digest_source)
 {
