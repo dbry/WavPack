@@ -6,6 +6,7 @@
 ##      Distributed under the BSD Software License (see license.txt)      ##
 ############################################################################
 
+        .section .note.GNU-stack,"",@progbits
         .intel_syntax noprefix
         .text
 
