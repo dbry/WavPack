@@ -6,7 +6,7 @@
 @@      Distributed under the BSD Software License (see license.txt)      @@
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-        .section .note.GNU-stack,"",@progbits
+        .section .note.GNU-stack,"",%progbits
         .text
         .align
         .global         unpack_decorr_stereo_pass_cont_armv7
