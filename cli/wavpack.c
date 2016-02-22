@@ -2258,6 +2258,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
     unsigned char *input_buffer;
     MD5_CTX md5_context;
     int32_t quantize_bit_mask = 0;
+    double fquantize_scale, fquantize_iscale;
 
     // don't use an absurd amount of memory just because we have an absurd number of channels
 
@@ -2273,8 +2274,12 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
     sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc));
     samples_remaining = WavpackGetNumSamples (wpc);
 
-    if (quantize_bits && quantize_bits < WavpackGetBytesPerSample (wpc) * 8 && 0 == (WavpackGetMode(wpc) & MODE_FLOAT)) {
+    if (quantize_bits && quantize_bits < WavpackGetBytesPerSample (wpc) * 8) {
         quantize_bit_mask = ~((1<<(WavpackGetBytesPerSample (wpc)*8-quantize_bits))-1);
+        if (MODE_FLOAT == (WavpackGetMode(wpc) & MODE_FLOAT)) {
+            fquantize_scale = (double) (1<<(quantize_bits-1));
+            fquantize_iscale = 1.0 / fquantize_scale;
+        }
     }
 
     while (1) {
@@ -2340,7 +2345,15 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
 
             if (quantize_bit_mask) {
                 unsigned int x,l = sample_count * WavpackGetNumChannels (wpc);
-                for (x = 0; x < l; x ++) sample_buffer[x] &= quantize_bit_mask;
+                if (0 == (WavpackGetMode(wpc) & MODE_FLOAT)) {
+                    for (x = 0; x < l; x ++) sample_buffer[x] &= quantize_bit_mask;
+                }
+                else {
+                    for (x = 0; x < l; x ++) {
+                        const float f = *(float *)&sample_buffer[x];
+                        *(float *)&sample_buffer[x] = (float) floor(f * fquantize_scale + 0.5) * fquantize_iscale;
+                    }
+                }
 
                 if (md5_digest_source) {
                     format_samples (WavpackGetBytesPerSample (wpc), input_buffer, sample_buffer, l);
@@ -2982,6 +2995,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     double progress = -1.0;
     MD5_CTX md5_context;
     int32_t quantize_bit_mask = 0;
+    double fquantize_scale, fquantize_iscale;
 
     // don't use an absurd amount of memory just because we have an absurd number of channels
 
@@ -2996,8 +3010,12 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     WavpackPackInit (outfile);
     sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackGetNumChannels (outfile));
 
-    if (quantize_bits && quantize_bits < bps*8 && 0 == (WavpackGetMode(infile) & MODE_FLOAT)) {
+    if (quantize_bits && quantize_bits < bps*8) {
         quantize_bit_mask = ~((1<<(bps*8-quantize_bits))-1);
+        if (MODE_FLOAT == (WavpackGetMode(infile) & MODE_FLOAT)) {
+            fquantize_scale = (double) (1<<(quantize_bits-1));
+            fquantize_iscale = 1.0 / fquantize_scale;
+        }
     }
 
     while (1) {
@@ -3008,7 +3026,15 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
 
         if (quantize_bit_mask) {
             unsigned int x,l = sample_count * num_channels;
-            for (x = 0; x < l; x ++) sample_buffer[x] &= quantize_bit_mask;
+            if (0 == (WavpackGetMode(infile) & MODE_FLOAT)) {
+                for (x = 0; x < l; x ++) sample_buffer[x] &= quantize_bit_mask;
+            }
+            else {
+                for (x = 0; x < l; x ++) {
+                    const float f = *(float *)&sample_buffer[x];
+                    *(float *)&sample_buffer[x] = (float) floor(f * fquantize_scale + 0.5) * fquantize_iscale;
+                }
+            }
         }
 
         if (md5_digest_source) {
