@@ -899,6 +899,8 @@ static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst);
 
+#define TEMP_BUFFER_SAMPLES 4096L   // composite samples in temporary buffer used during unpacking
+
 static int unpack_file (char *infilename, char *outfilename)
 {
     int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
@@ -1105,7 +1107,7 @@ static int unpack_file (char *infilename, char *outfilename)
             created_riff_header = TRUE;
     }
 
-    temp_buffer = malloc (4096L * num_channels * 4);
+    temp_buffer = malloc (TEMP_BUFFER_SAMPLES * num_channels * sizeof (temp_buffer [0]));
 
     while (result == WAVPACK_NO_ERROR) {
         uint32_t samples_to_unpack, samples_unpacked;
@@ -1113,11 +1115,11 @@ static int unpack_file (char *infilename, char *outfilename)
         if (output_buffer) {
             samples_to_unpack = (output_buffer_size - (uint32_t)(output_pointer - output_buffer)) / bytes_per_sample;
 
-            if (samples_to_unpack > 4096)
-                samples_to_unpack = 4096;
+            if (samples_to_unpack > TEMP_BUFFER_SAMPLES)
+                samples_to_unpack = TEMP_BUFFER_SAMPLES;
         }
         else
-            samples_to_unpack = 4096;
+            samples_to_unpack = TEMP_BUFFER_SAMPLES;
 
         if (until_samples_total && samples_to_unpack > until_samples_total - total_unpacked_samples)
             samples_to_unpack = until_samples_total - total_unpacked_samples;
