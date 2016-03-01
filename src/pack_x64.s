@@ -15,6 +15,7 @@
         .globl  _pack_decorr_stereo_pass_cont_x64win
         .globl  _pack_decorr_mono_buffer_x64win
         .globl  _pack_decorr_mono_pass_cont_x64win
+        .globl  _scan_max_magnitude_x64win
         .globl  _log2buffer_x64win
 
         .globl  pack_decorr_stereo_pass_x64win
@@ -22,6 +23,7 @@
         .globl  pack_decorr_stereo_pass_cont_x64win
         .globl  pack_decorr_mono_buffer_x64win
         .globl  pack_decorr_mono_pass_cont_x64win
+        .globl  scan_max_magnitude_x64win
         .globl  log2buffer_x64win
 
         .globl  _pack_decorr_stereo_pass_x64
@@ -29,6 +31,7 @@
         .globl  _pack_decorr_stereo_pass_cont_x64
         .globl  _pack_decorr_mono_buffer_x64
         .globl  _pack_decorr_mono_pass_cont_x64
+        .globl  _scan_max_magnitude_x64
         .globl  _log2buffer_x64
 
         .globl  pack_decorr_stereo_pass_x64
@@ -36,6 +39,7 @@
         .globl  pack_decorr_stereo_pass_cont_x64
         .globl  pack_decorr_mono_buffer_x64
         .globl  pack_decorr_mono_pass_cont_x64
+        .globl  scan_max_magnitude_x64
         .globl  log2buffer_x64
 
 # This module contains X64 assembly optimized versions of functions required
@@ -996,16 +1000,17 @@ done:   add     rsp, 8
 
 # This is an assembly optimized version of the following WavPack function:
 #
-# void decorr_mono_buffer (int32_t *buffer,
-#                          struct decorr_pass *decorr_passes,
-#                          int32_t num_terms,
-#                          int32_t sample_count)
+# uint32_t decorr_mono_buffer (int32_t *buffer,
+#                              struct decorr_pass *decorr_passes,
+#                              int32_t num_terms,
+#                              int32_t sample_count)
 #
 # Decorrelate a buffer of mono samples, in place, as specified by the array
 # of decorr_pass structures. Note that this function does NOT return the
 # dpp->samples_X[] values in the "normalized" positions for terms 1-8, so if
 # the number of samples is not a multiple of MAX_TERM, these must be moved if
-# they are to be used somewhere else.
+# they are to be used somewhere else. The magnitude of the output samples is
+# accumulated and returned (see scan_max_magnitude() for more details).
 #
 # By using the overflow detection of the multiply instruction, this detects
 # when the "long_math" varient is required.
@@ -1034,7 +1039,8 @@ done:   add     rsp, 8
 # esi = sample up counter
 # rdi = *buffer
 # rbp = *dpp
-# r8 = dpp end ptr (general version only)
+# r8 = dpp end ptr
+# r9 = magnitude accumulator
 #
 
 _pack_decorr_mono_buffer_x64win:
@@ -1060,6 +1066,7 @@ pack_decorr_mono_buffer_x64:
 
 mentry: mov     [rsp+8], rcx                # [rsp+8] = sample count
         mov     [rsp], rsi                  # [rsp+0] = decorr_passes
+        xor     r9, r9                      # r9 = max magnitude mask
 
         and     ecx, ecx                    # test & handle zero sample count & zero term count
         jz      mexit
@@ -1124,6 +1131,10 @@ domult: mov     eax, [rbp+8]
         jnz     nxterm
 
         mov     [rdi+rsi*4], ecx            # store completed sample
+        mov     eax, ecx                    # r9 |= (sample < 0) ? ~sample : sample
+        cdq
+        xor     eax, edx
+        or      r9, rax
         mov     rbp, [rsp]                  # reload decorr_passes pointer to first term
         inc     esi                         # increment sample index
         cmp     esi, [rsp+8]
@@ -1152,12 +1163,17 @@ multov: mov     eax, [rbp+8]
         jnz     nxterm
 
         mov     [rdi+rsi*4], ecx            # store completed sample
+        mov     eax, ecx                    # r9 |= (sample < 0) ? ~sample : sample
+        cdq
+        xor     eax, edx
+        or      r9, rax
         mov     rbp, [rsp]                  # reload decorr_passes pointer to first term
         inc     esi                         # increment sample index
         cmp     esi, [rsp+8]
         jnz     decorrelate_loop            # loop all the way back this time
 
-mexit:  add     rsp, 24
+mexit:  mov     rax, r9                     # return magnitude accumulator
+        add     rsp, 24
         pop     rsi
         pop     rdi
         pop     rbx
@@ -1377,6 +1393,133 @@ mono_term_1718_exit:
         mov     [rdx+20], eax
 
 mono_done:
+        add     rsp, 8
+        pop     rsi
+        pop     rdi
+        pop     rbx
+        pop     rbp
+        ret
+
+
+# This is an assembly optimized version of the following WavPack function:
+#
+# uint32_t scan_max_magnitude (int32_t *buffer, int32_t sample_count);
+#
+# This function scans a buffer of signed 32-bit ints and returns the magnitude
+# of the largest sample, with a power-of-two resolution. It might be more
+# useful to return the actual maximum absolute value, but that implementation
+# would be slower. Instead, this simply returns the "or" of all the values
+# "xor"d with their own sign, like so:
+#
+#     while (sample_count--)
+#         magnitude |= (*buffer < 0) ? ~*buffer++ : *buffer++;
+#
+# This is written to work on an X86-64 processor (also called the AMD64)
+# running in 64-bit mode and uses the MMX extensions to improve the
+# performance by processing two samples together.
+#
+# This version has entry points for both the System V ABI and the Windows
+# X64 ABI. It does not use the "red zone" or the "shadow area"; it saves the
+# non-volatile registers for both ABIs on the stack and allocates another
+# 8 bytes on the stack so that it's properly aligned. Note that it does NOT
+# provide unwind data for the Windows ABI (the unpack_x64.asm module for
+# MSVC does). The arguments are passed in registers:
+#
+#                             System V  Windows
+#   int32_t *buffer             rdi       rcx
+#   int32_t sample_count        rsi       rdx
+#
+# During the processing loops, the following registers are used:
+#
+#   rdi         buffer pointer
+#   rsi         termination buffer pointer
+#   ebx         single magnitude accumulator
+#   mm0         dual magnitude accumulator
+#   mm1, mm2    scratch
+#
+
+_scan_max_magnitude_x64win:
+scan_max_magnitude_x64win:
+        push    rbp
+        push    rbx
+        push    rdi
+        push    rsi
+        sub     rsp, 8
+        mov     rdi, rcx                    # copy params from win regs to Linux regs
+        mov     rsi, rdx                    # so we can leave following code similar
+        mov     rdx, r8
+        mov     rcx, r9
+        jmp     senter
+
+_scan_max_magnitude_x64:
+scan_max_magnitude_x64:
+        push    rbp
+        push    rbx
+        push    rdi
+        push    rsi
+        sub     rsp, 8
+
+senter: xor     ebx, ebx                    # clear magnitude accumulator
+
+        mov     eax, esi                    # eax = count
+        and     eax, 7
+        mov     ecx, eax                    # ecx = leftover samples to "manually" scan at end
+
+        shr     esi, 3                      # esi = num of loops to process mmx (8 samples/loop)
+        shl     esi, 5                      # esi = num of bytes to process mmx (32 bytes/loop)
+        jz      nommx                       # jump around if no mmx loops to do (< 8 samples)
+
+        pxor    mm0, mm0                    # clear dual magnitude accumulator
+        add     rsi, rdi                    # rsi = termination buffer pointer for mmx loop
+        jmp     mmxlp
+
+        .balign  64
+
+mmxlp:  movq    mm1, [rdi]                  # get stereo samples in mm1 & mm2
+        movq    mm2, mm1
+        psrad   mm1, 31                     # mm1 = sign (mm2)
+        pxor    mm1, mm2                    # mm1 = absolute magnitude, or into result
+        por     mm0, mm1
+
+        movq    mm1, [rdi+8]                # do it again with 6 more samples
+        movq    mm2, mm1
+        psrad   mm1, 31
+        pxor    mm1, mm2
+        por     mm0, mm1
+
+        movq    mm1, [rdi+16]
+        movq    mm2, mm1
+        psrad   mm1, 31
+        pxor    mm1, mm2
+        por     mm0, mm1
+
+        movq    mm1, [rdi+24]
+        movq    mm2, mm1
+        psrad   mm1, 31
+        pxor    mm1, mm2
+        por     mm0, mm1
+
+        add     rdi, 32
+        cmp     rdi, rsi
+        jnz     mmxlp
+
+        movd    eax, mm0                    # ebx = "or" of high and low mm0
+        punpckhdq mm0, mm0
+        movd    ebx, mm0
+        or      ebx, eax
+        emms
+
+nommx:  and     ecx, ecx                    # any leftover samples to do?
+        jz      noleft
+
+leftlp: mov     eax, [rdi]
+        cdq
+        xor     eax, edx
+        or      ebx, eax
+        add     rdi, 4
+        loop    leftlp
+
+noleft: mov     eax, ebx                    # move magnitude to eax for return
         add     rsp, 8
         pop     rsi
         pop     rdi

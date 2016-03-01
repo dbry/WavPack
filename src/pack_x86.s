@@ -16,6 +16,7 @@
         .globl  _pack_decorr_mono_buffer_x86
         .globl  _pack_decorr_mono_pass_cont_x86
         .globl  _pack_cpu_has_feature_x86
+        .globl  _scan_max_magnitude_x86
         .globl  _log2buffer_x86
 
         .globl  pack_decorr_stereo_pass_x86
@@ -24,6 +25,7 @@
         .globl  pack_decorr_mono_buffer_x86
         .globl  pack_decorr_mono_pass_cont_x86
         .globl  pack_cpu_has_feature_x86
+        .globl  scan_max_magnitude_x86
         .globl  log2buffer_x86
 
 # This module contains X86 assembly optimized versions of functions required
@@ -939,28 +941,29 @@ done:   pop     edi
 
 # This is an assembly optimized version of the following WavPack function:
 #
-# void decorr_mono_buffer (int32_t *buffer,
-#                          struct decorr_pass *decorr_passes,
-#                          int32_t num_terms,
-#                          int32_t sample_count)
+# uint32_t decorr_mono_buffer (int32_t *buffer,
+#                              struct decorr_pass *decorr_passes,
+#                              int32_t num_terms,
+#                              int32_t sample_count)
 #
 # Decorrelate a buffer of mono samples, in place, as specified by the array
 # of decorr_pass structures. Note that this function does NOT return the
 # dpp->samples_X[] values in the "normalized" positions for terms 1-8, so if
 # the number of samples is not a multiple of MAX_TERM, these must be moved if
-# they are to be used somewhere else.
+# they are to be used somewhere else. The magnitude of the output samples is
+# accumulated and returned (see scan_max_magnitude() for more details).
 #
 # By using the overflow detection of the multiply instruction, this detects
 # when the "long_math" varient is required.
 #
 # This is written to work on an IA-32 processor. The arguments are on the
-# stack at these locations (after 5 pushes, we do not use ebp as a base
+# stack at these locations (after 6 pushes, we do not use ebp as a base
 # pointer):
 #
-#   int32_t *buffer             [esp+24]
-#   struct decorr_pass *dpp     [esp+28]
-#   int32_t num_terms           [esp+32]
-#   int32_t sample_count        [esp+36]
+#   int32_t *buffer             [esp+28]
+#   struct decorr_pass *dpp     [esp+32]
+#   int32_t num_terms           [esp+36]
+#   int32_t sample_count        [esp+40]
 #
 # register usage:
 #
@@ -972,6 +975,7 @@ done:   pop     edi
 # stack usage:
 #
 # [esp+0] = dpp end ptr
+# [esp+4] = magnitude accumulator
 #
 
 _pack_decorr_mono_buffer_x86:
@@ -980,20 +984,22 @@ pack_decorr_mono_buffer_x86:
         push    ebx
         push    esi
         push    edi
+        xor     eax, eax
+        push    eax                         # this is magnitude accumulator
         push    eax                         # this will be dpp end ptr
 
-        mov     edx, [esp+32]               # get number of terms
+        mov     edx, [esp+36]               # get number of terms
         imul    eax, edx, 96                # calculate & store termination check ptr
-        add     eax, [esp+28]
+        add     eax, [esp+32]
         mov     [esp], eax
 
-        cmp     DWORD PTR [esp+36], 0       # test & handle zero sample count & zero term count
+        cmp     DWORD PTR [esp+40], 0       # test & handle zero sample count & zero term count
         jz      mexit
         test    edx, edx
         jz      mexit
 
-        mov     edi, [esp+24]
-        mov     ebp, [esp+28]
+        mov     edi, [esp+28]
+        mov     ebp, [esp+32]
         xor     esi, esi                     # up counter = 0
         jmp     decorrelate_loop
 
@@ -1048,9 +1054,13 @@ domult: mov     eax, [ebp+8]
         jnz     nxterm
 
         mov     [edi+esi*4], ecx            # store completed sample
-        mov     ebp, [esp+28]               # reload decorr_passes pointer to first term
+        mov     eax, ecx                    # magnitude accumulator |= (sample < 0) ? ~sample : sample
+        cdq
+        xor     eax, edx
+        or      [esp+4], eax
+        mov     ebp, [esp+32]               # reload decorr_passes pointer to first term
         inc     esi                         # increment sample index
-        cmp     esi, [esp+36]
+        cmp     esi, [esp+40]
         jnz     decorrelate_loop
         jmp     mexit
 
@@ -1076,12 +1086,17 @@ multov: mov     eax, [ebp+8]
         jnz     nxterm
 
         mov     [edi+esi*4], ecx            # store completed sample
-        mov     ebp, [esp+28]               # reload decorr_passes pointer to first term
+        mov     eax, ecx                    # magnitude accumulator |= (sample < 0) ? ~sample : sample
+        cdq
+        xor     eax, edx
+        or      [esp+4], eax
+        mov     ebp, [esp+32]               # reload decorr_passes pointer to first term
         inc     esi                         # increment sample index
-        cmp     esi, [esp+36]
+        cmp     esi, [esp+40]
         jnz     decorrelate_loop            # loop all the way back this time
 
 mexit:  pop     eax
+        pop     eax                         # pop magnitude accumulator
         pop     edi
         pop     esi
         pop     ebx
@@ -1293,6 +1308,114 @@ mono_term_1718_exit:
 mono_done:
         add     esp, 12                     # deallocate stack space
         pop     edi                         # pop saved registers & return
+        pop     esi
+        pop     ebx
+        pop     ebp
+        ret
+
+
+# This is an assembly optimized version of the following WavPack function:
+#
+# uint32_t scan_max_magnitude (int32_t *buffer, int32_t sample_count);
+#
+# This function scans a buffer of signed 32-bit ints and returns the magnitude
+# of the largest sample, with a power-of-two resolution. It might be more
+# useful to return the actual maximum absolute value, but that implementation
+# would be slower. Instead, this simply returns the "or" of all the values
+# "xor"d with their own sign, like so:
+#
+#     while (sample_count--)
+#         magnitude |= (*buffer < 0) ? ~*buffer++ : *buffer++;
+#
+# This is written to work on an IA-32 processor and uses the MMX extensions
+# to improve the performance by processing two samples together. The arguments
+# are on the stack at these locations (after 4 pushes, we do not use ebp as a
+# base pointer):
+#
+#   int32_t *buffer             [esp+20]
+#   uint32_t sample_count       [esp+24]
+#
+# During the processing loops, the following registers are used:
+#
+#   edi         buffer pointer
+#   esi         termination buffer pointer
+#   ebx         single magnitude accumulator
+#   mm0         dual magnitude accumulator
+#   mm1, mm2    scratch
+#
+
+_scan_max_magnitude_x86:
+scan_max_magnitude_x86:
+        push    ebp
+        push    ebx
+        push    esi
+        push    edi
+
+        xor     ebx, ebx                    # clear magnitude accumulator
+        mov     edi, [esp+20]               # edi = buffer pointer
+
+        mov     eax, [esp+24]               # eax = count
+        and     eax, 7
+        mov     ecx, eax                    # ecx = leftover samples to "manually" scan at end
+
+        mov     eax, [esp+24]               # eax = count
+        shr     eax, 3                      # eax = num of loops to process mmx (8 samples/loop)
+        shl     eax, 5                      # eax = num of bytes to process mmx (32 bytes/loop)
+        jz      nommx                       # jump around if no mmx loops to do (< 8 samples)
+
+        pxor    mm0, mm0                    # clear dual magnitude accumulator
+        add     eax, edi                    # esi = termination buffer pointer for mmx loop
+        mov     esi, eax
+        jmp     mmxlp
+
+        .balign  64
+
+mmxlp:  movq    mm1, [edi]                  # get stereo samples in mm1 & mm2
+        movq    mm2, mm1
+        psrad   mm1, 31                     # mm1 = sign (mm2)
+        pxor    mm1, mm2                    # mm1 = absolute magnitude, or into result
+        por     mm0, mm1
+
+        movq    mm1, [edi+8]                # do it again with 6 more samples
+        movq    mm2, mm1
+        psrad   mm1, 31
+        pxor    mm1, mm2
+        por     mm0, mm1
+
+        movq    mm1, [edi+16]
+        movq    mm2, mm1
+        psrad   mm1, 31
+        pxor    mm1, mm2
+        por     mm0, mm1
+
+        movq    mm1, [edi+24]
+        movq    mm2, mm1
+        psrad   mm1, 31
+        pxor    mm1, mm2
+        por     mm0, mm1
+
+        add     edi, 32
+        cmp     edi, esi
+        jnz     mmxlp
+
+        movd    eax, mm0                    # ebx = "or" of high and low mm0
+        punpckhdq mm0, mm0
+        movd    ebx, mm0
+        or      ebx, eax
+        emms
+
+nommx:  and     ecx, ecx                    # any leftover samples to do?
+        jz      noleft
+
+leftlp: mov     eax, [edi]
+        cdq
+        xor     eax, edx
+        or      ebx, eax
+        add     edi, 4
+        loop    leftlp
+
+noleft: mov     eax, ebx                    # move magnitude to eax for return
+        pop     edi
         pop     esi
         pop     ebx
         pop     ebp

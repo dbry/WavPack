@@ -802,35 +802,44 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
 #ifdef OPT_ASM_X86
     #define DECORR_STEREO_PASS pack_decorr_stereo_pass_x86
     #define DECORR_MONO_BUFFER pack_decorr_mono_buffer_x86
+    #define SCAN_MAX_MAGNITUDE scan_max_magnitude_x86
 #elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
     #define DECORR_STEREO_PASS pack_decorr_stereo_pass_x64win
     #define DECORR_MONO_BUFFER pack_decorr_mono_buffer_x64win
+    #define SCAN_MAX_MAGNITUDE scan_max_magnitude_x64win
 #elif defined(OPT_ASM_X64)
     #define DECORR_STEREO_PASS pack_decorr_stereo_pass_x64
     #define DECORR_MONO_BUFFER pack_decorr_mono_buffer_x64
+    #define SCAN_MAX_MAGNITUDE scan_max_magnitude_x64
 #else
     #define DECORR_STEREO_PASS decorr_stereo_pass
     #define DECORR_MONO_BUFFER decorr_mono_buffer
+    #define SCAN_MAX_MAGNITUDE scan_max_magnitude
 #endif
 
 void DECORR_STEREO_PASS (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
-void DECORR_MONO_BUFFER (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count);
+uint32_t DECORR_MONO_BUFFER (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count);
+uint32_t SCAN_MAX_MAGNITUDE (int32_t *values, int32_t num_values);
 
 #ifdef OPT_ASM_X86
 void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
+uint32_t scan_max_magnitude (int32_t *values, int32_t num_values);
 #endif
+
+// These two macros control the "repack" function where a block of samples will be repacked with
+// fewer terms if a single residual exceeds the specified magnitude threshold.
+
+#define REPACK_SAFE_NUM_TERMS 5                 // 5 terms is always okay (and we truncate to this)
+#define REPACK_THRESHOLD_MASK 0xF0000000        // a residual exceeding this mask triggers a repack
 
 static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uint32_t flags = wps->wphdr.flags, data_count, crc, crc2, i;
+    WavpackStream *wps = wpc->streams [wpc->current_stream], saved_stream;
+    uint32_t flags = wps->wphdr.flags, repack_possible, data_count, crc, crc2, i;
     uint32_t sample_count = wps->wphdr.block_samples;
-    short *shaping_array = wps->dc.shaping_array;
-    int tcount, lossy = FALSE, m = 0;
-    double noise_acc = 0.0, noise;
+    int32_t *bptr, *saved_buffer = NULL;
     struct decorr_pass *dpp;
     WavpackMetadata wpmd;
-    int32_t *bptr;
 
     crc = crc2 = 0xffffffff;
 
@@ -885,380 +894,447 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     if (!sample_count)
         return TRUE;
 
-    write_decorr_terms (wps, &wpmd);
-    copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-    free_metadata (&wpmd);
+    memcpy (&wps->wphdr, wps->blockbuff, sizeof (WavpackHeader));
+    repack_possible = !wps->num_passes && wps->num_terms > REPACK_SAFE_NUM_TERMS;
+    saved_stream = *wps;
 
-    write_decorr_weights (wps, &wpmd);
-    copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-    free_metadata (&wpmd);
-
-    write_decorr_samples (wps, &wpmd);
-    copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-    free_metadata (&wpmd);
-
-    write_entropy_vars (wps, &wpmd);
-    copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-    free_metadata (&wpmd);
-
-    if ((flags & SRATE_MASK) == SRATE_MASK && wpc->config.sample_rate != 44100) {
-        write_sample_rate (wpc, &wpmd);
-        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-        free_metadata (&wpmd);
+    if (repack_possible && !(flags & HYBRID_FLAG)) {
+        saved_buffer = malloc (sample_count * sizeof (int32_t) * (flags & MONO_DATA ? 1 : 2));
+        memcpy (saved_buffer, buffer, sample_count * sizeof (int32_t) * (flags & MONO_DATA ? 1 : 2));
     }
 
-    if (flags & HYBRID_FLAG) {
-        write_hybrid_profile (wps, &wpmd);
+    // This code is written as a loop, but in the overwhelming majority of cases it executes only once.
+    // If one of the higher modes is being used and a residual exceeds a certain threshold, then the
+    // block will be repacked using fewer decorrelation terms. Note that this has only been triggered
+    // by pathological audio samples designed to trigger it...in practice this might never happen. Note
+    // that this only applies to the "high" and "very high" modes and only when packing directly
+    // (i.e. without the "extra" modes that will have already checked magnitude).
+
+    do {
+        short *shaping_array = wps->dc.shaping_array;
+        int tcount, lossy = FALSE, m = 0;
+        double noise_acc = 0.0, noise;
+        uint32_t max_magnitude = 0;
+
+        write_decorr_terms (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
-    }
 
-    if (flags & FLOAT_DATA) {
-        write_float_info (wps, &wpmd);
+        write_decorr_weights (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
-    }
 
-    if (flags & INT32_DATA) {
-        write_int32_info (wps, &wpmd);
+        write_decorr_samples (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
-    }
 
-    if ((flags & INITIAL_BLOCK) &&
-        (wpc->config.num_channels > 2 ||
-        wpc->config.channel_mask != 0x5 - wpc->config.num_channels)) {
-            write_channel_info (wpc, &wpmd);
+        write_entropy_vars (wps, &wpmd);
+        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+        free_metadata (&wpmd);
+
+        if ((flags & SRATE_MASK) == SRATE_MASK && wpc->config.sample_rate != 44100) {
+            write_sample_rate (wpc, &wpmd);
             copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
             free_metadata (&wpmd);
-    }
+        }
 
-    if ((flags & INITIAL_BLOCK) && !wps->sample_index) {
-        write_config_info (wpc, &wpmd);
-        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-        free_metadata (&wpmd);
-    }
-
-    bs_open_write (&wps->wvbits, wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12, wps->blockend);
-
-    if (wpc->wvc_flag) {
-        wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
-        memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
-
-        if (flags & HYBRID_SHAPE) {
-            write_shaping_info (wps, &wpmd);
-            copy_metadata (&wpmd, wps->block2buff, wps->block2end);
+        if (flags & HYBRID_FLAG) {
+            write_hybrid_profile (wps, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
             free_metadata (&wpmd);
         }
 
-        bs_open_write (&wps->wvcbits, wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 12, wps->block2end);
-    }
-
-    /////////////////////// handle lossless mono mode /////////////////////////
-
-    if (!(flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
-        if (!wps->num_passes) {
-            DECORR_MONO_BUFFER (buffer, wps->decorr_passes, wps->num_terms, sample_count);
-            m = sample_count & (MAX_TERM - 1);
+        if (flags & FLOAT_DATA) {
+            write_float_info (wps, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+            free_metadata (&wpmd);
         }
 
-        send_words_lossless (wps, buffer, sample_count);
-    }
+        if (flags & INT32_DATA) {
+            write_int32_info (wps, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+            free_metadata (&wpmd);
+        }
 
-    //////////////////// handle the lossless stereo mode //////////////////////
+        if ((flags & INITIAL_BLOCK) &&
+            (wpc->config.num_channels > 2 ||
+            wpc->config.channel_mask != 0x5 - wpc->config.num_channels)) {
+                write_channel_info (wpc, &wpmd);
+                copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+                free_metadata (&wpmd);
+        }
 
-    else if (!(flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
-        if (!wps->num_passes) {
-            if (flags & JOINT_STEREO) {
-                int32_t *eptr = buffer + (sample_count * 2);
+        if ((flags & INITIAL_BLOCK) && !wps->sample_index) {
+            write_config_info (wpc, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+            free_metadata (&wpmd);
+        }
 
-                for (bptr = buffer; bptr < eptr; bptr += 2)
-                    bptr [1] += ((bptr [0] -= bptr [1]) >> 1);
+        bs_open_write (&wps->wvbits, wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12, wps->blockend);
+
+        if (wpc->wvc_flag) {
+            wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+            memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
+
+            if (flags & HYBRID_SHAPE) {
+                write_shaping_info (wps, &wpmd);
+                copy_metadata (&wpmd, wps->block2buff, wps->block2end);
+                free_metadata (&wpmd);
             }
 
-            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
+            bs_open_write (&wps->wvcbits, wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 12, wps->block2end);
+        }
+
+        /////////////////////// handle lossless mono mode /////////////////////////
+
+        if (!(flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
+            if (!wps->num_passes) {
+                max_magnitude = DECORR_MONO_BUFFER (buffer, wps->decorr_passes, wps->num_terms, sample_count);
+                m = sample_count & (MAX_TERM - 1);
+            }
+
+            send_words_lossless (wps, buffer, sample_count);
+        }
+
+        //////////////////// handle the lossless stereo mode //////////////////////
+
+        else if (!(flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
+            if (!wps->num_passes) {
+                if (flags & JOINT_STEREO) {
+                    int32_t *eptr = buffer + (sample_count * 2);
+
+                    for (bptr = buffer; bptr < eptr; bptr += 2)
+                        bptr [1] += ((bptr [0] -= bptr [1]) >> 1);
+                }
+
+                for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
 #ifdef OPT_ASM_X86
-                if (pack_cpu_has_feature_x86 (CPU_FEATURE_MMX))
-                    DECORR_STEREO_PASS (dpp, buffer, sample_count);
-                else
-                    decorr_stereo_pass (dpp, buffer, sample_count);
-#else
-                DECORR_STEREO_PASS (dpp, buffer, sample_count);
-#endif
-            m = sample_count & (MAX_TERM - 1);
-        }
-
-        send_words_lossless (wps, buffer, sample_count);
-    }
-
-    /////////////////// handle the lossy/hybrid mono mode /////////////////////
-
-    else if ((flags & HYBRID_FLAG) && (flags & MONO_DATA))
-        for (bptr = buffer, i = 0; i < sample_count; ++i) {
-            int32_t code, temp;
-            int shaping_weight;
-
-            crc2 += (crc2 << 1) + (code = *bptr++);
-
-            if (flags & HYBRID_SHAPE) {
-                if (shaping_array)
-                    shaping_weight = *shaping_array++;
-                else
-                    shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
-
-                temp = -apply_weight (shaping_weight, wps->dc.error [0]);
-
-                if ((flags & NEW_SHAPING) && shaping_weight < 0 && temp) {
-                    if (temp == wps->dc.error [0])
-                        temp = (temp < 0) ? temp + 1 : temp - 1;
-
-                    wps->dc.error [0] = -code;
-                    code += temp;
-                }
-                else
-                    wps->dc.error [0] = -(code += temp);
-            }
-
-            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
-                if (dpp->term > MAX_TERM) {
-                    if (dpp->term & 1)
-                        dpp->samples_A [2] = 2 * dpp->samples_A [0] - dpp->samples_A [1];
+                    if (pack_cpu_has_feature_x86 (CPU_FEATURE_MMX))
+                        DECORR_STEREO_PASS (dpp, buffer, sample_count);
                     else
-                        dpp->samples_A [2] = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
+                        decorr_stereo_pass (dpp, buffer, sample_count);
+#else
+                    DECORR_STEREO_PASS (dpp, buffer, sample_count);
+#endif
+                m = sample_count & (MAX_TERM - 1);
 
-                    code -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [2]));
-                }
-                else
-                    code -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [m]));
-
-            code = send_word (wps, code, 0);
-
-            while (--dpp >= wps->decorr_passes) {
-                if (dpp->term > MAX_TERM) {
-                    update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [2], code);
-                    dpp->samples_A [1] = dpp->samples_A [0];
-                    dpp->samples_A [0] = (code += dpp->aweight_A);
-                }
-                else {
-                    int32_t sam = dpp->samples_A [m];
-
-                    update_weight (dpp->weight_A, dpp->delta, sam, code);
-                    dpp->samples_A [(m + dpp->term) & (MAX_TERM - 1)] = (code += dpp->aweight_A);
+                if (repack_possible) {
+#ifdef OPT_ASM_X86
+                    if (pack_cpu_has_feature_x86 (CPU_FEATURE_MMX))
+                        max_magnitude = SCAN_MAX_MAGNITUDE (buffer, sample_count * 2);
+                    else
+                        max_magnitude = scan_max_magnitude (buffer, sample_count * 2);
+#else
+                    max_magnitude = SCAN_MAX_MAGNITUDE (buffer, sample_count * 2);
+#endif
                 }
             }
 
-            wps->dc.error [0] += code;
-            m = (m + 1) & (MAX_TERM - 1);
-
-            if ((crc += (crc << 1) + code) != crc2)
-                lossy = TRUE;
-
-            if (wpc->config.flags & CONFIG_CALC_NOISE) {
-                noise = code - bptr [-1];
-
-                noise_acc += noise *= noise;
-                wps->dc.noise_ave = (wps->dc.noise_ave * 0.99) + (noise * 0.01);
-
-                if (wps->dc.noise_ave > wps->dc.noise_max)
-                    wps->dc.noise_max = wps->dc.noise_ave;
-            }
+            send_words_lossless (wps, buffer, sample_count);
         }
 
-    /////////////////// handle the lossy/hybrid stereo mode ///////////////////
+        /////////////////// handle the lossy/hybrid mono mode /////////////////////
 
-    else if ((flags & HYBRID_FLAG) && !(flags & MONO_DATA))
-        for (bptr = buffer, i = 0; i < sample_count; ++i) {
-            int32_t left, right, temp;
-            int shaping_weight;
+        else if ((flags & HYBRID_FLAG) && (flags & MONO_DATA))
+            for (bptr = buffer, i = 0; i < sample_count; ++i) {
+                int32_t code, temp;
+                int shaping_weight;
 
-            left = *bptr++;
-            crc2 += (crc2 << 3) + (left << 1) + left + (right = *bptr++);
+                crc2 += (crc2 << 1) + (code = *bptr++);
 
-            if (flags & HYBRID_SHAPE) {
-                if (shaping_array)
-                    shaping_weight = *shaping_array++;
-                else
-                    shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
+                if (flags & HYBRID_SHAPE) {
+                    if (shaping_array)
+                        shaping_weight = *shaping_array++;
+                    else
+                        shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
 
-                temp = -apply_weight (shaping_weight, wps->dc.error [0]);
+                    temp = -apply_weight (shaping_weight, wps->dc.error [0]);
 
-                if ((flags & NEW_SHAPING) && shaping_weight < 0 && temp) {
-                    if (temp == wps->dc.error [0])
-                        temp = (temp < 0) ? temp + 1 : temp - 1;
+                    if ((flags & NEW_SHAPING) && shaping_weight < 0 && temp) {
+                        if (temp == wps->dc.error [0])
+                            temp = (temp < 0) ? temp + 1 : temp - 1;
 
-                    wps->dc.error [0] = -left;
-                    left += temp;
+                        wps->dc.error [0] = -code;
+                        code += temp;
+                    }
+                    else
+                        wps->dc.error [0] = -(code += temp);
                 }
-                else
-                    wps->dc.error [0] = -(left += temp);
 
-                if (!shaping_array)
-                    shaping_weight = (wps->dc.shaping_acc [1] += wps->dc.shaping_delta [1]) >> 16;
+                for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
+                    if (dpp->term > MAX_TERM) {
+                        if (dpp->term & 1)
+                            dpp->samples_A [2] = 2 * dpp->samples_A [0] - dpp->samples_A [1];
+                        else
+                            dpp->samples_A [2] = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
 
-                temp = -apply_weight (shaping_weight, wps->dc.error [1]);
+                        code -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [2]));
+                    }
+                    else
+                        code -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [m]));
 
-                if ((flags & NEW_SHAPING) && shaping_weight < 0 && temp) {
-                    if (temp == wps->dc.error [1])
-                        temp = (temp < 0) ? temp + 1 : temp - 1;
+                max_magnitude |= (code < 0 ? ~code : code);
+                code = send_word (wps, code, 0);
 
-                    wps->dc.error [1] = -right;
-                    right += temp;
-                }
-                else
-                    wps->dc.error [1] = -(right += temp);
-            }
-
-            if (flags & JOINT_STEREO)
-                right += ((left -= right) >> 1);
-
-            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
-                if (dpp->term > MAX_TERM) {
-                    if (dpp->term & 1) {
-                        dpp->samples_A [2] = 2 * dpp->samples_A [0] - dpp->samples_A [1];
-                        dpp->samples_B [2] = 2 * dpp->samples_B [0] - dpp->samples_B [1];
+                while (--dpp >= wps->decorr_passes) {
+                    if (dpp->term > MAX_TERM) {
+                        update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [2], code);
+                        dpp->samples_A [1] = dpp->samples_A [0];
+                        dpp->samples_A [0] = (code += dpp->aweight_A);
                     }
                     else {
-                        dpp->samples_A [2] = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
-                        dpp->samples_B [2] = (3 * dpp->samples_B [0] - dpp->samples_B [1]) >> 1;
+                        int32_t sam = dpp->samples_A [m];
+
+                        update_weight (dpp->weight_A, dpp->delta, sam, code);
+                        dpp->samples_A [(m + dpp->term) & (MAX_TERM - 1)] = (code += dpp->aweight_A);
                     }
-
-                    left -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [2]));
-                    right -= (dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [2]));
-                }
-                else if (dpp->term > 0) {
-                    left -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [m]));
-                    right -= (dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [m]));
-                }
-                else {
-                    if (dpp->term == -1)
-                        dpp->samples_B [0] = left;
-                    else if (dpp->term == -2)
-                        dpp->samples_A [0] = right;
-
-                    left -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [0]));
-                    right -= (dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [0]));
                 }
 
-            left = send_word (wps, left, 0);
-            right = send_word (wps, right, 1);
+                wps->dc.error [0] += code;
+                m = (m + 1) & (MAX_TERM - 1);
 
-            while (--dpp >= wps->decorr_passes)
-                if (dpp->term > MAX_TERM) {
-                    update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [2], left);
-                    update_weight (dpp->weight_B, dpp->delta, dpp->samples_B [2], right);
+                if ((crc += (crc << 1) + code) != crc2)
+                    lossy = TRUE;
 
-                    dpp->samples_A [1] = dpp->samples_A [0];
-                    dpp->samples_B [1] = dpp->samples_B [0];
+                if (wpc->config.flags & CONFIG_CALC_NOISE) {
+                    noise = code - bptr [-1];
 
-                    dpp->samples_A [0] = (left += dpp->aweight_A);
-                    dpp->samples_B [0] = (right += dpp->aweight_B);
-                }
-                else if (dpp->term > 0) {
-                    int k = (m + dpp->term) & (MAX_TERM - 1);
+                    noise_acc += noise *= noise;
+                    wps->dc.noise_ave = (wps->dc.noise_ave * 0.99) + (noise * 0.01);
 
-                    update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [m], left);
-                    dpp->samples_A [k] = (left += dpp->aweight_A);
-
-                    update_weight (dpp->weight_B, dpp->delta, dpp->samples_B [m], right);
-                    dpp->samples_B [k] = (right += dpp->aweight_B);
-                }
-                else {
-                    if (dpp->term == -1) {
-                        dpp->samples_B [0] = left + dpp->aweight_A;
-                        dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [0]);
-                    }
-                    else if (dpp->term == -2) {
-                        dpp->samples_A [0] = right + dpp->aweight_B;
-                        dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [0]);
-                    }
-
-                    update_weight_clip (dpp->weight_A, dpp->delta, dpp->samples_A [0], left);
-                    update_weight_clip (dpp->weight_B, dpp->delta, dpp->samples_B [0], right);
-                    dpp->samples_B [0] = (left += dpp->aweight_A);
-                    dpp->samples_A [0] = (right += dpp->aweight_B);
-                }
-
-            if (flags & JOINT_STEREO)
-                left += (right -= (left >> 1));
-
-            wps->dc.error [0] += left;
-            wps->dc.error [1] += right;
-            m = (m + 1) & (MAX_TERM - 1);
-
-            if ((crc += (crc << 3) + (left << 1) + left + right) != crc2)
-                lossy = TRUE;
-
-            if (wpc->config.flags & CONFIG_CALC_NOISE) {
-                noise = (double)(left - bptr [-2]) * (left - bptr [-2]);
-                noise += (double)(right - bptr [-1]) * (right - bptr [-1]);
-
-                noise_acc += noise /= 2.0;
-                wps->dc.noise_ave = (wps->dc.noise_ave * 0.99) + (noise * 0.01);
-
-                if (wps->dc.noise_ave > wps->dc.noise_max)
-                    wps->dc.noise_max = wps->dc.noise_ave;
-            }
-        }
-
-    if (m)
-        for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
-            if (dpp->term > 0 && dpp->term <= MAX_TERM) {
-                int32_t temp_A [MAX_TERM], temp_B [MAX_TERM];
-                int k;
-
-                memcpy (temp_A, dpp->samples_A, sizeof (dpp->samples_A));
-                memcpy (temp_B, dpp->samples_B, sizeof (dpp->samples_B));
-
-                for (k = 0; k < MAX_TERM; k++) {
-                    dpp->samples_A [k] = temp_A [m];
-                    dpp->samples_B [k] = temp_B [m];
-                    m = (m + 1) & (MAX_TERM - 1);
+                    if (wps->dc.noise_ave > wps->dc.noise_max)
+                        wps->dc.noise_max = wps->dc.noise_ave;
                 }
             }
 
-    if (wpc->config.flags & CONFIG_CALC_NOISE)
-        wps->dc.noise_sum += noise_acc;
+        /////////////////// handle the lossy/hybrid stereo mode ///////////////////
 
-    flush_word (wps);
-    data_count = bs_close_write (&wps->wvbits);
+        else if ((flags & HYBRID_FLAG) && !(flags & MONO_DATA))
+            for (bptr = buffer, i = 0; i < sample_count; ++i) {
+                int32_t left, right, temp;
+                int shaping_weight;
 
-    if (data_count) {
-        if (data_count != (uint32_t) -1) {
-            unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
+                left = *bptr++;
+                crc2 += (crc2 << 3) + (left << 1) + left + (right = *bptr++);
 
-            *cptr++ = ID_WV_BITSTREAM | ID_LARGE;
-            *cptr++ = data_count >> 1;
-            *cptr++ = data_count >> 9;
-            *cptr++ = data_count >> 17;
-            ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
-        }
-        else
-            return FALSE;
-    }
+                if (flags & HYBRID_SHAPE) {
+                    if (shaping_array)
+                        shaping_weight = *shaping_array++;
+                    else
+                        shaping_weight = (wps->dc.shaping_acc [0] += wps->dc.shaping_delta [0]) >> 16;
 
-    ((WavpackHeader *) wps->blockbuff)->crc = crc;
+                    temp = -apply_weight (shaping_weight, wps->dc.error [0]);
 
-    if (wpc->wvc_flag) {
-        data_count = bs_close_write (&wps->wvcbits);
+                    if ((flags & NEW_SHAPING) && shaping_weight < 0 && temp) {
+                        if (temp == wps->dc.error [0])
+                            temp = (temp < 0) ? temp + 1 : temp - 1;
 
-        if (data_count && lossy) {
+                        wps->dc.error [0] = -left;
+                        left += temp;
+                    }
+                    else
+                        wps->dc.error [0] = -(left += temp);
+
+                    if (!shaping_array)
+                        shaping_weight = (wps->dc.shaping_acc [1] += wps->dc.shaping_delta [1]) >> 16;
+
+                    temp = -apply_weight (shaping_weight, wps->dc.error [1]);
+
+                    if ((flags & NEW_SHAPING) && shaping_weight < 0 && temp) {
+                        if (temp == wps->dc.error [1])
+                            temp = (temp < 0) ? temp + 1 : temp - 1;
+
+                        wps->dc.error [1] = -right;
+                        right += temp;
+                    }
+                    else
+                        wps->dc.error [1] = -(right += temp);
+                }
+
+                if (flags & JOINT_STEREO)
+                    right += ((left -= right) >> 1);
+
+                for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
+                    if (dpp->term > MAX_TERM) {
+                        if (dpp->term & 1) {
+                            dpp->samples_A [2] = 2 * dpp->samples_A [0] - dpp->samples_A [1];
+                            dpp->samples_B [2] = 2 * dpp->samples_B [0] - dpp->samples_B [1];
+                        }
+                        else {
+                            dpp->samples_A [2] = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
+                            dpp->samples_B [2] = (3 * dpp->samples_B [0] - dpp->samples_B [1]) >> 1;
+                        }
+
+                        left -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [2]));
+                        right -= (dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [2]));
+                    }
+                    else if (dpp->term > 0) {
+                        left -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [m]));
+                        right -= (dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [m]));
+                    }
+                    else {
+                        if (dpp->term == -1)
+                            dpp->samples_B [0] = left;
+                        else if (dpp->term == -2)
+                            dpp->samples_A [0] = right;
+
+                        left -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [0]));
+                        right -= (dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [0]));
+                    }
+
+                max_magnitude |= (left < 0 ? ~left : left) | (right < 0 ? ~right : right);
+                left = send_word (wps, left, 0);
+                right = send_word (wps, right, 1);
+
+                while (--dpp >= wps->decorr_passes)
+                    if (dpp->term > MAX_TERM) {
+                        update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [2], left);
+                        update_weight (dpp->weight_B, dpp->delta, dpp->samples_B [2], right);
+
+                        dpp->samples_A [1] = dpp->samples_A [0];
+                        dpp->samples_B [1] = dpp->samples_B [0];
+
+                        dpp->samples_A [0] = (left += dpp->aweight_A);
+                        dpp->samples_B [0] = (right += dpp->aweight_B);
+                    }
+                    else if (dpp->term > 0) {
+                        int k = (m + dpp->term) & (MAX_TERM - 1);
+
+                        update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [m], left);
+                        dpp->samples_A [k] = (left += dpp->aweight_A);
+
+                        update_weight (dpp->weight_B, dpp->delta, dpp->samples_B [m], right);
+                        dpp->samples_B [k] = (right += dpp->aweight_B);
+                    }
+                    else {
+                        if (dpp->term == -1) {
+                            dpp->samples_B [0] = left + dpp->aweight_A;
+                            dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [0]);
+                        }
+                        else if (dpp->term == -2) {
+                            dpp->samples_A [0] = right + dpp->aweight_B;
+                            dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [0]);
+                        }
+
+                        update_weight_clip (dpp->weight_A, dpp->delta, dpp->samples_A [0], left);
+                        update_weight_clip (dpp->weight_B, dpp->delta, dpp->samples_B [0], right);
+                        dpp->samples_B [0] = (left += dpp->aweight_A);
+                        dpp->samples_A [0] = (right += dpp->aweight_B);
+                    }
+
+                if (flags & JOINT_STEREO)
+                    left += (right -= (left >> 1));
+
+                wps->dc.error [0] += left;
+                wps->dc.error [1] += right;
+                m = (m + 1) & (MAX_TERM - 1);
+
+                if ((crc += (crc << 3) + (left << 1) + left + right) != crc2)
+                    lossy = TRUE;
+
+                if (wpc->config.flags & CONFIG_CALC_NOISE) {
+                    noise = (double)(left - bptr [-2]) * (left - bptr [-2]);
+                    noise += (double)(right - bptr [-1]) * (right - bptr [-1]);
+
+                    noise_acc += noise /= 2.0;
+                    wps->dc.noise_ave = (wps->dc.noise_ave * 0.99) + (noise * 0.01);
+
+                    if (wps->dc.noise_ave > wps->dc.noise_max)
+                        wps->dc.noise_max = wps->dc.noise_ave;
+                }
+            }
+
+        if (m)
+            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
+                if (dpp->term > 0 && dpp->term <= MAX_TERM) {
+                    int32_t temp_A [MAX_TERM], temp_B [MAX_TERM];
+                    int k;
+
+                    memcpy (temp_A, dpp->samples_A, sizeof (dpp->samples_A));
+                    memcpy (temp_B, dpp->samples_B, sizeof (dpp->samples_B));
+
+                    for (k = 0; k < MAX_TERM; k++) {
+                        dpp->samples_A [k] = temp_A [m];
+                        dpp->samples_B [k] = temp_B [m];
+                        m = (m + 1) & (MAX_TERM - 1);
+                    }
+                }
+
+        if (wpc->config.flags & CONFIG_CALC_NOISE)
+            wps->dc.noise_sum += noise_acc;
+
+        flush_word (wps);
+        data_count = bs_close_write (&wps->wvbits);
+
+        if (data_count) {
             if (data_count != (uint32_t) -1) {
-                unsigned char *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
+                unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
 
-                *cptr++ = ID_WVC_BITSTREAM | ID_LARGE;
+                *cptr++ = ID_WV_BITSTREAM | ID_LARGE;
                 *cptr++ = data_count >> 1;
                 *cptr++ = data_count >> 9;
                 *cptr++ = data_count >> 17;
-                ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 4;
+                ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
             }
             else
                 return FALSE;
         }
 
-        ((WavpackHeader *) wps->block2buff)->crc = crc2;
-    }
-    else if (lossy)
-        wpc->lossy_blocks = TRUE;
+        ((WavpackHeader *) wps->blockbuff)->crc = crc;
+
+        if (wpc->wvc_flag) {
+            data_count = bs_close_write (&wps->wvcbits);
+
+            if (data_count && lossy) {
+                if (data_count != (uint32_t) -1) {
+                    unsigned char *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
+
+                    *cptr++ = ID_WVC_BITSTREAM | ID_LARGE;
+                    *cptr++ = data_count >> 1;
+                    *cptr++ = data_count >> 9;
+                    *cptr++ = data_count >> 17;
+                    ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 4;
+                }
+                else
+                    return FALSE;
+            }
+
+            ((WavpackHeader *) wps->block2buff)->crc = crc2;
+        }
+        else if (lossy)
+            wpc->lossy_blocks = TRUE;
+
+        // we're done with the entire block, so now we check if our threshold for a "repack" was hit
+
+        if (repack_possible && wps->num_terms > REPACK_SAFE_NUM_TERMS && (max_magnitude & REPACK_THRESHOLD_MASK)) {
+            *wps = saved_stream;
+            wps->num_terms = REPACK_SAFE_NUM_TERMS;
+            memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
+
+            if (saved_buffer)
+                memcpy (buffer, saved_buffer, sample_count * sizeof (int32_t) * (flags & MONO_DATA ? 1 : 2));
+
+            if (flags & HYBRID_FLAG)
+                crc = crc2 = 0xffffffff;
+        }
+        else {
+            // if we actually did repack the block with fewer terms, we detect that here
+            // and clean up so that we return to the original term count...otherwise we just
+            // free the saved_buffer (if allocated) and break out of the loop
+            if (wps->num_terms != saved_stream.num_terms) {
+                for (i = wps->num_terms; i < saved_stream.num_terms; ++i)
+                    wps->decorr_passes [i].weight_A = wps->decorr_passes [i].weight_B = 0;
+
+                wps->num_terms = saved_stream.num_terms;
+            }
+
+            if (saved_buffer)
+                free (saved_buffer);
+
+            break;
+        }
+
+    } while (1);
 
     wps->sample_index += sample_count;
     return TRUE;
@@ -1267,7 +1343,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 #if !defined(OPT_ASM_X64)
 
 // This is the "C" version of the stereo decorrelation pass function. There
-// are assembly optimized versions of this that are be used if available.
+// are assembly optimized versions of this that can be used if available.
 // It performs a single pass of stereo decorrelation, in place, as specified
 // by the decorr_pass structure. Note that this function does NOT return the
 // dpp->samples_X[] values in the "normalized" positions for terms 1-8, so if
@@ -1380,6 +1456,25 @@ void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sampl
     }
 }
 
+// This is the "C" version of the magnitude scanning function. There are
+// assembly optimized versions of this that can be used if available. This
+// function scans a buffer of signed 32-bit ints and returns the magnitude
+// of the largest sample, with a power-of-two resolution. It might be more
+// useful to return the actual maximum absolute value (and this function
+// could do that without breaking anything), but that implementation would
+// likely be slower. Instead, this simply returns the "or" of all the
+// values "xor"d with their own sign.
+
+uint32_t scan_max_magnitude (int32_t *values, int32_t num_values)
+{
+    uint32_t magnitude = 0;
+
+    while (num_values--)
+        magnitude |= (*values < 0) ? ~*values++ : *values++;
+
+    return magnitude;
+}
+
 #endif
 
 #if !defined(OPT_ASM_X86) && !defined(OPT_ASM_X64)
@@ -1390,10 +1485,12 @@ void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sampl
 // of decorr_pass structures. Note that this function does NOT return the
 // dpp->samples_X[] values in the "normalized" positions for terms 1-8, so if
 // the number of samples is not a multiple of MAX_TERM, these must be moved if
-// they are to be used somewhere else.
+// they are to be used somewhere else. The magnitude of the output samples is
+// accumulated and returned (see scan_max_magnitude() for more details).
 
-void decorr_mono_buffer (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count)
+uint32_t decorr_mono_buffer (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count)
 {
+    uint32_t max_magnitude = 0;
     struct decorr_pass *dpp;
     int tcount, i;
 
@@ -1422,7 +1519,10 @@ void decorr_mono_buffer (int32_t *buffer, struct decorr_pass *decorr_passes, int
         }
 
         *buffer++ = code;
+        max_magnitude |= (code < 0) ? ~code : code;
     }
+
+    return max_magnitude;
 }
 
 #endif
