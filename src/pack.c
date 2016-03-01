@@ -800,9 +800,15 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
 // the one in the WavpackStream.
 
 #ifdef OPT_ASM_X86
-    #define DECORR_STEREO_PASS pack_decorr_stereo_pass_x86
+    #define DECORR_STEREO_PASS(a,b,c) do {              \
+        if (pack_cpu_has_feature_x86 (CPU_FEATURE_MMX)) \
+            pack_decorr_stereo_pass_x86 (a, b, c);      \
+        else decorr_stereo_pass (a, b, c); } while (0)
     #define DECORR_MONO_BUFFER pack_decorr_mono_buffer_x86
-    #define SCAN_MAX_MAGNITUDE scan_max_magnitude_x86
+    #define SCAN_MAX_MAGNITUDE(a,b)                     \
+        (pack_cpu_has_feature_x86 (CPU_FEATURE_MMX) ?   \
+            scan_max_magnitude_x86 (a, b) :             \
+            scan_max_magnitude (a, b))
 #elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
     #define DECORR_STEREO_PASS pack_decorr_stereo_pass_x64win
     #define DECORR_MONO_BUFFER pack_decorr_mono_buffer_x64win
@@ -817,13 +823,14 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
     #define SCAN_MAX_MAGNITUDE scan_max_magnitude
 #endif
 
-void DECORR_STEREO_PASS (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 uint32_t DECORR_MONO_BUFFER (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count);
-uint32_t SCAN_MAX_MAGNITUDE (int32_t *values, int32_t num_values);
 
 #ifdef OPT_ASM_X86
 void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 uint32_t scan_max_magnitude (int32_t *values, int32_t num_values);
+#else
+void DECORR_STEREO_PASS (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
+uint32_t SCAN_MAX_MAGNITUDE (int32_t *values, int32_t num_values);
 #endif
 
 // These two macros control the "repack" function where a block of samples will be repacked with
@@ -1008,26 +1015,12 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
                 }
 
                 for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
-#ifdef OPT_ASM_X86
-                    if (pack_cpu_has_feature_x86 (CPU_FEATURE_MMX))
-                        DECORR_STEREO_PASS (dpp, buffer, sample_count);
-                    else
-                        decorr_stereo_pass (dpp, buffer, sample_count);
-#else
                     DECORR_STEREO_PASS (dpp, buffer, sample_count);
-#endif
+
                 m = sample_count & (MAX_TERM - 1);
 
-                if (repack_possible) {
-#ifdef OPT_ASM_X86
-                    if (pack_cpu_has_feature_x86 (CPU_FEATURE_MMX))
-                        max_magnitude = SCAN_MAX_MAGNITUDE (buffer, sample_count * 2);
-                    else
-                        max_magnitude = scan_max_magnitude (buffer, sample_count * 2);
-#else
+                if (repack_possible)
                     max_magnitude = SCAN_MAX_MAGNITUDE (buffer, sample_count * 2);
-#endif
-                }
             }
 
             send_words_lossless (wps, buffer, sample_count);
