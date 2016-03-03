@@ -951,11 +951,21 @@ done:   pop     edi
 # dpp->samples_X[] values in the "normalized" positions for terms 1-8, so if
 # the number of samples is not a multiple of MAX_TERM, these must be moved if
 # they are to be used somewhere else. The magnitude of the output samples is
-# accumulated and returned (see scan_max_magnitude() for more details).
-#
-# By using the overflow detection of the multiply instruction, this detects
+# accumulated and returned (see scan_max_magnitude() for more details). By
+# using the overflow detection of the multiply instruction, this detects
 # when the "long_math" varient is required.
 #
+# For the fastest possible operation with the four "common" decorrelation
+# filters (i.e, fast, normal, high and very high) this function can be
+# configured to include hardcoded versions of these filters that are created
+# using macros. In that case, the passed filter is checked to make sure that
+# it matches one of the four. If it doesn't, or if the hardcoded flters are
+# not enabled, a "general" version of the decorrelation loop is used. This
+# variable enables the hardcoded filters and can be disabled if there are
+# problems with the code or macros:
+
+        HARDCODED_FILTERS = 1
+
 # This is written to work on an IA-32 processor. The arguments are on the
 # stack at these locations (after 6 pushes, we do not use ebp as a base
 # pointer):
@@ -974,9 +984,88 @@ done:   pop     edi
 #
 # stack usage:
 #
-# [esp+0] = dpp end ptr
+# [esp+0] = dpp end ptr (unused in hardcoded filter case)
 # [esp+4] = magnitude accumulator
 #
+        .if     HARDCODED_FILTERS
+#
+# This macro is used for checking the decorr_passes array to make sure that the terms match
+# the hardcoded terms. The terms of these filters are the first element in the tables defined
+# in decorr_tables.h (with the negative terms replaced with 1).
+#
+
+        .macro  chkterm term ebp_offset
+        cmp     BYTE PTR [ebp], \term
+        jnz     use_general_version
+        add     ebp, \ebp_offset
+        .endm
+#
+# This macro processes the single specified term (with a fixed delta of 2) and updates the
+# term pointer (rbp) with the specified offset when done. It assumes the following registers:
+#
+# ecx = sample being decorrelated
+# esi = sample up counter (used for terms 1-8)
+# rbp = decorr_pass pointer for this term (updated with "rbp_offset" when done)
+# rax, rbx, rdx = scratch
+#
+        .macro  exeterm term ebp_offset
+
+        .if     \term <= 8
+        mov     eax, esi
+        and     eax, 7
+        mov     ebx, [ebp+16+eax*4]
+        .if     \term != 8
+        add     eax, \term
+        and     eax, 7
+        .endif
+        mov     [ebp+16+eax*4], ecx
+
+        .elseif     \term == 17
+
+        mov     edx, [ebp+16]               # handle term 17
+        mov     [ebp+16], ecx
+        lea     ebx, [edx+edx]
+        sub     ebx, [ebp+20]
+        mov     [ebp+20], edx
+
+        .else
+
+        mov     edx, [ebp+16]               # handle term 18
+        mov     [ebp+16], ecx
+        lea     ebx, [edx+edx*2]
+        sub     ebx, [ebp+20]
+        sar     ebx, 1
+        mov     [ebp+20], edx
+
+        .endif
+
+        mov     eax, [ebp+8]
+        imul    eax, ebx                    # 32-bit multiply is almost always enough
+        jo      1f                          # but handle overflow if it happens
+        sar     eax, 10
+        sbb     ecx, eax                    # borrow flag provides rounding
+        jmp     2f
+1:      mov     eax, [ebp+8]                # perform 64-bit multiply on overflow
+        imul    ebx
+        shr     eax, 10
+        sbb     ecx, eax
+        shl     edx, 22
+        sub     ecx, edx
+2:      je      3f
+        test    ebx, ebx
+        je      3f
+        xor     ebx, ecx
+        sar     ebx, 30
+        or      ebx, 1                      # this generates delta of 1
+        shl     ebx, 1                      # this generates delta of 2
+        add     [ebp+8], ebx
+3:      add     ebp, \ebp_offset
+
+        .endm
+
+        .endif                              # end of macro definitions
+
+# entry point of function
 
 _pack_decorr_mono_buffer_x86:
 pack_decorr_mono_buffer_x86:
@@ -988,19 +1077,182 @@ pack_decorr_mono_buffer_x86:
         push    eax                         # this is magnitude accumulator
         push    eax                         # this will be dpp end ptr
 
+        mov     edi, [esp+28]               # edi is buffer pointer
+        xor     esi, esi                    # up counter = 0
+
+        cmp     DWORD PTR [esp+40], 0       # test & handle zero sample count & zero term count
+        jz      mexit
+        cmp     DWORD PTR [esp+36], 0
+        jz      mexit
+
+        .if     HARDCODED_FILTERS
+
+# first check to make sure all the "deltas" are 2
+
+        mov     ebp, [esp+32]               # ebp is decorr_pass pointer
+        mov     ebx, [esp+36]               # get term count
+deltas: cmp     BYTE PTR [ebp+4], 2         # make sure all the deltas are 2
+        jnz     use_general_version         # if any aren't, use general case
+        add     ebp, 96
+        dec     ebx
+        jnz     deltas
+
+        mov     ebp, [esp+32]               # ebp is decorr_pass pointer
+        mov     edx, [esp+36]               # get term count
+        cmp     dl, 2                       # 2 terms is "fast"
+        jnz     nfast
+        chkterm 18,  96                     # check "fast" terms
+        chkterm 17, -96
+        jmp     mono_fast_loop
+
+nfast:  cmp     dl, 5                       # 5 terms is "normal"
+        jnz     nnorm
+        chkterm 18, 96                      # check "normal" terms
+        chkterm 18, 96
+        chkterm 2,  96
+        chkterm 17, 96
+        chkterm 3,  96*-4
+        jmp     mono_normal_loop
+
+nnorm:  cmp     dl, 10                      # 10 terms is "high"
+        jnz     nhigh
+        chkterm 18, 96                      # check "high" terms
+        chkterm 18, 96
+        chkterm 18, 96
+        chkterm 1,  96
+        chkterm 2,  96
+        chkterm 3,  96
+        chkterm 5,  96
+        chkterm 1,  96
+        chkterm 17, 96
+        chkterm 4,  96*-9
+        jmp     mono_high_loop
+
+nhigh:  cmp     dl, 16                      # 16 terms is "very high"
+        jnz     use_general_version         # if none of these, use general version
+        chkterm 18, 96                      # else check "very high" terms
+        chkterm 18, 96
+        chkterm 2,  96
+        chkterm 3,  96
+        chkterm 1,  96
+        chkterm 18, 96
+        chkterm 2,  96
+        chkterm 4,  96
+        chkterm 7,  96
+        chkterm 5,  96
+        chkterm 3,  96
+        chkterm 6,  96
+        chkterm 8,  96
+        chkterm 1,  96
+        chkterm 18, 96
+        chkterm 2,  96*-15
+        jmp     mono_vhigh_loop
+
+        .balign  64
+
+mono_fast_loop:
+        mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
+
+        exeterm 18,  96
+        exeterm 17, -96
+
+        mov     [edi+esi*4], ecx            # store completed sample
+        mov     eax, ecx                    # magnitude accumulator |= (sample < 0) ? ~sample : sample
+        cdq
+        xor     eax, edx
+        or      [esp+4], eax
+        inc     esi                         # increment sample index
+        cmp     esi, [esp+40]
+        jnz     mono_fast_loop              # loop back for all samples
+        jmp     mexit
+
+        .balign  64
+
+mono_normal_loop:
+        mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
+
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 2,  96
+        exeterm 17, 96
+        exeterm 3,  96*-4
+
+        mov     [edi+esi*4], ecx            # store completed sample
+        mov     eax, ecx                    # magnitude accumulator |= (sample < 0) ? ~sample : sample
+        cdq
+        xor     eax, edx
+        or      [esp+4], eax
+        inc     esi                         # increment sample index
+        cmp     esi, [esp+40]
+        jnz     mono_normal_loop            # loop back for all samples
+        jmp     mexit
+
+        .balign  64
+
+mono_high_loop:
+        mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
+
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 1,  96
+        exeterm 2,  96
+        exeterm 3,  96
+        exeterm 5,  96
+        exeterm 1,  96
+        exeterm 17, 96
+        exeterm 4,  96*-9
+
+        mov     [edi+esi*4], ecx            # store completed sample
+        mov     eax, ecx                    # magnitude accumulator |= (sample < 0) ? ~sample : sample
+        cdq
+        xor     eax, edx
+        or      [esp+4], eax
+        inc     esi                         # increment sample index
+        cmp     esi, [esp+40]
+        jnz     mono_high_loop              # loop back for all samples
+        jmp     mexit
+
+        .balign  64
+
+mono_vhigh_loop:
+        mov     ecx, [edi+esi*4]             # ecx is the sample we're decorrelating
+
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 2,  96
+        exeterm 3,  96
+        exeterm 1,  96
+        exeterm 18, 96
+        exeterm 2,  96
+        exeterm 4,  96
+        exeterm 7,  96
+        exeterm 5,  96
+        exeterm 3,  96
+        exeterm 6,  96
+        exeterm 8,  96
+        exeterm 1,  96
+        exeterm 18, 96
+        exeterm 2,  96*-15
+
+        mov     [edi+esi*4], ecx            # store completed sample
+        mov     eax, ecx                    # magnitude accumulator |= (sample < 0) ? ~sample : sample
+        cdq
+        xor     eax, edx
+        or      [esp+4], eax
+        inc     esi                         # increment sample index
+        cmp     esi, [esp+40]
+        jnz     mono_vhigh_loop             # loop back for all samples
+        jmp     mexit
+
+        .endif
+
+use_general_version:
+        mov     ebp, [esp+32]
         mov     edx, [esp+36]               # get number of terms
         imul    eax, edx, 96                # calculate & store termination check ptr
         add     eax, [esp+32]
         mov     [esp], eax
-
-        cmp     DWORD PTR [esp+40], 0       # test & handle zero sample count & zero term count
-        jz      mexit
-        test    edx, edx
-        jz      mexit
-
-        mov     edi, [esp+28]
-        mov     ebp, [esp+32]
-        xor     esi, esi                     # up counter = 0
         jmp     decorrelate_loop
 
         .balign  64

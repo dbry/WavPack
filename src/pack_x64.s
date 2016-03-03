@@ -1010,17 +1010,27 @@ done:   add     rsp, 8
 # dpp->samples_X[] values in the "normalized" positions for terms 1-8, so if
 # the number of samples is not a multiple of MAX_TERM, these must be moved if
 # they are to be used somewhere else. The magnitude of the output samples is
-# accumulated and returned (see scan_max_magnitude() for more details).
-#
-# By using the overflow detection of the multiply instruction, this detects
+# accumulated and returned (see scan_max_magnitude() for more details). By
+# using the overflow detection of the multiply instruction, this detects
 # when the "long_math" varient is required.
 #
+# For the fastest possible operation with the four "common" decorrelation
+# filters (i.e, fast, normal, high and very high) this function can be
+# configured to include hardcoded versions of these filters that are created
+# using macros. In that case, the passed filter is checked to make sure that
+# it matches one of the four. If it doesn't, or if the hardcoded flters are
+# not enabled, a "general" version of the decorrelation loop is used. This
+# variable enables the hardcoded filters and can be disabled if there are
+# problems with the code or macros:
+
+        HARDCODED_FILTERS = 1
+
 # Entry points for both the System V ABI and the Windows X64 ABI are provided.
 # It does not use the "red zone" or the "shadow area"; it saves the
 # non-volatile registers for both ABIs on the stack and allocates another
 # 24 bytes on the stack to store the dpp pointer and the sample count. Note
-# that it does NOT provide unwind data for the Windows ABI (the
-# unpack_x64.asm module for MSVC does). The arguments are passed in registers:
+# that it does NOT provide unwind data for the Windows ABI (the unpack_x64.asm
+# module for MSVC does). The arguments are passed in registers:
 #
 #                             System V  Windows  
 #   int32_t *buffer             rdi       rcx
@@ -1031,7 +1041,7 @@ done:   add     rsp, 8
 # stack usage:
 #
 # [rsp+8] = sample_count
-# [rsp+0] = decorr_passes
+# [rsp+0] = decorr_passes (unused in hardcoded filter case)
 #
 # register usage:
 #
@@ -1039,9 +1049,88 @@ done:   add     rsp, 8
 # esi = sample up counter
 # rdi = *buffer
 # rbp = *dpp
-# r8 = dpp end ptr
-# r9 = magnitude accumulator
+# r8 = magnitude accumulator
+# r9 = dpp end ptr (unused in hardcoded filter case)
 #
+        .if     HARDCODED_FILTERS
+#
+# This macro is used for checking the decorr_passes array to make sure that the terms match
+# the hardcoded terms. The terms of these filters are the first element in the tables defined
+# in decorr_tables.h (with the negative terms replaced with 1).
+#
+
+        .macro  chkterm term rbp_offset
+        cmp     BYTE PTR [rbp], \term
+        jnz     use_general_version
+        add     rbp, \rbp_offset
+        .endm
+#
+# This macro processes the single specified term (with a fixed delta of 2) and updates the
+# term pointer (rbp) with the specified offset when done. It assumes the following registers:
+#
+# ecx = sample being decorrelated
+# esi = sample up counter (used for terms 1-8)
+# rbp = decorr_pass pointer for this term (updated with "rbp_offset" when done)
+# rax, rbx, rdx = scratch
+#
+        .macro  exeterm term rbp_offset
+
+        .if     \term <= 8
+        mov     eax, esi
+        and     eax, 7
+        mov     ebx, [rbp+16+rax*4]
+        .if     \term != 8
+        add     eax, \term
+        and     eax, 7
+        .endif
+        mov     [rbp+16+rax*4], ecx
+
+        .elseif     \term == 17
+
+        mov     edx, [rbp+16]               # handle term 17
+        mov     [rbp+16], ecx
+        lea     ebx, [rdx+rdx]
+        sub     ebx, [rbp+20]
+        mov     [rbp+20], edx
+
+        .else
+
+        mov     edx, [rbp+16]               # handle term 18
+        mov     [rbp+16], ecx
+        lea     ebx, [rdx+rdx*2]
+        sub     ebx, [rbp+20]
+        sar     ebx, 1
+        mov     [rbp+20], edx
+
+        .endif
+
+        mov     eax, [rbp+8]
+        imul    eax, ebx                    # 32-bit multiply is almost always enough
+        jo      1f                          # but handle overflow if it happens
+        sar     eax, 10
+        sbb     ecx, eax                    # borrow flag provides rounding
+        jmp     2f
+1:      mov     eax, [rbp+8]                # perform 64-bit multiply on overflow
+        imul    ebx
+        shr     eax, 10
+        sbb     ecx, eax
+        shl     edx, 22
+        sub     ecx, edx
+2:      je      3f
+        test    ebx, ebx
+        je      3f
+        xor     ebx, ecx
+        sar     ebx, 30
+        or      ebx, 1                      # this generates delta of 1
+        shl     ebx, 1                      # this generates delta of 2
+        add     [rbp+8], ebx
+3:      add     rbp, \rbp_offset
+
+        .endm
+
+        .endif                              # end of macro definitions
+
+# entry points of function
 
 _pack_decorr_mono_buffer_x64win:
 pack_decorr_mono_buffer_x64win:
@@ -1066,18 +1155,190 @@ pack_decorr_mono_buffer_x64:
 
 mentry: mov     [rsp+8], rcx                # [rsp+8] = sample count
         mov     [rsp], rsi                  # [rsp+0] = decorr_passes
-        xor     r9, r9                      # r9 = max magnitude mask
+        xor     r8, r8                      # r8 = max magnitude mask
+        xor     esi, esi                    # up counter = 0
 
         and     ecx, ecx                    # test & handle zero sample count & zero term count
         jz      mexit
         and     edx, edx
         jz      mexit
 
+        .if     HARDCODED_FILTERS
+
+# first check to make sure all the "deltas" are 2
+
+        mov     rbp, [rsp]                  # rbp is decorr_pass pointer
+        mov     ebx, edx                    # get term count
+deltas: cmp     BYTE PTR [rbp+4], 2         # make sure all the deltas are 2
+        jnz     use_general_version         # if any aren't, use general case
+        add     rbp, 96
+        dec     ebx
+        jnz     deltas
+
+        mov     rbp, [rsp]                  # rbp is decorr_pass pointer
+        cmp     dl, 2                       # 2 terms is "fast"
+        jnz     nfast
+        chkterm 18,  96                     # check "fast" terms
+        chkterm 17, -96
+        jmp     mono_fast_loop
+
+nfast:  cmp     dl, 5                       # 5 terms is "normal"
+        jnz     nnorm
+        chkterm 18, 96                      # check "normal" terms
+        chkterm 18, 96
+        chkterm 2,  96
+        chkterm 17, 96
+        chkterm 3,  96*-4
+        jmp     mono_normal_loop
+
+nnorm:  cmp     dl, 10                      # 10 terms is "high"
+        jnz     nhigh
+        chkterm 18, 96                      # check "high" terms
+        chkterm 18, 96
+        chkterm 18, 96
+        chkterm 1,  96
+        chkterm 2,  96
+        chkterm 3,  96
+        chkterm 5,  96
+        chkterm 1,  96
+        chkterm 17, 96
+        chkterm 4,  96*-9
+        jmp     mono_high_loop
+
+nhigh:  cmp     dl, 16                      # 16 terms is "very high"
+        jnz     use_general_version         # if none of these, use general version
+        chkterm 18, 96                      # else check "very high" terms
+        chkterm 18, 96
+        chkterm 2,  96
+        chkterm 3,  96
+        chkterm 1,  96
+        chkterm 18, 96
+        chkterm 2,  96
+        chkterm 4,  96
+        chkterm 7,  96
+        chkterm 5,  96
+        chkterm 3,  96
+        chkterm 6,  96
+        chkterm 8,  96
+        chkterm 1,  96
+        chkterm 18, 96
+        chkterm 2,  96*-15
+        jmp     mono_vhigh_loop
+
+        .balign  64
+
+# hardcoded "fast" decorrelation loop
+
+mono_fast_loop:
+        mov     ecx, [rdi+rsi*4]             # ecx is the sample we're decorrelating
+
+        exeterm 18,  96
+        exeterm 17, -96
+
+        mov     [rdi+rsi*4], ecx            # store completed sample
+        mov     eax, ecx                    # update magnitude mask
+        cdq
+        xor     eax, edx
+        or      r8, rax
+        inc     esi                         # increment sample index
+        cmp     esi, [rsp+8]
+        jnz     mono_fast_loop              # loop back for all samples
+        jmp     mexit                       # then exit
+
+        .balign  64
+
+# hardcoded "normal" decorrelation loop
+
+mono_normal_loop:
+        mov     ecx, [rdi+rsi*4]             # ecx is the sample we're decorrelating
+
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 2,  96
+        exeterm 17, 96
+        exeterm 3,  96*-4
+
+        mov     [rdi+rsi*4], ecx            # store completed sample
+        mov     eax, ecx                    # update magnitude mask
+        cdq
+        xor     eax, edx
+        or      r8, rax
+        inc     esi                         # increment sample index
+        cmp     esi, [rsp+8]
+        jnz     mono_normal_loop            # loop back for all samples
+        jmp     mexit                       # then exit
+
+        .balign  64
+
+# hardcoded "high" decorrelation loop
+
+mono_high_loop:
+        mov     ecx, [rdi+rsi*4]             # ecx is the sample we're decorrelating
+
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 1,  96
+        exeterm 2,  96
+        exeterm 3,  96
+        exeterm 5,  96
+        exeterm 1,  96
+        exeterm 17, 96
+        exeterm 4,  96*-9
+
+        mov     [rdi+rsi*4], ecx            # store completed sample
+        mov     eax, ecx                    # update magnitude mask
+        cdq
+        xor     eax, edx
+        or      r8, rax
+        inc     esi                         # increment sample index
+        cmp     esi, [rsp+8]
+        jnz     mono_high_loop              # loop back for all samples
+        jmp     mexit                       # then exit
+
+        .balign  64
+
+# hardcoded "very high" decorrelation loop
+
+mono_vhigh_loop:
+        mov     ecx, [rdi+rsi*4]             # ecx is the sample we're decorrelating
+
+        exeterm 18, 96
+        exeterm 18, 96
+        exeterm 2,  96
+        exeterm 3,  96
+        exeterm 1,  96
+        exeterm 18, 96
+        exeterm 2,  96
+        exeterm 4,  96
+        exeterm 7,  96
+        exeterm 5,  96
+        exeterm 3,  96
+        exeterm 6,  96
+        exeterm 8,  96
+        exeterm 1,  96
+        exeterm 18, 96
+        exeterm 2,  96*-15
+
+        mov     [rdi+rsi*4], ecx            # store completed sample
+        mov     eax, ecx                    # update magnitude mask
+        cdq
+        xor     eax, edx
+        or      r8, rax
+        inc     esi                         # increment sample index
+        cmp     esi, [rsp+8]
+        jnz     mono_vhigh_loop             # loop back for all samples
+        jmp     mexit                       # then exit
+
+        .endif                              # end of hardcoded filters configuration
+
+# if none of the hardcoded filters are applicable, or we aren't using them, fall through to here
+
+use_general_version:
+        mov     rbp, [rsp]                   # reload decorr_passes pointer to first term
         imul    rax, rdx, 96
-        add     rax, rsi                     # rax = terminating decorr_pass pointer
-        mov     r8, rax
-        mov     rbp, rsi
-        xor     rsi, rsi                     # up counter = 0
+        add     rax, rbp                     # r9 = terminating decorr_pass pointer
+        mov     r9, rax
         jmp     decorrelate_loop
 
         .balign  64
@@ -1127,14 +1388,14 @@ domult: mov     eax, [rbp+8]
         xor     edx, ebx
         mov     [rbp+8], edx
 2:      add     rbp, 96
-        cmp     rbp, r8
+        cmp     rbp, r9
         jnz     nxterm
 
         mov     [rdi+rsi*4], ecx            # store completed sample
-        mov     eax, ecx                    # r9 |= (sample < 0) ? ~sample : sample
+        mov     eax, ecx                    # update magnitude mask
         cdq
         xor     eax, edx
-        or      r9, rax
+        or      r8, rax
         mov     rbp, [rsp]                  # reload decorr_passes pointer to first term
         inc     esi                         # increment sample index
         cmp     esi, [rsp+8]
@@ -1159,20 +1420,22 @@ multov: mov     eax, [rbp+8]
         xor     eax, ebx
         mov     [rbp+8], eax
 2:      add     rbp, 96
-        cmp     rbp, r8
+        cmp     rbp, r9
         jnz     nxterm
 
         mov     [rdi+rsi*4], ecx            # store completed sample
-        mov     eax, ecx                    # r9 |= (sample < 0) ? ~sample : sample
+        mov     eax, ecx                    # update magnitude mask
         cdq
         xor     eax, edx
-        or      r9, rax
+        or      r8, rax
         mov     rbp, [rsp]                  # reload decorr_passes pointer to first term
         inc     esi                         # increment sample index
         cmp     esi, [rsp+8]
-        jnz     decorrelate_loop            # loop all the way back this time
+        jnz     decorrelate_loop            # loop all the way back
 
-mexit:  mov     rax, r9                     # return magnitude accumulator
+# common exit for entire function
+
+mexit:  mov     rax, r8                     # return max magnitude
         add     rsp, 24
         pop     rsi
         pop     rdi
