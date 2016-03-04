@@ -100,7 +100,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
     }
 
     if ((flags & HYBRID_FLAG) && !wps->block2buff)
-        mute_limit *= 2;
+        mute_limit = (mute_limit * 2) + 128;
 
     //////////////// handle lossless or hybrid lossy mono data /////////////////
 
@@ -137,6 +137,9 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
             decorr_mono_pass (dpp, buffer, sample_count);
 #endif
 
+#ifndef LOSSY_MUTE
+        if (!(flags & HYBRID_FLAG))
+#endif
         for (bptr = buffer; bptr < eptr; ++bptr) {
             if (labs (bptr [0]) > mute_limit) {
                 i = (uint32_t)(bptr - buffer);
@@ -197,6 +200,9 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
             for (bptr = buffer; bptr < eptr; bptr += 2)
                 crc += (crc << 3) + (bptr [0] << 1) + bptr [0] + bptr [1];
 
+#ifndef LOSSY_MUTE
+        if (!(flags & HYBRID_FLAG))
+#endif
         for (bptr = buffer; bptr < eptr; bptr += 16)
             if (labs (bptr [0]) > mute_limit || labs (bptr [1]) > mute_limit) {
                 i = (uint32_t)(bptr - buffer) / 2;
@@ -257,10 +263,9 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 
             crc += (crc << 1) + read_word;
 
-#ifdef LOSSY_MUTE
             if (labs (read_word) > mute_limit)
                 break;
-#endif
+
             *bptr++ = read_word;
         }
 
@@ -429,10 +434,9 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
                 right = right_c;
             }
 
-#ifdef LOSSY_MUTE
             if (labs (left) > mute_limit || labs (right) > mute_limit)
                 break;
-#endif
+
             crc += (crc << 3) + (left << 1) + left + right;
             *bptr++ = left;
             *bptr++ = right;
