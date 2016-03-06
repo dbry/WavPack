@@ -6,7 +6,6 @@
 @@      Distributed under the BSD Software License (see license.txt)      @@
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-        .section .note.GNU-stack,"",%progbits
         .text
         .align
         .global         unpack_decorr_stereo_pass_cont_armv7
@@ -878,4 +877,8 @@ S158:   sub     r2, r2, #1
 mono_common_exit:
         str     r4, [r5, #8]
         ldmfd   sp!, {r4 - r8, r11, pc}
+
+#ifdef __ELF__
+        .section .note.GNU-stack,"",%progbits
+#endif
 

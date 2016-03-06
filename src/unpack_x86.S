@@ -6,7 +6,6 @@
 ##      Distributed under the BSD Software License (see license.txt)      ##
 ############################################################################
 
-        .section .note.GNU-stack,"",@progbits
         .intel_syntax noprefix
         .text
 
@@ -964,3 +963,8 @@ unpack_cpu_has_feature_x86:
         pop     ebx                         # restore ebx and return 0 or 1
 
 oldcpu: ret                                 # return value in eax
+
+#ifdef __ELF__
+        .section .note.GNU-stack,"",@progbits
+#endif
+

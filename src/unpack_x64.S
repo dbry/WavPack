@@ -6,7 +6,6 @@
 ##      Distributed under the BSD Software License (see license.txt)      ##
 ############################################################################
 
-        .section .note.GNU-stack,"",@progbits
         .intel_syntax noprefix
         .text
 
@@ -951,3 +950,8 @@ mono_done:
         pop     rbx
         pop     rbp
         ret
+
+#ifdef __ELF__
+        .section .note.GNU-stack,"",@progbits
+#endif
+
