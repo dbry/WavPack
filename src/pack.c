@@ -827,7 +827,9 @@ uint32_t DECORR_MONO_BUFFER (int32_t *buffer, struct decorr_pass *decorr_passes,
 
 #ifdef OPT_ASM_X86
 void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
+void pack_decorr_stereo_pass_x86 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 uint32_t scan_max_magnitude (int32_t *values, int32_t num_values);
+uint32_t scan_max_magnitude_x86 (int32_t *values, int32_t num_values);
 #else
 void DECORR_STEREO_PASS (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 uint32_t SCAN_MAX_MAGNITUDE (int32_t *values, int32_t num_values);
@@ -1315,8 +1317,13 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             // and clean up so that we return to the original term count...otherwise we just
             // free the saved_buffer (if allocated) and break out of the loop
             if (wps->num_terms != saved_stream.num_terms) {
-                for (i = wps->num_terms; i < saved_stream.num_terms; ++i)
-                    wps->decorr_passes [i].weight_A = wps->decorr_passes [i].weight_B = 0;
+                int ti;
+
+                for (ti = wps->num_terms; ti < saved_stream.num_terms; ++ti) {
+                    wps->decorr_passes [ti].weight_A = wps->decorr_passes [ti].weight_B = 0;
+                    CLEAR (wps->decorr_passes [ti].samples_A);
+                    CLEAR (wps->decorr_passes [ti].samples_B);
+                }
 
                 wps->num_terms = saved_stream.num_terms;
             }
