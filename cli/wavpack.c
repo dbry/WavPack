@@ -159,9 +159,9 @@ static const char *help =
 "    -p                      practical float storage (also affects 32-bit\n"
 "                             integers, no longer technically lossless)\n"
 "    --pair-unassigned-chans encode unassigned channels into stereo pairs\n"
-"    --quantize-to=bits      quantize samples to <bits> before encoding\n"
-"                             (LOSSY -- common use would be --quantize-to=20\n"
-"                             for 24-bit material recorded with noisy converters\n"
+"    --pre-quantize=bits     pre-quantize samples to <bits> BEFORE encoding and MD5\n"
+"                             (common use would be --pre-quantize=20 for 24-bit or\n"
+"                             float material recorded with typical converters)\n"
 "    -q                      quiet (keep console output to a minimum)\n"
 "    -r                      generate a new RIFF wav header (removes any\n"
 "                             extra chunk info from existing header)\n"
@@ -461,11 +461,11 @@ int main (int argc, char **argv)
                     num_channels_order = chan;
                 }
             }
-            else if (!strncmp (long_option, "quantize-to",11)) {          // --quantize-to=
+            else if (!strncmp (long_option, "pre-quantize", 12)) {          // --pre-quantize=
                 quantize_bits = strtol(long_param, NULL, 10);
 
                 if (quantize_bits < 4 || quantize_bits > 32) {
-                    error_line ("invalid quantize-bits!");
+                    error_line ("invalid quantize bits!");
                     ++error_count;
                 }
             }
@@ -2277,8 +2277,9 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
     if (quantize_bits && quantize_bits < WavpackGetBytesPerSample (wpc) * 8) {
         quantize_bit_mask = ~((1<<(WavpackGetBytesPerSample (wpc)*8-quantize_bits))-1);
         if (MODE_FLOAT == (WavpackGetMode(wpc) & MODE_FLOAT)) {
-            fquantize_scale = (double) (1<<(quantize_bits-1));
-            fquantize_iscale = 1.0 / fquantize_scale;
+            int float_norm_exp = WavpackGetFloatNormExp (wpc);
+            fquantize_scale = exp2 (quantize_bits + 126 - float_norm_exp);
+            fquantize_iscale = exp2 (float_norm_exp - 126 - quantize_bits);
         }
     }
 
@@ -3013,8 +3014,9 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     if (quantize_bits && quantize_bits < bps*8) {
         quantize_bit_mask = ~((1<<(bps*8-quantize_bits))-1);
         if (MODE_FLOAT == (WavpackGetMode(infile) & MODE_FLOAT)) {
-            fquantize_scale = (double) (1<<(quantize_bits-1));
-            fquantize_iscale = 1.0 / fquantize_scale;
+            int float_norm_exp = WavpackGetFloatNormExp (infile);
+            fquantize_scale = exp2 (quantize_bits + 126 - float_norm_exp);
+            fquantize_iscale = exp2 (float_norm_exp - 126 - quantize_bits);
         }
     }
 
