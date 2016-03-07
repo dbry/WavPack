@@ -111,7 +111,10 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak);
 static int show_file_info (char *infilename, FILE *dst);
 static float calc_replaygain (uint32_t *histogram);
 static void display_progress (double file_progress);
+
+#ifdef _WIN32
 static void TextToUTF8 (void *string, int len);
+#endif
 
 #define WAVPACK_NO_ERROR    0
 #define WAVPACK_SOFT_ERROR  1
@@ -312,7 +315,7 @@ int main(int argc, char **argv)
 #endif
             cp = listbuff;
 
-            while (c = *cp++) {
+            while ((c = *cp++)) {
 
                 while (c == '\n' || c == '\r')
                     c = *cp++;

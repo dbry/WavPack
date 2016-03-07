@@ -247,7 +247,7 @@ int main (argc, argv) int argc; char **argv;
 
     if (seektest) {
         while (--argc)
-            if (res = seeking_test (*++argv, seektest))
+            if ((res = seeking_test (*++argv, seektest)))
                 break;
     }
     else {
@@ -298,7 +298,7 @@ static int seeking_test (char *filename, uint32_t test_count)
     int32_t *decoded_samples, num_chans, bps, test_index;
     unsigned char md5_initial [16], md5_stored [16];
     MD5_CTX md5_global, md5_local;
-    char *chunked_md5;
+    unsigned char *chunked_md5;
 
     printf ("\n-------------------- file: %s %s--------------------\n",
         filename, (WavpackGetMode (wpc) & MODE_WVC) ? "(+wvc) " : "");

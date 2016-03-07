@@ -780,8 +780,9 @@ int main (int argc, char **argv)
     // rather than after encoding so that any errors can be reported to the user now.
 
     for (i = 0; i < num_tag_items; ++i) {
+#ifdef _WIN32
         int tag_came_from_file = 0;
-
+#endif
         if (*tag_items [i].value == '@') {
             char *fn = tag_items [i].value + 1, *new_value = NULL;
             FILE *file = wild_fopen (fn, "rb");
@@ -836,7 +837,9 @@ int main (int argc, char **argv)
             else {
                 free (tag_items [i].value);
                 tag_items [i].value = new_value;
+#ifdef _WIN32
                 tag_came_from_file = 1;
+#endif
             }
         }
         else if (tag_items [i].binary) {
@@ -971,7 +974,7 @@ int main (int argc, char **argv)
 #endif
             cp = listbuff;
 
-            while (c = *cp++) {
+            while ((c = *cp++)) {
 
                 while (c == '\n' || c == '\r')
                     c = *cp++;
@@ -2258,7 +2261,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
     unsigned char *input_buffer;
     MD5_CTX md5_context;
     int32_t quantize_bit_mask = 0;
-    double fquantize_scale, fquantize_iscale;
+    double fquantize_scale = 1.0, fquantize_iscale = 1.0;
 
     // don't use an absurd amount of memory just because we have an absurd number of channels
 
@@ -2996,7 +2999,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     double progress = -1.0;
     MD5_CTX md5_context;
     int32_t quantize_bit_mask = 0;
-    double fquantize_scale, fquantize_iscale;
+    double fquantize_scale = 1.0, fquantize_iscale = 1.0;
 
     // don't use an absurd amount of memory just because we have an absurd number of channels
 

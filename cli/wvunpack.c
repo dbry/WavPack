@@ -145,7 +145,10 @@ static void add_tag_extraction_to_list (char *spec);
 static void parse_sample_time_index (struct sample_time_index *dst, char *src);
 static int unpack_file (char *infilename, char *outfilename);
 static void display_progress (double file_progress);
+
+#ifdef _WIN32
 static void TextToUTF8 (void *string, int len);
+#endif
 
 #define WAVPACK_NO_ERROR    0
 #define WAVPACK_SOFT_ERROR  1
@@ -510,7 +513,7 @@ int main(int argc, char **argv)
 #endif
             cp = listbuff;
 
-            while (c = *cp++) {
+            while ((c = *cp++)) {
 
                 while (c == '\n' || c == '\r')
                     c = *cp++;
