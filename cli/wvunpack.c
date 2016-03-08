@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2015 David Bryant.                 //
+//                Copyright (c) 1998 - 2016 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -61,7 +61,7 @@
 
 static const char *sign_on = "\n"
 " WVUNPACK  Hybrid Lossless Audio Decompressor  %s Version %s\n"
-" Copyright (c) 1998 - 2015 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2016 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVUNPACK using libwavpack version %s, expected %s (see README)\n\n";
@@ -501,7 +501,7 @@ int main(int argc, char **argv)
 
                 listbuff = realloc (listbuff, listbytes + 1024);
                 memset (listbuff + listbytes, 0, 1024);
-                listbytes += bytes_read = fread (listbuff + listbytes, 1, 1024, list);
+                listbytes += bytes_read = (int) fread (listbuff + listbytes, 1, 1024, list);
 
                 if (bytes_read < 1024)
                     break;
@@ -600,7 +600,7 @@ int main(int argc, char **argv)
         }
 
         memset (listbuff, 0, sizeof (listbuff));
-        c = fread (listbuff, 1, sizeof (listbuff) - 1, list);   // assign c only to suppress warning
+        c = (int) fread (listbuff, 1, sizeof (listbuff) - 1, list);   // assign c only to suppress warning
 
 #if defined (_WIN32)
         TextToUTF8 (listbuff, PATH_MAX * 2);

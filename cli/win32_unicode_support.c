@@ -51,21 +51,6 @@ char *utf16_to_utf8(const wchar_t *input)
 	return ((Result > 0) && (Result <= BuffSize)) ? Buffer : NULL;
 }
 
-char *utf16_to_ansi(const wchar_t *input)
-{
-	char *Buffer;
-	int BuffSize = 0, Result = 0;
-
-	BuffSize = WideCharToMultiByte(CP_ACP, 0, input, -1, NULL, 0, NULL, NULL);
-	Buffer = (char*) malloc(sizeof(char) * BuffSize);
-	if(Buffer)
-	{
-		Result = WideCharToMultiByte(CP_ACP, 0, input, -1, Buffer, BuffSize, NULL, NULL);
-	}
-
-	return ((Result > 0) && (Result <= BuffSize)) ? Buffer : NULL;
-}
-
 wchar_t *utf8_to_utf16(const char *input)
 {
 	wchar_t *Buffer;
@@ -168,7 +153,7 @@ int fputs_utf8 (const char *string_utf8, FILE *stream)
     wide_string = utf8_to_utf16(string_utf8);
 
     if (wide_string) {
-        ret = wcslen (wide_string);
+        ret = (int) wcslen (wide_string);
 
         if (!WriteConsoleW (hConsoleOutput, wide_string, ret, NULL, NULL))
             fputs (string_utf8, stream);
@@ -240,20 +225,6 @@ int unlink_utf8(const char *path_utf8)
 	}
 	
 	return ret;
-}
-
-void init_console_utf8(void)
-{
-	g_old_output_cp = GetConsoleOutputCP();
-	SetConsoleOutputCP(CP_UTF8);
-}
-
-void uninit_console_utf8(void)
-{
-	if(g_old_output_cp != ((UINT)-1))
-	{
-		SetConsoleOutputCP(g_old_output_cp);
-	}
 }
 
 #endif

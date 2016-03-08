@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2015 David Bryant.                 //
+//                Copyright (c) 1998 - 2016 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -29,7 +29,7 @@
 
 static const char *sign_on = "\n"
 " WVTEST  libwavpack Tester/Exerciser for WavPack  %s Version %s\n"
-" Copyright (c) 2015 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2016 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVTEST using libwavpack version %s, expected %s (see README)\n\n";

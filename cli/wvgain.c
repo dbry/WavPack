@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2015 David Bryant.                 //
+//                Copyright (c) 1998 - 2016 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -62,7 +62,7 @@
 
 static const char *sign_on = "\n"
 " WVGAIN  ReplayGain Scanner/Tagger for WavPack  %s Version %s\n"
-" Copyright (c) 2005 - 2015 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2005 - 2016 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVGAIN using libwavpack version %s, expected %s (see README)\n\n";
@@ -303,7 +303,7 @@ int main(int argc, char **argv)
 
                 listbuff = realloc (listbuff, listbytes + 1024);
                 memset (listbuff + listbytes, 0, 1024);
-                listbytes += bytes_read = fread (listbuff + listbytes, 1, 1024, list);
+                listbytes += bytes_read = (int) fread (listbuff + listbytes, 1, 1024, list);
 
                 if (bytes_read < 1024)
                     break;
