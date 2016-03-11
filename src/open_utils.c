@@ -453,7 +453,7 @@ static int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
         wpc->config.channel_mask = mask;
 
         for (mask_bits = 0; mask; mask >>= 1)
-            if (++mask_bits > wpc->config.num_channels)
+            if ((mask & 1) && ++mask_bits > wpc->config.num_channels)
                 return FALSE;
     }
 
