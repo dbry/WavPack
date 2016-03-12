@@ -27,6 +27,8 @@ missing
 src/.deps/
 src/.libs/
 wavpack.pc
+*.wav
+*.wv*
 
 #
 # Visual Studio ignores
