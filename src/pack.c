@@ -835,17 +835,16 @@ void DECORR_STEREO_PASS (struct decorr_pass *dpp, int32_t *buffer, int32_t sampl
 uint32_t SCAN_MAX_MAGNITUDE (int32_t *values, int32_t num_values);
 #endif
 
-// These two macros control the "repack" function where a block of samples will be repacked with
+// This macro controls the "repack" function where a block of samples will be repacked with
 // fewer terms if a single residual exceeds the specified magnitude threshold.
 
 #define REPACK_SAFE_NUM_TERMS 5                 // 5 terms is always okay (and we truncate to this)
-#define REPACK_THRESHOLD_MASK 0xF0000000        // a residual exceeding this mask triggers a repack
 
 static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream], saved_stream;
     uint32_t flags = wps->wphdr.flags, repack_possible, data_count, crc, crc2, i;
-    uint32_t sample_count = wps->wphdr.block_samples;
+    uint32_t sample_count = wps->wphdr.block_samples, repack_mask;
     int32_t *bptr, *saved_buffer = NULL;
     struct decorr_pass *dpp;
     WavpackMetadata wpmd;
@@ -905,6 +904,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
     memcpy (&wps->wphdr, wps->blockbuff, sizeof (WavpackHeader));
     repack_possible = !wps->num_passes && wps->num_terms > REPACK_SAFE_NUM_TERMS;
+    repack_mask = (flags & MAG_MASK) >> MAG_LSB >= 16 ? 0xF0000000 : 0xFFF00000;
     saved_stream = *wps;
 
     if (repack_possible && !(flags & HYBRID_FLAG)) {
@@ -1301,7 +1301,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
         // we're done with the entire block, so now we check if our threshold for a "repack" was hit
 
-        if (repack_possible && wps->num_terms > REPACK_SAFE_NUM_TERMS && (max_magnitude & REPACK_THRESHOLD_MASK)) {
+        if (repack_possible && wps->num_terms > REPACK_SAFE_NUM_TERMS && (max_magnitude & repack_mask)) {
             *wps = saved_stream;
             wps->num_terms = REPACK_SAFE_NUM_TERMS;
             memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
