@@ -13,6 +13,7 @@
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <conio.h>
 #include <io.h>
 #else
 #if defined(__OS2__)
@@ -90,6 +91,7 @@ static const char *usage =
 "          -n  = no audio decoding (use with -xx to extract tags only)\n"
 #ifdef _WIN32
 "          --no-utf8-convert = leave tag items in UTF-8 when extracting to files\n"
+"          --pause = pause before exiting (if console window disappears)\n"
 #else
 "          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
 "          -o FILENAME | PATH = specify output filename or path\n"
@@ -125,7 +127,7 @@ static const char *usage =
 
 int debug_logging_mode;
 
-static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info,
+static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info, pause_mode,
     summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, set_console_title;
 
 static int num_files, file_index, outbuf_k;
@@ -221,6 +223,10 @@ int main(int argc, char **argv)
                 printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
                 return 0;
             }
+#ifdef _WIN32
+            else if (!strcmp (long_option, "pause"))                    // --pause
+                pause_mode = 1;
+#endif
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
             else if (!strncmp (long_option, "skip", 4)) {               // --skip
@@ -725,7 +731,7 @@ int main(int argc, char **argv)
 
 // On Windows, this "real" main() acts as a shell to our static wvunpack_main().
 // Its purpose is to convert the wchar command-line arguments into UTF-8 encoded
-// strings and set the console output to UTF-8.
+// strings.
 
 int main(int argc, char **argv)
 {
@@ -749,6 +755,14 @@ int main(int argc, char **argv)
         free (argv_copy);
 
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
+
+    if (pause_mode) {
+        fprintf (stderr, "\nPress any key to continue . . . ");
+        fflush (stderr);
+        while (!_kbhit ());
+        _getch ();
+        fprintf (stderr, "\n");
+    }
 
     return ret;
 }

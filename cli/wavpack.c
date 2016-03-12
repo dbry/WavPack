@@ -13,6 +13,7 @@
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <conio.h>
 #include <io.h>
 #else
 #if defined(__OS2__)
@@ -160,6 +161,9 @@ static const char *help =
 "    -p                      practical float storage (also affects 32-bit\n"
 "                             integers, no longer technically lossless)\n"
 "    --pair-unassigned-chans encode unassigned channels into stereo pairs\n"
+#ifdef _WIN32
+"    --pause                 pause before exiting (if console window disappears)\n"
+#endif
 "    --pre-quantize=bits     pre-quantize samples to <bits> BEFORE encoding and MD5\n"
 "                             (common use would be --pre-quantize=20 for 24-bit or\n"
 "                             float material recorded with typical converters)\n"
@@ -210,7 +214,7 @@ static const char *speakers [] = {
 
 int debug_logging_mode;
 
-static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source, store_floats_as_ints,
+static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source, store_floats_as_ints, pause_mode,
     adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits;
 
 static int num_channels_order;
@@ -324,6 +328,10 @@ int main (int argc, char **argv)
                 printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
                 return 0;
             }
+#ifdef _WIN32
+            else if (!strcmp (long_option, "pause"))                    // --pause
+                pause_mode = 1;
+#endif
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 config.flags |= CONFIG_OPTIMIZE_MONO;
             else if (!strcmp (long_option, "dns")) {                    // --dns
@@ -1243,7 +1251,7 @@ int main (int argc, char **argv)
 
 // On Windows, this "real" main() acts as a shell to our static wavpack_main().
 // Its purpose is to convert the wchar command-line arguments into UTF-8 encoded
-// strings and set the console output to UTF-8.
+// strings.
 
 int main(int argc, char **argv)
 {
@@ -1267,6 +1275,14 @@ int main(int argc, char **argv)
         free (argv_copy);
 
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
+
+    if (pause_mode) {
+        fprintf (stderr, "\nPress any key to continue . . . ");
+        fflush (stderr);
+        while (!_kbhit ());
+        _getch ();
+        fprintf (stderr, "\n");
+    }
 
     return ret;
 }
