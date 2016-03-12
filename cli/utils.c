@@ -547,14 +547,15 @@ void finish_line (void)
     HANDLE hConIn = GetStdHandle (STD_ERROR_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO coninfo;
 
-    if (hConIn && GetConsoleScreenBufferInfo (hConIn, &coninfo)) {
-        unsigned char spaces = coninfo.dwSize.X - coninfo.dwCursorPosition.X;
+    if (hConIn && GetConsoleScreenBufferInfo (hConIn, &coninfo) &&
+        (coninfo.dwCursorPosition.X || coninfo.dwCursorPosition.Y)) {
+            unsigned char spaces = coninfo.dwSize.X - coninfo.dwCursorPosition.X;
 
-        while (spaces--)
-            fputc (' ', stderr);
+            while (spaces--)
+                fputc (' ', stderr);
     }
     else
-        fputc ('\n', stderr);
+        fprintf (stderr, "                                \n");
 
     fflush (stderr);
 }
@@ -566,7 +567,7 @@ void finish_line (void)
 
 void finish_line (void)
 {
-    fprintf (stderr, "        \n");
+    fprintf (stderr, "                                \n");
     fflush (stderr);
 }
 
