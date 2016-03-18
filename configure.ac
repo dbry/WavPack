@@ -106,6 +106,14 @@ AC_SUBST(ICONV_LIBS)
 AC_SUBST(ICONV)
 fi
 
+AC_MSG_CHECKING([if we are building for a Windows host])
+AS_CASE([$host_os],
+    [*mingw*], [windows_host=yes],
+    [windows_host=no])
+AC_MSG_RESULT([$windows_host])
+
+AM_CONDITIONAL([WINDOWS_HOST], [test "x$windows_host" = "xyes"])
+
 AC_ARG_ENABLE([rpath],
     AS_HELP_STRING([--enable-rpath], [hardcode library path in executables]))
 

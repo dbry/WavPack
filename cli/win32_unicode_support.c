@@ -136,7 +136,7 @@ int fprintf_utf8 (FILE *stream, const char *format, ...)
 int fputs_utf8 (const char *string_utf8, FILE *stream)
 {
     HANDLE hConsoleOutput;
-    DWORD dwConsoleMode;
+    DWORD dwConsoleMode, dwActual;
     wchar_t *wide_string;
     int ret = -1;
 
@@ -157,7 +157,7 @@ int fputs_utf8 (const char *string_utf8, FILE *stream)
 
         ret = (int) wcslen (wide_string);
 
-        if (!WriteConsoleW (hConsoleOutput, wide_string, ret, &actual, NULL))
+        if (!WriteConsoleW (hConsoleOutput, wide_string, ret, &dwActual, NULL))
             fputs (string_utf8, stream);
 
         free (wide_string);

@@ -1,6 +1,9 @@
 bin_PROGRAMS = wavpack wvunpack wvgain
 
 wavpack_SOURCES = wavpack.c utils.c md5.c
+if WINDOWS_HOST
+wavpack_SOURCES += win32_unicode_support.c
+endif
 wavpack_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 wavpack_LDFLAGS = -rpath $(libdir)
@@ -8,6 +11,9 @@ endif
 wavpack_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
 
 wvunpack_SOURCES = wvunpack.c utils.c md5.c
+if WINDOWS_HOST
+wvunpack_SOURCES += win32_unicode_support.c
+endif
 wvunpack_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 wvunpack_LDFLAGS = -rpath $(libdir)
@@ -15,6 +21,9 @@ endif
 wvunpack_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
 
 wvgain_SOURCES = wvgain.c utils.c
+if WINDOWS_HOST
+wvgain_SOURCES += win32_unicode_support.c
+endif
 wvgain_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 wvgain_LDFLAGS = -rpath $(libdir)
@@ -32,6 +41,7 @@ wvtest_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM) -lpth
 endif
 
 noinst_HEADERS = \
+	win32_unicode_support.h \
 	utils.h \
 	md5.h
 
