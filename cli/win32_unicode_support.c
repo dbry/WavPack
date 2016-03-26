@@ -153,8 +153,6 @@ int fputs_utf8 (const char *string_utf8, FILE *stream)
     wide_string = utf8_to_utf16(string_utf8);
 
     if (wide_string) {
-        int actual;
-
         ret = (int) wcslen (wide_string);
 
         if (!WriteConsoleW (hConsoleOutput, wide_string, ret, &dwActual, NULL))
