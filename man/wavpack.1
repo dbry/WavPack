@@ -2,12 +2,12 @@
 .\"     Title: wavpack
 .\"    Author: Sebastian Dröge <slomo@debian.org>
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2015-05-10
+.\"      Date: 2016-03-28
 .\"    Manual: WavPack Executable Programs
-.\"    Source: WavPack 4.75.0
+.\"    Source: WavPack 4.80.0
 .\"  Language: English
 .\"
-.TH "WAVPACK" "1" "2015\-05\-10" "WavPack 4\&.75\&.0" "WavPack Executable Programs"
+.TH "WAVPACK" "1" "2016\-03\-28" "WavPack 4\&.80\&.0" "WavPack Executable Programs"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -177,6 +177,15 @@ practical float storage (also 32\-bit ints, no longer technically lossless)
 encode unassigned channels into stereo pairs
 .RE
 .PP
+\fB\-\-pre\-quantize=\fR\fB\fIbits\fR\fR
+.RS 4
+pre\-quantize samples to
+\fIbits\fR
+depth BEFORE encoding and MD5 calculation (common use would be
+\fB\-\-pre\-quantize=20\fR
+for 24\-bit or float material recorded with typical converters)
+.RE
+.PP
 \fB\-q\fR
 .RS 4
 quiet (keep console output to a minimum)
@@ -285,5 +294,5 @@ Updates
 .br
 Copyright \(co 2005 Sebastian Dröge
 .br
-Copyright \(co 2015 David Bryant
+Copyright \(co 2016 David Bryant
 .br

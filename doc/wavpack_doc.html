@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 4.75</div>
+				<div class="pageHeader">Using WavPack Version 4.80</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -566,6 +566,39 @@ a:hover {
 				</p>
 
 				<p>
+					<b><tt>--pause</tt></b>
+				</p>
+				<p>
+     Pause before exiting the console program (Windows only), allowing the user to press
+     any key to continue. This might be useful to include in situations where the console
+     window disappears before the completion status can be seen (like with EAC or the
+     WavPack FrontEnd).
+				</p>
+
+				<p>
+					<b><tt>--pre-quantize=bits = apply pre-quantization to specified bitdepth</tt></b>
+				</p>
+				<p>
+     Even the finest 24-bits ADCs have a true resolution of only around 20 or 21 bits, and
+     those lower "noise" bits are completely uncompressible. This option enables truncation
+     of the source audio samples to a specified bit depth <b>before</b> encoding and MD5
+     calculation, and can often greatly improve the lossless compression ratio. Keep in mind
+     that although this is conceptually a lossy operation, it will be reported as lossless
+     because this is performed by the command-line program itself just as the audio is read
+     from the source file (but of course the source file is not actually modified).
+    </p>
+    <p>
+     This option can be used with any source format (float data is rounded instead of
+     truncated, and <i>not</i> clipped) and any WavPack mode, although it really does not
+     make sense to use this in combination with WavPack's lossy mode because it wouldn't
+     do much (at least not with reasonable parameters).
+     In the hybrid lossless mode, this pre-quantizing <i>would</i> reduce the size of the
+     correction file, but wouldn't have much effect on the lossy portion. It also works
+     well as a transcoding operation (with a WavPack source file), although it <i>will</i>
+     modify the MD5 checksum stored in the file (which WavPack's lossy mode does not do).
+				</p>
+
+				<p>
 					<b><tt>-q = quiet (keep console output to a minimum)</tt></b>
 				</p>
 				<p>
@@ -705,7 +738,7 @@ a:hover {
 					<b><tt>-x[n] = extra encode processing (optional n = 1-6, 1 = default)</tt></b>
 				</p>
 				<p>
-					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 4.75 normally
+					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 4.80 normally
 					works "symmetrically" in that encoding and decoding operate at about the same rate
 					(regardless of the mode used). However, WavPack has an option to work
 					"asymmetrically", so that extra processing can be done during encoding to
@@ -855,6 +888,15 @@ a:hover {
      before being displayed or written to files. If your system already expects UTF-8, use this
      option to prevent the conversion.
     </p>
+				<p>
+					<b><tt>--pause</tt></b>
+				</p>
+				<p>
+     Pause before exiting the console program (Windows only), allowing the user to press
+     any key to continue. This might be useful to include in situations where the console
+     window disappears before the completion status can be seen (like with EAC or the
+     WavPack FrontEnd).
+				</p>
 				<p>
 					<b><tt>-q = quiet (keep console output to a minimum)</tt></b>
 				</p>
