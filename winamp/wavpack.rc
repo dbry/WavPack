@@ -83,7 +83,7 @@ END
 STRINGTABLE 
 BEGIN
     IDS_ABOUT               "About WavPack Decoder"
-    IDS_FORMAT              "WavPack Decoder Version %s \nCopyright (c) %d Conifer Software"
+    IDS_FORMAT              "WavPack Decoder Version %s \nCopyright (c) %d David Bryant"
     IDS_ENCODER_VERSION     "WavPack encoder version:  %d\n"
     IDS_SOURCE              "Source:  %d-bit %s at %d Hz \n"
     IDS_MULTICHANNEL        "Channels: %d (multichannel)\n"

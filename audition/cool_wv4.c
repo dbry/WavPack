@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2015 David Bryant.                 //
+//                Copyright (c) 1998 - 2016 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -26,6 +26,7 @@
 // Version 2.11 - Nov 22, 2009 (library ver 4.60.1)
 // Version 2.12 - May 10, 2015 (library ver 4.75.0)
 // Version 2.13 - Sept 29, 2015 (library ver 4.75.2)
+// Version 2.14 - Mar 28, 2016 (library ver 4.80.0)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -920,8 +921,8 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
 
                 case IDABOUT:
                     MessageBox (hDlg,
-                        "WavPack Filter Version 2.13\n"
-                        "Copyright (c) 2015 David Bryant  ", "About WavPack Filter", MB_OK);
+                        "WavPack Filter Version 2.14\n"
+                        "Copyright (c) 2016 David Bryant  ", "About WavPack Filter", MB_OK);
                     break;
             }
 

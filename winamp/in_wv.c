@@ -1,6 +1,6 @@
 /*
 ** .WV input plug-in for WavPack
-** Copyright (c) 2000 - 2006, Conifer Software, All Rights Reserved
+** Copyright (c) 2000 - 2016, David Bryant, All Rights Reserved
 */
 
 #include <windows.h>
@@ -22,7 +22,7 @@
 
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 
-#define PLUGIN_VERSION "2.8"
+#define PLUGIN_VERSION "2.8.0.1"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 
@@ -296,7 +296,7 @@ void about (HWND hwndParent)
 	    !LoadString (hResources, IDS_FORMAT, about_format, sizeof (about_format)))
 			return;
 
-	sprintf (about_string, about_format, PLUGIN_VERSION, 2013);
+	sprintf (about_string, about_format, PLUGIN_VERSION, 2016);
     MessageBox (hwndParent, about_string, about_title, MB_OK);
 }
 
