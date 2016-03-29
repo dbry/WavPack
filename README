@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2015 David Bryant.                 //
+//                Copyright (c) 1998 - 2016 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -16,13 +16,14 @@ so it will work on legacy i386 processors.
 On Windows there are solution and project files for Visual Studio 2008 and
 additional sourcecode to build the CoolEdit/Audition plugin and the winamp
 plugin. The CoolEdit/Audition plugin provides a good example for using the
-library to both read and write WavPack files. Both 32-bit and 64-bit
+library to both read and write WavPack files and the winamp plugin makes
+extensive use of APEv2 tag reading and writing. Both 32-bit and 64-bit
 platforms are provided.
 
-However, Visual Studio 2008 does not support projects with x64 assembly
-very well. I have provided a copy of the edited masm.rules file that works
-for me, but I can't provide support if your build does not work. Please make
-a copy of your masm.rules file first. On my system it lives here:
+Visual Studio 2008 does not support projects with x64 assembly very well. I
+have provided a copy of the edited masm.rules file that works for me, but I
+can't provide support if your build does not work. Please make a copy of
+your masm.rules file first. On my system it lives here:
 
 C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\VCProjectDefaults
 
@@ -55,11 +56,14 @@ required, so I am not including this in the build for now.
 
 Notes:
 
-1. There are two documentation files contained in the distribution:
+1. There are three documentation files contained in the distribution:
+
+   doc/wavpack_doc.html   contains user-targeted documentation for the
+                          command-line programs
 
    doc/library_use.txt    contains a detailed description of the API provided
                           by WavPack library appropriate for read and writing
-                          WavPack files
+                          WavPack files and manipulating APEv2 tags
 
    doc/file_format.txt    contains a description of the WavPack file format,
                           including details needed for parsing WavPack blocks
@@ -71,47 +75,32 @@ Notes:
 
    www.wavpack.com/WavPack.pdf
 
-2. This code is designed to be easy to port to other platforms. File I/O is
-   done with streams and all file functions (except "fopen") are handled in
-   a wrapper in the "utils.c" module. The code is endian-independent.
+2. This code is designed to be easy to port to other platforms. It is endian-
+   agnostic and generally generally uses callbacks for I/O, although there is
+   a convenience function for reading files that accepts filename strings and
+   automatically handles correction files (on Windows there is now an option
+   to select UTF-8 instead of ANSI).
 
    To maintain compatibility on various platforms, the following conventions
-   are used: A "short" must be 16-bits and an "int" must be 32-bits.
-   The "long" type is not used. The "char" type must be 8-bits, signed or
-   unsigned.
+   are used: a "short" must be 16-bits and the "int" and "long" types must be
+   at least 32-bits. The "char" type must be 8-bits, signed or unsigned.
 
-3. For opening WavPack files for reading, a library interface in "open_utils.c"
-   provides all the functionality required for both the winamp plugin and the
-   "wvunpack" command-line program (including the transparent decoding of
-   "correction" files). There is also an alternate entry point that uses
-   reader callbacks for all input, although in this case it is the caller's
-   responsibility to to open the "correction" file. The header file
-   "include/wavpack.h" includes everything needed while hiding all the WavPack
-   internals from the application.
-
-4. For WavPack file creation, the library interface in "pack_utils.c" provides
-   all the functionality for both the Audition filter and the "wavpack"
-   command-line program. No file I/O is performed by the library when creating
-   WavPack files. Instead, the user supplies a "write_block" function that
-   accepts completed WavPack blocks. It is also possible to append APEv2 tags
-   to WavPack files during creation and edit APEv2 tags on existing files.
-
-5. The code's modules are organized in such a way that if major chunks of the
+3. The code's modules are organized in such a way that if major chunks of the
    functionality are not referenced (for example, creating WavPack files) then
    link-time dependency resolution should provide optimum binary sizes.
-   However, some functionality could not be easily excluded in this way (for
-   example the ability to decode very old WavPack files which is not needed
-   for most applications). For this reason, there are additional macros that
-   may be used to further reduce the binary size of the library. Note that
-   these must be defined for all modules and all modules should still be
-   compiled:
 
-   VER4_ONLY       to only handle WavPack files from versions 4.0 onward
+   However, some functionality could not be easily excluded in this way and so
+   there are additional macros that may be used to further reduce the size of
+   the binary. Note that these must be defined for all modules:
+
+   VER4_ONLY       to only handle WavPack files from version 4.0 onward
+                    (this is highly recommended for most applications
+                     because pre-4.0 WavPack files are very old)
    NO_SEEKING      to not allow seeking to a specific sample index
    NO_TAGS         to not read specified fields from ID3v1 and APEv2 tags and
                     not create or edit APEv2 tags
 
-6. There are alternate versions of this library available specifically designed
+4. There are alternate versions of this library available specifically designed
    for "resource limited" CPUs or hardware encoding and decoding. There is the
    "tiny decoder" library which works with less than 32k of code and less than
    4k of data and has assembly language optimizations for the ARM and Freescale
@@ -124,4 +113,4 @@ Notes:
    the library that supports a variation on the regular WavPack block format
    to facilitate this.
 
-7. Questions or comments should be directed to david@wavpack.com
+5. Questions or comments should be directed to david@wavpack.com
