@@ -2070,7 +2070,7 @@ static void dump_UTF8_string (char *string, FILE *dst)
 // and will also be NULL terminated. The number of characters converted will
 // be returned (not counting terminator).
 
-static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide)
+static int UTF8ToWideChar (const unsigned char *pUTF8, wchar_t *pWide)
 {
     int trail_bytes = 0;
     int chrcnt = 0;
@@ -2178,7 +2178,7 @@ static void UTF8ToAnsi (char *string, int len)
 {
     int max_chars = (int) strlen (string);
 #if defined (_WIN32)
-    unsigned short *temp = malloc ((max_chars + 1) * 2);
+    wchar_t *temp = malloc ((max_chars + 1) * 2);
     int act_chars = UTF8ToWideChar (string, temp);
 
     while (act_chars) {
