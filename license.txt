@@ -1,4 +1,4 @@
-                  Copyright (c) 1998 - 2015 David Bryant
+                  Copyright (c) 1998 - 2016 David Bryant
                           All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
