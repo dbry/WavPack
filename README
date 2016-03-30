@@ -76,14 +76,14 @@ Notes:
    www.wavpack.com/WavPack.pdf
 
 2. This code is designed to be easy to port to other platforms. It is endian-
-   agnostic and generally generally uses callbacks for I/O, although there is
-   a convenience function for reading files that accepts filename strings and
-   automatically handles correction files (on Windows there is now an option
-   to select UTF-8 instead of ANSI).
+   agnostic and usually uses callbacks for I/O, although there's a convenience
+   function for reading files that accepts filename strings and automatically
+   handles correction files (and on Windows there is now an option to select
+   UTF-8 instead of ANSI).
 
    To maintain compatibility on various platforms, the following conventions
-   are used: a "short" must be 16-bits and the "int" and "long" types must be
-   at least 32-bits. The "char" type must be 8-bits, signed or unsigned.
+   are used: the "char" type must be 8-bits (signed or unsigned), a "short"
+   must be 16-bits and the "int" and "long" types must be at least 32-bits.
 
 3. The code's modules are organized in such a way that if major chunks of the
    functionality are not referenced (for example, creating WavPack files) then
@@ -97,6 +97,7 @@ Notes:
                     (this is highly recommended for most applications
                      because pre-4.0 WavPack files are very old)
    NO_SEEKING      to not allow seeking to a specific sample index
+                    (for applications that always read entire files)
    NO_TAGS         to not read specified fields from ID3v1 and APEv2 tags and
                     not create or edit APEv2 tags
 
@@ -108,9 +109,5 @@ Notes:
    handles the pure lossless, lossy, and hybrid lossless modes. Neither of the
    "tiny" versions use any memory allocation functions nor do they require
    floating-point arithmetic support.
-
-   For applications requiring very low latency, there is a special version of
-   the library that supports a variation on the regular WavPack block format
-   to facilitate this.
 
 5. Questions or comments should be directed to david@wavpack.com

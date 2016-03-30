@@ -8,14 +8,14 @@
  wvgain.exe (command-line ReplayGain scanner) - 4.80.0
  -----------------------------------------------------
   added: full Unicode support on Windows platform
-  added: new option --pre-quantize to truncate high-resolution files to a
-         reasonable depth (e.g., 20 bits) for better compression
+  added: new option --pre-quantize to truncate high-resolution files
+         to a reasonable depth (e.g., 20-bit) for better compression
   fixed: Debian bug #793320 (executable stack)
   fixed: LargeAddressAware problem reported on HA
   fixed: several "fuzz test" failures reported on GitHub
   fixed: repack blocks after possible arithmetic overflows
-  improved: faster X86 and X64 assembly code for mono packing
-  improved: portability
+  improved: faster assembly code for mono packing
+  improved: portability for various platforms
 
  wvtest.exe (command-line libwavpack test suite) - 4.80.0
  --------------------------------------------------------
@@ -26,7 +26,7 @@
  AmioWavpack.amio (Adobe Audition Plugins) - 1.5
  cool_wv4.flt (CoolEdit / Audition filter) - 2.14
  ------------------------------------------------
-  updated: see library changes
+  updated: see 4.80.0 library changes
 
 
                       --------------------------------
