@@ -1,12 +1,12 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2015 David Bryant                  //
+//                Copyright (c) 1998 - 2016 David Bryant                  //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
 
-                       WavPack 4.60 Library Documentation
+                       WavPack 4.80 Library Documentation
                        ----------------------------------
 
                               December 9, 2006
@@ -16,6 +16,7 @@
                            updated: June 7, 2008
                            updated: Sept 26, 2009
                            updated: July 14, 2015
+                           updated: March 30, 2016
 
 
 ******************************************************************************
@@ -65,13 +66,13 @@ common case of CD audio).
 
 Return the WavPack library version in a packed integer. Bits 0-7 give the
 micro version, bits 8-15 give the minor version, and bits 16-23 give the
-major version. As of this writing the version is 4.60.0.
+major version. As of this writing the version is 4.80.0.
 
   const char *WavpackGetLibraryVersionString (void);
   -------------------------------------------------
 
 Return the WavPack library version as a string. As of this writing this is
-"4.60.0".
+"4.80.0".
 
   char *WavpackGetErrorMessage (WavpackContext *wpc);
   --------------------------------------------------
@@ -195,6 +196,12 @@ OPEN_STREAMING:
 OPEN_EDIT_TAGS:
  Open the file in read/write mode to allow editing of any APEv2 tags present, or
  appending of a new APEv2 tag. Of course the file must have write permission.
+
+OPEN_FILE_UTF8:
+ On Windows platforms only, assume that the passed filename is UTF-8 encoded
+ rather than local ANSI. This is a new flag for 4.80.0 that allows the
+ WavPack library to be Unicode compliant. On non-Windows platforms this
+ flag doesn't do anything; the filename is always passed directly to fopen().
 
 The "norm_offset" parameter is used with the OPEN_NORMALIZE flag and floating
 point audio data to specify an alternate normalization range. The default is
