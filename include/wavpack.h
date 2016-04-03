@@ -48,12 +48,12 @@ typedef struct {
 #define ChunkHeaderFormat "4L"
 
 typedef struct {
-    unsigned short FormatTag, NumChannels;
+    uint16_t FormatTag, NumChannels;
     uint32_t SampleRate, BytesPerSecond;
-    unsigned short BlockAlign, BitsPerSample;
-    unsigned short cbSize, ValidBitsPerSample;
+    uint16_t BlockAlign, BitsPerSample;
+    uint16_t cbSize, ValidBitsPerSample;
     int32_t ChannelMask;
-    unsigned short SubFormat;
+    uint16_t SubFormat;
     char GUID [14];
 } WaveHeader;
 
@@ -69,7 +69,7 @@ typedef struct {
 typedef struct {
     char ckID [4];
     uint32_t ckSize;
-    short version;
+    int16_t version;
     unsigned char track_no, index_no;
     uint32_t total_samples, block_index, block_samples, flags, crc;
 } WavpackHeader;

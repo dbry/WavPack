@@ -115,14 +115,14 @@ int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
     if (wpmd->byte_length != ((wps->wphdr.flags & MONO_DATA) ? 6 : 12))
         return FALSE;
 
-    wps->w.c [0].median [0] = exp2s (byteptr [0] + (byteptr [1] << 8));
-    wps->w.c [0].median [1] = exp2s (byteptr [2] + (byteptr [3] << 8));
-    wps->w.c [0].median [2] = exp2s (byteptr [4] + (byteptr [5] << 8));
+    wps->w.c [0].median [0] = wp_exp2s (byteptr [0] + (byteptr [1] << 8));
+    wps->w.c [0].median [1] = wp_exp2s (byteptr [2] + (byteptr [3] << 8));
+    wps->w.c [0].median [2] = wp_exp2s (byteptr [4] + (byteptr [5] << 8));
 
     if (!(wps->wphdr.flags & MONO_DATA)) {
-        wps->w.c [1].median [0] = exp2s (byteptr [6] + (byteptr [7] << 8));
-        wps->w.c [1].median [1] = exp2s (byteptr [8] + (byteptr [9] << 8));
-        wps->w.c [1].median [2] = exp2s (byteptr [10] + (byteptr [11] << 8));
+        wps->w.c [1].median [0] = wp_exp2s (byteptr [6] + (byteptr [7] << 8));
+        wps->w.c [1].median [1] = wp_exp2s (byteptr [8] + (byteptr [9] << 8));
+        wps->w.c [1].median [2] = wp_exp2s (byteptr [10] + (byteptr [11] << 8));
     }
 
     return TRUE;
@@ -142,11 +142,11 @@ int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
         if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
             return FALSE;
 
-        wps->w.c [0].slow_level = exp2s (byteptr [0] + (byteptr [1] << 8));
+        wps->w.c [0].slow_level = wp_exp2s (byteptr [0] + (byteptr [1] << 8));
         byteptr += 2;
 
         if (!(wps->wphdr.flags & MONO_DATA)) {
-            wps->w.c [1].slow_level = exp2s (byteptr [0] + (byteptr [1] << 8));
+            wps->w.c [1].slow_level = wp_exp2s (byteptr [0] + (byteptr [1] << 8));
             byteptr += 2;
         }
     }
@@ -166,11 +166,11 @@ int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
         if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
             return FALSE;
 
-        wps->w.bitrate_delta [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
+        wps->w.bitrate_delta [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
         byteptr += 2;
 
         if (!(wps->wphdr.flags & MONO_DATA)) {
-            wps->w.bitrate_delta [1] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
+            wps->w.bitrate_delta [1] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
             byteptr += 2;
         }
 
@@ -198,12 +198,12 @@ void update_error_limit (WavpackStream *wps)
             int slow_log_0 = (wps->w.c [0].slow_level + SLO) >> SLS;
 
             if (slow_log_0 - bitrate_0 > -0x100)
-                wps->w.c [0].error_limit = exp2s (slow_log_0 - bitrate_0 + 0x100);
+                wps->w.c [0].error_limit = wp_exp2s (slow_log_0 - bitrate_0 + 0x100);
             else
                 wps->w.c [0].error_limit = 0;
         }
         else
-            wps->w.c [0].error_limit = exp2s (bitrate_0);
+            wps->w.c [0].error_limit = wp_exp2s (bitrate_0);
     }
     else {
         int bitrate_1 = (wps->w.bitrate_acc [1] += wps->w.bitrate_delta [1]) >> 16;
@@ -230,18 +230,18 @@ void update_error_limit (WavpackStream *wps)
             }
 
             if (slow_log_0 - bitrate_0 > -0x100)
-                wps->w.c [0].error_limit = exp2s (slow_log_0 - bitrate_0 + 0x100);
+                wps->w.c [0].error_limit = wp_exp2s (slow_log_0 - bitrate_0 + 0x100);
             else
                 wps->w.c [0].error_limit = 0;
 
             if (slow_log_1 - bitrate_1 > -0x100)
-                wps->w.c [1].error_limit = exp2s (slow_log_1 - bitrate_1 + 0x100);
+                wps->w.c [1].error_limit = wp_exp2s (slow_log_1 - bitrate_1 + 0x100);
             else
                 wps->w.c [1].error_limit = 0;
         }
         else {
-            wps->w.c [0].error_limit = exp2s (bitrate_0);
-            wps->w.c [1].error_limit = exp2s (bitrate_1);
+            wps->w.c [0].error_limit = wp_exp2s (bitrate_0);
+            wps->w.c [1].error_limit = wp_exp2s (bitrate_1);
         }
     }
 }
@@ -261,7 +261,7 @@ void update_error_limit (WavpackStream *wps)
 // This function returns the log2 for the specified 32-bit unsigned value.
 // The maximum value allowed is about 0xff800000 and returns 8447.
 
-int FASTCALL mylog2 (uint32_t avalue)
+int FASTCALL wp_log2 (uint32_t avalue)
 {
     int dbits;
 
@@ -325,9 +325,9 @@ uint32_t log2buffer (int32_t *samples, uint32_t num_samples, int limit)
 // All input values are valid and the return values are in the range of
 // +/- 8192.
 
-int log2s (int32_t value)
+int wp_log2s (int32_t value)
 {
-    return (value < 0) ? -mylog2 (-value) : mylog2 (value);
+    return (value < 0) ? -wp_log2 (-value) : wp_log2 (value);
 }
 
 // This function returns the original integer represented by the supplied
@@ -335,12 +335,12 @@ int log2s (int32_t value)
 // but since a full 32-bit value is returned this can be used for unsigned
 // conversions as well (i.e. the input range is -8192 to +8447).
 
-int32_t exp2s (int log)
+int32_t wp_exp2s (int log)
 {
     uint32_t value;
 
     if (log < 0)
-        return -exp2s (-log);
+        return -wp_exp2s (-log);
 
     value = exp2_table [log & 0xff] | 0x100;
 

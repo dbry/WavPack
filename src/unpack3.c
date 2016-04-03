@@ -1482,7 +1482,7 @@ static int32_t FASTCALL get_word3 (WavpackStream3 *wps, int chan)
     }
 }
 
-static int FASTCALL _log2 (uint32_t avalue);
+static int FASTCALL wp3_log2 (uint32_t avalue);
 
 static int32_t FASTCALL get_word4 (WavpackStream3 *wps, int chan, int32_t *correction)
 {
@@ -1525,22 +1525,22 @@ static int32_t FASTCALL get_word4 (WavpackStream3 *wps, int chan, int32_t *corre
         int slow_log_0, slow_log_1, balance;
 
         if (wps->wphdr.flags & MONO_FLAG) {
-            wps->w4.bits_acc [0] += wps->w4.bitrate + _log2 (wps->w4.fast_level [0]) - _log2 (wps->w4.slow_level [0]) + (3 << 8);
+            wps->w4.bits_acc [0] += wps->w4.bitrate + wp3_log2 (wps->w4.fast_level [0]) - wp3_log2 (wps->w4.slow_level [0]) + (3 << 8);
 
             if (wps->w4.bits_acc [0] < 0)
                 wps->w4.bits_acc [0] = 0;
         }
         else {
-            slow_log_0 = _log2 (wps->w4.slow_level [0]);
-            slow_log_1 = _log2 (wps->w4.slow_level [1]);
+            slow_log_0 = wp3_log2 (wps->w4.slow_level [0]);
+            slow_log_1 = wp3_log2 (wps->w4.slow_level [1]);
 
             if (wps->wphdr.flags & JOINT_STEREO)
                 balance = (slow_log_1 - slow_log_0 + 257) >> 1;
             else
                 balance = (slow_log_1 - slow_log_0 + 1) >> 1;
 
-            wps->w4.bits_acc [0] += wps->w4.bitrate - balance + _log2 (wps->w4.fast_level [0]) - slow_log_0 + (3 << 8);
-            wps->w4.bits_acc [1] += wps->w4.bitrate + balance + _log2 (wps->w4.fast_level [1]) - slow_log_1 + (3 << 8);
+            wps->w4.bits_acc [0] += wps->w4.bitrate - balance + wp3_log2 (wps->w4.fast_level [0]) - slow_log_0 + (3 << 8);
+            wps->w4.bits_acc [1] += wps->w4.bitrate + balance + wp3_log2 (wps->w4.fast_level [1]) - slow_log_1 + (3 << 8);
 
             if (wps->w4.bits_acc [0] + wps->w4.bits_acc [1] < 0)
                 wps->w4.bits_acc [0] = wps->w4.bits_acc [1] = 0;
@@ -1620,7 +1620,7 @@ static int32_t FASTCALL get_word4 (WavpackStream3 *wps, int chan, int32_t *corre
 // fraction) from the supplied value. Using logarithms makes comparing
 // signal level values and calculating fractional bitrates much easier.
 
-static int FASTCALL _log2 (uint32_t avalue)
+static int FASTCALL wp3_log2 (uint32_t avalue)
 {
     int dbits;
 

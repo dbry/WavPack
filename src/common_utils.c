@@ -449,7 +449,7 @@ void WavpackLittleEndianToNative (void *data, char *format)
 
             case 'S':
                 temp = cp [0] + (cp [1] << 8);
-                * (short *) cp = (short) temp;
+                * (int16_t *) cp = (int16_t) temp;
                 cp += 2;
                 break;
 
@@ -480,7 +480,7 @@ void WavpackNativeToLittleEndian (void *data, char *format)
                 break;
 
             case 'S':
-                temp = * (short *) cp;
+                temp = * (int16_t *) cp;
                 *cp++ = (unsigned char) temp;
                 *cp++ = (unsigned char) (temp >> 8);
                 break;

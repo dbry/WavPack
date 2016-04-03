@@ -173,27 +173,27 @@ static void write_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
     for (dpp = wps->decorr_passes; tcount--; ++dpp)
         if (wcount) {
             if (dpp->term > MAX_TERM) {
-                dpp->samples_A [0] = exp2s (temp = log2s (dpp->samples_A [0]));
+                dpp->samples_A [0] = wp_exp2s (temp = wp_log2s (dpp->samples_A [0]));
                 *byteptr++ = temp;
                 *byteptr++ = temp >> 8;
-                dpp->samples_A [1] = exp2s (temp = log2s (dpp->samples_A [1]));
+                dpp->samples_A [1] = wp_exp2s (temp = wp_log2s (dpp->samples_A [1]));
                 *byteptr++ = temp;
                 *byteptr++ = temp >> 8;
 
                 if (!(wps->wphdr.flags & MONO_DATA)) {
-                    dpp->samples_B [0] = exp2s (temp = log2s (dpp->samples_B [0]));
+                    dpp->samples_B [0] = wp_exp2s (temp = wp_log2s (dpp->samples_B [0]));
                     *byteptr++ = temp;
                     *byteptr++ = temp >> 8;
-                    dpp->samples_B [1] = exp2s (temp = log2s (dpp->samples_B [1]));
+                    dpp->samples_B [1] = wp_exp2s (temp = wp_log2s (dpp->samples_B [1]));
                     *byteptr++ = temp;
                     *byteptr++ = temp >> 8;
                 }
             }
             else if (dpp->term < 0) {
-                dpp->samples_A [0] = exp2s (temp = log2s (dpp->samples_A [0]));
+                dpp->samples_A [0] = wp_exp2s (temp = wp_log2s (dpp->samples_A [0]));
                 *byteptr++ = temp;
                 *byteptr++ = temp >> 8;
-                dpp->samples_B [0] = exp2s (temp = log2s (dpp->samples_B [0]));
+                dpp->samples_B [0] = wp_exp2s (temp = wp_log2s (dpp->samples_B [0]));
                 *byteptr++ = temp;
                 *byteptr++ = temp >> 8;
             }
@@ -201,12 +201,12 @@ static void write_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
                 int m = 0, cnt = dpp->term;
 
                 while (cnt--) {
-                    dpp->samples_A [m] = exp2s (temp = log2s (dpp->samples_A [m]));
+                    dpp->samples_A [m] = wp_exp2s (temp = wp_log2s (dpp->samples_A [m]));
                     *byteptr++ = temp;
                     *byteptr++ = temp >> 8;
 
                     if (!(wps->wphdr.flags & MONO_DATA)) {
-                        dpp->samples_B [m] = exp2s (temp = log2s (dpp->samples_B [m]));
+                        dpp->samples_B [m] = wp_exp2s (temp = wp_log2s (dpp->samples_B [m]));
                         *byteptr++ = temp;
                         *byteptr++ = temp >> 8;
                     }
@@ -239,29 +239,29 @@ static void write_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd)
     byteptr = wpmd->data = malloc (12);
     wpmd->id = ID_SHAPING_WEIGHTS;
 
-    wps->dc.error [0] = exp2s (temp = log2s (wps->dc.error [0]));
+    wps->dc.error [0] = wp_exp2s (temp = wp_log2s (wps->dc.error [0]));
     *byteptr++ = temp;
     *byteptr++ = temp >> 8;
-    wps->dc.shaping_acc [0] = exp2s (temp = log2s (wps->dc.shaping_acc [0]));
+    wps->dc.shaping_acc [0] = wp_exp2s (temp = wp_log2s (wps->dc.shaping_acc [0]));
     *byteptr++ = temp;
     *byteptr++ = temp >> 8;
 
     if (!(wps->wphdr.flags & MONO_DATA)) {
-        wps->dc.error [1] = exp2s (temp = log2s (wps->dc.error [1]));
+        wps->dc.error [1] = wp_exp2s (temp = wp_log2s (wps->dc.error [1]));
         *byteptr++ = temp;
         *byteptr++ = temp >> 8;
-        wps->dc.shaping_acc [1] = exp2s (temp = log2s (wps->dc.shaping_acc [1]));
+        wps->dc.shaping_acc [1] = wp_exp2s (temp = wp_log2s (wps->dc.shaping_acc [1]));
         *byteptr++ = temp;
         *byteptr++ = temp >> 8;
     }
 
     if (wps->dc.shaping_delta [0] | wps->dc.shaping_delta [1]) {
-        wps->dc.shaping_delta [0] = exp2s (temp = log2s (wps->dc.shaping_delta [0]));
+        wps->dc.shaping_delta [0] = wp_exp2s (temp = wp_log2s (wps->dc.shaping_delta [0]));
         *byteptr++ = temp;
         *byteptr++ = temp >> 8;
 
         if (!(wps->wphdr.flags & MONO_DATA)) {
-            wps->dc.shaping_delta [1] = exp2s (temp = log2s (wps->dc.shaping_delta [1]));
+            wps->dc.shaping_delta [1] = wp_exp2s (temp = wp_log2s (wps->dc.shaping_delta [1]));
             *byteptr++ = temp;
             *byteptr++ = temp >> 8;
         }

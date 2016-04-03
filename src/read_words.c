@@ -310,7 +310,7 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
 
     if (wps->wphdr.flags & HYBRID_BITRATE) {
         c->slow_level -= (c->slow_level + SLO) >> SLS;
-        c->slow_level += mylog2 (mid);
+        c->slow_level += wp_log2 (mid);
     }
 
     return sign ? ~mid : mid;

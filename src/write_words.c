@@ -92,7 +92,7 @@ static void word_set_bitrate (WavpackStream *wps)
 
 // Allocates the correct space in the metadata structure and writes the
 // current median values to it. Values are converted from 32-bit unsigned
-// to our internal 16-bit mylog2 values, and read_entropy_vars () is called
+// to our internal 16-bit wp_log2 values, and read_entropy_vars () is called
 // to read the values back because we must compensate for the loss through
 // the log function.
 
@@ -104,19 +104,19 @@ void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
     byteptr = wpmd->data = malloc (12);
     wpmd->id = ID_ENTROPY_VARS;
 
-    *byteptr++ = temp = mylog2 (wps->w.c [0].median [0]);
+    *byteptr++ = temp = wp_log2 (wps->w.c [0].median [0]);
     *byteptr++ = temp >> 8;
-    *byteptr++ = temp = mylog2 (wps->w.c [0].median [1]);
+    *byteptr++ = temp = wp_log2 (wps->w.c [0].median [1]);
     *byteptr++ = temp >> 8;
-    *byteptr++ = temp = mylog2 (wps->w.c [0].median [2]);
+    *byteptr++ = temp = wp_log2 (wps->w.c [0].median [2]);
     *byteptr++ = temp >> 8;
 
     if (!(wps->wphdr.flags & MONO_DATA)) {
-        *byteptr++ = temp = mylog2 (wps->w.c [1].median [0]);
+        *byteptr++ = temp = wp_log2 (wps->w.c [1].median [0]);
         *byteptr++ = temp >> 8;
-        *byteptr++ = temp = mylog2 (wps->w.c [1].median [1]);
+        *byteptr++ = temp = wp_log2 (wps->w.c [1].median [1]);
         *byteptr++ = temp >> 8;
-        *byteptr++ = temp = mylog2 (wps->w.c [1].median [2]);
+        *byteptr++ = temp = wp_log2 (wps->w.c [1].median [2]);
         *byteptr++ = temp >> 8;
     }
 
@@ -127,7 +127,7 @@ void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 // Allocates enough space in the metadata structure and writes the current
 // high word of the bitrate accumulator and the slow_level values to it. The
 // slow_level values are converted from 32-bit unsigned to our internal 16-bit
-// mylog2 values. Afterward, read_entropy_vars () is called to read the values
+// wp_log2 values. Afterward, read_entropy_vars () is called to read the values
 // back because we must compensate for the loss through the log function and
 // the truncation of the bitrate.
 
@@ -141,11 +141,11 @@ void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
     wpmd->id = ID_HYBRID_PROFILE;
 
     if (wps->wphdr.flags & HYBRID_BITRATE) {
-        *byteptr++ = temp = log2s (wps->w.c [0].slow_level);
+        *byteptr++ = temp = wp_log2s (wps->w.c [0].slow_level);
         *byteptr++ = temp >> 8;
 
         if (!(wps->wphdr.flags & MONO_DATA)) {
-            *byteptr++ = temp = log2s (wps->w.c [1].slow_level);
+            *byteptr++ = temp = wp_log2s (wps->w.c [1].slow_level);
             *byteptr++ = temp >> 8;
         }
     }
@@ -159,11 +159,11 @@ void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
     }
 
     if (wps->w.bitrate_delta [0] | wps->w.bitrate_delta [1]) {
-        *byteptr++ = temp = log2s (wps->w.bitrate_delta [0]);
+        *byteptr++ = temp = wp_log2s (wps->w.bitrate_delta [0]);
         *byteptr++ = temp >> 8;
 
         if (!(wps->wphdr.flags & MONO_DATA)) {
-            *byteptr++ = temp = log2s (wps->w.bitrate_delta [1]);
+            *byteptr++ = temp = wp_log2s (wps->w.bitrate_delta [1]);
             *byteptr++ = temp >> 8;
         }
     }
@@ -317,7 +317,7 @@ int32_t FASTCALL send_word (WavpackStream *wps, int32_t value, int chan)
 
     if (wps->wphdr.flags & HYBRID_BITRATE) {
         c->slow_level -= (c->slow_level + SLO) >> SLS;
-        c->slow_level += mylog2 (mid);
+        c->slow_level += wp_log2 (mid);
     }
 
     return sign ? ~mid : mid;
@@ -563,7 +563,7 @@ int32_t nosend_word (WavpackStream *wps, int32_t value, int chan)
                 mid = (high + (low = mid) + 1) >> 1;
 
     c->slow_level -= (c->slow_level + SLO) >> SLS;
-    c->slow_level += mylog2 (mid);
+    c->slow_level += wp_log2 (mid);
 
     return sign ? ~mid : mid;
 }
@@ -607,7 +607,7 @@ void scan_word (WavpackStream *wps, int32_t *samples, uint32_t num_samples, int 
 
         if (flags & HYBRID_BITRATE) {
             wps->w.c [0].slow_level -= (wps->w.c [0].slow_level + SLO) >> SLS;
-            wps->w.c [0].slow_level += mylog2 (value);
+            wps->w.c [0].slow_level += wp_log2 (value);
         }
 
         if (value < GET_MED (0)) {
@@ -639,7 +639,7 @@ void scan_word (WavpackStream *wps, int32_t *samples, uint32_t num_samples, int 
 
             if (wps->wphdr.flags & HYBRID_BITRATE) {
                 wps->w.c [1].slow_level -= (wps->w.c [1].slow_level + SLO) >> SLS;
-                wps->w.c [1].slow_level += mylog2 (value);
+                wps->w.c [1].slow_level += wp_log2 (value);
             }
 
             if (value < GET_MED (0)) {

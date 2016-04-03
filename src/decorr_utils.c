@@ -107,11 +107,11 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
         if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
             return FALSE;
 
-        wps->dc.error [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
+        wps->dc.error [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
         byteptr += 2;
 
         if (!(wps->wphdr.flags & MONO_DATA)) {
-            wps->dc.error [1] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
+            wps->dc.error [1] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
             byteptr += 2;
         }
     }
@@ -121,13 +121,13 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
             if (byteptr + (wps->wphdr.flags & MONO_DATA ? 4 : 8) > endptr)
                 return FALSE;
 
-            dpp->samples_A [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
-            dpp->samples_A [1] = exp2s ((short)(byteptr [2] + (byteptr [3] << 8)));
+            dpp->samples_A [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+            dpp->samples_A [1] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
             byteptr += 4;
 
             if (!(wps->wphdr.flags & MONO_DATA)) {
-                dpp->samples_B [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
-                dpp->samples_B [1] = exp2s ((short)(byteptr [2] + (byteptr [3] << 8)));
+                dpp->samples_B [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+                dpp->samples_B [1] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
                 byteptr += 4;
             }
         }
@@ -135,8 +135,8 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
             if (byteptr + 4 > endptr)
                 return FALSE;
 
-            dpp->samples_A [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
-            dpp->samples_B [0] = exp2s ((short)(byteptr [2] + (byteptr [3] << 8)));
+            dpp->samples_A [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+            dpp->samples_B [0] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
             byteptr += 4;
         }
         else {
@@ -146,11 +146,11 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
                 if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
                     return FALSE;
 
-                dpp->samples_A [m] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
+                dpp->samples_A [m] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
                 byteptr += 2;
 
                 if (!(wps->wphdr.flags & MONO_DATA)) {
-                    dpp->samples_B [m] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
+                    dpp->samples_B [m] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
                     byteptr += 2;
                 }
 
@@ -180,21 +180,21 @@ int read_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd)
     else if (wpmd->byte_length >= (wps->wphdr.flags & MONO_DATA ? 4 : 8)) {
         unsigned char *byteptr = wpmd->data;
 
-        wps->dc.error [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
-        wps->dc.shaping_acc [0] = exp2s ((short)(byteptr [2] + (byteptr [3] << 8)));
+        wps->dc.error [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+        wps->dc.shaping_acc [0] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
         byteptr += 4;
 
         if (!(wps->wphdr.flags & MONO_DATA)) {
-            wps->dc.error [1] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
-            wps->dc.shaping_acc [1] = exp2s ((short)(byteptr [2] + (byteptr [3] << 8)));
+            wps->dc.error [1] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+            wps->dc.shaping_acc [1] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
             byteptr += 4;
         }
 
         if (wpmd->byte_length == (wps->wphdr.flags & MONO_DATA ? 6 : 12)) {
-            wps->dc.shaping_delta [0] = exp2s ((short)(byteptr [0] + (byteptr [1] << 8)));
+            wps->dc.shaping_delta [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
 
             if (!(wps->wphdr.flags & MONO_DATA))
-                wps->dc.shaping_delta [1] = exp2s ((short)(byteptr [2] + (byteptr [3] << 8)));
+                wps->dc.shaping_delta [1] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
         }
 
         return TRUE;

@@ -20,7 +20,7 @@
 #if defined(_WIN32) || \
     (defined(BYTE_ORDER) && defined(LITTLE_ENDIAN) && (BYTE_ORDER == LITTLE_ENDIAN)) || \
     (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
-#define BITSTREAM_SHORTS    // use "shorts" for reading/writing bitstreams
+#define BITSTREAM_SHORTS    // use 16-bit "shorts" for reading/writing bitstreams (instead of chars)
                             //  (only works on little-endian machines)
 #endif
 
@@ -112,12 +112,12 @@ typedef struct {
 #define ChunkHeaderFormat "4L"
 
 typedef struct {
-    unsigned short FormatTag, NumChannels;
+    uint16_t FormatTag, NumChannels;
     uint32_t SampleRate, BytesPerSecond;
-    unsigned short BlockAlign, BitsPerSample;
-    unsigned short cbSize, ValidBitsPerSample;
+    uint16_t BlockAlign, BitsPerSample;
+    uint16_t cbSize, ValidBitsPerSample;
     int32_t ChannelMask;
-    unsigned short SubFormat;
+    uint16_t SubFormat;
     char GUID [14];
 } WaveHeader;
 
@@ -132,7 +132,7 @@ typedef struct {
 typedef struct {
     char ckID [4];
     uint32_t ckSize;
-    short version;
+    int16_t version;
     unsigned char track_no, index_no;
     uint32_t total_samples, block_index, block_samples, flags, crc;
 } WavpackHeader;
@@ -302,7 +302,7 @@ typedef struct {
 
 typedef struct bs {
 #ifdef BITSTREAM_SHORTS
-    unsigned short *buf, *end, *ptr;
+    uint16_t *buf, *end, *ptr;
 #else
     unsigned char *buf, *end, *ptr;
 #endif
@@ -362,7 +362,7 @@ typedef struct {
     struct {
         int32_t shaping_acc [2], shaping_delta [2], error [2];
         double noise_sum, noise_ave, noise_max;
-        short *shaping_data, *shaping_array;
+        int16_t *shaping_data, *shaping_array;
         int32_t shaping_samples;
     } dc;
 
@@ -461,7 +461,7 @@ typedef struct {
 #endif
 
 #if 1   // PERFCOND - universal version that checks input magnitude or always uses long version
-#define apply_weight(weight, sample) (sample != (short) sample ? \
+#define apply_weight(weight, sample) (sample != (int16_t) sample ? \
     apply_weight_f (weight, sample) : apply_weight_i (weight, sample))
 #else
 #define apply_weight(weight, sample) (apply_weight_f (weight, sample))
@@ -656,9 +656,9 @@ extern const uint32_t bitset [32];
 extern const uint32_t bitmask [32];
 extern const char nbits_table [256];
 
-int log2s (int32_t value);
-int32_t exp2s (int log);
-int FASTCALL mylog2 (uint32_t avalue);
+int wp_log2s (int32_t value);
+int32_t wp_exp2s (int log);
+int FASTCALL wp_log2 (uint32_t avalue);
 
 #ifdef OPT_ASM_X86
 #define LOG2BUFFER log2buffer_x86
