@@ -763,6 +763,8 @@ double WavpackGetInstantBitrate (WavpackContext *wpc);
 WavpackContext *WavpackCloseFile (WavpackContext *wpc);
 void WavpackLittleEndianToNative (void *data, char *format);
 void WavpackNativeToLittleEndian (void *data, char *format);
+void WavpackBigEndianToNative (void *data, char *format);
+void WavpackNativeToBigEndian (void *data, char *format);
 
 void free_streams (WavpackContext *wpc);
 
