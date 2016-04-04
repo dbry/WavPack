@@ -215,11 +215,10 @@ static const char *speakers [] = {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source, store_floats_as_ints, pause_mode,
-    adobe_mode, ignore_length, new_riff_header, raw_pcm, no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits;
+    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits;
 
 static int num_channels_order;
-static unsigned char channel_order [18], channel_order_undefined;
-static uint32_t channel_order_mask;
+static unsigned char channel_order [18];
 static double encode_time_percent;
 
 // These two statics are used to keep track of tags that the user specifies on the
@@ -243,7 +242,7 @@ static uint32_t wvselfx_size;
 
 static FILE *wild_fopen (char *filename, const char *mode);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
-static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order, unsigned char *md5_digest_source);
+static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source);
 static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
 static int repack_audio (WavpackContext *wpc, WavpackContext *infile, unsigned char *md5_digest_source);
 static int verify_audio (char *infilename, unsigned char *md5_digest_source);
@@ -395,7 +394,7 @@ int main (int argc, char **argv)
                         config.channel_mask = 0x3ffff;
 
                     config.float_norm_exp = fp ? 127 : 0;
-                    raw_pcm = 1;            
+                    config.qmode |= QMODE_RAW_PCM;
                 }
             }
             else if (!strncmp (long_option, "blocksize", 9)) {          // --blocksize
@@ -418,7 +417,7 @@ int main (int argc, char **argv)
 
                     if (*long_param == '.') {
                         if (*++long_param == '.' && *++long_param == '.' && !*++long_param)
-                            channel_order_undefined = 1;
+                            config.qmode |= QMODE_CHANS_UNASSIGNED;
                         else
                             channel_error = 1;
 
@@ -466,7 +465,7 @@ int main (int argc, char **argv)
                     ++error_count;
                 }
                 else {
-                    channel_order_mask = mask;
+                    config.channel_mask = mask;
                     num_channels_order = chan;
                 }
             }
@@ -537,7 +536,7 @@ int main (int argc, char **argv)
                         break;
 
                     case 'A': case 'a':
-                        adobe_mode = 1;
+                        config.qmode |= QMODE_ADOBE_MODE;
                         break;
 #if defined (_WIN32)
                     case 'E': case 'e':
@@ -583,11 +582,11 @@ int main (int argc, char **argv)
                         break;
 
                     case 'I': case 'i':
-                        ignore_length = 1;
+                        config.qmode |= QMODE_IGNORE_LENGTH;
                         break;
 
                     case 'R': case 'r':
-                        new_riff_header = 1;
+                        config.qmode |= QMODE_NO_STORE_WRAPPER;
                         break;
 
                     case 'V': case 'v':
@@ -689,7 +688,7 @@ int main (int argc, char **argv)
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
-                    strcat (matches [num_files], raw_pcm ? ".raw" : ".wav");
+                    strcat (matches [num_files], (config.qmode & QMODE_RAW_PCM) ? ".raw" : ".wav");
 
             num_files++;
         }
@@ -718,7 +717,7 @@ int main (int argc, char **argv)
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
-                    strcat (matches [num_files], raw_pcm ? ".raw" : ".wav");
+                    strcat (matches [num_files], (config.qmode & QMODE_RAW_PCM) ? ".raw" : ".wav");
 
             num_files++;
         }
@@ -733,7 +732,7 @@ int main (int argc, char **argv)
         ++error_count;
     }
 
-    if (ignore_length && outfilename && *outfilename == '-') {
+    if ((config.qmode & QMODE_IGNORE_LENGTH) && outfilename && *outfilename == '-') {
         error_line ("can't ignore length in header when using stdout!");
         ++error_count;
     }
@@ -1473,7 +1472,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     infilesize = DoGetFileSize (infile);
 
-    if (raw_pcm) {
+    if (loc_config.qmode & QMODE_RAW_PCM) {
         if (infilesize) {
             int sample_size = loc_config.bytes_per_sample * loc_config.num_channels;
 
@@ -1486,7 +1485,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         else
             total_samples = -1;
     }
-    else if (infilesize >= 4294967296LL && !ignore_length) {
+    else if (infilesize >= 4294967296LL && !(loc_config.qmode & QMODE_IGNORE_LENGTH)) {
         error_line ("can't handle .WAV files larger than 4 GB (non-standard)!");
         WavpackCloseFile (wpc);
         return WAVPACK_SOFT_ERROR;
@@ -1660,7 +1659,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // if not in "raw" mode, read (and copy to output) initial RIFF form header
 
-    if (!raw_pcm) {
+    if (!(loc_config.qmode & QMODE_RAW_PCM)) {
         if ((!DoReadFile (infile, &riff_chunk_header, sizeof (RiffChunkHeader), &bcount) ||
             bcount != sizeof (RiffChunkHeader) || strncmp (riff_chunk_header.ckID, "RIFF", 4) ||
             strncmp (riff_chunk_header.formType, "WAVE", 4))) {
@@ -1671,7 +1670,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 WavpackCloseFile (wpc);
                 return WAVPACK_SOFT_ERROR;
         }
-        else if (!new_riff_header &&
+        else if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
             !WavpackAddWrapper (wpc, &riff_chunk_header, sizeof (RiffChunkHeader))) {
                 error_line ("%s", WavpackGetErrorMessage (wpc));
                 DoCloseHandle (infile);
@@ -1685,7 +1684,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // if not in "raw" mode, loop through all elements of the RIFF wav header
     // (until the data chuck) and copy them to the output file
 
-    while (!raw_pcm) {
+    while (!(loc_config.qmode & QMODE_RAW_PCM)) {
 
         if (!DoReadFile (infile, &chunk_header, sizeof (ChunkHeader), &bcount) ||
             bcount != sizeof (ChunkHeader)) {
@@ -1696,7 +1695,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 WavpackCloseFile (wpc);
                 return WAVPACK_SOFT_ERROR;
         }
-        else if (!new_riff_header &&
+        else if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
             !WavpackAddWrapper (wpc, &chunk_header, sizeof (ChunkHeader))) {
                 error_line ("%s", WavpackGetErrorMessage (wpc));
                 DoCloseHandle (infile);
@@ -1724,7 +1723,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     WavpackCloseFile (wpc);
                     return WAVPACK_SOFT_ERROR;
             }
-            else if (!new_riff_header &&
+            else if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
                 !WavpackAddWrapper (wpc, &WaveHeader, chunk_header.ckSize)) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     DoCloseHandle (infile);
@@ -1753,7 +1752,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             }
 
             if (chunk_header.ckSize > 16 && WaveHeader.cbSize == 2)
-                adobe_mode = 1;
+                loc_config.qmode |= QMODE_ADOBE_MODE;
 
             format = (WaveHeader.FormatTag == 0xfffe && chunk_header.ckSize == 40) ?
                 WaveHeader.SubFormat : WaveHeader.FormatTag;
@@ -1786,14 +1785,16 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             }
 
             if (chunk_header.ckSize < 40) {
-                if (WaveHeader.NumChannels <= 2)
-                    loc_config.channel_mask = 0x5 - WaveHeader.NumChannels;
-                else if (WaveHeader.NumChannels <= 18)
-                    loc_config.channel_mask = (1 << WaveHeader.NumChannels) - 1;
-                else
-                    loc_config.channel_mask = 0x3ffff;
+                if (!loc_config.channel_mask && !(loc_config.qmode & QMODE_CHANS_UNASSIGNED)) {
+                    if (WaveHeader.NumChannels <= 2)
+                        loc_config.channel_mask = 0x5 - WaveHeader.NumChannels;
+                    else if (WaveHeader.NumChannels <= 18)
+                        loc_config.channel_mask = (1 << WaveHeader.NumChannels) - 1;
+                    else
+                        loc_config.channel_mask = 0x3ffff;
+                }
             }
-            else if (WaveHeader.ChannelMask && (num_channels_order || channel_order_undefined)) {
+            else if (WaveHeader.ChannelMask && (loc_config.channel_mask || (loc_config.qmode & QMODE_CHANS_UNASSIGNED))) {
                 error_line ("this WAV file already has channel order information!");
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
@@ -1806,7 +1807,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
             if (format == 3 && !store_floats_as_ints)
                 loc_config.float_norm_exp = 127;
-            else if (adobe_mode &&
+            else if ((loc_config.qmode & QMODE_ADOBE_MODE) &&
                 WaveHeader.BlockAlign / WaveHeader.NumChannels == 4) {
                     if (WaveHeader.BitsPerSample == 24)
                         loc_config.float_norm_exp = 127 + 23;
@@ -1838,7 +1839,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 return WAVPACK_SOFT_ERROR;
             }
 
-            if (infilesize && !ignore_length && infilesize - chunk_header.ckSize > 16777216) {
+            if (infilesize && !(loc_config.qmode & QMODE_IGNORE_LENGTH) && infilesize - chunk_header.ckSize > 16777216) {
                 error_line ("this .WAV file has over 16 MB of extra RIFF data, probably is corrupt!");
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
@@ -1849,7 +1850,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
             total_samples = chunk_header.ckSize / WaveHeader.BlockAlign;
 
-            if (!total_samples && !ignore_length) {
+            if (!total_samples && !(loc_config.qmode & QMODE_IGNORE_LENGTH)) {
                 error_line ("this .WAV file has no audio samples, probably is corrupt!");
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
@@ -1875,7 +1876,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
             if (!DoReadFile (infile, buff, bytes_to_copy, &bcount) ||
                 bcount != bytes_to_copy ||
-                (!new_riff_header &&
+                (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
                 !WavpackAddWrapper (wpc, buff, bytes_to_copy))) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     DoCloseHandle (infile);
@@ -1890,11 +1891,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
-    if (num_channels_order || channel_order_undefined) {
+    if (num_channels_order || (loc_config.qmode & QMODE_CHANS_UNASSIGNED)) {
         int i, j;
 
         if (loc_config.num_channels < num_channels_order ||
-            (loc_config.num_channels > num_channels_order && !channel_order_undefined)) {
+            (loc_config.num_channels > num_channels_order && !(loc_config.qmode & QMODE_CHANS_UNASSIGNED))) {
                 error_line ("file does not have %d channel(s)!", num_channels_order);
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
@@ -1902,8 +1903,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 WavpackCloseFile (wpc);
                 return WAVPACK_SOFT_ERROR;
             }
-
-        loc_config.channel_mask = channel_order_mask;
 
         if (num_channels_order) {
             new_channel_order = malloc (loc_config.num_channels);
@@ -1952,7 +1951,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // pack the audio portion of the file now; calculate md5 if we're writing it to the file or verify mode is active
 
-    result = pack_audio (wpc, infile, new_channel_order, ((loc_config.flags & CONFIG_MD5_CHECKSUM) || verify_mode) ? md5_digest : NULL);
+    result = pack_audio (wpc, infile, loc_config.qmode, new_channel_order, ((loc_config.flags & CONFIG_MD5_CHECKSUM) || verify_mode) ? md5_digest : NULL);
 
     if (new_channel_order)
         free (new_channel_order);
@@ -1966,11 +1965,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // anything else that might be appended to the audio data and write that
     // to the WavPack metadata as "wrapper"
 
-    if (result == WAVPACK_NO_ERROR && !ignore_length && !raw_pcm) {
+    if (result == WAVPACK_NO_ERROR && !(loc_config.qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM))) {
         unsigned char buff [16];
 
         while (DoReadFile (infile, buff, sizeof (buff), &bcount) && bcount)
-            if (!new_riff_header &&
+            if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
                 !WavpackAddWrapper (wpc, buff, bcount)) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     result = WAVPACK_HARD_ERROR;
@@ -2012,7 +2011,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // Currently the only case is if we're ignoring length or inputting raw pcm data.
 
     if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples (wpc) != WavpackGetSampleIndex (wpc)) {
-        if (raw_pcm || ignore_length) {
+        if (loc_config.qmode & (QMODE_RAW_PCM | QMODE_IGNORE_LENGTH)) {
             char *block_buff = malloc (wv_file.first_block_size);
             uint32_t wrapper_size;
 
@@ -2269,7 +2268,7 @@ static void reorder_channels (void *data, unsigned char *new_order, int num_chan
 
 #define INPUT_SAMPLES 65536
 
-static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_order, unsigned char *md5_digest_source)
+static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source)
 {
     uint32_t samples_remaining, input_samples = INPUT_SAMPLES, samples_read = 0;
     double progress = -1.0;
@@ -2307,7 +2306,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, unsigned char *new_ord
         uint32_t bytes_to_read, bytes_read = 0;
         unsigned int sample_count;
 
-        if (raw_pcm || ignore_length || samples_remaining > input_samples)
+        if ((qmode & (QMODE_IGNORE_LENGTH || QMODE_RAW_PCM)) || samples_remaining > input_samples)
             bytes_to_read = input_samples * bytes_per_sample;
         else
             bytes_to_read = samples_remaining * bytes_per_sample;
@@ -2648,7 +2647,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     // unless we've been specifically told not to, copy RIFF header
 
-    if (!new_riff_header && WavpackGetWrapperBytes (infile)) {
+    if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && WavpackGetWrapperBytes (infile)) {
         if (!WavpackAddWrapper (outfile, WavpackGetWrapperData (infile), WavpackGetWrapperBytes (infile))) {
             error_line ("%s", WavpackGetErrorMessage (outfile));
             WavpackCloseFile (infile);
@@ -2740,7 +2739,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     // unless we've been specifically told not to, copy RIFF trailer
 
-    if (result == WAVPACK_NO_ERROR && !new_riff_header && WavpackGetWrapperBytes (infile)) {
+    if (result == WAVPACK_NO_ERROR && !(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && WavpackGetWrapperBytes (infile)) {
         if (!WavpackAddWrapper (outfile, WavpackGetWrapperData (infile), WavpackGetWrapperBytes (infile))) {
             error_line ("%s", WavpackGetErrorMessage (outfile));
             WavpackCloseFile (infile);
