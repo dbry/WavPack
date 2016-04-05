@@ -1422,20 +1422,18 @@ static FILE *wild_fopen (char *filename, const char *mode)
 // file would go there. The files are opened and closed in this function
 // and the "config" structure specifies the mode of compression.
 
+static int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     char *outfilename_temp = NULL, *out2filename_temp = NULL, dummy;
     int use_tempfiles = (out2filename != NULL);
-    uint32_t total_samples = 0, bcount;
+    uint32_t bcount;
     WavpackConfig loc_config = *config;
-    RiffChunkHeader riff_chunk_header;
     unsigned char *new_channel_order = NULL;
     unsigned char md5_digest [16];
     write_id wv_file, wvc_file;
-    ChunkHeader chunk_header;
-    WaveHeader WaveHeader;
     WavpackContext *wpc;
-    int64_t infilesize;
     double dtime;
     FILE *infile;
     int result;
@@ -1446,8 +1444,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     struct timeval time1, time2;
     struct timezone timez;
 #endif
-
-    CLEAR (WaveHeader);
 
     CLEAR (wv_file);
     CLEAR (wvc_file);
@@ -1470,9 +1466,10 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         return WAVPACK_SOFT_ERROR;
     }
 
-    infilesize = DoGetFileSize (infile);
-
     if (loc_config.qmode & QMODE_RAW_PCM) {
+        int64_t infilesize = DoGetFileSize (infile);
+        uint32_t total_samples;
+
         if (infilesize) {
             int sample_size = loc_config.bytes_per_sample * loc_config.num_channels;
 
@@ -1484,11 +1481,13 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
         else
             total_samples = -1;
-    }
-    else if (infilesize >= 4294967296LL && !(loc_config.qmode & QMODE_IGNORE_LENGTH)) {
-        error_line ("can't handle .WAV files larger than 4 GB (non-standard)!");
-        WavpackCloseFile (wpc);
-        return WAVPACK_SOFT_ERROR;
+
+        if (!WavpackSetConfiguration (wpc, &loc_config, total_samples)) {
+            error_line ("%s", WavpackGetErrorMessage (wpc));
+            DoCloseHandle (infile);
+            WavpackCloseFile (wpc);
+            return WAVPACK_SOFT_ERROR;
+        }
     }
 
     // check both output files for overwrite warning required
@@ -1657,239 +1656,40 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
 #endif
 
-    // if not in "raw" mode, read (and copy to output) initial RIFF form header
+    // if not in "raw" mode, process RIFF form header and set configuration
 
     if (!(loc_config.qmode & QMODE_RAW_PCM)) {
-        if ((!DoReadFile (infile, &riff_chunk_header, sizeof (RiffChunkHeader), &bcount) ||
-            bcount != sizeof (RiffChunkHeader) || strncmp (riff_chunk_header.ckID, "RIFF", 4) ||
-            strncmp (riff_chunk_header.formType, "WAVE", 4))) {
-                error_line ("%s is not a valid .WAV file!", infilename);
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
-        }
-        else if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
-            !WavpackAddWrapper (wpc, &riff_chunk_header, sizeof (RiffChunkHeader))) {
-                error_line ("%s", WavpackGetErrorMessage (wpc));
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
-        }
-    }
+        char fourcc [4];
 
-    // if not in "raw" mode, loop through all elements of the RIFF wav header
-    // (until the data chuck) and copy them to the output file
-
-    while (!(loc_config.qmode & QMODE_RAW_PCM)) {
-
-        if (!DoReadFile (infile, &chunk_header, sizeof (ChunkHeader), &bcount) ||
-            bcount != sizeof (ChunkHeader)) {
-                error_line ("%s is not a valid .WAV file!", infilename);
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
-        }
-        else if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
-            !WavpackAddWrapper (wpc, &chunk_header, sizeof (ChunkHeader))) {
-                error_line ("%s", WavpackGetErrorMessage (wpc));
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
+        if (!DoReadFile (infile, fourcc, sizeof (fourcc), &bcount) || bcount != sizeof (fourcc)) {
+            error_line ("can't read file %s!", infilename);
+            DoCloseHandle (infile);
+            DoCloseHandle (wv_file.file);
+            DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
+            WavpackCloseFile (wpc);
+            return WAVPACK_SOFT_ERROR;
         }
 
-        WavpackLittleEndianToNative (&chunk_header, ChunkHeaderFormat);
-
-        // if it's the format chunk, we want to get some info out of there and
-        // make sure it's a .wav file we can handle
-
-        if (!strncmp (chunk_header.ckID, "fmt ", 4)) {
-            int supported = TRUE, format;
-
-            if (chunk_header.ckSize < 16 || chunk_header.ckSize > sizeof (WaveHeader) ||
-                !DoReadFile (infile, &WaveHeader, chunk_header.ckSize, &bcount) ||
-                bcount != chunk_header.ckSize) {
-                    error_line ("%s is not a valid .WAV file!", infilename);
-                    DoCloseHandle (infile);
-                    DoCloseHandle (wv_file.file);
-                    DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                    WavpackCloseFile (wpc);
-                    return WAVPACK_SOFT_ERROR;
-            }
-            else if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, &WaveHeader, chunk_header.ckSize)) {
-                    error_line ("%s", WavpackGetErrorMessage (wpc));
-                    DoCloseHandle (infile);
-                    DoCloseHandle (wv_file.file);
-                    DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                    WavpackCloseFile (wpc);
-                    return WAVPACK_SOFT_ERROR;
-            }
-
-            WavpackLittleEndianToNative (&WaveHeader, WaveHeaderFormat);
-
-            if (debug_logging_mode) {
-                error_line ("format tag size = %d", chunk_header.ckSize);
-                error_line ("FormatTag = %x, NumChannels = %d, BitsPerSample = %d",
-                    WaveHeader.FormatTag, WaveHeader.NumChannels, WaveHeader.BitsPerSample);
-                error_line ("BlockAlign = %d, SampleRate = %d, BytesPerSecond = %d",
-                    WaveHeader.BlockAlign, WaveHeader.SampleRate, WaveHeader.BytesPerSecond);
-
-                if (chunk_header.ckSize > 16)
-                    error_line ("cbSize = %d, ValidBitsPerSample = %d", WaveHeader.cbSize,
-                        WaveHeader.ValidBitsPerSample);
-
-                if (chunk_header.ckSize > 20)
-                    error_line ("ChannelMask = %x, SubFormat = %d",
-                        WaveHeader.ChannelMask, WaveHeader.SubFormat);
-            }
-
-            if (chunk_header.ckSize > 16 && WaveHeader.cbSize == 2)
-                loc_config.qmode |= QMODE_ADOBE_MODE;
-
-            format = (WaveHeader.FormatTag == 0xfffe && chunk_header.ckSize == 40) ?
-                WaveHeader.SubFormat : WaveHeader.FormatTag;
-
-            loc_config.bits_per_sample = (chunk_header.ckSize == 40 && WaveHeader.ValidBitsPerSample) ?
-                WaveHeader.ValidBitsPerSample : WaveHeader.BitsPerSample;
-
-            if (format != 1 && format != 3)
-                supported = FALSE;
-
-            if (format == 3 && loc_config.bits_per_sample != 32 && !store_floats_as_ints)
-                supported = FALSE;
-
-            if (!WaveHeader.NumChannels || WaveHeader.NumChannels > 256 ||
-                WaveHeader.BlockAlign / WaveHeader.NumChannels < (loc_config.bits_per_sample + 7) / 8 ||
-                WaveHeader.BlockAlign / WaveHeader.NumChannels > 4 ||
-                WaveHeader.BlockAlign % WaveHeader.NumChannels)
-                    supported = FALSE;
-
-            if (loc_config.bits_per_sample < 1 || loc_config.bits_per_sample > 32)
-                supported = FALSE;
-
-            if (!supported) {
-                error_line ("%s is an unsupported .WAV format!", infilename);
+        if (!strncmp (fourcc, "RIFF", 4)) {
+            if (ParseRiffHeaderConfig (infile, infilename, fourcc, wpc, &loc_config)) {
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
                 DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
                 WavpackCloseFile (wpc);
                 return WAVPACK_SOFT_ERROR;
-            }
-
-            if (chunk_header.ckSize < 40) {
-                if (!loc_config.channel_mask && !(loc_config.qmode & QMODE_CHANS_UNASSIGNED)) {
-                    if (WaveHeader.NumChannels <= 2)
-                        loc_config.channel_mask = 0x5 - WaveHeader.NumChannels;
-                    else if (WaveHeader.NumChannels <= 18)
-                        loc_config.channel_mask = (1 << WaveHeader.NumChannels) - 1;
-                    else
-                        loc_config.channel_mask = 0x3ffff;
-                }
-            }
-            else if (WaveHeader.ChannelMask && (loc_config.channel_mask || (loc_config.qmode & QMODE_CHANS_UNASSIGNED))) {
-                error_line ("this WAV file already has channel order information!");
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
-            }
-            else
-                loc_config.channel_mask = WaveHeader.ChannelMask;
-
-            if (format == 3 && !store_floats_as_ints)
-                loc_config.float_norm_exp = 127;
-            else if ((loc_config.qmode & QMODE_ADOBE_MODE) &&
-                WaveHeader.BlockAlign / WaveHeader.NumChannels == 4) {
-                    if (WaveHeader.BitsPerSample == 24)
-                        loc_config.float_norm_exp = 127 + 23;
-                    else if (WaveHeader.BitsPerSample == 32)
-                        loc_config.float_norm_exp = 127 + 15;
-            }
-
-            if (debug_logging_mode) {
-                if (loc_config.float_norm_exp == 127)
-                    error_line ("data format: normalized 32-bit floating point");
-                else if (loc_config.float_norm_exp)
-                    error_line ("data format: 32-bit floating point (Audition %d:%d float type 1)",
-                        loc_config.float_norm_exp - 126, 150 - loc_config.float_norm_exp);
-                else
-                    error_line ("data format: %d-bit integers stored in %d byte(s)",
-                        loc_config.bits_per_sample, WaveHeader.BlockAlign / WaveHeader.NumChannels);
             }
         }
-        else if (!strncmp (chunk_header.ckID, "data", 4)) {
-
-            // on the data chunk, get size and exit loop
-
-            if (!WaveHeader.NumChannels) {      // make sure we saw a "fmt" chunk...
-                error_line ("%s is not a valid .WAV file!", infilename);
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
-            }
-
-            if (infilesize && !(loc_config.qmode & QMODE_IGNORE_LENGTH) && infilesize - chunk_header.ckSize > 16777216) {
-                error_line ("this .WAV file has over 16 MB of extra RIFF data, probably is corrupt!");
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
-            }
-
-            total_samples = chunk_header.ckSize / WaveHeader.BlockAlign;
-
-            if (!total_samples && !(loc_config.qmode & QMODE_IGNORE_LENGTH)) {
-                error_line ("this .WAV file has no audio samples, probably is corrupt!");
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
-            }
-
-            loc_config.bytes_per_sample = WaveHeader.BlockAlign / WaveHeader.NumChannels;
-            loc_config.num_channels = WaveHeader.NumChannels;
-            loc_config.sample_rate = WaveHeader.SampleRate;
-            break;
-        }
-        else {          // just copy unknown chunks to output file
-
-            int bytes_to_copy = (chunk_header.ckSize + 1) & ~1L;
-            char *buff = malloc (bytes_to_copy);
-
-            if (debug_logging_mode)
-                error_line ("extra unknown chunk \"%c%c%c%c\" of %d bytes",
-                    chunk_header.ckID [0], chunk_header.ckID [1], chunk_header.ckID [2],
-                    chunk_header.ckID [3], chunk_header.ckSize);
-
-            if (!DoReadFile (infile, buff, bytes_to_copy, &bcount) ||
-                bcount != bytes_to_copy ||
-                (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, buff, bytes_to_copy))) {
-                    error_line ("%s", WavpackGetErrorMessage (wpc));
-                    DoCloseHandle (infile);
-                    DoCloseHandle (wv_file.file);
-                    DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                    free (buff);
-                    WavpackCloseFile (wpc);
-                    return WAVPACK_SOFT_ERROR;
-            }
-
-            free (buff);
+        else {
+            error_line ("%s is not a recognized file type!", infilename);
+            DoCloseHandle (infile);
+            DoCloseHandle (wv_file.file);
+            DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
+            WavpackCloseFile (wpc);
+            return WAVPACK_SOFT_ERROR;
         }
     }
+
+    // handle case where the user specified channel configuration on the command-line
 
     if (num_channels_order || (loc_config.qmode & QMODE_CHANS_UNASSIGNED)) {
         int i, j;
@@ -1925,15 +1725,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                             new_channel_order [j]--;
             }
         }
-    }
-
-    if (!WavpackSetConfiguration (wpc, &loc_config, total_samples)) {
-        error_line ("%s", WavpackGetErrorMessage (wpc));
-        DoCloseHandle (infile);
-        DoCloseHandle (wv_file.file);
-        DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-        WavpackCloseFile (wpc);
-        return WAVPACK_SOFT_ERROR;
     }
 
     // if we are creating a "correction" file, open it now for writing
@@ -2254,6 +2045,211 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     }
 
     WavpackCloseFile (wpc);
+    return WAVPACK_NO_ERROR;
+}
+
+static int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
+{
+    uint32_t total_samples = 0, bcount;
+    RiffChunkHeader riff_chunk_header;
+    ChunkHeader chunk_header;
+    WaveHeader WaveHeader;
+    int64_t infilesize;
+
+    infilesize = DoGetFileSize (infile);
+
+    if (infilesize >= 4294967296LL && !(config->qmode & QMODE_IGNORE_LENGTH)) {
+        error_line ("can't handle .WAV files larger than 4 GB (non-standard)!");
+        return WAVPACK_SOFT_ERROR;
+    }
+
+    memcpy (&riff_chunk_header, fourcc, 4);
+
+    if ((!DoReadFile (infile, ((char *) &riff_chunk_header) + 4, sizeof (RiffChunkHeader) - 4, &bcount) ||
+        bcount != sizeof (RiffChunkHeader) - 4 || strncmp (riff_chunk_header.formType, "WAVE", 4))) {
+            error_line ("%s is not a valid .WAV file!", infilename);
+            return WAVPACK_SOFT_ERROR;
+    }
+    else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
+        !WavpackAddWrapper (wpc, &riff_chunk_header, sizeof (RiffChunkHeader))) {
+            error_line ("%s", WavpackGetErrorMessage (wpc));
+            return WAVPACK_SOFT_ERROR;
+    }
+
+    // loop through all elements of the RIFF wav header
+    // (until the data chuck) and copy them to the output file
+
+    while (1) {
+        if (!DoReadFile (infile, &chunk_header, sizeof (ChunkHeader), &bcount) ||
+            bcount != sizeof (ChunkHeader)) {
+                error_line ("%s is not a valid .WAV file!", infilename);
+                return WAVPACK_SOFT_ERROR;
+        }
+        else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
+            !WavpackAddWrapper (wpc, &chunk_header, sizeof (ChunkHeader))) {
+                error_line ("%s", WavpackGetErrorMessage (wpc));
+                return WAVPACK_SOFT_ERROR;
+        }
+
+        WavpackLittleEndianToNative (&chunk_header, ChunkHeaderFormat);
+
+        // if it's the format chunk, we want to get some info out of there and
+        // make sure it's a .wav file we can handle
+
+        if (!strncmp (chunk_header.ckID, "fmt ", 4)) {
+            int supported = TRUE, format;
+
+            if (chunk_header.ckSize < 16 || chunk_header.ckSize > sizeof (WaveHeader) ||
+                !DoReadFile (infile, &WaveHeader, chunk_header.ckSize, &bcount) ||
+                bcount != chunk_header.ckSize) {
+                    error_line ("%s is not a valid .WAV file!", infilename);
+                    return WAVPACK_SOFT_ERROR;
+            }
+            else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
+                !WavpackAddWrapper (wpc, &WaveHeader, chunk_header.ckSize)) {
+                    error_line ("%s", WavpackGetErrorMessage (wpc));
+                    return WAVPACK_SOFT_ERROR;
+            }
+
+            WavpackLittleEndianToNative (&WaveHeader, WaveHeaderFormat);
+
+            if (debug_logging_mode) {
+                error_line ("format tag size = %d", chunk_header.ckSize);
+                error_line ("FormatTag = %x, NumChannels = %d, BitsPerSample = %d",
+                    WaveHeader.FormatTag, WaveHeader.NumChannels, WaveHeader.BitsPerSample);
+                error_line ("BlockAlign = %d, SampleRate = %d, BytesPerSecond = %d",
+                    WaveHeader.BlockAlign, WaveHeader.SampleRate, WaveHeader.BytesPerSecond);
+
+                if (chunk_header.ckSize > 16)
+                    error_line ("cbSize = %d, ValidBitsPerSample = %d", WaveHeader.cbSize,
+                        WaveHeader.ValidBitsPerSample);
+
+                if (chunk_header.ckSize > 20)
+                    error_line ("ChannelMask = %x, SubFormat = %d",
+                        WaveHeader.ChannelMask, WaveHeader.SubFormat);
+            }
+
+            if (chunk_header.ckSize > 16 && WaveHeader.cbSize == 2)
+                config->qmode |= QMODE_ADOBE_MODE;
+
+            format = (WaveHeader.FormatTag == 0xfffe && chunk_header.ckSize == 40) ?
+                WaveHeader.SubFormat : WaveHeader.FormatTag;
+
+            config->bits_per_sample = (chunk_header.ckSize == 40 && WaveHeader.ValidBitsPerSample) ?
+                WaveHeader.ValidBitsPerSample : WaveHeader.BitsPerSample;
+
+            if (format != 1 && format != 3)
+                supported = FALSE;
+
+            if (format == 3 && config->bits_per_sample != 32)
+                supported == FALSE;
+
+            if (!WaveHeader.NumChannels || WaveHeader.NumChannels > 256 ||
+                WaveHeader.BlockAlign / WaveHeader.NumChannels < (config->bits_per_sample + 7) / 8 ||
+                WaveHeader.BlockAlign / WaveHeader.NumChannels > 4 ||
+                WaveHeader.BlockAlign % WaveHeader.NumChannels)
+                    supported = FALSE;
+
+            if (config->bits_per_sample < 1 || config->bits_per_sample > 32)
+                supported = FALSE;
+
+            if (!supported) {
+                error_line ("%s is an unsupported .WAV format!", infilename);
+                return WAVPACK_SOFT_ERROR;
+            }
+
+            if (chunk_header.ckSize < 40) {
+                if (!config->channel_mask && !(config->qmode & QMODE_CHANS_UNASSIGNED)) {
+                    if (WaveHeader.NumChannels <= 2)
+                        config->channel_mask = 0x5 - WaveHeader.NumChannels;
+                    else if (WaveHeader.NumChannels <= 18)
+                        config->channel_mask = (1 << WaveHeader.NumChannels) - 1;
+                    else
+                        config->channel_mask = 0x3ffff;
+                }
+            }
+            else if (WaveHeader.ChannelMask && (config->channel_mask || (config->qmode & QMODE_CHANS_UNASSIGNED))) {
+                error_line ("this WAV file already has channel order information!");
+                return WAVPACK_SOFT_ERROR;
+            }
+            else
+                config->channel_mask = WaveHeader.ChannelMask;
+
+            if (format == 3)
+                config->float_norm_exp = 127;
+            else if ((config->qmode & QMODE_ADOBE_MODE) &&
+                WaveHeader.BlockAlign / WaveHeader.NumChannels == 4) {
+                    if (WaveHeader.BitsPerSample == 24)
+                        config->float_norm_exp = 127 + 23;
+                    else if (WaveHeader.BitsPerSample == 32)
+                        config->float_norm_exp = 127 + 15;
+            }
+
+            if (debug_logging_mode) {
+                if (config->float_norm_exp == 127)
+                    error_line ("data format: normalized 32-bit floating point");
+                else if (config->float_norm_exp)
+                    error_line ("data format: 32-bit floating point (Audition %d:%d float type 1)",
+                        config->float_norm_exp - 126, 150 - config->float_norm_exp);
+                else
+                    error_line ("data format: %d-bit integers stored in %d byte(s)",
+                        config->bits_per_sample, WaveHeader.BlockAlign / WaveHeader.NumChannels);
+            }
+        }
+        else if (!strncmp (chunk_header.ckID, "data", 4)) {
+
+            // on the data chunk, get size and exit loop
+
+            if (!WaveHeader.NumChannels) {      // make sure we saw a "fmt" chunk
+                error_line ("%s is not a valid .WAV file!", infilename);
+                return WAVPACK_SOFT_ERROR;
+            }
+
+            if (infilesize && !(config->qmode & QMODE_IGNORE_LENGTH) && infilesize - chunk_header.ckSize > 16777216) {
+                error_line ("this .WAV file has over 16 MB of extra RIFF data, probably is corrupt!");
+                return WAVPACK_SOFT_ERROR;
+            }
+
+            total_samples = chunk_header.ckSize / WaveHeader.BlockAlign;
+
+            if (!total_samples && !(config->qmode & QMODE_IGNORE_LENGTH)) {
+                error_line ("this .WAV file has no audio samples, probably is corrupt!");
+                return WAVPACK_SOFT_ERROR;
+            }
+
+            config->bytes_per_sample = WaveHeader.BlockAlign / WaveHeader.NumChannels;
+            config->num_channels = WaveHeader.NumChannels;
+            config->sample_rate = WaveHeader.SampleRate;
+            break;
+        }
+        else {          // just copy unknown chunks to output file
+
+            int bytes_to_copy = (chunk_header.ckSize + 1) & ~1L;
+            char *buff = malloc (bytes_to_copy);
+
+            if (debug_logging_mode)
+                error_line ("extra unknown chunk \"%c%c%c%c\" of %d bytes",
+                    chunk_header.ckID [0], chunk_header.ckID [1], chunk_header.ckID [2],
+                    chunk_header.ckID [3], chunk_header.ckSize);
+
+            if (!DoReadFile (infile, buff, bytes_to_copy, &bcount) ||
+                bcount != bytes_to_copy ||
+                (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
+                !WavpackAddWrapper (wpc, buff, bytes_to_copy))) {
+                    error_line ("%s", WavpackGetErrorMessage (wpc));
+                    free (buff);
+                    return WAVPACK_SOFT_ERROR;
+            }
+
+            free (buff);
+        }
+    }
+
+    if (!WavpackSetConfiguration (wpc, config, total_samples)) {
+        error_line ("%s", WavpackGetErrorMessage (wpc));
+        return WAVPACK_SOFT_ERROR;
+    }
+
     return WAVPACK_NO_ERROR;
 }
 
