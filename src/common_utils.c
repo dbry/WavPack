@@ -103,6 +103,8 @@ int WavpackGetMode (WavpackContext *wpc)
                 mode |= MODE_APETAG;
         }
 #endif
+
+        mode |= (wpc->config.qmode << 16) & 0xFF0000;
     }
 
     return mode;

@@ -114,6 +114,7 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
     wpc->config.bytes_per_sample = config->bytes_per_sample;
     wpc->config.block_samples = config->block_samples;
     wpc->config.flags = config->flags;
+    wpc->config.qmode = config->qmode;
 
     if (config->flags & CONFIG_VERY_HIGH_FLAG)
         wpc->config.flags |= CONFIG_HIGH_FLAG;
