@@ -128,7 +128,7 @@ static const char *usage =
 int debug_logging_mode;
 
 static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info, pause_mode,
-    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, set_console_title;
+    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, caf_decode, set_console_title;
 
 static int num_files, file_index, outbuf_k;
 
@@ -245,6 +245,10 @@ int main(int argc, char **argv)
                     ++error_count;
                 }
             }
+            else if (!strcmp (long_option, "caf-be"))                   // --caf-be
+                caf_decode = 2;
+            else if (!strcmp (long_option, "caf-le"))                   // --caf-le
+                caf_decode = 1;
             else {
                 error_line ("unknown option: %s !", long_option);
                 ++error_count;
@@ -913,11 +917,13 @@ static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst);
 
+int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
+
 #define TEMP_BUFFER_SAMPLES 4096L   // composite samples in temporary buffer used during unpacking
 
 static int unpack_file (char *infilename, char *outfilename, int add_extension)
 {
-    int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE, qmode;
+    int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE, qmode = 0;
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
     uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
     uint32_t skip_sample_index = 0, until_samples_total = 0;
@@ -944,7 +950,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     open_flags |= OPEN_FILE_UTF8;
 #endif
 
-    if ((outfilename && !raw_decode && !blind_decode && !wav_decode &&
+    if ((outfilename && !raw_decode && !blind_decode && !wav_decode && !caf_decode &&
         !skip.value_is_valid && !until.value_is_valid) || summary > 1)
             open_flags |= OPEN_WRAPPER;
 
@@ -970,6 +976,8 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     if (add_extension) {
         if (raw_decode)
             extension = ".raw";
+        else if (caf_decode)
+            extension = ".caf";
         else if (wav_decode || WavpackGetWrapperBytes (wpc) < 4)
             extension = ".wav";
         else if (!strncmp (WavpackGetWrapperData (wpc), "RIFF", 4))
@@ -978,11 +986,19 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             extension = ".caf";
     }
 
-    qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
     wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
     num_channels = WavpackGetNumChannels (wpc);
     bps = WavpackGetBytesPerSample (wpc);
     bytes_per_sample = num_channels * bps;
+
+    if (caf_decode) {
+        if (bps == 1)
+            qmode = QMODE_SIGNED_BYTES;
+        else
+            qmode = caf_decode == 2 ? QMODE_BIG_ENDIAN : 0;
+    }
+    else if (!wav_decode)
+        qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
 
     if (skip.value_is_valid) {
         if (skip.value_is_time)
@@ -1112,12 +1128,22 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     if (outfile && !raw_decode) {
         if (until_samples_total) {
-            if (!write_riff_header (outfile, wpc, until_samples_total)) {
-                DoTruncateFile (outfile);
-                result = WAVPACK_HARD_ERROR;
+            if (caf_decode) {
+                if (!WriteCaffHeader (outfile, wpc, until_samples_total, qmode)) {
+                    DoTruncateFile (outfile);
+                    result = WAVPACK_HARD_ERROR;
+                }
+                else
+                    created_riff_header = TRUE;
             }
-            else
-                created_riff_header = TRUE;
+            else {
+                if (!write_riff_header (outfile, wpc, until_samples_total)) {
+                    DoTruncateFile (outfile);
+                    result = WAVPACK_HARD_ERROR;
+                }
+                else
+                    created_riff_header = TRUE;
+            }
         }
         else if (WavpackGetWrapperBytes (wpc)) {
             if (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
@@ -1128,6 +1154,14 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             }
 
             WavpackFreeWrapper (wpc);
+        }
+        else if (caf_decode) {
+            if (!WriteCaffHeader (outfile, wpc, WavpackGetNumSamples (wpc), qmode)) {
+                DoTruncateFile (outfile);
+                result = WAVPACK_HARD_ERROR;
+            }
+            else
+                created_riff_header = TRUE;
         }
         else if (!write_riff_header (outfile, wpc, WavpackGetNumSamples (wpc))) {
             DoTruncateFile (outfile);
@@ -1258,6 +1292,12 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
          (until_samples_total ? until_samples_total : WavpackGetNumSamples (wpc)) != total_unpacked_samples)) {
             if (*outfilename == '-' || DoSetFilePositionAbsolute (outfile, 0))
                 error_line ("can't update RIFF header with actual size");
+            else if (caf_decode) {
+                if (!WriteCaffHeader (outfile, wpc, total_unpacked_samples, qmode)) {
+                    DoTruncateFile (outfile);
+                    result = WAVPACK_HARD_ERROR;
+                }
+            }
             else if (!write_riff_header (outfile, wpc, total_unpacked_samples)) {
                 DoTruncateFile (outfile);
                 result = WAVPACK_HARD_ERROR;
