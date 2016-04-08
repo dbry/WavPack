@@ -774,6 +774,7 @@ unsigned char *WavpackGetWrapperData (WavpackContext *wpc);
 void WavpackFreeWrapper (WavpackContext *wpc);
 double WavpackGetProgress (WavpackContext *wpc);
 uint32_t WavpackGetFileSize (WavpackContext *wpc);
+int64_t WavpackGetFileSize64 (WavpackContext *wpc);
 double WavpackGetRatio (WavpackContext *wpc);
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc);
 double WavpackGetInstantBitrate (WavpackContext *wpc);

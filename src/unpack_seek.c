@@ -20,7 +20,7 @@
 
 ///////////////////////////// executable code ////////////////////////////////
 
-static uint32_t find_sample (WavpackContext *wpc, void *infile, uint32_t header_pos, uint32_t sample);
+static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, uint32_t sample);
 
 // Seek to the specifed sample index, returning TRUE on success. Note that
 // files generated with version 4.0 or newer will seek almost immediately.
@@ -184,7 +184,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
 
 #define BUFSIZE 4096
 
-static uint32_t find_header (WavpackStreamReader64 *reader, void *id, uint32_t filepos, WavpackHeader *wphdr)
+static int64_t find_header (WavpackStreamReader64 *reader, void *id, int64_t filepos, WavpackHeader *wphdr)
 {
     unsigned char *buffer = malloc (BUFSIZE), *sp = buffer, *ep = buffer;
 
@@ -246,11 +246,11 @@ static uint32_t find_header (WavpackStreamReader64 *reader, void *id, uint32_t f
 // or below that point. If a .wvc file is being used, then this must be called
 // for that file also.
 
-static uint32_t find_sample (WavpackContext *wpc, void *infile, uint32_t header_pos, uint32_t sample)
+static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, uint32_t sample)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uint32_t file_pos1 = 0, file_pos2 = wpc->reader->get_length (infile);
-    uint32_t sample_pos1 = 0, sample_pos2 = wpc->total_samples;
+    int64_t file_pos1 = 0, file_pos2 = wpc->reader->get_length (infile);
+    int64_t sample_pos1 = 0, sample_pos2 = wpc->total_samples;
     double ratio = 0.96;
     int file_skip = 0;
 
@@ -272,18 +272,18 @@ static uint32_t find_sample (WavpackContext *wpc, void *infile, uint32_t header_
 
     while (1) {
         double bytes_per_sample;
-        uint32_t seek_pos;
+        int64_t seek_pos;
 
-        bytes_per_sample = file_pos2 - file_pos1;
+        bytes_per_sample = (double) file_pos2 - file_pos1;
         bytes_per_sample /= sample_pos2 - sample_pos1;
         seek_pos = file_pos1 + (file_skip ? 32 : 0);
-        seek_pos += (uint32_t)(bytes_per_sample * (sample - sample_pos1) * ratio);
+        seek_pos += (int64_t)(bytes_per_sample * (sample - sample_pos1) * ratio);
         seek_pos = find_header (wpc->reader, infile, seek_pos, &wps->wphdr);
 
-        if (seek_pos != (uint32_t) -1)
+        if (seek_pos != (int64_t) -1)
             wps->wphdr.block_index -= wpc->initial_index;
 
-        if (seek_pos == (uint32_t) -1 || seek_pos >= file_pos2) {
+        if (seek_pos == (int64_t) -1 || seek_pos >= file_pos2) {
             if (ratio > 0.0) {
                 if ((ratio -= 0.24) < 0.0)
                     ratio = 0.0;

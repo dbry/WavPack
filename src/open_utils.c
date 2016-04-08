@@ -51,13 +51,13 @@ static int64_t trans_get_pos (void *id)
 static int trans_set_pos_abs (void *id, int64_t pos)
 {
     WavpackReaderTranslator *trans = id;
-    return trans->reader->set_pos_abs (trans->id, pos);
+    return trans->reader->set_pos_abs (trans->id, (uint32_t) pos);
 }
 
 static int trans_set_pos_rel (void *id, int64_t delta, int mode)
 {
     WavpackReaderTranslator *trans = id;
-    return trans->reader->set_pos_rel (trans->id, delta, mode);
+    return trans->reader->set_pos_rel (trans->id, (int32_t) delta, mode);
 }
 
 static int trans_push_back_byte (void *id, int c)
@@ -234,7 +234,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
                 wps->wphdr.block_index = 0;
 
                 if (wpc->reader->can_seek (wpc->wv_in)) {
-                    uint32_t pos_save = wpc->reader->get_pos (wpc->wv_in);
+                    int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
                     uint32_t final_index = seek_final_index (wpc->reader, wpc->wv_in);
 
                     if (final_index != (uint32_t) -1)
@@ -798,7 +798,7 @@ void WavpackSeekTrailingWrapper (WavpackContext *wpc)
 {
     if ((wpc->open_flags & OPEN_WRAPPER) &&
         wpc->reader->can_seek (wpc->wv_in) && !wpc->stream3) {
-            uint32_t pos_save = wpc->reader->get_pos (wpc->wv_in);
+            int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
 
             seek_riff_trailer (wpc);
             wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
@@ -819,7 +819,7 @@ int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16])
             return TRUE;
         }
         else if (wpc->reader->can_seek (wpc->wv_in)) {
-            uint32_t pos_save = wpc->reader->get_pos (wpc->wv_in);
+            int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
 
             wpc->config.md5_read = seek_md5 (wpc->reader, wpc->wv_in, wpc->config.md5_checksum);
             wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
@@ -926,7 +926,7 @@ static int match_wvc_header (WavpackHeader *wv_hdr, WavpackHeader *wvc_hdr)
 int read_wvc_block (WavpackContext *wpc)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uint32_t bcount, file2pos;
+    int64_t bcount, file2pos;
     WavpackHeader wphdr;
     int compare_result;
 

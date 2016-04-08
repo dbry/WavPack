@@ -27,6 +27,12 @@
 // local character set works. This is ignored on non-Windows platforms
 // (which is okay because they are probably UTF-8 anyway).
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <io.h>
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -35,7 +41,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#if defined (_WIN32) || defined (__OS2__)
+#ifdef __OS2__
 #include <io.h>
 #endif
 
@@ -258,9 +264,6 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 
 // The following code Copyright (c) 2004-2012 LoRd_MuldeR <mulder2@gmx.de>
 // (see cli/win32_unicode_support.c for full license)
-
-#include <windows.h>
-#include <io.h>
 
 static wchar_t *utf8_to_utf16(const char *input)
 {

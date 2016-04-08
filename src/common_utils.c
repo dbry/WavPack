@@ -174,6 +174,11 @@ double WavpackGetProgress (WavpackContext *wpc)
 
 uint32_t WavpackGetFileSize (WavpackContext *wpc)
 {
+    return (uint32_t) (wpc ? wpc->filelen + wpc->file2len : 0);
+}
+
+int64_t WavpackGetFileSize64 (WavpackContext *wpc)
+{
     return wpc ? wpc->filelen + wpc->file2len : 0;
 }
 
