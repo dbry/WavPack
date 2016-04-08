@@ -80,6 +80,8 @@ static const char *usage =
 "               (note: equivalent to -x \"cuesheet\")\n"
 "          -cc = extract cuesheet file (.cue) in addition to audio file\n"
 "               (note: equivalent to -xx \"cuesheet=%a.cue\")\n"
+"          --caf-be = force extraction to big-endian Core Audio (extension .caf)\n"
+"          --caf-le = force extraction to little-endian Core Audio (extension .caf)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
 "          -f  = file info to stdout in machine-parsable format\n"
 "          --help = this help display\n"
@@ -913,11 +915,11 @@ static FILE *open_output_file (char *filename, char **tempfilename)
 static int do_tag_extractions (WavpackContext *wpc, char *outfilename);
 static void *store_samples (void *dst, int32_t *src, int qmode, int bps, int count);
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
-static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst);
 
 int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
+int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
 
 #define TEMP_BUFFER_SAMPLES 4096L   // composite samples in temporary buffer used during unpacking
 
@@ -1137,7 +1139,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
                     created_riff_header = TRUE;
             }
             else {
-                if (!write_riff_header (outfile, wpc, until_samples_total)) {
+                if (!WriteRiffHeader (outfile, wpc, until_samples_total)) {
                     DoTruncateFile (outfile);
                     result = WAVPACK_HARD_ERROR;
                 }
@@ -1163,7 +1165,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             else
                 created_riff_header = TRUE;
         }
-        else if (!write_riff_header (outfile, wpc, WavpackGetNumSamples (wpc))) {
+        else if (!WriteRiffHeader (outfile, wpc, WavpackGetNumSamples (wpc))) {
             DoTruncateFile (outfile);
             result = WAVPACK_HARD_ERROR;
         }
@@ -1298,7 +1300,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
                     result = WAVPACK_HARD_ERROR;
                 }
             }
-            else if (!write_riff_header (outfile, wpc, total_unpacked_samples)) {
+            else if (!WriteRiffHeader (outfile, wpc, total_unpacked_samples)) {
                 DoTruncateFile (outfile);
                 result = WAVPACK_HARD_ERROR;
             }
@@ -1772,84 +1774,6 @@ static void *store_big_endian_signed_samples (void *dst, int32_t *src, int bps, 
     return dptr;
 }
 
-static int write_riff_header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples)
-{
-    RiffChunkHeader riffhdr;
-    ChunkHeader datahdr, fmthdr;
-    WaveHeader wavhdr;
-    uint32_t bcount;
-
-    uint32_t total_data_bytes;
-    int num_channels = WavpackGetNumChannels (wpc);
-    int32_t channel_mask = WavpackGetChannelMask (wpc);
-    int32_t sample_rate = WavpackGetSampleRate (wpc);
-    int bytes_per_sample = WavpackGetBytesPerSample (wpc);
-    int bits_per_sample = WavpackGetBitsPerSample (wpc);
-    int format = WavpackGetFloatNormExp (wpc) ? 3 : 1;
-    int wavhdrsize = 16;
-
-    if (format == 3 && WavpackGetFloatNormExp (wpc) != 127) {
-        error_line ("can't create valid RIFF wav header for non-normalized floating data!");
-        return FALSE;
-    }
-
-    if (total_samples == (uint32_t) -1)
-        total_samples = 0x7ffff000 / (bytes_per_sample * num_channels);
-
-    total_data_bytes = total_samples * bytes_per_sample * num_channels;
-
-    CLEAR (wavhdr);
-
-    wavhdr.FormatTag = format;
-    wavhdr.NumChannels = num_channels;
-    wavhdr.SampleRate = sample_rate;
-    wavhdr.BytesPerSecond = sample_rate * num_channels * bytes_per_sample;
-    wavhdr.BlockAlign = bytes_per_sample * num_channels;
-    wavhdr.BitsPerSample = bits_per_sample;
-
-    if (num_channels > 2 || channel_mask != 0x5 - num_channels) {
-        wavhdrsize = sizeof (wavhdr);
-        wavhdr.cbSize = 22;
-        wavhdr.ValidBitsPerSample = bits_per_sample;
-        wavhdr.SubFormat = format;
-        wavhdr.ChannelMask = channel_mask;
-        wavhdr.FormatTag = 0xfffe;
-        wavhdr.BitsPerSample = bytes_per_sample * 8;
-        wavhdr.GUID [4] = 0x10;
-        wavhdr.GUID [6] = 0x80;
-        wavhdr.GUID [9] = 0xaa;
-        wavhdr.GUID [11] = 0x38;
-        wavhdr.GUID [12] = 0x9b;
-        wavhdr.GUID [13] = 0x71;
-    }
-
-    strncpy (riffhdr.ckID, "RIFF", sizeof (riffhdr.ckID));
-    strncpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
-    riffhdr.ckSize = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + total_data_bytes;
-    strncpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
-    fmthdr.ckSize = wavhdrsize;
-
-    strncpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
-    datahdr.ckSize = total_data_bytes;
-
-    // write the RIFF chunks up to just before the data starts
-
-    WavpackNativeToLittleEndian (&riffhdr, ChunkHeaderFormat);
-    WavpackNativeToLittleEndian (&fmthdr, ChunkHeaderFormat);
-    WavpackNativeToLittleEndian (&wavhdr, WaveHeaderFormat);
-    WavpackNativeToLittleEndian (&datahdr, ChunkHeaderFormat);
-
-    if (!DoWriteFile (outfile, &riffhdr, sizeof (riffhdr), &bcount) || bcount != sizeof (riffhdr) ||
-        !DoWriteFile (outfile, &fmthdr, sizeof (fmthdr), &bcount) || bcount != sizeof (fmthdr) ||
-        !DoWriteFile (outfile, &wavhdr, wavhdrsize, &bcount) || bcount != wavhdrsize ||
-        !DoWriteFile (outfile, &datahdr, sizeof (datahdr), &bcount) || bcount != sizeof (datahdr)) {
-            error_line ("can't write .WAV data, disk probably full!");
-            return FALSE;
-    }
-
-    return TRUE;
-}
-
 static void dump_UTF8_string (char *string, FILE *dst);
 static void UTF8ToAnsi (char *string, int len);
 static const char *speakers [] = {
@@ -1868,7 +1792,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
     if (name && *name != '-') {
         fprintf (dst, "file name:         %s%s\n", name, (WavpackGetMode (wpc) & MODE_WVC) ? " (+wvc)" : "");
-        fprintf (dst, "file size:         %lld bytes\n", WavpackGetFileSize64 (wpc));
+        fprintf (dst, "file size:         %lld bytes\n", (long long) WavpackGetFileSize64 (wpc));
     }
 
     fprintf (dst, "source:            %d-bit %s at %u Hz\n", WavpackGetBitsPerSample (wpc),

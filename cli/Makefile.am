@@ -1,6 +1,6 @@
 bin_PROGRAMS = wavpack wvunpack wvgain
 
-wavpack_SOURCES = wavpack.c caff.c utils.c md5.c
+wavpack_SOURCES = wavpack.c riff.c caff.c utils.c md5.c
 if WINDOWS_HOST
 wavpack_SOURCES += win32_unicode_support.c
 endif
@@ -10,7 +10,7 @@ wavpack_LDFLAGS = -rpath $(libdir)
 endif
 wavpack_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
 
-wvunpack_SOURCES = wvunpack.c caff.c utils.c md5.c
+wvunpack_SOURCES = wvunpack.c riff.c caff.c utils.c md5.c
 if WINDOWS_HOST
 wvunpack_SOURCES += win32_unicode_support.c
 endif

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2009 Conifer Software.               //
+//                Copyright (c) 1998 - 2016 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -49,18 +49,6 @@
 #define fileno _fileno
 #else
 #define stricmp(x,y) strcasecmp(x,y)
-#endif
-
-#ifdef DEBUG_ALLOC
-#define malloc malloc_db
-#define realloc realloc_db
-#define free free_db
-void *malloc_db (uint32_t size);
-void *realloc_db (void *ptr, uint32_t size);
-void free_db (void *ptr);
-int32_t dump_alloc (void);
-static char *strdup (const char *s)
- { char *d = malloc (strlen (s) + 1); return strcpy (d, s); }
 #endif
 
 #define WAVPACK_NO_ERROR    0
