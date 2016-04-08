@@ -24,7 +24,7 @@
 
 #define ATTEMPT_ERROR_MUTING
 
-static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader *reader, void *id);
+static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader64 *reader, void *id);
 static uint32_t bs_unused_bytes (Bitstream3 *bs);
 static unsigned char *bs_unused_data (Bitstream3 *bs);
 static void init_words3 (WavpackStream3 *wps);
@@ -1662,7 +1662,7 @@ static void bs_read3 (Bitstream3 *bs)
 // data is located.  A return value of TRUE indicates an error in
 // allocating buffer space.
 
-static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader *reader, void *id)
+static int bs_open_read3 (Bitstream3 *bs, WavpackStreamReader64 *reader, void *id)
 {
     bs->fpos = (bs->reader = reader)->get_pos (bs->id = id);
 

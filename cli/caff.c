@@ -148,10 +148,10 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
 
     infilesize = DoGetFileSize (infile);
 
-    if (infilesize >= 4294967296LL && !(config->qmode & QMODE_IGNORE_LENGTH)) {
-        error_line ("can't handle .CAF files larger than 4 GB (yet)!");
-        return SOFT_ERROR;
-    }
+    // if (infilesize >= 4294967296LL && !(config->qmode & QMODE_IGNORE_LENGTH)) {
+    //     error_line ("can't handle .CAF files larger than 4 GB (yet)!");
+    //     return SOFT_ERROR;
+    // }
 
     memcpy (&caf_file_header, fourcc, 4);
 

@@ -670,6 +670,21 @@ int64_t DoGetFileSize (FILE *hFile)
     return (int64_t)Size.QuadPart;
 }
 
+int64_t DoGetFilePosition (FILE *hFile)
+{
+    return _ftelli64 (hFile);
+}
+
+int DoSetFilePositionAbsolute (FILE *hFile, int64_t pos)
+{
+    return _fseeki64 (hFile, pos, SEEK_SET);
+}
+
+int DoSetFilePositionRelative (FILE *hFile, int64_t pos, int mode)
+{
+    return _fseeki64 (hFile, pos, mode);
+}
+
 #else
 
 int64_t DoGetFileSize (FILE *hFile)
@@ -682,22 +697,22 @@ int64_t DoGetFileSize (FILE *hFile)
     return (int64_t) statbuf.st_size;
 }
 
-#endif
-
-uint32_t DoGetFilePosition (FILE *hFile)
+int64_t DoGetFilePosition (FILE *hFile)
 {
     return ftell (hFile);
 }
 
-int DoSetFilePositionAbsolute (FILE *hFile, uint32_t pos)
+int DoSetFilePositionAbsolute (FILE *hFile, int64_t pos)
 {
     return fseek (hFile, pos, SEEK_SET);
 }
 
-int DoSetFilePositionRelative (FILE *hFile, int32_t pos, int mode)
+int DoSetFilePositionRelative (FILE *hFile, int64_t pos, int mode)
 {
     return fseek (hFile, pos, mode);
 }
+
+#endif
 
 // if ungetc() is not available, a seek of -1 is fine also because we do not
 // change the byte read.

@@ -262,11 +262,11 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
         free_stream3 (wpc);
 #endif
 
-    if (wpc->close_file && wpc->wv_in)
-        wpc->close_file (wpc->wv_in);
+    if (wpc->reader && wpc->reader->close && wpc->wv_in)
+        wpc->reader->close (wpc->wv_in);
 
-    if (wpc->close_file && wpc->wvc_in)
-        wpc->close_file (wpc->wvc_in);
+    if (wpc->reader && wpc->reader->close && wpc->wvc_in)
+        wpc->reader->close (wpc->wvc_in);
 
     WavpackFreeWrapper (wpc);
 

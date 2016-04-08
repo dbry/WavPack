@@ -49,19 +49,31 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
     return (int32_t) fread (data, 1, bcount, (FILE*) id);
 }
 
-static uint32_t get_pos (void *id)
+static int64_t get_pos (void *id)
 {
+#ifdef WIN32
+    return _ftelli64 ((FILE*) id);
+#else
     return ftell ((FILE*) id);
+#endif
 }
 
-static int set_pos_abs (void *id, uint32_t pos)
+static int set_pos_abs (void *id, int64_t pos)
 {
+#ifdef WIN32
+    return _fseeki64 (id, pos, SEEK_SET);
+#else
     return fseek (id, pos, SEEK_SET);
+#endif
 }
 
-static int set_pos_rel (void *id, int32_t delta, int mode)
+static int set_pos_rel (void *id, int64_t delta, int mode)
 {
+#ifdef WIN32
+    return _fseeki64 (id, delta, mode);
+#else
     return fseek (id, delta, mode);
+#endif
 }
 
 static int push_back_byte (void *id, int c)
@@ -69,7 +81,31 @@ static int push_back_byte (void *id, int c)
     return ungetc (c, id);
 }
 
-static uint32_t get_length (void *id)
+#ifdef WIN32
+
+static int64_t get_length (void *id)
+{
+    LARGE_INTEGER Size;
+    HANDLE        fHandle;
+
+    if (id == NULL)
+        return 0;
+
+    fHandle = (HANDLE)_get_osfhandle(_fileno((FILE*) id));
+    if (fHandle == INVALID_HANDLE_VALUE)
+        return 0;
+
+    Size.u.LowPart = GetFileSize(fHandle, &Size.u.HighPart);
+
+    if (Size.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
+        return 0;
+
+    return (int64_t)Size.QuadPart;
+}
+
+#else
+
+static int64_t get_length (void *id)
 {
     FILE *file = id;
     struct stat statbuf;
@@ -79,6 +115,8 @@ static uint32_t get_length (void *id)
 
     return statbuf.st_size;
 }
+
+#endif
 
 static int can_seek (void *id)
 {
@@ -93,9 +131,47 @@ static int32_t write_bytes (void *id, void *data, int32_t bcount)
     return (int32_t) fwrite (data, 1, bcount, (FILE*) id);
 }
 
-static WavpackStreamReader freader = {
-    read_bytes, get_pos, set_pos_abs, set_pos_rel, push_back_byte, get_length, can_seek,
-    write_bytes
+#ifdef WIN32
+
+static int truncate_here (void *id)
+{
+    FILE *file = id;
+    int64_t curr_pos = _ftelli64 (file);
+
+    return _chsize_s (fileno (file), curr_pos);
+}
+
+#else
+
+static int truncate_here (void *id)
+{
+    FILE *file = id;
+    off_t curr_pos = ftell (file);
+
+    return ftruncate (fileno (file), curr_pos);
+}
+
+#endif
+
+static int close_stream (void *id)
+{
+    return fclose ((FILE*) id);
+}
+
+//  int32_t (*read_bytes)(void *id, void *data, int32_t bcount);
+//  int32_t (*write_bytes)(void *id, void *data, int32_t bcount);
+//  int64_t (*get_pos)(void *id);                               // new signature for large files
+//  int (*set_pos_abs)(void *id, int64_t pos);                  // new signature for large files
+//  int (*set_pos_rel)(void *id, int64_t delta, int mode);      // new signature for large files
+//  int (*push_back_byte)(void *id, int c);
+//  int64_t (*get_length)(void *id);                            // new signature for large files
+//  int (*can_seek)(void *id);
+//  int (*truncate_here)(void *id);                             // new function to truncate file at current position
+//  int (*close)(void *id);                                     // new function to close file
+
+static WavpackStreamReader64 freader = {
+    read_bytes, write_bytes, get_pos, set_pos_abs, set_pos_rel,
+    push_back_byte, get_length, can_seek, truncate_here, close_stream
 };
 
 // This function attempts to open the specified WavPack file for reading. If
@@ -165,7 +241,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
     else
         wvc_id = NULL;
 
-    wpc = WavpackOpenFileInputEx (&freader, wv_id, wvc_id, error, flags, norm_offset);
+    wpc = WavpackOpenFileInputEx64 (&freader, wv_id, wvc_id, error, flags, norm_offset);
 
     if (!wpc) {
         if (wv_id)
@@ -174,8 +250,6 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
         if (wvc_id)
             fclose (wvc_id);
     }
-    else
-        wpc->close_file = (int(*)(void*)) fclose;
 
     return wpc;
 }

@@ -89,7 +89,8 @@ typedef struct {
 #define APE_TAG_MAX_LENGTH      (1024 * 1024 * 16)
 
 typedef struct {
-    int32_t tag_file_pos, tag_begins_file;
+    int64_t tag_file_pos;
+    int tag_begins_file;
     ID3_Tag id3_tag;
     APE_Tag_Hdr ape_tag_hdr;
     unsigned char *ape_tag_data;
@@ -398,6 +399,22 @@ typedef struct {
     int32_t (*write_bytes)(void *id, void *data, int32_t bcount);
 } WavpackStreamReader;
 
+// Extended version of structure for handling large files and added
+// functionality for truncating and closing files
+
+typedef struct {
+    int32_t (*read_bytes)(void *id, void *data, int32_t bcount);
+    int32_t (*write_bytes)(void *id, void *data, int32_t bcount);
+    int64_t (*get_pos)(void *id);                               // new signature for large files
+    int (*set_pos_abs)(void *id, int64_t pos);                  // new signature for large files
+    int (*set_pos_rel)(void *id, int64_t delta, int mode);      // new signature for large files
+    int (*push_back_byte)(void *id, int c);
+    int64_t (*get_length)(void *id);                            // new signature for large files
+    int (*can_seek)(void *id);
+    int (*truncate_here)(void *id);                             // new function to truncate file at current position
+    int (*close)(void *id);                                     // new function to close file
+} WavpackStreamReader64;
+
 typedef int (*WavpackBlockOutput)(void *id, void *data, int32_t bcount);
 
 typedef struct {
@@ -413,8 +430,7 @@ typedef struct {
     WavpackBlockOutput blockout;
     void *wv_out, *wvc_out;
 
-    WavpackStreamReader *reader;
-    int (*close_file)(void*);
+    WavpackStreamReader64 *reader;
     void *wv_in, *wvc_in;
 
     uint32_t filelen, file2len, filepos, file2pos, total_samples, crc_errors, first_flags;
@@ -682,6 +698,7 @@ void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
 /////////////////////////// high-level unpacking API and support ////////////////////////////
 // modules: open_utils.c, unpack_utils.c, unpack_seek.c, unpack_floats.c
 
+WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
 
@@ -717,7 +734,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
 int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 
-uint32_t read_next_header (WavpackStreamReader *reader, void *id, WavpackHeader *wphdr);
+uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr);
 int read_wvc_block (WavpackContext *wpc);
 
 /////////////////////////// high-level packing API and support ////////////////////////////

@@ -184,7 +184,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
 
 #define BUFSIZE 4096
 
-static uint32_t find_header (WavpackStreamReader *reader, void *id, uint32_t filepos, WavpackHeader *wphdr)
+static uint32_t find_header (WavpackStreamReader64 *reader, void *id, uint32_t filepos, WavpackHeader *wphdr)
 {
     unsigned char *buffer = malloc (BUFSIZE), *sp = buffer, *ep = buffer;
 
