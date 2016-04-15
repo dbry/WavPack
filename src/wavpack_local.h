@@ -433,7 +433,8 @@ typedef struct {
     WavpackStreamReader64 *reader;
     void *wv_in, *wvc_in;
 
-    uint32_t filelen, file2len, filepos, file2pos, total_samples, crc_errors, first_flags;
+    uint64_t filelen, file2len, filepos, file2pos;
+    uint32_t total_samples, crc_errors, first_flags;
     int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks;
     uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, initial_index, riff_trailer_bytes;
     int riff_header_added, riff_header_created;

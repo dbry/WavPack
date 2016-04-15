@@ -55,7 +55,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
             wps->sample_index >= wps->wphdr.block_index + wps->wphdr.block_samples) {
 
-                uint32_t nexthdrpos;
+                int64_t nexthdrpos;
 
                 if (wpc->wrapper_bytes >= MAX_WRAPPER_BYTES)
                     break;

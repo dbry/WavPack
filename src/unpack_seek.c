@@ -52,13 +52,13 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
             free_streams (wpc);
             wpc->filepos = find_sample (wpc, wpc->wv_in, wpc->filepos, sample);
 
-            if (wpc->filepos == (uint32_t) -1)
+            if (wpc->filepos == -1)
                 return FALSE;
 
             if (wpc->wvc_flag) {
                 wpc->file2pos = find_sample (wpc, wpc->wvc_in, 0, sample);
 
-                if (wpc->file2pos == (uint32_t) -1)
+                if (wpc->file2pos == -1)
                     return FALSE;
             }
     }
@@ -229,7 +229,7 @@ static int64_t find_header (WavpackStreamReader64 *reader, void *id, int64_t fil
 
                     if (wphdr->block_samples && (wphdr->flags & INITIAL_BLOCK)) {
                         free (buffer);
-                        return (uint32_t) (reader->get_pos (id) - (ep - sp + 4));
+                        return reader->get_pos (id) - (ep - sp + 4);
                     }
 
                     if (wphdr->ckSize > 1024)
