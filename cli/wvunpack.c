@@ -982,10 +982,10 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             extension = ".caf";
         else if (wav_decode || WavpackGetWrapperBytes (wpc) < 4)
             extension = ".wav";
-        else if (!strncmp (WavpackGetWrapperData (wpc), "RIFF", 4))
-            extension = ".wav";
         else if (!strncmp (WavpackGetWrapperData (wpc), "caff", 4))
             extension = ".caf";
+        else
+            extension = ".wav";
     }
 
     wvc_mode = WavpackGetMode (wpc) & MODE_WVC;

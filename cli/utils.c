@@ -110,7 +110,7 @@ int copy_timestamp(const char *src_filename, const char *dst_filename)
 //////////////////////////////////////////////////////////////////////////////
 // This function parses a filename (with or without full path) and returns  //
 // a pointer to the extension (including the "."). If no extension is found //
-// then NULL is returned. Extensions with more than 3 letters don't count.  //
+// then NULL is returned. Extensions with more than 4 letters don't count.  //
 //////////////////////////////////////////////////////////////////////////////
 
 #if defined(_WIN32)
@@ -125,7 +125,7 @@ char *filespec_ext (char *filespec)
             return NULL;
 
         if (*cp == '.') {
-            if (strlen (cp) > 1 && strlen (cp) <= 4)
+            if (strlen (cp+1) && strlen (cp+1) <= 4)
                 return cp;
             else
                 return NULL;
@@ -147,7 +147,7 @@ char *filespec_ext (char *filespec)
             return NULL;
 
         if (*cp == '.') {
-            if (strlen (cp) > 1 && strlen (cp) <= 4)
+            if (strlen (cp+1) && strlen (cp+1) <= 4)
                 return cp;
             else
                 return NULL;

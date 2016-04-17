@@ -1704,7 +1704,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             return WAVPACK_SOFT_ERROR;
         }
 
-        if (!strncmp (fourcc, "RIFF", 4)) {
+        if (!strncmp (fourcc, "RIFF", 4) || !strncmp (fourcc, "RF64", 4)) {
             if (ParseRiffHeaderConfig (infile, infilename, fourcc, wpc, &loc_config)) {
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);

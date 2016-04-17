@@ -10,20 +10,6 @@
 
 // This module is a helper to the WavPack command-line programs to support CAF files.
 
-#if defined(WIN32)
-#include <windows.h>
-#include <io.h>
-#else
-#if defined(__OS2__)
-#define INCL_DOS
-#include <io.h>
-#endif
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <locale.h>
-#include <iconv.h>
-#endif
-
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -34,22 +20,6 @@
 #include "wavpack.h"
 #include "utils.h"
 #include "md5.h"
-
-#if defined (__GNUC__) && !defined(WIN32)
-#include <unistd.h>
-#include <glob.h>
-#include <sys/time.h>
-#else
-#include <sys/timeb.h>
-#endif
-
-#ifdef WIN32
-#define stricmp(x,y) _stricmp(x,y)
-#define strdup(x) _strdup(x)
-#define fileno _fileno
-#else
-#define stricmp(x,y) strcasecmp(x,y)
-#endif
 
 #define WAVPACK_NO_ERROR    0
 #define WAVPACK_SOFT_ERROR  1
