@@ -1456,6 +1456,7 @@ static FILE *wild_fopen (char *filename, const char *mode)
 // and the "config" structure specifies the mode of compression.
 
 int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
@@ -1706,6 +1707,15 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
         if (!strncmp (fourcc, "RIFF", 4) || !strncmp (fourcc, "RF64", 4)) {
             if (ParseRiffHeaderConfig (infile, infilename, fourcc, wpc, &loc_config)) {
+                DoCloseHandle (infile);
+                DoCloseHandle (wv_file.file);
+                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
+                WavpackCloseFile (wpc);
+                return WAVPACK_SOFT_ERROR;
+            }
+        }
+        else if (!strncmp (fourcc, "riff", 4)) {
+            if (ParseWave64HeaderConfig (infile, infilename, fourcc, wpc, &loc_config)) {
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
                 DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
