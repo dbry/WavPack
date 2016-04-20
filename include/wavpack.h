@@ -250,6 +250,7 @@ int WavpackGetMode (WavpackContext *wpc);
 
 char *WavpackGetErrorMessage (WavpackContext *wpc);
 int WavpackGetVersion (WavpackContext *wpc);
+char *WavpackGetFileExtension (WavpackContext *wpc);
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
 uint32_t WavpackGetNumSamples (WavpackContext *wpc);
 uint32_t WavpackGetSampleIndex (WavpackContext *wpc);
@@ -289,6 +290,7 @@ int WavpackWriteTag (WavpackContext *wpc);
 WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
+int WavpackAddWrapperEx (WavpackContext *wpc, char *extension, void *data, uint32_t bcount);
 int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 int WavpackPackInit (WavpackContext *wpc);
 int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);

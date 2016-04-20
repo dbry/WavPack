@@ -354,8 +354,8 @@ static void write_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
     if (wpc->config.flags & CONFIG_EXTRA_MODE)
         *byteptr++ = (char) wpc->config.xmode;
 
-    if (wpc->config.qmode & 0xff)
-        *byteptr++ = (char) wpc->config.qmode;
+    // always write this (even if zero) to identify version 5.0 files
+    *byteptr++ = (char) wpc->config.qmode;
 
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }

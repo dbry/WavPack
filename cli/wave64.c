@@ -65,7 +65,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             return WAVPACK_SOFT_ERROR;
     }
     else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-        !WavpackAddWrapper (wpc, &filehdr, sizeof (filehdr))) {
+        !WavpackAddWrapperEx (wpc, "w64", &filehdr, sizeof (filehdr))) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             return WAVPACK_SOFT_ERROR;
     }
@@ -89,7 +89,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 return WAVPACK_SOFT_ERROR;
         }
         else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-            !WavpackAddWrapper (wpc, &chunk_header, sizeof (Wave64ChunkHeader))) {
+            !WavpackAddWrapperEx (wpc, "w64", &chunk_header, sizeof (Wave64ChunkHeader))) {
                 error_line ("%s", WavpackGetErrorMessage (wpc));
                 return WAVPACK_SOFT_ERROR;
         }
@@ -112,7 +112,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                     return WAVPACK_SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, &WaveHeader, chunk_header.ckSize)) {
+                !WavpackAddWrapperEx (wpc, "w64", &WaveHeader, chunk_header.ckSize)) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     return WAVPACK_SOFT_ERROR;
             }
@@ -242,7 +242,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             if (!DoReadFile (infile, buff, bytes_to_copy, &bcount) ||
                 bcount != bytes_to_copy ||
                 (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, buff, bytes_to_copy))) {
+                !WavpackAddWrapperEx (wpc, "w64", buff, bytes_to_copy))) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     free (buff);
                     return WAVPACK_SOFT_ERROR;

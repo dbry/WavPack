@@ -194,10 +194,23 @@ int WavpackGetVersion (WavpackContext *wpc)
         if (wpc->stream3)
             return get_version3 (wpc);
 #endif
-        return 4;
+        return wpc->version_five ? 5 : 4;
     }
 
     return 0;
+}
+
+// Return a string representing the recommended file extension for the open
+// WavPack file. For all files prior to WavPack 5.0 this will be "wav",
+// even for raw files with no RIFF into. This string is specified in the
+// call to WavpackAddWrapperEx() when the file was created.
+
+char *WavpackGetFileExtension (WavpackContext *wpc)
+{
+    if (wpc && wpc->alt_extension [0])
+        return wpc->alt_extension;
+    else
+        return "wav";
 }
 
 // This function is used to seek to end of a file to determine its actual
@@ -479,8 +492,10 @@ static int read_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
             bytecnt--;
         }
 
-        if (bytecnt)
+        if (bytecnt) {
             wpc->config.qmode = (wpc->config.qmode & ~0xff) | *byteptr;
+            wpc->version_five = 1;
+        }
     }
 
     return TRUE;
@@ -615,9 +630,10 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
             return init_wvx_bitstream (wps, wpmd);
 
         case ID_RIFF_HEADER: case ID_RIFF_TRAILER:
+        case ID_ALT_HEADER: case ID_ALT_TRAILER:
             return read_wrapper_data (wpc, wpmd);
 
-        case ID_MD5_CHECKSUM:
+        case ID_MD5_CHECKSUM: case ID_ALT_MD5_CHECKSUM:
             if (wpmd->byte_length == 16) {
                 memcpy (wpc->config.md5_checksum, wpmd->data, 16);
                 wpc->config.flags |= CONFIG_MD5_CHECKSUM;
@@ -625,6 +641,12 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
             }
 
             return TRUE;
+
+        case ID_ALT_EXTENSION:
+            if (wpmd->byte_length && wpmd->byte_length < sizeof (wpc->alt_extension)) {
+                memcpy (wpc->alt_extension, wpmd->data, wpmd->byte_length);
+                wpc->alt_extension [wpmd->byte_length] = 0;
+            }
 
         default:
             return (wpmd->id & ID_OPTIONAL_DATA) ? TRUE : FALSE;
@@ -902,7 +924,7 @@ static int seek_md5 (WavpackStreamReader64 *reader, void *id, unsigned char data
                 bcount -= 2;
             }
 
-            if (meta_id == ID_MD5_CHECKSUM)
+            if (meta_id == ID_MD5_CHECKSUM || meta_id == ID_ALT_MD5_CHECKSUM)
                 return (meta_bc == 16 && bcount >= 16 &&
                     reader->read_bytes (id, data, 16) == 16);
 
@@ -948,7 +970,7 @@ static int seek_riff_trailer (WavpackContext *wpc)
                 bcount -= 2;
             }
 
-            if ((meta_id & ID_UNIQUE) == ID_RIFF_TRAILER && meta_bc) {
+            if (((meta_id & ID_UNIQUE) == ID_RIFF_TRAILER || (meta_id & ID_UNIQUE) == ID_ALT_TRAILER) && meta_bc) {
                 wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + meta_bc);
 		if (!wpc->wrapper_data)
 		    return FALSE;

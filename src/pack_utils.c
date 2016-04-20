@@ -484,12 +484,40 @@ int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
     return add_to_metadata (wpc, data, bcount, meta_id);
 }
 
+// Extended version of WavpackAddWrapper() for non-wav wrappers (i.e., not RIFF or RF64). To
+// ensure that older WavPack versions do not use this data and incorrectly make a .wav file
+// with it, a new metadata ID is used. This means that older WavPack versions will simply see
+// "raw" data and create new RIFF info if requested. The alternate extension is also specified
+// here and will be available to the [new] unpacker to name the unpacked file. Keep in mind that
+// none of this affects the ability of older programs to play the file or otherwise extract the
+// audio data...this is only for unarchiving verbatim files.
+
+int WavpackAddWrapperEx (WavpackContext *wpc, char *extension, void *data, uint32_t bcount)
+{
+    uint32_t index = WavpackGetSampleIndex (wpc);
+    unsigned char meta_id;
+
+    if (!index || index == (uint32_t) -1) {
+        if (!wpc->riff_header_added && extension && *extension && strlen (extension) < sizeof (wpc->alt_extension))
+            add_to_metadata (wpc, extension, strlen (extension), ID_ALT_EXTENSION);
+
+        wpc->riff_header_added = TRUE;
+        meta_id = ID_ALT_HEADER;
+    }
+    else {
+        wpc->riff_trailer_bytes += bcount;
+        meta_id = ID_ALT_TRAILER;
+    }
+
+    return add_to_metadata (wpc, data, bcount, meta_id);
+}
+
 // Store computed MD5 sum in WavPack metadata. Note that the user must compute
 // the 16 byte sum; it is not done here. A return of FALSE indicates an error.
 
 int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16])
 {
-    return add_to_metadata (wpc, data, 16, ID_MD5_CHECKSUM);
+    return add_to_metadata (wpc, data, 16, (wpc->config.qmode & 0xff) ? ID_ALT_MD5_CHECKSUM : ID_MD5_CHECKSUM);
 }
 
 static int create_riff_header (WavpackContext *wpc)
@@ -721,6 +749,10 @@ void *WavpackGetWrapperLocation (void *first_block, uint32_t *size)
 
     WavpackLittleEndianToNative (first_block, WavpackHeaderFormat);
     loc = find_metadata (first_block, ID_RIFF_HEADER, size);
+
+    if (!loc)
+        loc = find_metadata (first_block, ID_ALT_HEADER, size);
+
     WavpackNativeToLittleEndian (first_block, WavpackHeaderFormat);
 
     return loc;

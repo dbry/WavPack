@@ -981,17 +981,15 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     if (add_extension) {
         if (raw_decode)
-            extension = ".raw";
+            extension = "raw";
         else if (caf_decode)
-            extension = ".caf";
+            extension = "caf";
         else if (w64_decode)
-            extension = ".w64";
-        else if (wav_decode || WavpackGetWrapperBytes (wpc) < 4)
-            extension = ".wav";
-        else if (!strncmp (WavpackGetWrapperData (wpc), "caff", 4))
-            extension = ".caf";
+            extension = "w64";
+        else if (wav_decode)
+            extension = "wav";
         else
-            extension = ".wav";
+            extension = WavpackGetFileExtension (wpc);
     }
 
     wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
@@ -1086,8 +1084,10 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     }
 
     if (outfilename) {
-        if (*outfilename != '-' && add_extension)
+        if (*outfilename != '-' && add_extension) {
+            strcat (outfilename, ".");
             strcat (outfilename, extension);
+        }
 
         if ((outfile = open_output_file (outfilename, &outfilename_temp)) == NULL) {
             WavpackCloseFile (wpc);
@@ -1923,16 +1923,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     if (summary > 1) {
         uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes, i;
         unsigned char *header_data = WavpackGetWrapperData (wpc);
-        char header_name [8];
-
-        strcpy (header_name, "????");
-
-        for (i = 0; i < 4 && i < header_bytes; ++i)
-            if (header_data [i] >= 0x20 && header_data [i] <= 0x7f)
-                header_name [i] = header_data [i];
-
-        if (!strcmp (header_name, "riff"))
-            strcpy (header_name, "Wave64");
+        char *header_name = WavpackGetFileExtension (wpc);
 
         WavpackFreeWrapper (wpc);
         WavpackSeekTrailingWrapper (wpc);

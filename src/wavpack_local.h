@@ -212,11 +212,13 @@ typedef struct {
 
 #define ID_RIFF_HEADER          (ID_OPTIONAL_DATA | 0x1)
 #define ID_RIFF_TRAILER         (ID_OPTIONAL_DATA | 0x2)
-#define ID_REPLAY_GAIN          (ID_OPTIONAL_DATA | 0x3)
-#define ID_CUESHEET             (ID_OPTIONAL_DATA | 0x4)
+#define ID_ALT_HEADER           (ID_OPTIONAL_DATA | 0x3)
+#define ID_ALT_TRAILER          (ID_OPTIONAL_DATA | 0x4)
 #define ID_CONFIG_BLOCK         (ID_OPTIONAL_DATA | 0x5)
 #define ID_MD5_CHECKSUM         (ID_OPTIONAL_DATA | 0x6)
 #define ID_SAMPLE_RATE          (ID_OPTIONAL_DATA | 0x7)
+#define ID_ALT_EXTENSION        (ID_OPTIONAL_DATA | 0x8)
+#define ID_ALT_MD5_CHECKSUM     (ID_OPTIONAL_DATA | 0x9)
 
 ///////////////////////// WavPack Configuration ///////////////////////////////
 
@@ -435,7 +437,7 @@ typedef struct {
 
     uint64_t filelen, file2len, filepos, file2pos;
     uint32_t total_samples, crc_errors, first_flags;
-    int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks;
+    int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, version_five;
     uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, initial_index, riff_trailer_bytes;
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
@@ -444,7 +446,7 @@ typedef struct {
     WavpackStream **streams;
     void *stream3;
 
-    char error_message [80];
+    char error_message [80], alt_extension [8];
 } WavpackContext;
 
 //////////////////////// function prototypes and macros //////////////////////
