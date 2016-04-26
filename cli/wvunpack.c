@@ -1921,7 +1921,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     }
 
     if (summary > 1) {
-        uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes, i;
+        uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes;
         unsigned char *header_data = WavpackGetWrapperData (wpc);
         char *header_name = WavpackGetFileExtension (wpc);
 

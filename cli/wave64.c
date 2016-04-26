@@ -106,13 +106,13 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             chunk_header.ckSize = (chunk_header.ckSize + 7) & ~7L;
 
             if (chunk_header.ckSize < 16 || chunk_header.ckSize > sizeof (WaveHeader) ||
-                !DoReadFile (infile, &WaveHeader, chunk_header.ckSize, &bcount) ||
+                !DoReadFile (infile, &WaveHeader, (uint32_t) chunk_header.ckSize, &bcount) ||
                 bcount != chunk_header.ckSize) {
                     error_line ("%s is not a valid .W64 file!", infilename);
                     return WAVPACK_SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapperEx (wpc, "w64", &WaveHeader, chunk_header.ckSize)) {
+                !WavpackAddWrapperEx (wpc, "w64", &WaveHeader, (uint32_t) chunk_header.ckSize)) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     return WAVPACK_SOFT_ERROR;
             }
@@ -148,7 +148,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 supported = FALSE;
 
             if (format == 3 && config->bits_per_sample != 32)
-                supported == FALSE;
+                supported = FALSE;
 
             if (!WaveHeader.NumChannels || WaveHeader.NumChannels > 256 ||
                 WaveHeader.BlockAlign / WaveHeader.NumChannels < (config->bits_per_sample + 7) / 8 ||

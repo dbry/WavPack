@@ -380,6 +380,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\open_legacy.c"
+				>
+			</File>
+			<File
 				RelativePath=".\pack.c"
 				>
 			</File>

@@ -100,7 +100,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         WavpackLittleEndianToNative (&chunk_header, ChunkHeaderFormat);
 
         if (!strncmp (chunk_header.ckID, "ds64", 4)) {
-            int supported = TRUE, format;
+            int supported = TRUE;
 
             if (chunk_header.ckSize < sizeof (DS64Chunk) ||
                 !DoReadFile (infile, &ds64_chunk, chunk_header.ckSize, &bcount) ||
@@ -184,7 +184,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 supported = FALSE;
 
             if (format == 3 && config->bits_per_sample != 32)
-                supported == FALSE;
+                supported = FALSE;
 
             if (!WaveHeader.NumChannels || WaveHeader.NumChannels > 256 ||
                 WaveHeader.BlockAlign / WaveHeader.NumChannels < (config->bits_per_sample + 7) / 8 ||
@@ -399,8 +399,8 @@ int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples)
         WavpackNativeToLittleEndian (&ds64_chunk, DS64ChunkFormat);
     }
     else {
-        riffhdr.ckSize = total_riff_bytes;
-        datahdr.ckSize = total_data_bytes;
+        riffhdr.ckSize = (uint32_t) total_riff_bytes;
+        datahdr.ckSize = (uint32_t) total_data_bytes;
     }
 
     // write the RIFF chunks up to just before the data starts

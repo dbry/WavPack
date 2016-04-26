@@ -386,6 +386,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\cli\caff.c"
+				>
+			</File>
+			<File
+				RelativePath="..\cli\riff.c"
+				>
+			</File>
+			<File
+				RelativePath="..\cli\wave64.c"
+				>
+			</File>
+			<File
 				RelativePath="..\cli\wavpack.c"
 				>
 			</File>

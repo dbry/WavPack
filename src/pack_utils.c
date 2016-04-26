@@ -499,7 +499,7 @@ int WavpackAddWrapperEx (WavpackContext *wpc, char *extension, void *data, uint3
 
     if (!index || index == (uint32_t) -1) {
         if (!wpc->riff_header_added && extension && *extension && strlen (extension) < sizeof (wpc->alt_extension))
-            add_to_metadata (wpc, extension, strlen (extension), ID_ALT_EXTENSION);
+            add_to_metadata (wpc, extension, (uint32_t) strlen (extension), ID_ALT_EXTENSION);
 
         wpc->riff_header_added = TRUE;
         meta_id = ID_ALT_HEADER;
