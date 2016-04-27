@@ -215,7 +215,6 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
     char *file_mode = (flags & OPEN_EDIT_TAGS) ? "r+b" : "rb";
     FILE *(*fopen_func)(const char *, const char *) = fopen;
     FILE *wv_id, *wvc_id;
-    WavpackContext *wpc;
 
 #ifdef _WIN32
     if (flags & OPEN_FILE_UTF8)
@@ -247,17 +246,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
     else
         wvc_id = NULL;
 
-    wpc = WavpackOpenFileInputEx64 (&freader, wv_id, wvc_id, error, flags, norm_offset);
-
-    if (!wpc) {
-        if (wv_id)
-            fclose (wv_id);
-
-        if (wvc_id)
-            fclose (wvc_id);
-    }
-
-    return wpc;
+    return WavpackOpenFileInputEx64 (&freader, wv_id, wvc_id, error, flags, norm_offset);
 }
 
 #ifdef _WIN32

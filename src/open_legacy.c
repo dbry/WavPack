@@ -103,7 +103,6 @@ static WavpackStreamReader64 trans_reader = {
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
     WavpackReaderTranslator *trans_wv = NULL, *trans_wvc = NULL;
-    WavpackContext *res;
 
     if (wv_id) {
         trans_wv = malloc (sizeof (WavpackReaderTranslator));
@@ -117,15 +116,5 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
         trans_wvc->id = wvc_id;
     }
 
-    res = WavpackOpenFileInputEx64 (&trans_reader, trans_wv, trans_wvc, error, flags, norm_offset);
-
-    if (!res) {
-        if (trans_wv)
-            free (trans_wv);
-
-        if (trans_wvc)
-            free (trans_wvc);
-    }
-
-    return res;
+    return WavpackOpenFileInputEx64 (&trans_reader, trans_wv, trans_wvc, error, flags, norm_offset);
 }
