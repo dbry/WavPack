@@ -309,21 +309,22 @@ static void write_float_info (WavpackStream *wps, WavpackMetadata *wpmd)
 static void write_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     uint32_t mask = wpc->config.channel_mask;
-    char *byteptr;
+    char *byteptr = wpmd->data = malloc (8);
 
-    if (wpc->num_streams > OLD_MAX_STREAMS) {
-        byteptr = wpmd->data = malloc (6);
-        wpmd->id = ID_CHANNEL_INFO;
-        *byteptr++ = wpc->config.num_channels - 1;
-        *byteptr++ = wpc->num_streams - 1;
+    wpmd->id = ID_CHANNEL_INFO;
+
+    if (wpc->num_streams > OLD_MAX_STREAMS) {       // if > 8 streams, use 6 or 7 bytes (breaks old decoders
+        *byteptr++ = wpc->config.num_channels - 1;  // that could only handle 8 streams) and allow (in theory)
+        *byteptr++ = wpc->num_streams - 1;          // up to 4096 channels
         *byteptr++ = (((wpc->num_streams - 1) >> 4) & 0xf0) | (((wpc->config.num_channels - 1) >> 8) & 0xf);
         *byteptr++ = mask;
         *byteptr++ = (mask >> 8);
         *byteptr++ = (mask >> 16);
+
+        if (mask & 0xff000000)                      // this will break versions < 5.0, but is RF64-specific
+            *byteptr++ = (mask >> 24);
     }
-    else {
-        byteptr = wpmd->data = malloc (4);
-        wpmd->id = ID_CHANNEL_INFO;
+    else {                                          // otherwise use only 1 to 5 bytes
         *byteptr++ = wpc->config.num_channels;
 
         while (mask) {

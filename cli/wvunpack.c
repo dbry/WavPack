@@ -1833,6 +1833,12 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         strcpy (modes, "mono");
     else if (num_channels == 2 && channel_mask == 0x3)
         strcpy (modes, "stereo");
+    else if (num_channels == 4 && channel_mask == 0x33)
+        strcpy (modes, "quad");
+    else if (num_channels == 6 && channel_mask == 0x3f)
+        strcpy (modes, "5.1 surround");
+    else if (num_channels == 8 && channel_mask == 0x6000003f)
+        strcpy (modes, "5.1 + stereo");
     else {
         int cc = num_channels, si = 0;
         uint32_t cm = channel_mask;
@@ -1841,7 +1847,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
         while (cc && cm) {
             if (cm & 1) {
-                strcat (modes, speakers [si]);
+                strcat (modes, si < 18 ? speakers [si] : "--");
                 if (--cc)
                     strcat (modes, ",");
             }

@@ -178,11 +178,11 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
         wpc->streams [wpc->current_stream] = wps;
         CLEAR (*wps);
 
-        for (pos = 1; pos <= 18; ++pos) {
+        for (pos = 1; pos <= 31; ++pos) {
             stereo_mask = 3 << (pos - 1);
             mono_mask = 1 << (pos - 1);
 
-            if ((chan_mask & stereo_mask) == stereo_mask && (mono_mask & 0x251)) {
+            if ((chan_mask & stereo_mask) == stereo_mask && (mono_mask & 0x20000251)) {
                 chan_mask &= ~stereo_mask;
                 chans = 2;
                 break;
