@@ -1851,43 +1851,47 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     }
 
     // At this point we're done writing to the output files. However, in some
-    // situations we might have to back up and re-write the initial blocks.
-    // Currently the only case is if we're ignoring length or inputting raw pcm data.
+    // situations we might have to back up and re-write the initial block. Currently
+    // the only case is if we're ignoring length or reading raw pcm data; otherwise
+    // it's an error.
 
     if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples (wpc) != WavpackGetSampleIndex (wpc)) {
         if (loc_config.qmode & (QMODE_RAW_PCM | QMODE_IGNORE_LENGTH)) {
             char *block_buff = malloc (wv_file.first_block_size);
-            uint32_t wrapper_size;
 
             if (block_buff && !DoSetFilePositionAbsolute (wv_file.file, 0) &&
                 DoReadFile (wv_file.file, block_buff, wv_file.first_block_size, &bcount) &&
                 bcount == wv_file.first_block_size && !strncmp (block_buff, "wvpk", 4)) {
 
+                    // this call will take care of the initial WavPack header and any RIFF header the library made
+
                     WavpackUpdateNumSamples (wpc, block_buff);
 
-                    if (WavpackGetWrapperLocation (block_buff, &wrapper_size)) {
-                        unsigned char *wrapper_location = WavpackGetWrapperLocation (block_buff, NULL);
-                        unsigned char *chunk_header = malloc (sizeof (ChunkHeader));
-                        uint32_t data_size = WavpackGetSampleIndex (wpc) * WavpackGetNumChannels (wpc) *
-                            WavpackGetBytesPerSample (wpc);
+                    // If we got the RIFF header from the source file, we try to update it here if it's a simple
+                    // header (not RF64). Note that this means we're no longer strictly lossless, but the user
+                    // essentially told us the length in the header was wrong, so we're fixing it.
 
-                        memcpy (chunk_header, wrapper_location, sizeof (ChunkHeader));
+                    if (!(loc_config.qmode & (QMODE_NO_STORE_WRAPPER | QMODE_RAW_PCM)) && WavpackGetWrapperLocation (block_buff, NULL)) {
+                        uint32_t wrapper_size;
+                        unsigned char *wrapper_location = WavpackGetWrapperLocation (block_buff, &wrapper_size);
+                        uint32_t data_size = WavpackGetSampleIndex (wpc) * WavpackGetNumChannels (wpc) * WavpackGetBytesPerSample (wpc);
+                        ChunkHeader chunk_header;
 
-                        if (!strncmp ((char *) chunk_header, "RIFF", 4)) {
-                            ((ChunkHeader *)chunk_header)->ckSize = wrapper_size + data_size - 8;
-                            WavpackNativeToLittleEndian (chunk_header, ChunkHeaderFormat);
+                        memcpy (&chunk_header, wrapper_location, sizeof (ChunkHeader));
+
+                        if (!strncmp (chunk_header.ckID, "RIFF", 4)) {
+                            chunk_header.ckSize = wrapper_size + data_size - 8;
+                            WavpackNativeToLittleEndian (&chunk_header, ChunkHeaderFormat);
+                            memcpy (wrapper_location, &chunk_header, sizeof (ChunkHeader));
+                            memcpy (&chunk_header, wrapper_location + wrapper_size - sizeof (ChunkHeader), sizeof (ChunkHeader));
+
+                            if (!strncmp (chunk_header.ckID, "data", 4)) {
+                                chunk_header.ckSize = data_size;
+                                WavpackNativeToLittleEndian (&chunk_header, ChunkHeaderFormat);
+                            }
+
+                            memcpy (wrapper_location + wrapper_size - sizeof (ChunkHeader), &chunk_header, sizeof (ChunkHeader));
                         }
-
-                        memcpy (wrapper_location, chunk_header, sizeof (ChunkHeader));
-                        memcpy (chunk_header, wrapper_location + wrapper_size - sizeof (ChunkHeader), sizeof (ChunkHeader));
-
-                        if (!strncmp ((char *) chunk_header, "data", 4)) {
-                            ((ChunkHeader *)chunk_header)->ckSize = data_size;
-                            WavpackNativeToLittleEndian (chunk_header, ChunkHeaderFormat);
-                        }
-
-                        memcpy (wrapper_location + wrapper_size - sizeof (ChunkHeader), chunk_header, sizeof (ChunkHeader));
-                        free (chunk_header);
                     }
 
                     if (DoSetFilePositionAbsolute (wv_file.file, 0) ||
@@ -1896,13 +1900,14 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                             error_line ("couldn't update WavPack header with actual length!!");
                             result = WAVPACK_SOFT_ERROR;
                     }
-
-                    free (block_buff);
             }
             else {
                 error_line ("couldn't update WavPack header with actual length!!");
                 result = WAVPACK_SOFT_ERROR;
             }
+
+            if (block_buff)
+                free (block_buff);
 
             if (result == WAVPACK_NO_ERROR && wvc_file.file) {
                 block_buff = malloc (wvc_file.first_block_size);
@@ -1925,7 +1930,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     result = WAVPACK_SOFT_ERROR;
                 }
 
-                free (block_buff);
+                if (block_buff)
+                    free (block_buff);
             }
         }
         else {

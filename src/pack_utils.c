@@ -300,7 +300,8 @@ int WavpackPackInit (WavpackContext *wpc)
 // WavpackOpenFileOutput(). A return of FALSE indicates an error.
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples);
-static int create_riff_header (WavpackContext *wpc);
+static int create_riff_header (WavpackContext *wpc, uint32_t total_samples, void *outbuffer);
+static int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, unsigned char id);
 
 int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count)
 {
@@ -310,8 +311,12 @@ int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sa
         int32_t *source_pointer = sample_buffer;
         unsigned int samples_to_copy;
 
-        if (!wpc->riff_header_added && !wpc->riff_header_created && !create_riff_header (wpc))
-            return FALSE;
+        if (!wpc->riff_header_added && !wpc->riff_header_created) {
+            char riff_header [128];
+
+            if (!add_to_metadata (wpc, riff_header, create_riff_header (wpc, wpc->total_samples, riff_header), ID_RIFF_HEADER))
+                return FALSE;
+        }
 
         if (wpc->acc_samples + sample_count > wpc->max_samples)
             samples_to_copy = wpc->max_samples - wpc->acc_samples;
@@ -465,8 +470,6 @@ int WavpackFlushSamples (WavpackContext *wpc)
 // directly. An example of this can be found in the Audition filter. A
 // return of FALSE indicates an error.
 
-static int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, unsigned char id);
-
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
 {
     uint32_t index = WavpackGetSampleIndex (wpc);
@@ -520,13 +523,39 @@ int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16])
     return add_to_metadata (wpc, data, 16, (wpc->config.qmode & 0xff) ? ID_ALT_MD5_CHECKSUM : ID_MD5_CHECKSUM);
 }
 
-static int create_riff_header (WavpackContext *wpc)
+#pragma pack(push,4)
+
+typedef struct {
+    char ckID [4];
+    uint64_t chunkSize64;
+} CS64Chunk;
+
+typedef struct {
+    uint64_t riffSize64, dataSize64, sampleCount64;
+    uint32_t tableLength;
+} DS64Chunk;
+
+typedef struct {
+    char ckID [4];
+    uint32_t ckSize;
+    char junk [28];
+} JunkChunk;
+
+#pragma pack(pop)
+
+#define DS64ChunkFormat "DDDL"
+
+static int create_riff_header (WavpackContext *wpc, uint32_t total_samples, void *outbuffer)
 {
+    int do_rf64 = 0, write_junk = 1;
+    ChunkHeader ds64hdr, datahdr, fmthdr;
+    char *outptr = outbuffer;
     RiffChunkHeader riffhdr;
-    ChunkHeader datahdr, fmthdr;
+    DS64Chunk ds64_chunk;
+    JunkChunk junkchunk;
     WaveHeader wavhdr;
 
-    uint32_t total_samples = wpc->total_samples, total_data_bytes;
+    int64_t total_data_bytes, total_riff_bytes;
     int32_t channel_mask = wpc->config.channel_mask;
     int32_t sample_rate = wpc->config.sample_rate;
     int bytes_per_sample = wpc->config.bytes_per_sample;
@@ -545,7 +574,12 @@ static int create_riff_header (WavpackContext *wpc)
     if (total_samples == (uint32_t) -1)
         total_samples = 0x7ffff000 / (bytes_per_sample * num_channels);
 
-    total_data_bytes = total_samples * bytes_per_sample * num_channels;
+    total_data_bytes = (int64_t) total_samples * bytes_per_sample * num_channels;
+
+    if (total_data_bytes > 0xff000000) {
+        write_junk = 0;
+        do_rf64 = 1;
+    }
 
     CLEAR (wavhdr);
 
@@ -572,26 +606,61 @@ static int create_riff_header (WavpackContext *wpc)
         wavhdr.GUID [13] = 0x71;
     }
 
-    strncpy (riffhdr.ckID, "RIFF", sizeof (riffhdr.ckID));
+    strncpy (riffhdr.ckID, do_rf64 ? "RF64" : "RIFF", sizeof (riffhdr.ckID));
     strncpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
-    riffhdr.ckSize = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + total_data_bytes;
+    total_riff_bytes = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + total_data_bytes + wpc->riff_trailer_bytes;
+    if (do_rf64) total_riff_bytes += sizeof (ds64hdr) + sizeof (ds64_chunk);
+    if (write_junk) total_riff_bytes += sizeof (junkchunk);
     strncpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
+    strncpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
     fmthdr.ckSize = wavhdrsize;
 
-    strncpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
-    datahdr.ckSize = total_data_bytes;
+    if (write_junk) {
+        CLEAR (junkchunk);
+        strncpy (junkchunk.ckID, "junk", sizeof (junkchunk.ckID));
+        junkchunk.ckSize = sizeof (junkchunk) - 8;
+        WavpackNativeToLittleEndian (&junkchunk, ChunkHeaderFormat);
+    }
 
-    // write the RIFF chunks up to just before the data starts
+    if (do_rf64) {
+        strncpy (ds64hdr.ckID, "ds64", sizeof (ds64hdr.ckID));
+        ds64hdr.ckSize = sizeof (ds64_chunk);
+        CLEAR (ds64_chunk);
+        ds64_chunk.riffSize64 = total_riff_bytes;
+        ds64_chunk.dataSize64 = total_data_bytes;
+        ds64_chunk.sampleCount64 = total_samples;
+        riffhdr.ckSize = (uint32_t) -1;
+        datahdr.ckSize = (uint32_t) -1;
+        WavpackNativeToLittleEndian (&ds64hdr, ChunkHeaderFormat);
+        WavpackNativeToLittleEndian (&ds64_chunk, DS64ChunkFormat);
+    }
+    else {
+        riffhdr.ckSize = (uint32_t) total_riff_bytes;
+        datahdr.ckSize = (uint32_t) total_data_bytes;
+    }
 
     WavpackNativeToLittleEndian (&riffhdr, ChunkHeaderFormat);
     WavpackNativeToLittleEndian (&fmthdr, ChunkHeaderFormat);
     WavpackNativeToLittleEndian (&wavhdr, WaveHeaderFormat);
     WavpackNativeToLittleEndian (&datahdr, ChunkHeaderFormat);
 
-    return add_to_metadata (wpc, &riffhdr, sizeof (riffhdr), ID_RIFF_HEADER) &&
-        add_to_metadata (wpc, &fmthdr, sizeof (fmthdr), ID_RIFF_HEADER) &&
-        add_to_metadata (wpc, &wavhdr, wavhdrsize, ID_RIFF_HEADER) &&
-        add_to_metadata (wpc, &datahdr, sizeof (datahdr), ID_RIFF_HEADER);
+    // write the RIFF chunks up to just before the data starts
+
+    outptr = memcpy (outptr, &riffhdr, sizeof (riffhdr)) + sizeof (riffhdr);
+
+    if (do_rf64) {
+        outptr = memcpy (outptr, &ds64hdr, sizeof (ds64hdr)) + sizeof (ds64hdr);
+        outptr = memcpy (outptr, &ds64_chunk, sizeof (ds64_chunk)) + sizeof (ds64_chunk);
+    }
+
+    if (write_junk)
+        outptr = memcpy (outptr, &junkchunk, sizeof (junkchunk)) + sizeof (junkchunk);
+
+    outptr = memcpy (outptr, &fmthdr, sizeof (fmthdr)) + sizeof (fmthdr);
+    outptr = memcpy (outptr, &wavhdr, wavhdrsize) + wavhdrsize;
+    outptr = memcpy (outptr, &datahdr, sizeof (datahdr)) + sizeof (datahdr);
+
+    return outptr - (char *) outbuffer;
 }
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
@@ -690,35 +759,11 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
     WavpackLittleEndianToNative (first_block, WavpackHeaderFormat);
     ((WavpackHeader *) first_block)->total_samples = WavpackGetSampleIndex (wpc);
 
-    /* note that since the RIFF wrapper will not necessarily be properly aligned,
-       we copy it into a newly allocated buffer before modifying it */
+    if (wpc->riff_header_created && WavpackGetWrapperLocation (first_block, &wrapper_size)) {
+        unsigned char riff_header [128];
 
-    if (wpc->riff_header_created) {
-        if (WavpackGetWrapperLocation (first_block, &wrapper_size)) {
-            uint32_t data_size = WavpackGetSampleIndex (wpc) * WavpackGetNumChannels (wpc) * WavpackGetBytesPerSample (wpc);
-            RiffChunkHeader *riffhdr;
-            ChunkHeader *datahdr;
-            void *wrapper_buff;
-
-            riffhdr = wrapper_buff = malloc (wrapper_size);
-            memcpy (wrapper_buff, WavpackGetWrapperLocation (first_block, NULL), wrapper_size);
-            datahdr = (ChunkHeader *)((char *) riffhdr + wrapper_size - sizeof (ChunkHeader));
-
-            if (!strncmp (riffhdr->ckID, "RIFF", 4)) {
-                WavpackLittleEndianToNative (riffhdr, ChunkHeaderFormat);
-                riffhdr->ckSize = wrapper_size + data_size - 8 + wpc->riff_trailer_bytes;
-                WavpackNativeToLittleEndian (riffhdr, ChunkHeaderFormat);
-            }
-
-            if (!strncmp (datahdr->ckID, "data", 4)) {
-                WavpackLittleEndianToNative (datahdr, ChunkHeaderFormat);
-                datahdr->ckSize = data_size;
-                WavpackNativeToLittleEndian (datahdr, ChunkHeaderFormat);
-            }
-
-            memcpy (WavpackGetWrapperLocation (first_block, NULL), wrapper_buff, wrapper_size);
-            free (wrapper_buff);
-        }
+        if (wrapper_size == create_riff_header (wpc, WavpackGetSampleIndex (wpc), riff_header), ID_RIFF_HEADER)
+            memcpy (WavpackGetWrapperLocation (first_block, NULL), riff_header, wrapper_size);
     }
 
     WavpackNativeToLittleEndian (first_block, WavpackHeaderFormat);
