@@ -177,7 +177,7 @@ typedef struct {
 
 #define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
 #define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
-#define CUR_STREAM_VERS     0x407       // stream version we are [normally] writing now
+#define CUR_STREAM_VERS     0x410       // stream version we are writing now
 
 
 //////////////////////////// WavPack Metadata /////////////////////////////////

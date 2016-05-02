@@ -74,12 +74,14 @@ static const char *version_warning = "\n"
 
 static const char *usage =
 #if defined (_WIN32)
-" Usage:   WAVPACK [-options] infile[.wav]|infile.wv|- [outfile[.wv]|outpath|-]\n"
+" Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
 "             (default is lossless; infile may contain wildcards: ?,*)\n\n"
 #else
-" Usage:   WAVPACK [-options] infile[.wav]|infile.wv|- [...] [-o outfile[.wv]|outpath|-]\n"
+" Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
 "             (default is lossless; multiple input files allowed)\n\n"
 #endif
+" Formats: .wav (default, bwf/rf64 okay), .wv (transcode),\n"
+"          .w64 (Sony Wave64), .caf (Core Audio Format)\n\n"
 " Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
 "                                           n = 24-9600 kbits/second (kbps)\n"
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
@@ -93,17 +95,21 @@ static const char *usage =
 static const char *help =
 #if defined (_WIN32)
 " Usage:\n"
-"    WAVPACK [-options] infile[.wav]|infile.wv|- [outfile[.wv]|outpath|-]\n\n"
+"    WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n\n"
 "    The default operation is lossless. Wildcard characters (*,?) may be included\n"
-"    in the input file and they may be either WAV or WAVPACK (.wv) files (or raw\n"
-"    PCM if --raw-pcm is included). When transcoding, all tags are copied.\n\n"
+"    in the input filename (see accepted formats below). Raw PCM data may also be\n"
+"    used (see --raw-pcm option).\n\n"
 #else
 " Usage:\n"
-"    WAVPACK [-options] infile[.wav]|infile.wv|- [...] [-o outfile[.wv]|outpath|-]\n\n"
-"    The default operation is lossless. Multiple input files may be specified,\n"
-"    and they may be either WAV or WAVPACK (.wv) files (or raw PCM if --raw-pcm\n"
-"    is included). When transcoding, all tags are copied.\n\n"
+"    WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n\n"
+"    The default operation is lossless. Multiple input files may be specified\n"
+"    (see accepted formats below). Raw PCM data may also be used (see --raw-pcm\n"
+"    option).\n\n"
 #endif
+" Input Formats:             .wav (default, including bwf/rf64 varients)\n"
+"                            .wv  (transcode operation, tags copied)\n"
+"                            .caf (Core Audio Format)\n"
+"                            .w64 (Sony Wave64)\n\n"
 " Options:\n"
 "    -a                      Adobe Audition (CoolEdit) mode for 32-bit floats\n"
 "    --allow-huge-tags       allow tag data up to 16 MB (embedding > 1 MB is not\n"
@@ -126,11 +132,9 @@ static const char *help =
 "                             assigned to specific speakers, or terminate list\n"
 "                             with '...' to indicate that any channels beyond\n"
 "                             those specified are unassigned\n"
+"    --cross-decorr          use cross-channel correlation in lossy mode (on by\n"
+"                             default in lossless mode and with -cc option)\n"
 "    -d                      delete source file if successful (use with caution!)\n"
-#if defined (_WIN32)
-"    -e                      create self-extracting executable with .exe\n"
-"                             extension, requires wvself.exe in path\n"
-#endif
 "    -f                      fast mode (faster encode and decode, but some\n"
 "                             compromise in compression ratio)\n"
 "    -h                      high quality (better compression ratio, but slower\n"
@@ -158,10 +162,6 @@ static const char *help =
 "                             UTF-8, assume they are in UTF-8 already\n"
 "    -o FILENAME | PATH      specify output filename or path\n"
 #endif
-"    --optimize-mono         optimization for stereo files that are really mono\n"
-"                             (result may be incompatible with older decoders)\n"
-"    -p                      practical float storage (also affects 32-bit\n"
-"                             integers, no longer technically lossless)\n"
 "    --pair-unassigned-chans encode unassigned channels into stereo pairs\n"
 #ifdef _WIN32
 "    --pause                 pause before exiting (if console window disappears)\n"
@@ -219,7 +219,7 @@ static const char *speakers [] = {
 
 int debug_logging_mode;
 
-static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source, store_floats_as_ints, pause_mode,
+static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source, pause_mode,
     no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits;
 
 static int num_channels_order;
@@ -336,13 +336,15 @@ int main (int argc, char **argv)
                 pause_mode = 1;
 #endif
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
-                config.flags |= CONFIG_OPTIMIZE_MONO;
+                error_line ("warning: --optimize-mono deprecated, now enabled by default");
             else if (!strcmp (long_option, "dns")) {                    // --dns
                 error_line ("warning: --dns deprecated, use --use-dns");
                 ++error_count;
             }
             else if (!strcmp (long_option, "use-dns"))                  // --use-dns
                 config.flags |= CONFIG_DYNAMIC_SHAPING;
+            else if (!strcmp (long_option, "cross-decorr"))             // --cross-decorr
+                config.flags |= CONFIG_CROSS_DECORR;
             else if (!strcmp (long_option, "merge-blocks"))             // --merge-blocks
                 config.flags |= CONFIG_MERGE_BLOCKS;
             else if (!strcmp (long_option, "pair-unassigned-chans"))    // --pair-unassigned-chans
@@ -351,8 +353,6 @@ int main (int argc, char **argv)
                 no_utf8_convert = 1;
             else if (!strcmp (long_option, "allow-huge-tags"))          // --allow-huge-tags
                 allow_huge_tags = 1;
-            else if (!strcmp (long_option, "store-floats-as-ints"))     // --store-floats-as-ints
-                store_floats_as_ints = 1;
             else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
                 tag_next_arg = 2;
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
@@ -572,11 +572,6 @@ int main (int argc, char **argv)
                         config.qmode |= QMODE_ADOBE_MODE;
                         break;
 #if defined (_WIN32)
-                    case 'E': case 'e':
-                        config.flags |= CONFIG_CREATE_EXE;
-                        break;
-#endif
-#if defined (_WIN32)
                     case 'L': case 'l':
                         SetPriorityClass (GetCurrentProcess(), IDLE_PRIORITY_CLASS);
                         break;
@@ -595,10 +590,6 @@ int main (int argc, char **argv)
 #endif
                     case 'T': case 't':
                         copy_time = 1;
-                        break;
-
-                    case 'P': case 'p':
-                        config.flags |= CONFIG_SKIP_WVX;
                         break;
 
                     case 'Q': case 'q':
@@ -932,47 +923,6 @@ int main (int argc, char **argv)
         return 1;
     }
 
-    // If we are trying to create self-extracting .exe files, this is where
-    // we read the wvselfx.exe file into memory in preparation for pre-pending
-    // it to the WavPack files.
-
-#if defined (_WIN32)
-    if (config.flags & CONFIG_CREATE_EXE) {
-        FILE *wvselfx_file;
-        uint32_t bcount;
-
-        strcpy (filespec_name (selfname), "wvselfx.exe");
-
-        wvselfx_file = fopen (selfname, "rb");
-
-        if (!wvselfx_file) {
-            _searchenv ("wvselfx.exe", "PATH", selfname);
-            wvselfx_file = fopen (selfname, "rb");
-        }
-
-        if (wvselfx_file) {
-            wvselfx_size = (uint32_t) DoGetFileSize (wvselfx_file);
-
-            if (wvselfx_size && wvselfx_size != 26624 && wvselfx_size != 30720 && wvselfx_size < 49152) {
-                wvselfx_image = malloc (wvselfx_size);
-
-                if (!DoReadFile (wvselfx_file, wvselfx_image, wvselfx_size, &bcount) || bcount != wvselfx_size) {
-                    free (wvselfx_image);
-                    wvselfx_image = NULL;
-                }
-            }
-
-            DoCloseHandle (wvselfx_file);
-        }
-
-        if (!wvselfx_image) {
-            error_line ("wvselfx.exe file is not readable or is outdated!");
-            free (wvselfx_image);
-            exit (1);
-        }
-    }
-#endif
-
     for (file_index = 0; file_index < num_files; ++file_index) {
         char *infilename = matches [file_index];
 
@@ -1193,7 +1143,7 @@ int main (int argc, char **argv)
             }
 
             if (addext && *outfilename != '-')
-                strcat (outfilename, (config.flags & CONFIG_CREATE_EXE) ? ".exe" : ".wv");
+                strcat (outfilename, ".wv");
 
             // if "correction" file is desired, generate name for that
 
@@ -1678,18 +1628,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
         fflush (stderr);
     }
-
-#if defined (_WIN32)
-    if (loc_config.flags & CONFIG_CREATE_EXE)
-        if (!DoWriteFile (wv_file.file, wvselfx_image, wvselfx_size, &bcount) || bcount != wvselfx_size) {
-            error_line ("can't write WavPack data, disk probably full!");
-            DoCloseHandle (infile);
-            DoCloseHandle (wv_file.file);
-            DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-            WavpackCloseFile (wpc);
-            return WAVPACK_SOFT_ERROR;
-        }
-#endif
 
     // if not in "raw" mode, process RIFF form header and set configuration
 
@@ -2450,21 +2388,6 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         fflush (stderr);
     }
 
-#if defined (_WIN32)
-    if (loc_config.flags & CONFIG_CREATE_EXE) {
-        uint32_t bcount;
-
-        if (!DoWriteFile (wv_file.file, wvselfx_image, wvselfx_size, &bcount) || bcount != wvselfx_size) {
-            error_line ("can't write WavPack data, disk probably full!");
-            WavpackCloseFile (infile);
-            DoCloseHandle (wv_file.file);
-            DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-            WavpackCloseFile (outfile);
-            return WAVPACK_SOFT_ERROR;
-        }
-    }
-#endif
-
     // unless we've been specifically told not to, copy RIFF header
 
     if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && WavpackGetWrapperBytes (infile)) {
@@ -2485,7 +2408,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     loc_config.channel_mask = WavpackGetChannelMask (infile);
     loc_config.num_channels = WavpackGetNumChannels (infile);
     loc_config.sample_rate = WavpackGetSampleRate (infile);
-    loc_config.qmode = (input_mode >> 16) & 0xff;
+    loc_config.qmode |= (input_mode >> 16) & 0xff;
 
     if (input_mode & MODE_FLOAT)
         loc_config.float_norm_exp = WavpackGetFloatNormExp (infile);

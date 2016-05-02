@@ -162,6 +162,7 @@ typedef struct {
 
 #define CONFIG_HYBRID_FLAG      8       // hybrid mode
 #define CONFIG_JOINT_STEREO     0x10    // joint stereo
+#define CONFIG_CROSS_DECORR     0x20    // no-delay cross decorrelation
 #define CONFIG_HYBRID_SHAPE     0x40    // noise shape (hybrid mode only)
 #define CONFIG_FAST_FLAG        0x200   // fast mode
 #define CONFIG_HIGH_FLAG        0x800   // high quality mode

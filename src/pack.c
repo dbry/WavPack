@@ -421,7 +421,11 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         }
     }
 
-    if (!(flags & MONO_FLAG) && wpc->stream_version >= 0x410) {
+    // This code scans stereo data to check whether it can be stored as mono data
+    // (i.e., all L/R samples identical). This used to be an option because
+    // decoders < 4.30 pre-dated this feature, but now it's standard.
+
+    if (!(flags & MONO_FLAG)) {
         int32_t lor = 0, diff = 0;
         int32_t *sptr, *dptr, i;
 

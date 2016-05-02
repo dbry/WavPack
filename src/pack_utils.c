@@ -38,6 +38,7 @@ WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id,
         return NULL;
 
     CLEAR (*wpc);
+    wpc->stream_version = CUR_STREAM_VERS;
     wpc->blockout = blockout;
     wpc->wv_out = wv_id;
     wpc->wvc_out = wvc_id;
@@ -146,7 +147,7 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
             flags |= HYBRID_SHAPE | NEW_SHAPING;
         }
 
-        if (wpc->config.flags & CONFIG_OPTIMIZE_WVC)
+        if (wpc->config.flags & (CONFIG_CROSS_DECORR | CONFIG_OPTIMIZE_WVC))
             flags |= CROSS_DECORR;
 
         if (config->flags & CONFIG_BITRATE_KBPS) {
@@ -166,8 +167,6 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
 
     if (config->flags & CONFIG_CREATE_WVC)
         wpc->wvc_flag = TRUE;
-
-    wpc->stream_version = (config->flags & CONFIG_OPTIMIZE_MONO) ? MAX_STREAM_VERS : CUR_STREAM_VERS;
 
     for (wpc->current_stream = 0; num_chans; wpc->current_stream++) {
         WavpackStream *wps = malloc (sizeof (WavpackStream));
