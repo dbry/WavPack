@@ -645,21 +645,21 @@ static int create_riff_header (WavpackContext *wpc, uint32_t total_samples, void
 
     // write the RIFF chunks up to just before the data starts
 
-    outptr = memcpy (outptr, &riffhdr, sizeof (riffhdr)) + sizeof (riffhdr);
+    outptr = (char *) memcpy (outptr, &riffhdr, sizeof (riffhdr)) + sizeof (riffhdr);
 
     if (do_rf64) {
-        outptr = memcpy (outptr, &ds64hdr, sizeof (ds64hdr)) + sizeof (ds64hdr);
-        outptr = memcpy (outptr, &ds64_chunk, sizeof (ds64_chunk)) + sizeof (ds64_chunk);
+        outptr = (char *) memcpy (outptr, &ds64hdr, sizeof (ds64hdr)) + sizeof (ds64hdr);
+        outptr = (char *) memcpy (outptr, &ds64_chunk, sizeof (ds64_chunk)) + sizeof (ds64_chunk);
     }
 
     if (write_junk)
-        outptr = memcpy (outptr, &junkchunk, sizeof (junkchunk)) + sizeof (junkchunk);
+        outptr = (char *) memcpy (outptr, &junkchunk, sizeof (junkchunk)) + sizeof (junkchunk);
 
-    outptr = memcpy (outptr, &fmthdr, sizeof (fmthdr)) + sizeof (fmthdr);
-    outptr = memcpy (outptr, &wavhdr, wavhdrsize) + wavhdrsize;
-    outptr = memcpy (outptr, &datahdr, sizeof (datahdr)) + sizeof (datahdr);
+    outptr = (char *) memcpy (outptr, &fmthdr, sizeof (fmthdr)) + sizeof (fmthdr);
+    outptr = (char *) memcpy (outptr, &wavhdr, wavhdrsize) + wavhdrsize;
+    outptr = (char *) memcpy (outptr, &datahdr, sizeof (datahdr)) + sizeof (datahdr);
 
-    return outptr - (char *) outbuffer;
+    return (int)(outptr - (char *) outbuffer);
 }
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
