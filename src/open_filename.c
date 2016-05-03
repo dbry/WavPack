@@ -57,7 +57,7 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
 
 static int64_t get_pos (void *id)
 {
-#ifdef WIN32
+#ifdef _WIN32
     return _ftelli64 ((FILE*) id);
 #else
     return ftell ((FILE*) id);
@@ -66,7 +66,7 @@ static int64_t get_pos (void *id)
 
 static int set_pos_abs (void *id, int64_t pos)
 {
-#ifdef WIN32
+#ifdef _WIN32
     return _fseeki64 (id, pos, SEEK_SET);
 #else
     return fseek (id, pos, SEEK_SET);
@@ -75,7 +75,7 @@ static int set_pos_abs (void *id, int64_t pos)
 
 static int set_pos_rel (void *id, int64_t delta, int mode)
 {
-#ifdef WIN32
+#ifdef _WIN32
     return _fseeki64 (id, delta, mode);
 #else
     return fseek (id, delta, mode);
@@ -87,7 +87,7 @@ static int push_back_byte (void *id, int c)
     return ungetc (c, id);
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 
 static int64_t get_length (void *id)
 {
@@ -137,7 +137,7 @@ static int32_t write_bytes (void *id, void *data, int32_t bcount)
     return (int32_t) fwrite (data, 1, bcount, (FILE*) id);
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 
 static int truncate_here (void *id)
 {
