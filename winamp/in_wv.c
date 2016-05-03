@@ -22,7 +22,7 @@
 
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 
-#define PLUGIN_VERSION "2.8.0.1"
+#define PLUGIN_VERSION "2.8.0.2-alpha"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 
@@ -1171,32 +1171,32 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
         return 0;
 }
 
-static uint32_t get_pos (void *id)
+static int64_t get_pos (void *id)
 {
     FILE *file = id ? *(FILE**)id : NULL;
 
     if (file)
-        return ftell (file);
+        return _ftelli64 (file);
     else
         return -1;
 }
 
-static int set_pos_abs (void *id, uint32_t pos)
+static int set_pos_abs (void *id, int64_t pos)
 {
     FILE *file = id ? *(FILE**)id : NULL;
 
     if (file)
-        return fseek (file, pos, SEEK_SET);
+        return _fseeki64 (file, pos, SEEK_SET);
     else
         return 0;
 }
 
-static int set_pos_rel (void *id, int32_t delta, int mode)
+static int set_pos_rel (void *id, int64_t delta, int mode)
 {
     FILE *file = id ? *(FILE**)id : NULL;
 
     if (file)
-        return fseek (file, delta, mode);
+        return _fseeki64 (file, delta, mode);
     else
         return -1;
 }
@@ -1211,15 +1211,25 @@ static int push_back_byte (void *id, int c)
         return EOF;
 }
 
-static uint32_t get_length (void *id)
+static int64_t get_length (void *id)
 {
     FILE *file = id ? *(FILE**)id : NULL;
-    struct stat statbuf;
+    LARGE_INTEGER Size;
+    HANDLE fHandle;
 
-    if (!file || fstat (fileno (file), &statbuf) || !(statbuf.st_mode & S_IFREG))
+    if (!file)
         return 0;
-    else
-        return statbuf.st_size;
+
+    fHandle = (HANDLE)_get_osfhandle(_fileno(file));
+    if (fHandle == INVALID_HANDLE_VALUE)
+        return 0;
+
+    Size.u.LowPart = GetFileSize(fHandle, &Size.u.HighPart);
+
+    if (Size.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
+        return 0;
+
+    return (int64_t)Size.QuadPart;
 }
 
 static int can_seek (void *id)
@@ -1240,9 +1250,17 @@ static int32_t write_bytes (void *id, void *data, int32_t bcount)
         return 0;
 }
 
-static WavpackStreamReader freader = {
-    read_bytes, get_pos, set_pos_abs, set_pos_rel, push_back_byte, get_length, can_seek,
-    write_bytes
+static int truncate_here (void *id)
+{
+    FILE *file = id ? *(FILE**)id : NULL;
+    int64_t curr_pos = _ftelli64 (file);
+
+    return _chsize_s (fileno (file), curr_pos);
+}
+
+static WavpackStreamReader64 freader = {
+    read_bytes, write_bytes, get_pos, set_pos_abs, set_pos_rel,
+    push_back_byte, get_length, can_seek, truncate_here, NULL
 };
 
 /* These functions provide UNICODE support for the winamp media library */
@@ -1299,7 +1317,7 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
             }
         }
 
-        info.wpc = WavpackOpenFileInputEx (&freader, &info.wv_id,
+        info.wpc = WavpackOpenFileInputEx64 (&freader, &info.wv_id,
             info.wvc_id ? &info.wvc_id : NULL, error, open_flags, 0);
 
         if (!info.wpc) {
@@ -1399,7 +1417,7 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
             }
         }
 
-        info.wpc = WavpackOpenFileInputEx (&freader, &info.wv_id,
+        info.wpc = WavpackOpenFileInputEx64 (&freader, &info.wv_id,
             info.wvc_id ? &info.wvc_id : NULL, error, open_flags, 0);
 
         if (!info.wpc) {
@@ -1537,7 +1555,7 @@ int __declspec (dllexport) winampSetExtendedFileInfoW (
         if (!(edit.wv_id = _wfopen (filename, L"r+b")))
             return 0;
 
-        edit.wpc = WavpackOpenFileInputEx (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+        edit.wpc = WavpackOpenFileInputEx64 (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
 
         if (!edit.wpc) {
             fclose (edit.wv_id);
@@ -1778,7 +1796,7 @@ int WavPack_GetAlbumArt(const wchar_t *filename, const wchar_t *type, void **bit
             }
         }
 
-        info.wpc = WavpackOpenFileInputEx (&freader, &info.wv_id,
+        info.wpc = WavpackOpenFileInputEx64 (&freader, &info.wv_id,
             info.wvc_id ? &info.wvc_id : NULL, error, OPEN_TAGS, 0);
 
         if (!info.wpc) {
@@ -1884,7 +1902,7 @@ int WavPack_SetAlbumArt(const wchar_t *filename, const wchar_t *type, void *bits
             return 1;
 		}
 
-        edit.wpc = WavpackOpenFileInputEx (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+        edit.wpc = WavpackOpenFileInputEx64 (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
 
         if (!edit.wpc) {
             fclose (edit.wv_id);
@@ -1937,7 +1955,7 @@ int WavPack_DeleteAlbumArt(const wchar_t *filename, const wchar_t *type)
         if (!(edit.wv_id = _wfopen (filename, L"r+b")))
             return 1;
 
-        edit.wpc = WavpackOpenFileInputEx (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+        edit.wpc = WavpackOpenFileInputEx64 (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
 
         if (!edit.wpc) {
             fclose (edit.wv_id);
