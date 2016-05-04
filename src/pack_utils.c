@@ -761,7 +761,7 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
     if (wpc->riff_header_created && WavpackGetWrapperLocation (first_block, &wrapper_size)) {
         unsigned char riff_header [128];
 
-        if (wrapper_size == create_riff_header (wpc, WavpackGetSampleIndex (wpc), riff_header), ID_RIFF_HEADER)
+        if (wrapper_size == create_riff_header (wpc, WavpackGetSampleIndex (wpc), riff_header))
             memcpy (WavpackGetWrapperLocation (first_block, NULL), riff_header, wrapper_size);
     }
 

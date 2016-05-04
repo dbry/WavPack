@@ -100,7 +100,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
         // if it's the format chunk, we want to get some info out of there and
         // make sure it's a .wav file we can handle
 
-        if (!strncmp (chunk_header.ckID, fmt_guid, sizeof (fmt_guid))) {
+        if (!memcmp (chunk_header.ckID, fmt_guid, sizeof (fmt_guid))) {
             int supported = TRUE, format;
 
             chunk_header.ckSize = (chunk_header.ckSize + 7) & ~7L;
@@ -199,7 +199,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                         config->bits_per_sample, WaveHeader.BlockAlign / WaveHeader.NumChannels);
             }
         }
-        else if (!strncmp (chunk_header.ckID, data_guid, sizeof (data_guid))) { // on the data chunk, get size and exit loop
+        else if (!memcmp (chunk_header.ckID, data_guid, sizeof (data_guid))) { // on the data chunk, get size and exit loop
 
             int64_t data_chunk_size = chunk_header.ckSize;
 
