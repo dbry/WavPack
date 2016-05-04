@@ -41,6 +41,10 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#if (defined(__GNUC__) || defined(__sun)) && !defined(_WIN32)
+#include <unistd.h>
+#endif
+
 #ifdef __OS2__
 #include <io.h>
 #endif

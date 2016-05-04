@@ -130,7 +130,7 @@ static const char *usage =
 
 int debug_logging_mode;
 
-static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info, pause_mode,
+static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info,
     summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, caf_decode, w64_decode, set_console_title;
 
 static int num_files, file_index, outbuf_k;
@@ -143,6 +143,10 @@ static struct sample_time_index {
 static char *tag_extract_stdout;    // extract single tag to stdout
 static char **tag_extractions;      // extract multiple tags to named files
 static int num_tag_extractions;
+
+#ifdef _WIN32
+static int pause_mode;
+#endif
 
 /////////////////////////// local function declarations ///////////////////////
 
@@ -1928,7 +1932,6 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
     if (summary > 1) {
         uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes;
-        unsigned char *header_data = WavpackGetWrapperData (wpc);
         char *header_name = WavpackGetFileExtension (wpc);
 
         WavpackFreeWrapper (wpc);

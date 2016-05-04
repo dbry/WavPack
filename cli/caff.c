@@ -224,7 +224,6 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         }
         else if (!strncmp (caf_chunk_header.mChunkType, "chan", 4)) {
             CAFChannelLayout *caf_channel_layout = malloc ((size_t) caf_chunk_header.mChunkSize);
-            int supported = TRUE;
 
             if (caf_chunk_header.mChunkSize < sizeof (CAFChannelLayout) ||
                 !DoReadFile (infile, caf_channel_layout, (uint32_t) caf_chunk_header.mChunkSize, &bcount) ||

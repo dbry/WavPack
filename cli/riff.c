@@ -100,8 +100,6 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         WavpackLittleEndianToNative (&chunk_header, ChunkHeaderFormat);
 
         if (!strncmp (chunk_header.ckID, "ds64", 4)) {
-            int supported = TRUE;
-
             if (chunk_header.ckSize < sizeof (DS64Chunk) ||
                 !DoReadFile (infile, &ds64_chunk, chunk_header.ckSize, &bcount) ||
                 bcount != chunk_header.ckSize) {

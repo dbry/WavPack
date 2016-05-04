@@ -219,7 +219,7 @@ static const char *speakers [] = {
 
 int debug_logging_mode;
 
-static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source, pause_mode,
+static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
     no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits;
 
 static int num_channels_order;
@@ -239,8 +239,7 @@ static struct tag_item {
 } *tag_items;
 
 #if defined (_WIN32)
-static char *wvselfx_image;
-static uint32_t wvselfx_size;
+static int pause_mode;
 #endif
 
 /////////////////////////// local function declarations ///////////////////////
@@ -1339,7 +1338,7 @@ static FILE *wild_fopen (char *filename, const char *mode)
                     matchname = NULL;
                     break;
                 }
-                else if (name_utf8 = utf16_to_utf8(_wfinddata_t.name)) {
+                else if ((name_utf8 = utf16_to_utf8(_wfinddata_t.name))) {
                     matchname = malloc (strlen (filename) + strlen(name_utf8));
                     strcpy (matchname, filename);
                     strcpy (filespec_name (matchname), name_utf8);
