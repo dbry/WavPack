@@ -407,14 +407,6 @@ int main (int argc, char **argv)
                     config.bits_per_sample = params [1];
                     config.bytes_per_sample = (params [1] + 7) / 8;
                     config.num_channels = params [2];
-
-                    if (config.num_channels <= 2)
-                        config.channel_mask = 0x5 - config.num_channels;
-                    else if (config.num_channels <= 18)
-                        config.channel_mask = (1 << config.num_channels) - 1;
-                    else
-                        config.channel_mask = 0x3ffff;
-
                     config.float_norm_exp = fp ? 127 : 0;
                     config.qmode |= QMODE_RAW_PCM;
 
@@ -1465,6 +1457,15 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
         else
             total_samples = -1;
+
+        if (!loc_config.channel_mask && !(loc_config.qmode & QMODE_CHANS_UNASSIGNED)) {
+            if (loc_config.num_channels <= 2)
+                loc_config.channel_mask = 0x5 - loc_config.num_channels;
+            else if (loc_config.num_channels <= 18)
+                loc_config.channel_mask = (1 << loc_config.num_channels) - 1;
+            else
+                loc_config.channel_mask = 0x3ffff;
+        }
 
         if (!WavpackSetConfiguration (wpc, &loc_config, total_samples)) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
