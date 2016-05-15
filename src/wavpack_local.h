@@ -219,6 +219,7 @@ typedef struct {
 #define ID_SAMPLE_RATE          (ID_OPTIONAL_DATA | 0x7)
 #define ID_ALT_EXTENSION        (ID_OPTIONAL_DATA | 0x8)
 #define ID_ALT_MD5_CHECKSUM     (ID_OPTIONAL_DATA | 0x9)
+#define ID_NEW_CONFIG_BLOCK     (ID_OPTIONAL_DATA | 0xa)
 
 ///////////////////////// WavPack Configuration ///////////////////////////////
 

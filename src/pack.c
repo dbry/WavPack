@@ -355,8 +355,28 @@ static void write_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
     if (wpc->config.flags & CONFIG_EXTRA_MODE)
         *byteptr++ = (char) wpc->config.xmode;
 
-    // always write this (even if zero) to identify version 5.0 files
-    *byteptr++ = (char) wpc->config.qmode;
+    // for the 5.0.0 alpha, we wrote the qmode flags here, but this
+    // has been replaced with the new_config block
+    // *byteptr++ = (char) wpc->config.qmode;
+
+    wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
+}
+
+// Allocate room for and copy the "new" configuration information into the
+// specified metadata structure. This is for stuff introduced with version
+// 5.0 and includes the qmode flags (big-endian, etc.) and will include
+// CAF extended channel configuration. Even if there is no new configuration,
+// we still send the empty block to signal a 5.0 file.
+
+static void write_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
+{
+    char *byteptr;
+
+    byteptr = wpmd->data = malloc (8);
+    wpmd->id = ID_NEW_CONFIG_BLOCK;
+
+    if (wpc->config.qmode)
+        *byteptr++ = (char) wpc->config.qmode;
 
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
@@ -983,6 +1003,12 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
         if ((flags & INITIAL_BLOCK) && !wps->sample_index) {
             write_config_info (wpc, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+            free_metadata (&wpmd);
+        }
+
+        if (flags & INITIAL_BLOCK) {
+            write_new_config_info (wpc, &wpmd);
             copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
             free_metadata (&wpmd);
         }

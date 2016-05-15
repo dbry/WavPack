@@ -101,36 +101,11 @@ typedef struct {
 #define ID_ODD_SIZE             0x40
 #define ID_LARGE                0x80
 
-#define ID_DUMMY                0x0
-#define ID_ENCODER_INFO         0x1
-#define ID_DECORR_TERMS         0x2
-#define ID_DECORR_WEIGHTS       0x3
-#define ID_DECORR_SAMPLES       0x4
-#define ID_ENTROPY_VARS         0x5
-#define ID_HYBRID_PROFILE       0x6
-#define ID_SHAPING_WEIGHTS      0x7
-#define ID_FLOAT_INFO           0x8
-#define ID_INT32_INFO           0x9
-#define ID_WV_BITSTREAM         0xa
-#define ID_WVC_BITSTREAM        0xb
-#define ID_WVX_BITSTREAM        0xc
-#define ID_CHANNEL_INFO         0xd
-
-#define ID_RIFF_HEADER          (ID_OPTIONAL_DATA | 0x1)
-#define ID_RIFF_TRAILER         (ID_OPTIONAL_DATA | 0x2)
-#define ID_ALT_HEADER           (ID_OPTIONAL_DATA | 0x3)
-#define ID_ALT_TRAILER          (ID_OPTIONAL_DATA | 0x4)
-#define ID_CONFIG_BLOCK         (ID_OPTIONAL_DATA | 0x5)
-#define ID_MD5_CHECKSUM         (ID_OPTIONAL_DATA | 0x6)
-#define ID_SAMPLE_RATE          (ID_OPTIONAL_DATA | 0x7)
-#define ID_ALT_EXTENSION        (ID_OPTIONAL_DATA | 0x8)
-#define ID_ALT_MD5_CHECKSUM     (ID_OPTIONAL_DATA | 0x9)
-
 static const char *metadata_names [] = {
     "DUMMY", "ENCODER_INFO", "DECORR_TERMS", "DECORR_WEIGHTS", "DECORR_SAMPLES", "ENTROPY_VARS", "HYBRID_PROFILE", "SHAPING_WEIGHTS",
     "FLOAT_INFO", "INT32_INFO", "WV_BITSTREAM", "WVC_BITSTREAM", "WVX_BITSTREAM", "CHANNEL_INFO", "UNASSIGNED", "UNASSIGNED",
     "UNASSIGNED", "RIFF_HEADER", "RIFF_TRAILER", "ALT_HEADER", "ALT_TRAILER", "CONFIG_BLOCK", "MD5_CHECKSUM", "SAMPLE_RATE",
-    "ALT_EXTENSION", "ALT_MD5_CHECKSUM", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED"
+    "ALT_EXTENSION", "ALT_MD5_CHECKSUM", "NEW_CONFIG", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED"
 };
 
 static int32_t read_bytes (void *buff, int32_t bcount);

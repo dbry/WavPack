@@ -497,11 +497,31 @@ static int read_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
             bytecnt--;
         }
 
+        // we used an extra config byte here for the 5.0.0 alpha, so still
+        // honor it now (but this has been replaced with NEW_CONFIG)
+
         if (bytecnt) {
             wpc->config.qmode = (wpc->config.qmode & ~0xff) | *byteptr;
             wpc->version_five = 1;
         }
     }
+
+    return TRUE;
+}
+
+// Read "new" configuration information from metadata.
+
+static int read_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
+{
+    int bytecnt = wpmd->byte_length;
+    unsigned char *byteptr = wpmd->data;
+
+    wpc->version_five = 1;      // block signals version 5.0
+
+    // if there's any data, the first byte is qmode flags
+
+    if (bytecnt)
+        wpc->config.qmode = (wpc->config.qmode & ~0xff) | *byteptr;
 
     return TRUE;
 }
@@ -621,6 +641,9 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
 
         case ID_CONFIG_BLOCK:
             return read_config_info (wpc, wpmd);
+
+        case ID_NEW_CONFIG_BLOCK:
+            return read_new_config_info (wpc, wpmd);
 
         case ID_SAMPLE_RATE:
             return read_sample_rate (wpc, wpmd);
