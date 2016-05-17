@@ -447,6 +447,9 @@ typedef struct {
     WavpackStream **streams;
     void *stream3;
 
+    unsigned char *channel_reordering;
+    uint32_t channel_layout;
+
     char error_message [80], alt_extension [8];
 } WavpackContext;
 

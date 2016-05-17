@@ -238,6 +238,47 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
     return TRUE;
 }
 
+// This function allows setting the Core Audio File channel layout, many of which do not
+// conform to the Microsoft ordering standard that Wavpack requires internally (at least for
+// those channels present in the "channel mask"). In addition to the layout tag, this function
+// allows a reordering string to be stored in the file to allow the unpacker to reorder the
+// channels back to the specified layout (if it is aware of this feature and wants to restore
+// the CAF order). The number of channels in the layout is specified in the lower nybble of
+// the layout word, and if a reorder string is specified it must be that long. Note that all
+// the reordering is actually done outside of this library, and that if reordering is done
+// then the appropriate qmode bit must be set to ensure that any MD5 sum is stored with a new
+// ID so that old decoders don't try to verify it (and to let the decoder know that a reorder
+// might be required).
+
+int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder)
+{
+    int nchans = layout_tag & 0xff;
+
+    if ((layout_tag & 0xff00ff00) || nchans > wpc->config.num_channels || (nchans && !(layout_tag & 0xff0000)))
+        return FALSE;
+
+    wpc->channel_layout = layout_tag;
+
+    if (wpc->channel_reordering) {
+        free (wpc->channel_reordering);
+        wpc->channel_reordering = NULL;
+    }
+
+    if (nchans && reorder) {
+        int min_index = 256, i;
+
+        for (i = 0; i < nchans; ++i)
+            if (reorder [i] < min_index)
+                min_index = reorder [i];
+
+        wpc->channel_reordering = malloc (nchans);
+
+        if (wpc->channel_reordering)
+            for (i = 0; i < nchans; ++i)
+                wpc->channel_reordering [i] = reorder [i] - min_index;
+    }
+}
+
 // Prepare to actually pack samples by determining the size of the WavPack
 // blocks and allocating sample buffers and initializing each stream. Call
 // after WavpackSetConfiguration() and before WavpackPackSamples(). A return

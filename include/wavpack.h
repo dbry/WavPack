@@ -182,9 +182,21 @@ typedef struct {
 #define CONFIG_PAIR_UNDEF_CHANS 0x20000000 // encode undefined channels in stereo pairs
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
+// The lower 8 bits of qmode indicate the use of new features in version 5 that (presently)
+// only apply to Core Audio Files (CAF), but could apply to other things and file types.
+// These flags are stored in the file and can be retrieved by a decoder that is aware of
+// them, but the individual bits are meaningless to the library. If ANY of these bits are
+// set then the MD5 sum is written with a new ID so that old decoders will not see it
+// (because these features will cause the MD5 sum to be different and fail).
+
 #define QMODE_BIG_ENDIAN        0x1     // big-endian data format (opposite of WAV format)
 #define QMODE_SIGNED_BYTES      0x2     // 8-bit audio data is signed (opposite of WAV format)
 #define QMODE_UNSIGNED_WORDS    0x4     // audio data (other than 8-bit) is unsigned (opposite of WAV format)
+#define QMODE_REORDERED_CHANS   0x8     // source channels were not Microsoft order, so they were reordered
+
+// The rest of the qmode word is reserved for the private use of the command-line programs
+// and are ignored by the library (and not stored either). They really should not be defined
+// here, but I thought it would be a good idea to have all the definitions together.
 
 #define QMODE_ADOBE_MODE        0x100   // user specified Adobe mode
 #define QMODE_NO_STORE_WRAPPER  0x200   // user specified to not store audio file wrapper (RIFF, CAFF, etc.)
@@ -282,6 +294,7 @@ int WavpackGetChannelMask (WavpackContext *wpc);
 int WavpackGetReducedChannels (WavpackContext *wpc);
 int WavpackGetFloatNormExp (WavpackContext *wpc);
 int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
+uint32_t WavpackGetChannelLayout (WavpackContext *wpc, unsigned char *reorder);
 uint32_t WavpackGetWrapperBytes (WavpackContext *wpc);
 unsigned char *WavpackGetWrapperData (WavpackContext *wpc);
 void WavpackFreeWrapper (WavpackContext *wpc);
@@ -305,6 +318,7 @@ int WavpackWriteTag (WavpackContext *wpc);
 
 WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
+int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder);
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
 int WavpackAddWrapperEx (WavpackContext *wpc, char *extension, void *data, uint32_t bcount);
 int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);

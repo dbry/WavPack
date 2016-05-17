@@ -248,6 +248,25 @@ double WavpackGetInstantBitrate (WavpackContext *wpc)
     return 0.0;
 }
 
+// This function allows retrieving the Core Audio File channel layout, many of which do not
+// conform to the Microsoft ordering standard that WavPack requires internally (at least for
+// those channels present in the "channel mask"). In addition to the layout tag, this function
+// returns the reordering string (if stored in the file) to allow the unpacker to reorder the
+// channels back to the specified layout (if it wants to restore the CAF order). The number of
+// channels in the layout is determined from the lower nybble of the layout word (and should
+// probably match the number of channels in the file), and if a reorder string is requested
+// then that much space must be allocated. Note that all the reordering is actually done
+// outside of this library, and that if reordering is done then the appropriate qmode bit
+// will be set.
+
+uint32_t WavpackGetChannelLayout (WavpackContext *wpc, unsigned char *reorder)
+{
+    if ((wpc->channel_layout & 0xff) && wpc->channel_reordering && reorder)
+        memcpy (reorder, wpc->channel_reordering, wpc->channel_layout & 0xff);
+
+    return wpc->channel_layout;
+}
+
 // Close the specified WavPack file and release all resources used by it.
 // Returns NULL.
 
@@ -274,6 +293,9 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
         wpc->reader->close (wpc->wvc_in);
 
     WavpackFreeWrapper (wpc);
+
+    if (wpc->channel_reordering)
+        free (wpc->channel_reordering);
 
 #ifndef NO_TAGS
     free_tag (&wpc->m_tag);

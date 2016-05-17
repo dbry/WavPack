@@ -363,20 +363,44 @@ static void write_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 }
 
 // Allocate room for and copy the "new" configuration information into the
-// specified metadata structure. This is for stuff introduced with version
-// 5.0 and includes the qmode flags (big-endian, etc.) and will include
-// CAF extended channel configuration. Even if there is no new configuration,
-// we still send the empty block to signal a 5.0 file.
+// specified metadata structure. This is all the stuff introduced with version
+// 5.0 and includes the qmode flags (big-endian, etc.) and CAF extended
+// channel layouts (including optional reordering). Even if there is no new
+// configuration, we still send the empty metadata block to signal a 5.0 file.
 
 static void write_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
-    char *byteptr;
+    char *byteptr = wpmd->data = malloc (260);
 
-    byteptr = wpmd->data = malloc (8);
     wpmd->id = ID_NEW_CONFIG_BLOCK;
 
-    if (wpc->config.qmode)
+    if (wpc->config.qmode || wpc->channel_layout) {
         *byteptr++ = (char) wpc->config.qmode;
+
+        if (wpc->channel_layout) {
+            int nchans = wpc->channel_layout & 0xff;
+
+            *byteptr++ = (char) (wpc->channel_layout & 0xff0000) >> 16;
+
+            if (wpc->channel_reordering || nchans != wpc->config.num_channels)
+                *byteptr++ = (char) nchans;
+
+            if (wpc->channel_reordering) {
+                int i, num_to_send = 0;
+
+                // to save space, don't send redundant reorder string bytes
+
+                for (i = 0; i < nchans; ++i)
+                    if (wpc->channel_reordering [i] != i)
+                        num_to_send = i + 1;
+
+                if (num_to_send) {
+                    memcpy (byteptr, wpc->channel_reordering, num_to_send);
+                    byteptr += num_to_send;
+                }
+            }
+        }
+    }
 
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
