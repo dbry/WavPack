@@ -1680,6 +1680,22 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
+    // handle case where the CAF header indicated a channel layout that requires reordering
+
+    if (loc_config.qmode & QMODE_REORDERED_CHANS) {
+        uint32_t layout = WavpackGetChannelLayout (wpc, NULL);
+        int i;
+
+        if ((layout & 0xff) <= loc_config.num_channels) {
+            new_channel_order = malloc (loc_config.num_channels);
+
+            for (i = 0; i < loc_config.num_channels; ++i)
+                new_channel_order [i] = i;
+
+            WavpackGetChannelLayout (wpc, new_channel_order);
+        }
+    }
+
     // handle case where the user specified channel configuration on the command-line
 
     if (num_channels_order || (loc_config.qmode & QMODE_CHANS_UNASSIGNED)) {
@@ -2056,6 +2072,7 @@ static void reorder_channels (void *data, unsigned char *new_order, int num_chan
 
 static void load_samples (int32_t *dst, void *src, int qmode, int bps, int count);
 static void *store_samples (void *dst, int32_t *src, int qmode, int bps, int count);
+static void unreorder_channels (int32_t *data, unsigned char *order, int num_chans, int num_samples);
 
 #define INPUT_SAMPLES 65536
 
@@ -2106,12 +2123,25 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
         DoReadFile (infile, input_buffer, bytes_to_read, &bytes_read);
         samples_read += sample_count = bytes_read / bytes_per_sample;
 
-        if (new_order)
+        // if we have reordering to do because the user used the --channel-order option to define
+        // an order that does not match the Microsoft order, then we do that BEFORE the MD5 because
+        // this reordering is permanent (i.e., we will not unreorder on decode) and we want the
+        // MD5 to match the new order
+
+        if (new_order && !(qmode & QMODE_REORDERED_CHANS))
             reorder_channels (input_buffer, new_order, WavpackGetNumChannels (wpc),
                 sample_count, WavpackGetBytesPerSample (wpc));
 
         if (md5_digest_source && quantize_bit_mask == 0)
             MD5Update (&md5_context, input_buffer, sample_count * bytes_per_sample);
+
+        // if we have reordering to do because this is a CAF channel layout that is not in Microsoft
+        // order, then we do the reordering AFTER the MD5 because we will be unreordering them at
+        // decode time, and so we want the MD5 to match the orginal order
+
+        if (new_order && (qmode & QMODE_REORDERED_CHANS))
+            reorder_channels (input_buffer, new_order, WavpackGetNumChannels (wpc),
+                sample_count, WavpackGetBytesPerSample (wpc));
 
         if (!sample_count)
             break;
@@ -2858,8 +2888,11 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
 static void reorder_channels (void *data, unsigned char *order, int num_chans,
     int num_samples, int bytes_per_sample)
 {
-    char *temp = malloc (num_chans * bytes_per_sample);
+    char reorder_buffer [64], *temp = reorder_buffer;
     char *src = data;
+
+    if (num_chans * bytes_per_sample > 64)
+        temp = malloc (num_chans * bytes_per_sample);
 
     while (num_samples--) {
         char *start = src;
@@ -2876,7 +2909,29 @@ static void reorder_channels (void *data, unsigned char *order, int num_chans,
         memcpy (start, temp, num_chans * bytes_per_sample);
     }
 
-    free (temp);
+    if (num_chans * bytes_per_sample > 64)
+        free (temp);
+}
+
+static void unreorder_channels (int32_t *data, unsigned char *order, int num_chans, int num_samples)
+{
+    int32_t reorder_buffer [16], *temp = reorder_buffer;
+
+    if (num_chans > 16)
+        temp = malloc (num_chans * sizeof (*data));
+
+    while (num_samples--) {
+        int chan;
+
+        for (chan = 0; chan < num_chans; ++chan)
+            temp [chan] = data [order[chan]];
+
+        memcpy (data, temp, num_chans * sizeof (*data));
+        data += num_chans;
+    }
+
+    if (num_chans > 16)
+        free (temp);
 }
 
 // Verify the specified WavPack input file. This function uses the library
@@ -2890,6 +2945,7 @@ static void reorder_channels (void *data, unsigned char *order, int num_chans,
 static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 {
     int num_channels, bps, qmode, result = WAVPACK_NO_ERROR;
+    unsigned char *new_channel_order = NULL;
     uint32_t total_unpacked_samples = 0;
     unsigned char md5_digest_result [16];
     double progress = -1.0;
@@ -2919,18 +2975,36 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     bps = WavpackGetBytesPerSample (wpc);
     temp_buffer = malloc (4096L * num_channels * 4);
 
+    if (qmode & QMODE_REORDERED_CHANS) {
+        uint32_t layout = WavpackGetChannelLayout (wpc, NULL);
+        int i;
+
+        if ((layout & 0xff) <= num_channels) {
+            new_channel_order = malloc (num_channels);
+
+            for (i = 0; i < num_channels; ++i)
+                new_channel_order [i] = i;
+
+            WavpackGetChannelLayout (wpc, new_channel_order);
+        }
+    }
+
     while (result == WAVPACK_NO_ERROR) {
         uint32_t samples_unpacked;
 
         samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, 4096);
         total_unpacked_samples += samples_unpacked;
 
-        if (md5_digest_source && samples_unpacked) {
-            store_samples (temp_buffer, temp_buffer, qmode, bps, samples_unpacked * num_channels);
-            MD5Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
-        }
+        if (samples_unpacked) {
+            if (new_channel_order)
+                unreorder_channels (temp_buffer, new_channel_order, num_channels, samples_unpacked);
 
-        if (!samples_unpacked)
+            if (md5_digest_source) {
+                store_samples (temp_buffer, temp_buffer, qmode, bps, samples_unpacked * num_channels);
+                MD5Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
+            }
+        }
+        else
             break;
 
         if (check_break ()) {
@@ -2959,6 +3033,9 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     }
 
     free (temp_buffer);
+
+    if (new_channel_order)
+        free (new_channel_order);
 
     // If we have been provided an MD5 sum, then the assumption is that we are doing lossless compression (either explicitly
     // with lossless mode or having a high enough bitrate that the result is lossless) and we can use the MD5 sum as a pretty

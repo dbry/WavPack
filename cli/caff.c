@@ -70,35 +70,70 @@ typedef struct
 
 #define CAFChannelLayoutFormat "LLL"
 
+static const char TMH_full [] = { 1,2,3,13,9,10,5,6,12,14,15,16,17,9,4,18,7,8,19,20,21 };
+static const char TMH_std [] = { 1,2,3,11,8,9,5,6,10,12,13,14,15,7,4,16 };
+
 static struct {
     uint32_t mChannelLayoutTag;
     uint32_t mChannelBitmap;
+    const char *mChannelReorder;
 } layouts [] = {
-    { (100<<16) | 1, 0x004 },   // C
-    { (101<<16) | 2, 0x003 },   // FL, FR
-    { (102<<16) | 2, 0x003 },   // FL, FR
-    { (106<<16) | 2, 0x003 },   // FL, FR
-    { (108<<16) | 4, 0x033 },   // FL, FR, BL, BR 
-    { (113<<16) | 3, 0x007 },   // FL, FR, C
-    { (115<<16) | 4, 0x017 },   // FL, FR, C, BC
-    { (117<<16) | 5, 0x037 },   // FL, FR, C, BL, BR
-    { (121<<16) | 6, 0x03f },   // FL, FR, C, LFE, BL, BR
-    { (125<<16) | 7, 0x13f },   // FL, FR, C, LFE, BL, BR, BC
-    { (126<<16) | 8, 0x0ff },   // FL, FR, C, LFE, BL, BR, LC, RC
-    { (131<<16) | 3, 0x103 },   // FL, FR, BC
-    { (132<<16) | 4, 0x033 },   // FL, FR, BL, BR 
-    { (133<<16) | 3, 0x00B },   // FL, FR, LFE 
-    { (134<<16) | 4, 0x10B },   // FL, FR, LFE, BC 
-    { (135<<16) | 5, 0x03B },   // FL, FR, LFE, BL, BR 
-    { (136<<16) | 4, 0x00F },   // FL, FR, LFE, C 
-    { (137<<16) | 5, 0x01F },   // FL, FR, LFE, C, BC 
+    { (100<<16) | 1, 0x004, NULL },         // FC
+    { (101<<16) | 2, 0x003, NULL },         // FL, FR
+    { (102<<16) | 2, 0x003, NULL },         // FL, FR (headphones)
+    { (103<<16) | 2, 0x000, NULL },         // [Lt, Rt] (matrix encoded)
+    { (104<<16) | 2, 0x000, NULL },         // [Mid, Side]
+    { (105<<16) | 2, 0x000, NULL },         // [X, Y]
+    { (106<<16) | 2, 0x003, NULL },         // FL, FR (binaural)
+    { (107<<16) | 4, 0x000, NULL },         // [W, X, Y, Z] (ambisonics)
+    { (108<<16) | 4, 0x033, NULL },         // FL, FR, BL, BR (quad)
+    { (109<<16) | 5, 0x037, "12453" },      // FL, FR, BL, BR, FC (pentagonal)
+    { (110<<16) | 6, 0x137, "124536" },     // FL, FR, BL, BR, FC, BC (hexagonal)
+    { (111<<16) | 8, 0x737, "12453678" },   // FL, FR, BL, BR, FC, BC, SL, SR (octagonal)
+    { (112<<16) | 8, 0x2d033, NULL },       // FL, FR, BL, BR, TFL, TFR, TBL, TBR (cubic)
+    { (113<<16) | 3, 0x007, NULL },         // FL, FR, FC
+    { (114<<16) | 3, 0x007, "312" },        // FC, FL, FR
+    { (115<<16) | 4, 0x107, NULL },         // FL, FR, FC, BC
+    { (116<<16) | 4, 0x107, "3124" },       // FC, FL, FR, BC
+    { (117<<16) | 5, 0x037, NULL },         // FL, FR, FC, BL, BR
+    { (118<<16) | 5, 0x037, "12453" },      // FL, FR, BL, BR, FC
+    { (119<<16) | 5, 0x037, "13245" },      // FL, FC, FR, BL, BR
+    { (120<<16) | 5, 0x037, "31245" },      // FC, FL, FR, BL, BR
+    { (121<<16) | 6, 0x03f, NULL },         // FL, FR, FC, LFE, BL, BR
+    { (122<<16) | 6, 0x03f, "125634" },     // FL, FR, BL, BR, FC, LFE
+    { (123<<16) | 6, 0x03f, "132564" },     // FL, FC, FR, BL, BR, LFE
+    { (124<<16) | 6, 0x03f, "312564" },     // FC, FL, FR, BL, BR, LFE
+    { (125<<16) | 7, 0x13f, NULL },         // FL, FR, FC, LFE, BL, BR, BC
+    { (126<<16) | 8, 0x0ff, NULL },         // FL, FR, FC, LFE, BL, BR, FLC, FRC
+    { (127<<16) | 8, 0x0ff, "37812564" },   // FC, FLC, FRC, FL, FR, BL, BR, LFE
+    { (128<<16) | 8, 0x03f, NULL },         // FL, FR, FC, LFE, BL, BR, [Rls, Rrs]
+    { (129<<16) | 8, 0x0ff, "12563478" },   // FL, FR, BL, BR, FC, LFE, FLC, FRC
+    { (130<<16) | 8, 0x03f, NULL },         // FL, FR, FC, LFE, BL, BR, [Lt, Rt]
+    { (131<<16) | 3, 0x103, NULL },         // FL, FR, BC
+    { (132<<16) | 4, 0x033, NULL },         // FL, FR, BL, BR
+    { (133<<16) | 3, 0x00B, NULL },         // FL, FR, LFE
+    { (134<<16) | 4, 0x10B, NULL },         // FL, FR, LFE, BC
+    { (135<<16) | 5, 0x03B, NULL },         // FL, FR, LFE, BL, BR
+    { (136<<16) | 4, 0x00F, NULL },         // FL, FR, FC, LFE
+    { (137<<16) | 5, 0x10f, NULL },         // FL, FR, FC, LFE, BC
+    { (138<<16) | 5, 0x03b, "12453" },      // FL, FR, BL, BR, LFE
+    { (139<<16) | 6, 0x137, "124536" },     // FL, FR, BL, BR, FC, BC
+    { (140<<16) | 7, 0x037, "1245367" },    // FL, FR, BL, BR, FC, [Rls, Rrs]
+    { (141<<16) | 6, 0x137, "312456" },     // FC, FL, FR, BL, BR, BC
+    { (142<<16) | 7, 0x13f, "3125674" },    // FC, FL, FR, BL, BR, BC, LFE
+    { (143<<16) | 7, 0x037, "3124567" },    // FC, FL, FR, BL, BR, [Rls, Rrs]
+    { (144<<16) | 8, 0x137, "31245786" },   // FC, FL, FR, BL, BR, [Rls, Rrs], BC
+    { (145<<16) | 16, 0x773f, TMH_std },    // FL, FR, FC, TFC, SL, SR, BL, BR, TFL, TFR, [Lw, Rw, Csd], BC, LFE, [LFE2]
+    { (146<<16) | 21, 0x77ff, TMH_full },   // FL, FR, FC, TFC, SL, SR, BL, BR, TFL, TFR, [Lw, Rw, Csd], BC, LFE, [LFE2],
+                                            // FLC, FRC, [HI, VI, Haptic]
 };
 
 #define NUM_LAYOUTS (sizeof (layouts) / sizeof (layouts [0]))
 
 int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
 {
-    uint32_t total_samples = 0, bcount;
+    uint32_t total_samples = 0, chan_chunk = 0, channel_layout = 0, bcount;
+    const unsigned char *channel_reorder = NULL;
     CAFFileHeader caf_file_header;
     CAFChunkHeader caf_chunk_header;
     CAFAudioFormat caf_audio_format;
@@ -240,6 +275,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             }
 
             WavpackBigEndianToNative (caf_channel_layout, CAFChannelLayoutFormat);
+            chan_chunk = 1;
 
             if (config->channel_mask || (config->qmode & QMODE_CHANS_UNASSIGNED)) {
                 error_line ("this CAF file already has channel order information!");
@@ -247,20 +283,36 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 return WAVPACK_SOFT_ERROR;
             }
 
-            if (caf_channel_layout->mChannelLayoutTag == 0x10000)
+            if (caf_channel_layout->mChannelLayoutTag == 0x10000) {
                 config->channel_mask = caf_channel_layout->mChannelBitmap;
+
+                if (debug_logging_mode)
+                    error_line ("layout_tag = 0x%08x, so using supplied bitmap of 0x%08x",
+                        caf_channel_layout->mChannelLayoutTag, caf_channel_layout->mChannelBitmap);
+            }
             else {
                 int i;
 
                 for (i = 0; i < NUM_LAYOUTS; ++i)
                     if (caf_channel_layout->mChannelLayoutTag == layouts [i].mChannelLayoutTag) {
                         config->channel_mask = layouts [i].mChannelBitmap;
+                        channel_layout = layouts [i].mChannelLayoutTag;
+                        channel_reorder = layouts [i].mChannelReorder;
+
+                        if (channel_reorder)
+                            config->qmode |= QMODE_REORDERED_CHANS;
+
+                        if (debug_logging_mode)
+                            error_line ("layout_tag 0x%08x found in table, bitmap = 0x%08x, reorder = %s",
+                                channel_layout, config->channel_mask, channel_reorder ? "yes" : "no");
+
                         break;
                     }
-            }
 
-            if (!config->channel_mask)
-                config->qmode |= QMODE_CHANS_UNASSIGNED;
+                if (i == NUM_LAYOUTS && debug_logging_mode)
+                    error_line ("layout_tag %x%08x not found in table...all channels unassigned",
+                        caf_channel_layout->mChannelLayoutTag);
+            }
 
             free (caf_channel_layout);
         }
@@ -332,11 +384,16 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         }
     }
 
-    if (!config->channel_mask && config->num_channels <= 2 && !(config->qmode & QMODE_CHANS_UNASSIGNED))
+    if (!chan_chunk && !config->channel_mask && config->num_channels <= 2 && !(config->qmode & QMODE_CHANS_UNASSIGNED))
         config->channel_mask = 0x5 - config->num_channels;
 
     if (!WavpackSetConfiguration (wpc, config, total_samples)) {
         error_line ("%s", WavpackGetErrorMessage (wpc));
+        return WAVPACK_SOFT_ERROR;
+    }
+
+    if (channel_layout && !WavpackSetChannelLayout (wpc, channel_layout, channel_reorder)) {
+        error_line ("problem with setting channel layout (should not happen)");
         return WAVPACK_SOFT_ERROR;
     }
 
@@ -357,6 +414,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples,
     int bytes_per_sample = WavpackGetBytesPerSample (wpc);
     int bits_per_sample = WavpackGetBitsPerSample (wpc);
     int float_norm_exp = WavpackGetFloatNormExp (wpc);
+    uint32_t channel_layout_tag = WavpackGetChannelLayout (wpc, NULL);
 
     if (float_norm_exp && float_norm_exp != 127) {
         error_line ("can't create valid CAFF header for non-normalized floating data!");
@@ -403,7 +461,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples,
 
     // conditionally format and write the Channel Layout Chunk
 
-    if (num_channels > 2 || channel_mask != 5 - num_channels) {
+    if (channel_layout_tag || (num_channels > 2 ? channel_mask : channel_mask != 5 - num_channels)) {
         strncpy (caf_chan_chunk_header.mChunkType, "chan", sizeof (caf_chan_chunk_header.mChunkType));
         caf_chan_chunk_header.mChunkSize = sizeof (caf_channel_layout);
         WavpackNativeToBigEndian (&caf_chan_chunk_header, CAFChunkHeaderFormat);
@@ -412,8 +470,15 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples,
             bcount != sizeof (caf_chan_chunk_header))
                 return FALSE;
 
-        caf_channel_layout.mChannelLayoutTag = channel_mask ? 0x10000 : 0;
-        caf_channel_layout.mChannelBitmap = channel_mask ? channel_mask : 0;
+        if (channel_layout_tag) {
+            caf_channel_layout.mChannelLayoutTag = channel_layout_tag;
+            caf_channel_layout.mChannelBitmap = 0;
+        }
+        else {
+            caf_channel_layout.mChannelLayoutTag = 0x10000;
+            caf_channel_layout.mChannelBitmap = channel_mask;
+        }
+
         caf_channel_layout.mNumberChannelDescriptions = 0;
         WavpackNativeToBigEndian (&caf_channel_layout, CAFChannelLayoutFormat);
 

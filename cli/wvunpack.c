@@ -924,6 +924,7 @@ static void *store_samples (void *dst, int32_t *src, int qmode, int bps, int cou
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst);
+static void unreorder_channels (int32_t *data, unsigned char *order, int num_chans, int num_samples);
 
 int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
 int WriteWave64Header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
@@ -938,6 +939,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
     uint32_t skip_sample_index = 0, until_samples_total = 0;
     unsigned char *output_buffer = NULL, *output_pointer = NULL;
+    unsigned char *new_channel_order = NULL;
     double dtime, progress = -1.0;
     char *outfilename_temp = NULL;
     char *extension = NULL;
@@ -1009,6 +1011,20 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     }
     else if (!wav_decode)
         qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
+
+    if (qmode & QMODE_REORDERED_CHANS) {
+        uint32_t layout = WavpackGetChannelLayout (wpc, NULL);
+        int i;
+
+        if ((layout & 0xff) <= num_channels) {
+            new_channel_order = malloc (num_channels);
+
+            for (i = 0; i < num_channels; ++i)
+                new_channel_order [i] = i;
+
+            WavpackGetChannelLayout (wpc, new_channel_order);
+        }
+    }
 
     if (skip.value_is_valid) {
         if (skip.value_is_time)
@@ -1219,6 +1235,9 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
         total_unpacked_samples += samples_unpacked;
 
+        if (new_channel_order)
+            unreorder_channels (temp_buffer, new_channel_order, num_channels, samples_unpacked);
+
         if (output_buffer) {
             if (samples_unpacked)
                 output_pointer = store_samples (output_pointer, temp_buffer, qmode, bps, samples_unpacked * num_channels);
@@ -1274,6 +1293,9 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     if (output_buffer)
         free (output_buffer);
+
+    if (new_channel_order)
+        free (new_channel_order);
 
     if (!check_break () && calc_md5) {
         char md5_string1 [] = "00000000000000000000000000000000";
@@ -1804,6 +1826,27 @@ static void *store_big_endian_signed_samples (void *dst, int32_t *src, int bps, 
     }
 
     return dptr;
+}
+
+static void unreorder_channels (int32_t *data, unsigned char *order, int num_chans, int num_samples)
+{
+    int32_t reorder_buffer [16], *temp = reorder_buffer;
+
+    if (num_chans > 16)
+        temp = malloc (num_chans * sizeof (*data));
+
+    while (num_samples--) {
+        int chan;
+
+        for (chan = 0; chan < num_chans; ++chan)
+            temp [chan] = data [order[chan]];
+
+        memcpy (data, temp, num_chans * sizeof (*data));
+        data += num_chans;
+    }
+
+    if (num_chans > 16)
+        free (temp);
 }
 
 static void dump_UTF8_string (char *string, FILE *dst);
