@@ -380,7 +380,7 @@ static void write_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
         if (wpc->channel_layout) {
             int nchans = wpc->channel_layout & 0xff;
 
-            *byteptr++ = (char) (wpc->channel_layout & 0xff0000) >> 16;
+            *byteptr++ = (char) ((wpc->channel_layout & 0xff0000) >> 16);
 
             if (wpc->channel_reordering || nchans != wpc->config.num_channels)
                 *byteptr++ = (char) nchans;

@@ -277,6 +277,8 @@ int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const uns
             for (i = 0; i < nchans; ++i)
                 wpc->channel_reordering [i] = reorder [i] - min_index;
     }
+
+    return TRUE;
 }
 
 // Prepare to actually pack samples by determining the size of the WavPack
