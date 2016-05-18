@@ -70,6 +70,20 @@ typedef struct
 
 #define CAFChannelLayoutFormat "LLL"
 
+enum {
+    kCAFChannelLayoutTag_UseChannelDescriptions = (0<<16) | 0,  // use the array of AudioChannelDescriptions to define the mapping.
+    kCAFChannelLayoutTag_UseChannelBitmap = (1<<16) | 0,        // use the bitmap to define the mapping.
+};
+
+typedef struct
+{
+    uint32_t mChannelLabel;
+    uint32_t mChannelFlags;
+    float mCoordinates [3];
+} CAFChannelDescription;
+
+#define CAFChannelDescriptionFormat "LLLLL"
+
 static const char TMH_full [] = { 1,2,3,13,9,10,5,6,12,14,15,16,17,9,4,18,7,8,19,20,21 };
 static const char TMH_std [] = { 1,2,3,11,8,9,5,6,10,12,13,14,15,7,4,16 };
 
@@ -283,7 +297,34 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 return WAVPACK_SOFT_ERROR;
             }
 
-            if (caf_channel_layout->mChannelLayoutTag == 0x10000) {
+            if (caf_channel_layout->mChannelLayoutTag == kCAFChannelLayoutTag_UseChannelDescriptions) {
+                CAFChannelDescription *descriptions = (CAFChannelDescription *) (caf_channel_layout + 1);
+                int num_descriptions = caf_channel_layout->mNumberChannelDescriptions;
+                int last_label = 0, label, i;
+
+                if (caf_chunk_header.mChunkSize != sizeof (CAFChannelLayout) + sizeof (CAFChannelDescription) * num_descriptions) {
+                    error_line ("channel descriptions in 'chan' chunk are the wrong size!");
+                    free (caf_channel_layout);
+                    return WAVPACK_SOFT_ERROR;
+                }
+
+                for (i = 0; i < num_descriptions; ++i) {
+                    WavpackBigEndianToNative (descriptions + i, CAFChannelDescriptionFormat);
+                    label = descriptions [i].mChannelLabel;
+
+                    if (label > last_label && label <= 18 && !(config->channel_mask & (1 << (label - 1)))) {
+                        config->channel_mask |= 1 << (label - 1);
+                        last_label = label;
+                    }
+                    else
+                        break;
+                }
+
+                if (debug_logging_mode)
+                    error_line ("layout_tag = 0x%08x, so generated bitmap of 0x%08x from descriptions",
+                        caf_channel_layout->mChannelLayoutTag, config->channel_mask);
+            }
+            else if (caf_channel_layout->mChannelLayoutTag == kCAFChannelLayoutTag_UseChannelBitmap) {
                 config->channel_mask = caf_channel_layout->mChannelBitmap;
 
                 if (debug_logging_mode)
@@ -310,7 +351,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     }
 
                 if (i == NUM_LAYOUTS && debug_logging_mode)
-                    error_line ("layout_tag %x%08x not found in table...all channels unassigned",
+                    error_line ("layout_tag 0x%08x not found in table...all channels unassigned",
                         caf_channel_layout->mChannelLayoutTag);
             }
 
@@ -475,7 +516,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples,
             caf_channel_layout.mChannelBitmap = 0;
         }
         else {
-            caf_channel_layout.mChannelLayoutTag = 0x10000;
+            caf_channel_layout.mChannelLayoutTag = kCAFChannelLayoutTag_UseChannelBitmap;
             caf_channel_layout.mChannelBitmap = channel_mask;
         }
 

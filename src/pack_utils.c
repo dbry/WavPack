@@ -254,7 +254,7 @@ int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const uns
 {
     int nchans = layout_tag & 0xff;
 
-    if ((layout_tag & 0xff00ff00) || nchans > wpc->config.num_channels || (nchans && !(layout_tag & 0xff0000)))
+    if ((layout_tag & 0xff00ff00) || nchans > wpc->config.num_channels)
         return FALSE;
 
     wpc->channel_layout = layout_tag;
