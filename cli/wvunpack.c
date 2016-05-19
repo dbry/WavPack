@@ -1043,8 +1043,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     }
 
     if (until.value_is_valid) {
-        if (until.value_is_time)
-            until.value *= WavpackGetSampleRate (wpc);
+        double until_sample_index = until.value_is_time ? until.value * WavpackGetSampleRate (wpc) : until.value;
 
         if (until.value_is_relative == -1) {
             if (WavpackGetNumSamples (wpc) == (uint32_t) -1) {
@@ -1053,16 +1052,16 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
                 return WAVPACK_SOFT_ERROR;
             }
 
-            if ((uint32_t) until.value + skip_sample_index < WavpackGetNumSamples (wpc))
-                until_samples_total = WavpackGetNumSamples (wpc) - (uint32_t) until.value - skip_sample_index;
+            if ((uint32_t) until_sample_index + skip_sample_index < WavpackGetNumSamples (wpc))
+                until_samples_total = WavpackGetNumSamples (wpc) - (uint32_t) until_sample_index - skip_sample_index;
             else
                 until_samples_total = 0;
         }
         else {
             if (until.value_is_relative == 1)
                 until_samples_total = (uint32_t) until.value;
-            else if ((uint32_t) until.value > skip_sample_index)
-                until_samples_total = (uint32_t) until.value - skip_sample_index;
+            else if ((uint32_t) until_sample_index > skip_sample_index)
+                until_samples_total = (uint32_t) until_sample_index - skip_sample_index;
             else
                 until_samples_total = 0;
 
