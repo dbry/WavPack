@@ -184,7 +184,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
 }
 
 // This function returns the major version number of the WavPack program
-// (or library) that created the open file. Currently, this can be 1 to 4.
+// (or library) that created the open file. Currently, this can be 1 to 5.
 // Minor versions are not recorded in WavPack files.
 
 int WavpackGetVersion (WavpackContext *wpc)
@@ -200,15 +200,24 @@ int WavpackGetVersion (WavpackContext *wpc)
     return 0;
 }
 
+// Return the file format specified in the call to WavpackSetFileInformation()
+// when the file was created. For all files created prior to WavPack 5.0 this
+// will 0 (WP_FORMAT_WAV).
+
+unsigned char WavpackGetFileFormat (WavpackContext *wpc)
+{
+    return wpc->file_format;
+}
+
 // Return a string representing the recommended file extension for the open
-// WavPack file. For all files prior to WavPack 5.0 this will be "wav",
+// WavPack file. For all files created prior to WavPack 5.0 this will be "wav",
 // even for raw files with no RIFF into. This string is specified in the
-// call to WavpackAddWrapperEx() when the file was created.
+// call to WavpackSetFileInformation() when the file was created.
 
 char *WavpackGetFileExtension (WavpackContext *wpc)
 {
-    if (wpc && wpc->alt_extension [0])
-        return wpc->alt_extension;
+    if (wpc && wpc->file_extension [0])
+        return wpc->file_extension;
     else
         return "wav";
 }
@@ -518,18 +527,19 @@ static int read_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 
     wpc->version_five = 1;      // just having this block signals version 5.0
 
-    wpc->config.qmode = wpc->channel_layout = 0;
+    wpc->file_format = wpc->config.qmode = wpc->channel_layout = 0;
 
     if (wpc->channel_reordering) {
         free (wpc->channel_reordering);
         wpc->channel_reordering = NULL;
     }
 
-    // if there's any data, the first byte is qmode flags
+    // if there's any data, the first two bytes are file_format and qmode flags
 
     if (bytecnt) {
+        wpc->file_format = *byteptr++;
         wpc->config.qmode = (wpc->config.qmode & ~0xff) | *byteptr++;
-        bytecnt--;
+        bytecnt -= 2;
 
         // another byte indicates a channel layout
 
@@ -719,9 +729,9 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
             return TRUE;
 
         case ID_ALT_EXTENSION:
-            if (wpmd->byte_length && wpmd->byte_length < sizeof (wpc->alt_extension)) {
-                memcpy (wpc->alt_extension, wpmd->data, wpmd->byte_length);
-                wpc->alt_extension [wpmd->byte_length] = 0;
+            if (wpmd->byte_length && wpmd->byte_length < sizeof (wpc->file_extension)) {
+                memcpy (wpc->file_extension, wpmd->data, wpmd->byte_length);
+                wpc->file_extension [wpmd->byte_length] = 0;
             }
 
         default:

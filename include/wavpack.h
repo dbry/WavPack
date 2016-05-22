@@ -279,6 +279,7 @@ int WavpackGetMode (WavpackContext *wpc);
 char *WavpackGetErrorMessage (WavpackContext *wpc);
 int WavpackGetVersion (WavpackContext *wpc);
 char *WavpackGetFileExtension (WavpackContext *wpc);
+unsigned char WavpackGetFileFormat (WavpackContext *wpc);
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
 uint32_t WavpackGetNumSamples (WavpackContext *wpc);
 uint32_t WavpackGetSampleIndex (WavpackContext *wpc);
@@ -317,10 +318,15 @@ int WavpackDeleteTagItem (WavpackContext *wpc, const char *item);
 int WavpackWriteTag (WavpackContext *wpc);
 
 WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
+void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsigned char file_format);
+
+#define WP_FORMAT_WAV   0       // Microsoft RIFF, including BWF and RF64 varients
+#define WP_FORMAT_W64   1       // Sony Wave64
+#define WP_FORMAT_CAF   2       // Apple CoreAudio
+
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
 int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder);
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
-int WavpackAddWrapperEx (WavpackContext *wpc, char *extension, void *data, uint32_t bcount);
 int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 int WavpackPackInit (WavpackContext *wpc);
 int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);

@@ -447,10 +447,12 @@ typedef struct {
     WavpackStream **streams;
     void *stream3;
 
-    unsigned char *channel_reordering;
+    // these items were added in 5.0 to support alternate file types (especially CAF)
+    unsigned char file_format, *channel_reordering;
+    char file_extension [8];
     uint32_t channel_layout;
 
-    char error_message [80], alt_extension [8];
+    char error_message [80];
 } WavpackContext;
 
 //////////////////////// function prototypes and macros //////////////////////

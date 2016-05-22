@@ -374,7 +374,8 @@ static void write_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 
     wpmd->id = ID_NEW_CONFIG_BLOCK;
 
-    if (wpc->config.qmode || wpc->channel_layout) {
+    if (wpc->file_format || wpc->config.qmode || wpc->channel_layout) {
+        *byteptr++ = (char) wpc->file_format;
         *byteptr++ = (char) wpc->config.qmode;
 
         if (wpc->channel_layout) {

@@ -45,6 +45,27 @@ WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id,
     return wpc;
 }
 
+static int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, unsigned char id);
+
+// New for version 5.0, this function allows the application to store a file extension and a
+// file_format identification. The extension would be used by the unpacker if the user had not
+// specified the target filename, and specifically handles the case where the original file
+// had the "wrong" extension for the file format (e.g., a Wave64 file having a "wav" extension)
+// or an alternative (e.g., "bwf") or where the file format is not known. Specifying a file
+// format besides the default WP_FORMAT_WAV will ensure that old decoders will not be able to
+// see the non-wav wrapper provided with WavpackAddWrapper() (which they would end up putting
+// on a file with a .wav extension).
+
+void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsigned char file_format)
+{
+    if (file_extension && strlen (file_extension) < sizeof (wpc->file_extension)) {
+        add_to_metadata (wpc, file_extension, (uint32_t) strlen (file_extension), ID_ALT_EXTENSION);
+        strcpy (wpc->file_extension, file_extension);
+    }
+
+    wpc->file_format = file_format;
+}
+
 // Set configuration for writing WavPack files. This must be done before
 // sending any actual samples, however it is okay to send wrapper or other
 // metadata before calling this. The "config" structure contains the following
@@ -343,7 +364,6 @@ int WavpackPackInit (WavpackContext *wpc)
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples);
 static int create_riff_header (WavpackContext *wpc, uint32_t total_samples, void *outbuffer);
-static int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, unsigned char id);
 
 int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count)
 {
@@ -353,7 +373,7 @@ int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sa
         int32_t *source_pointer = sample_buffer;
         unsigned int samples_to_copy;
 
-        if (!wpc->riff_header_added && !wpc->riff_header_created) {
+        if (!wpc->riff_header_added && !wpc->riff_header_created && !wpc->file_format) {
             char riff_header [128];
 
             if (!add_to_metadata (wpc, riff_header, create_riff_header (wpc, wpc->total_samples, riff_header), ID_RIFF_HEADER))
@@ -519,39 +539,11 @@ int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
 
     if (!index || index == (uint32_t) -1) {
         wpc->riff_header_added = TRUE;
-        meta_id = ID_RIFF_HEADER;
+        meta_id = wpc->file_format ? ID_ALT_HEADER : ID_RIFF_HEADER;
     }
     else {
         wpc->riff_trailer_bytes += bcount;
-        meta_id = ID_RIFF_TRAILER;
-    }
-
-    return add_to_metadata (wpc, data, bcount, meta_id);
-}
-
-// Extended version of WavpackAddWrapper() for non-wav wrappers (i.e., not RIFF or RF64). To
-// ensure that older WavPack versions do not use this data and incorrectly make a .wav file
-// with it, a new metadata ID is used. This means that older WavPack versions will simply see
-// "raw" data and create new RIFF info if requested. The alternate extension is also specified
-// here and will be available to the [new] unpacker to name the unpacked file. Keep in mind that
-// none of this affects the ability of older programs to play the file or otherwise extract the
-// audio data...this is only for unarchiving verbatim files.
-
-int WavpackAddWrapperEx (WavpackContext *wpc, char *extension, void *data, uint32_t bcount)
-{
-    uint32_t index = WavpackGetSampleIndex (wpc);
-    unsigned char meta_id;
-
-    if (!index || index == (uint32_t) -1) {
-        if (!wpc->riff_header_added && extension && *extension && strlen (extension) < sizeof (wpc->alt_extension))
-            add_to_metadata (wpc, extension, (uint32_t) strlen (extension), ID_ALT_EXTENSION);
-
-        wpc->riff_header_added = TRUE;
-        meta_id = ID_ALT_HEADER;
-    }
-    else {
-        wpc->riff_trailer_bytes += bcount;
-        meta_id = ID_ALT_TRAILER;
+        meta_id = wpc->file_format ? ID_ALT_TRAILER : ID_RIFF_TRAILER;
     }
 
     return add_to_metadata (wpc, data, bcount, meta_id);
@@ -559,6 +551,9 @@ int WavpackAddWrapperEx (WavpackContext *wpc, char *extension, void *data, uint3
 
 // Store computed MD5 sum in WavPack metadata. Note that the user must compute
 // the 16 byte sum; it is not done here. A return of FALSE indicates an error.
+// If any of the lower 8 bits of qmode are set, then this MD5 is stored with
+// a metadata ID that old decoders do not recognize (because they would not
+// interpret the qmode and would therefore fail the verification).
 
 int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16])
 {
