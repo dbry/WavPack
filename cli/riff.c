@@ -305,7 +305,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
     return WAVPACK_NO_ERROR;
 }
 
-int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples)
+int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode)
 {
     int do_rf64 = 0, write_junk = 1;
     ChunkHeader ds64hdr, datahdr, fmthdr;

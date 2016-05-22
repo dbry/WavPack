@@ -168,7 +168,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             return WAVPACK_SOFT_ERROR;
     }
     else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-        !WavpackAddWrapperEx (wpc, "caf", &caf_file_header, sizeof (CAFFileHeader))) {
+        !WavpackAddWrapper (wpc, &caf_file_header, sizeof (CAFFileHeader))) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             return WAVPACK_SOFT_ERROR;
     }
@@ -190,7 +190,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 return WAVPACK_SOFT_ERROR;
         }
         else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-            !WavpackAddWrapperEx (wpc, "caf", &caf_chunk_header, sizeof (CAFChunkHeader))) {
+            !WavpackAddWrapper (wpc, &caf_chunk_header, sizeof (CAFChunkHeader))) {
                 error_line ("%s", WavpackGetErrorMessage (wpc));
                 return WAVPACK_SOFT_ERROR;
         }
@@ -210,7 +210,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     return WAVPACK_SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapperEx (wpc, "caf", &caf_audio_format, (uint32_t) caf_chunk_header.mChunkSize)) {
+                !WavpackAddWrapper (wpc, &caf_audio_format, (uint32_t) caf_chunk_header.mChunkSize)) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     return WAVPACK_SOFT_ERROR;
             }
@@ -282,7 +282,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     return WAVPACK_SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapperEx (wpc, "caf", caf_channel_layout, (uint32_t) caf_chunk_header.mChunkSize)) {
+                !WavpackAddWrapper (wpc, caf_channel_layout, (uint32_t) caf_chunk_header.mChunkSize)) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     free (caf_channel_layout);
                     return WAVPACK_SOFT_ERROR;
@@ -369,7 +369,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                         return WAVPACK_SOFT_ERROR;
                 }
                 else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                    !WavpackAddWrapperEx (wpc, "caf", &mEditCount, sizeof (mEditCount))) {
+                    !WavpackAddWrapper (wpc, &mEditCount, sizeof (mEditCount))) {
                         error_line ("%s", WavpackGetErrorMessage (wpc));
                         return WAVPACK_SOFT_ERROR;
                 }
@@ -415,7 +415,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             if (!DoReadFile (infile, buff, bytes_to_copy, &bcount) ||
                 bcount != bytes_to_copy ||
                 (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapperEx (wpc, "caf", buff, bytes_to_copy))) {
+                !WavpackAddWrapper (wpc, buff, bytes_to_copy))) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     free (buff);
                     return WAVPACK_SOFT_ERROR;

@@ -65,7 +65,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             return WAVPACK_SOFT_ERROR;
     }
     else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-        !WavpackAddWrapperEx (wpc, "w64", &filehdr, sizeof (filehdr))) {
+        !WavpackAddWrapper (wpc, &filehdr, sizeof (filehdr))) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             return WAVPACK_SOFT_ERROR;
     }
@@ -73,7 +73,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 #if 1   // this might be a little too picky...
     WavpackLittleEndianToNative (&filehdr, Wave64ChunkHeaderFormat);
 
-    if (filehdr.ckSize != infilesize) {
+    if (infilesize && filehdr.ckSize != infilesize) {
         error_line ("%s is not a valid .W64 file!", infilename);
         return WAVPACK_SOFT_ERROR;
     }
@@ -89,7 +89,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 return WAVPACK_SOFT_ERROR;
         }
         else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-            !WavpackAddWrapperEx (wpc, "w64", &chunk_header, sizeof (Wave64ChunkHeader))) {
+            !WavpackAddWrapper (wpc, &chunk_header, sizeof (Wave64ChunkHeader))) {
                 error_line ("%s", WavpackGetErrorMessage (wpc));
                 return WAVPACK_SOFT_ERROR;
         }
@@ -112,7 +112,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                     return WAVPACK_SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapperEx (wpc, "w64", &WaveHeader, (uint32_t) chunk_header.ckSize)) {
+                !WavpackAddWrapper (wpc, &WaveHeader, (uint32_t) chunk_header.ckSize)) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     return WAVPACK_SOFT_ERROR;
             }
@@ -242,7 +242,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             if (!DoReadFile (infile, buff, bytes_to_copy, &bcount) ||
                 bcount != bytes_to_copy ||
                 (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapperEx (wpc, "w64", buff, bytes_to_copy))) {
+                !WavpackAddWrapper (wpc, buff, bytes_to_copy))) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     free (buff);
                     return WAVPACK_SOFT_ERROR;
@@ -260,7 +260,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
     return WAVPACK_NO_ERROR;
 }
 
-int WriteWave64Header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples)
+int WriteWave64Header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode)
 {
     Wave64ChunkHeader datahdr, fmthdr;
     Wave64FileHeader filehdr;

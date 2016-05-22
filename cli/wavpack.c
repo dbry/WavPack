@@ -214,6 +214,23 @@ static const char *speakers [] = {
 
 #define NUM_SPEAKERS (sizeof (speakers) / sizeof (speakers [0]))
 
+int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+
+static struct {
+    unsigned char id;
+    char *fourcc, *default_extension;
+    int (* ParseHeader) (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+} file_formats [] = {
+    { WP_FORMAT_WAV,  "RIFF", "wav", ParseRiffHeaderConfig },
+    { WP_FORMAT_WAV,  "RF64", "wav", ParseRiffHeaderConfig },
+    { WP_FORMAT_W64,  "riff", "w64", ParseWave64HeaderConfig },
+    { WP_FORMAT_CAF,  "caff", "caf", ParseCaffHeaderConfig }
+};
+
+#define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
+
 // this global is used to indicate the special "debug" mode where extra debug messages
 // are displayed and all messages are logged to the file \wavpack.log
 
@@ -1396,10 +1413,6 @@ static FILE *wild_fopen (char *filename, const char *mode)
 // file would go there. The files are opened and closed in this function
 // and the "config" structure specifies the mode of compression.
 
-int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
-int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
-int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
-
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     char *outfilename_temp = NULL, *out2filename_temp = NULL, dummy;
@@ -1633,6 +1646,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     if (!(loc_config.qmode & QMODE_RAW_PCM)) {
         char fourcc [4];
+        int i;
 
         if (!DoReadFile (infile, fourcc, sizeof (fourcc), &bcount) || bcount != sizeof (fourcc)) {
             error_line ("can't read file %s!", infilename);
@@ -1643,34 +1657,25 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             return WAVPACK_SOFT_ERROR;
         }
 
-        if (!strncmp (fourcc, "RIFF", 4) || !strncmp (fourcc, "RF64", 4)) {
-            if (ParseRiffHeaderConfig (infile, infilename, fourcc, wpc, &loc_config)) {
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
+        for (i = 0; i < NUM_FILE_FORMATS; ++i)
+            if (!strncmp (fourcc, file_formats [i].fourcc, 4)) {
+
+                WavpackSetFileInformation (wpc,
+                    filespec_ext (infilename) ? filespec_ext (infilename) + 1 : file_formats [i].default_extension,
+                    file_formats [i].id);
+
+                if (file_formats [i].ParseHeader (infile, infilename, fourcc, wpc, &loc_config)) {
+                    DoCloseHandle (infile);
+                    DoCloseHandle (wv_file.file);
+                    DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
+                    WavpackCloseFile (wpc);
+                    return WAVPACK_SOFT_ERROR;
+                }
+
+                break;
             }
-        }
-        else if (!strncmp (fourcc, "riff", 4)) {
-            if (ParseWave64HeaderConfig (infile, infilename, fourcc, wpc, &loc_config)) {
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
-            }
-        }
-        else if (!strncmp (fourcc, "caff", 4)) {
-            if (ParseCaffHeaderConfig (infile, infilename, fourcc, wpc, &loc_config)) {
-                DoCloseHandle (infile);
-                DoCloseHandle (wv_file.file);
-                DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
-                return WAVPACK_SOFT_ERROR;
-            }
-        }
-        else {
+
+        if (i == NUM_FILE_FORMATS)  {
             error_line ("%s is not a recognized file type!", infilename);
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
@@ -2233,6 +2238,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     unsigned char md5_verify [16], md5_display [16];
     WavpackConfig loc_config = *config;
     WavpackContext *infile, *outfile;
+    int flags = OPEN_WVC | OPEN_TAGS;
     write_id wv_file, wvc_file;
     uint32_t total_samples = 0;
     char error [80];
@@ -2246,13 +2252,16 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     struct timezone timez;
 #endif
 
-    // use library to open input WavPack file
+    if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER))
+        flags |= OPEN_WRAPPER;
 
 #if defined(_WIN32)
-    infile = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_TAGS | OPEN_WRAPPER | OPEN_FILE_UTF8, 0);
-#else
-    infile = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_TAGS | OPEN_WRAPPER, 0);
+    flags |= OPEN_FILE_UTF8;
 #endif
+
+    // use library to open input WavPack file
+
+    infile = WavpackOpenFileInput (infilename, error, flags, 0);
 
     if (!infile) {
         error_line (error);
@@ -2418,9 +2427,11 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         fflush (stderr);
     }
 
+    WavpackSetFileInformation (outfile, WavpackGetFileExtension (infile), WavpackGetFileFormat (infile));
+
     // unless we've been specifically told not to, copy RIFF header
 
-    if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && WavpackGetWrapperBytes (infile)) {
+    if (WavpackGetWrapperBytes (infile)) {
         if (!WavpackAddWrapper (outfile, WavpackGetWrapperData (infile), WavpackGetWrapperBytes (infile))) {
             error_line ("%s", WavpackGetErrorMessage (outfile));
             WavpackCloseFile (infile);
@@ -2454,6 +2465,18 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         WavpackCloseFile (outfile);
         return WAVPACK_SOFT_ERROR;
     }
+
+    if (loc_config.qmode & QMODE_REORDERED_CHANS) {
+        uint32_t layout = WavpackGetChannelLayout (infile, NULL);
+        unsigned char order [256];
+
+        if (layout & 0xff) {
+            WavpackGetChannelLayout (infile, order);
+            WavpackSetChannelLayout (outfile, layout, order);
+        }
+    }
+    else
+        WavpackSetChannelLayout (outfile, WavpackGetChannelLayout (infile, NULL), NULL);
 
     // if we are creating a "correction" file, open it now for writing
 
@@ -2513,7 +2536,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     // unless we've been specifically told not to, copy RIFF trailer
 
-    if (result == WAVPACK_NO_ERROR && !(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && WavpackGetWrapperBytes (infile)) {
+    if (result == WAVPACK_NO_ERROR && WavpackGetWrapperBytes (infile)) {
         if (!WavpackAddWrapper (outfile, WavpackGetWrapperData (infile), WavpackGetWrapperBytes (infile))) {
             error_line ("%s", WavpackGetErrorMessage (outfile));
             WavpackCloseFile (infile);
@@ -2784,6 +2807,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
 {
     int bps = WavpackGetBytesPerSample (infile), num_channels = WavpackGetNumChannels (infile);
     int qmode = (WavpackGetMode (infile) >> 16) & 0xff;
+    unsigned char *new_channel_order = NULL;
     uint32_t input_samples = INPUT_SAMPLES;
     unsigned char *format_buffer;
     int32_t *sample_buffer;
@@ -2800,6 +2824,20 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     if (md5_digest_source) {
         format_buffer = malloc (input_samples * bps * WavpackGetNumChannels (outfile));
         MD5Init (&md5_context);
+
+        if (qmode & QMODE_REORDERED_CHANS) {
+            uint32_t layout = WavpackGetChannelLayout (infile, NULL);
+            int i;
+
+            if ((layout & 0xff) <= num_channels) {
+                new_channel_order = malloc (num_channels);
+
+                for (i = 0; i < num_channels; ++i)
+                    new_channel_order [i] = i;
+
+                WavpackGetChannelLayout (infile, new_channel_order);
+            }
+        }
     }
 
     WavpackPackInit (outfile);
@@ -2833,15 +2871,18 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
             }
         }
 
-        if (md5_digest_source) {
-            store_samples (format_buffer, sample_buffer, qmode, bps, sample_count * num_channels);
-            MD5Update (&md5_context, format_buffer, bps * sample_count * num_channels);
-        }
-
         if (!WavpackPackSamples (outfile, sample_buffer, sample_count)) {
             error_line ("%s", WavpackGetErrorMessage (outfile));
             free (sample_buffer);
             return WAVPACK_HARD_ERROR;
+        }
+
+        if (md5_digest_source) {
+            if (new_channel_order)
+                unreorder_channels (sample_buffer, new_channel_order, num_channels, sample_count);
+
+            store_samples (format_buffer, sample_buffer, qmode, bps, sample_count * num_channels);
+            MD5Update (&md5_context, format_buffer, bps * sample_count * num_channels);
         }
 
         if (check_break ()) {
@@ -2869,6 +2910,9 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
                 }
         }
     }
+
+    if (new_channel_order)
+        free (new_channel_order);
 
     free (sample_buffer);
 

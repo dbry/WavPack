@@ -125,13 +125,28 @@ static const char *usage =
 #endif
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
+int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
+int WriteWave64Header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
+int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
+
+static struct {
+    char *default_extension, *format_name;
+    int (* WriteHeader) (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
+} file_formats [] = {
+    { "wav", "Microsoft RIFF",  WriteRiffHeader },
+    { "w64", "Sony Wave64",     WriteWave64Header },
+    { "caf", "Apple CoreAudio", WriteCaffHeader }
+};
+
+#define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
+
 // this global is used to indicate the special "debug" mode where extra debug messages
 // are displayed and all messages are logged to the file \wavpack.log
 
 int debug_logging_mode;
 
 static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info,
-    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, wav_decode, caf_decode, w64_decode, set_console_title;
+    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, decode_format, format_specified, caf_be, set_console_title;
 
 static int num_files, file_index, outbuf_k;
 
@@ -252,12 +267,18 @@ int main(int argc, char **argv)
                     ++error_count;
                 }
             }
-            else if (!strcmp (long_option, "caf-be"))                   // --caf-be
-                caf_decode = 2;
-            else if (!strcmp (long_option, "caf-le"))                   // --caf-le
-                caf_decode = 1;
-            else if (!strcmp (long_option, "w64"))                      // --w64
-                w64_decode = 1;
+            else if (!strcmp (long_option, "caf-be")) {                 // --caf-be
+                decode_format = WP_FORMAT_CAF;
+                caf_be = format_specified = 1;
+            }
+            else if (!strcmp (long_option, "caf-le")) {                 // --caf-le
+                decode_format = WP_FORMAT_CAF;
+                format_specified = 1;
+            }
+            else if (!strcmp (long_option, "w64")) {                    // --w64
+                decode_format = WP_FORMAT_W64;
+                format_specified = 1;
+            }
             else {
                 error_line ("unknown option: %s !", long_option);
                 ++error_count;
@@ -346,7 +367,8 @@ int main(int argc, char **argv)
                         break;
 
                     case 'W': case 'w':
-                        wav_decode = 1;
+                        decode_format = WP_FORMAT_WAV;
+                        format_specified = 1;
                         break;
 
                     case 'Q': case 'q':
@@ -440,7 +462,7 @@ int main(int argc, char **argv)
         delete_source = 0;
     }
 
-    if (raw_decode && wav_decode) {
+    if (raw_decode && format_specified) {
         error_line ("-r (raw decode) and -w (wav header) modes are incompatible!");
         ++error_count;
     }
@@ -461,7 +483,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if ((summary || tag_extract_stdout) && (num_tag_extractions || outfilename || verify_only || delete_source || wav_decode || raw_decode)) {
+    if ((summary || tag_extract_stdout) && (num_tag_extractions || outfilename || verify_only || delete_source || format_specified || raw_decode)) {
         error_line ("can't display summary information or extract a tag to stdout and do anything else!");
         ++error_count;
     }
@@ -926,15 +948,11 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst);
 static void unreorder_channels (int32_t *data, unsigned char *order, int num_chans, int num_samples);
 
-int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
-int WriteWave64Header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
-int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples);
-
 #define TEMP_BUFFER_SAMPLES 4096L   // composite samples in temporary buffer used during unpacking
 
 static int unpack_file (char *infilename, char *outfilename, int add_extension)
 {
-    int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE, qmode = 0;
+    int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE, input_qmode, output_qmode, input_format, output_format;
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
     uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
     uint32_t skip_sample_index = 0, until_samples_total = 0;
@@ -962,7 +980,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     open_flags |= OPEN_FILE_UTF8;
 #endif
 
-    if ((outfilename && !raw_decode && !blind_decode && !wav_decode && !caf_decode && !w64_decode &&
+    if ((outfilename && !raw_decode && !blind_decode && !format_specified &&
         !skip.value_is_valid && !until.value_is_valid) || summary > 1)
             open_flags |= OPEN_WRAPPER;
 
@@ -988,12 +1006,8 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     if (add_extension) {
         if (raw_decode)
             extension = "raw";
-        else if (caf_decode)
-            extension = "caf";
-        else if (w64_decode)
-            extension = "w64";
-        else if (wav_decode)
-            extension = "wav";
+        else if (format_specified)
+            extension = file_formats [decode_format].default_extension;
         else
             extension = WavpackGetFileExtension (wpc);
     }
@@ -1002,17 +1016,25 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     num_channels = WavpackGetNumChannels (wpc);
     bps = WavpackGetBytesPerSample (wpc);
     bytes_per_sample = num_channels * bps;
+    input_qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
+    input_format = WavpackGetFileFormat (wpc);
 
-    if (caf_decode) {
-        if (bps == 1)
-            qmode = QMODE_SIGNED_BYTES;
+    if (raw_decode)
+        output_qmode = 0;
+    else if (format_specified) {
+        if (decode_format == WP_FORMAT_CAF)
+            output_qmode = QMODE_SIGNED_BYTES | (caf_be ? QMODE_BIG_ENDIAN : 0) | (input_qmode & QMODE_REORDERED_CHANS);
         else
-            qmode = caf_decode == 2 ? QMODE_BIG_ENDIAN : 0;
-    }
-    else if (!wav_decode)
-        qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
+            output_qmode = 0;
 
-    if (qmode & QMODE_REORDERED_CHANS) {
+        output_format = decode_format;
+    }
+    else {
+        output_format = input_format;
+        output_qmode = input_qmode;
+    }
+
+    if (output_qmode & QMODE_REORDERED_CHANS) {
         uint32_t layout = WavpackGetChannelLayout (wpc, NULL);
         int i;
 
@@ -1155,30 +1177,12 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     if (outfile && !raw_decode) {
         if (until_samples_total) {
-            if (caf_decode) {
-                if (!WriteCaffHeader (outfile, wpc, until_samples_total, qmode)) {
-                    DoTruncateFile (outfile);
-                    result = WAVPACK_HARD_ERROR;
-                }
-                else
-                    created_riff_header = TRUE;
+            if (!file_formats [output_format].WriteHeader (outfile, wpc, until_samples_total, output_qmode)) {
+                DoTruncateFile (outfile);
+                result = WAVPACK_HARD_ERROR;
             }
-            else if (w64_decode) {
-                if (!WriteWave64Header (outfile, wpc, until_samples_total)) {
-                    DoTruncateFile (outfile);
-                    result = WAVPACK_HARD_ERROR;
-                }
-                else
-                    created_riff_header = TRUE;
-            }
-            else {
-                if (!WriteRiffHeader (outfile, wpc, until_samples_total)) {
-                    DoTruncateFile (outfile);
-                    result = WAVPACK_HARD_ERROR;
-                }
-                else
-                    created_riff_header = TRUE;
-            }
+            else
+                created_riff_header = TRUE;
         }
         else if (WavpackGetWrapperBytes (wpc)) {
             if (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
@@ -1190,23 +1194,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
             WavpackFreeWrapper (wpc);
         }
-        else if (caf_decode) {
-            if (!WriteCaffHeader (outfile, wpc, WavpackGetNumSamples (wpc), qmode)) {
-                DoTruncateFile (outfile);
-                result = WAVPACK_HARD_ERROR;
-            }
-            else
-                created_riff_header = TRUE;
-        }
-        else if (w64_decode) {
-            if (!WriteWave64Header (outfile, wpc, WavpackGetNumSamples (wpc))) {
-                DoTruncateFile (outfile);
-                result = WAVPACK_HARD_ERROR;
-            }
-            else
-                created_riff_header = TRUE;
-        }
-        else if (!WriteRiffHeader (outfile, wpc, WavpackGetNumSamples (wpc))) {
+        else if (!file_formats [output_format].WriteHeader (outfile, wpc, WavpackGetNumSamples (wpc), output_qmode)) {
             DoTruncateFile (outfile);
             result = WAVPACK_HARD_ERROR;
         }
@@ -1239,7 +1227,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
         if (output_buffer) {
             if (samples_unpacked)
-                output_pointer = store_samples (output_pointer, temp_buffer, qmode, bps, samples_unpacked * num_channels);
+                output_pointer = store_samples (output_pointer, temp_buffer, output_qmode, bps, samples_unpacked * num_channels);
 
             if (!samples_unpacked || (output_buffer_size - (output_pointer - output_buffer)) < (uint32_t) bytes_per_sample) {
                 if (!DoWriteFile (outfile, output_buffer, (uint32_t)(output_pointer - output_buffer), &bcount) ||
@@ -1255,7 +1243,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         }
 
         if (calc_md5 && samples_unpacked) {
-            store_samples (temp_buffer, temp_buffer, qmode, bps, samples_unpacked * num_channels);
+            store_samples (temp_buffer, temp_buffer, output_qmode, bps, samples_unpacked * num_channels);
             MD5Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
         }
 
@@ -1341,19 +1329,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
          (until_samples_total ? until_samples_total : WavpackGetNumSamples (wpc)) != total_unpacked_samples)) {
             if (*outfilename == '-' || DoSetFilePositionAbsolute (outfile, 0))
                 error_line ("can't update file header with actual size");
-            else if (caf_decode) {
-                if (!WriteCaffHeader (outfile, wpc, total_unpacked_samples, qmode)) {
-                    DoTruncateFile (outfile);
-                    result = WAVPACK_HARD_ERROR;
-                }
-            }
-            else if (w64_decode) {
-                if (!WriteWave64Header (outfile, wpc, total_unpacked_samples)) {
-                    DoTruncateFile (outfile);
-                    result = WAVPACK_HARD_ERROR;
-                }
-            }
-            else if (!WriteRiffHeader (outfile, wpc, total_unpacked_samples)) {
+            else if (!file_formats [output_format].WriteHeader (outfile, wpc, total_unpacked_samples, output_qmode)) {
                 DoTruncateFile (outfile);
                 result = WAVPACK_HARD_ERROR;
             }
@@ -1425,7 +1401,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         }
     }
 
-    if (result == WAVPACK_NO_ERROR && md5_diff && (WavpackGetMode (wpc) & MODE_LOSSLESS) && !until_samples_total) {
+    if (result == WAVPACK_NO_ERROR && md5_diff && (WavpackGetMode (wpc) & MODE_LOSSLESS) && !until_samples_total && input_qmode == output_qmode) {
         error_line ("MD5 signatures should match, but do not!");
         result = WAVPACK_SOFT_ERROR;
     }
@@ -1973,12 +1949,22 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     }
 
     if (summary > 1) {
-        uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes;
-        char *header_name = WavpackGetFileExtension (wpc);
+        uint32_t header_bytes = WavpackGetWrapperBytes (wpc), trailer_bytes, i;
+        unsigned char *header_data = WavpackGetWrapperData (wpc);
+        char header_name [5];
+
+        strcpy (header_name, "????");
+
+        for (i = 0; i < 4 && i < header_bytes; ++i)
+            if (header_data [i] >= 0x20 && header_data [i] <= 0x7f)
+                header_name [i] = header_data [i];
 
         WavpackFreeWrapper (wpc);
         WavpackSeekTrailingWrapper (wpc);
         trailer_bytes = WavpackGetWrapperBytes (wpc);
+
+        fprintf (dst, "source format:     %s with '%s' extension\n",
+            file_formats [WavpackGetFileFormat (wpc)].format_name, WavpackGetFileExtension (wpc));
 
         if (header_bytes && trailer_bytes)
             fprintf (dst, "file wrapper:      %d + %d bytes (%s)\n",
