@@ -338,7 +338,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     if (caf_channel_layout->mChannelLayoutTag == layouts [i].mChannelLayoutTag) {
                         config->channel_mask = layouts [i].mChannelBitmap;
                         channel_layout = layouts [i].mChannelLayoutTag;
-                        channel_reorder = layouts [i].mChannelReorder;
+                        channel_reorder = (unsigned char *) layouts [i].mChannelReorder;
 
                         if (channel_reorder)
                             config->qmode |= QMODE_REORDERED_CHANS;

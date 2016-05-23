@@ -69,11 +69,28 @@ static const char *version_warning = "\n"
 
 static const char *usage =
 #if defined (_WIN32)
-" Usage:   WVUNPACK [-options] infile[.wv]|- [outfile[.wav]|outpath|-]\n"
+" Usage:   WVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]\n"
 "             (infile may contain wildcards: ?,*)\n\n"
+"          Wildcard characters (?,*) may be included in the input filename.\n"
+"          Output format and extension come from the source and by default\n"
+"          a restoration of the entire file is performed (with headers and\n"
+"          trailers), however this can be overridden to one of the supported\n"
+"          formats listed below (which ignores the original headers).\n\n"
+" Formats: Microsoft RIFF:   'wav', force with -w, RF64 if over 4 GB\n"
+"          Apple Core Audio: 'caf', force with --caf-be or --caf-le\n"
+"          Sony Wave64:      'w64', force with --w64\n"
+"          Raw PCM:          'raw', force with -r, little-endian\n\n"
 #else
-" Usage:   WVUNPACK [-options] infile[.wv]|- [...] [-o outfile[.wav]|outpath|-]\n"
-"             (multiple input files are allowed)\n\n"
+" Usage:   WVUNPACK [-options] infile[.wv]|- [...] [-o outfile[.ext]|outpath|-]\n\n"
+"          Multiple input files may be specified. Output format and extension\n"
+"          come from the source and by default a restoration of the entire\n"
+"          original file is performed (with headers and trailers), however\n"
+"          this can be overridden to one of the supported formats listed below\n"
+"          (in which case the original headers and trailers are ignored).\n\n"
+" Formats: Microsoft RIFF:   'wav', force with -w, RF64 if over 4 GB\n"
+"          Apple Core Audio: 'caf', force with --caf-be or --caf-le\n"
+"          Sony Wave64:      'w64', force with --w64\n"
+"          Raw PCM:          'raw', force with -r, little-endian\n\n"
 #endif
 " Options: -b  = blindly decode all stream blocks & ignore length info\n"
 "          -c  = extract cuesheet only to stdout (no audio decode)\n"
@@ -109,8 +126,9 @@ static const char *usage =
 "               specifying a '-' causes sample/time to be relative to end of file)\n"
 "          -v  = verify source data only (no output file created)\n"
 "          --version = write the version to stdout\n"
-"          -w  = regenerate .wav header (ignore RIFF data in file)\n"
-"          --w64 = force extraction to Sony's Wave64 format (extension .w64)\n"
+"          -w  = force extraction to Microsoft RIFF/RF64 (extension .wav)\n"
+"                 ignoring any RIFF data in original file\n"
+"          --w64 = force extraction to Sony Wave64 format (extension .w64)\n"
 "          -x \"Field\" = extract specified tag field only to stdout (no audio decode)\n"
 "          -xx \"Field[=file]\" = extract specified tag field to file, optional\n"
 "              filename specification can inlude following replacement codes:\n"
@@ -145,7 +163,7 @@ static struct {
 
 int debug_logging_mode;
 
-static char overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info,
+static int overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info,
     summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, decode_format, format_specified, caf_be, set_console_title;
 
 static int num_files, file_index, outbuf_k;
@@ -1019,8 +1037,10 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     input_qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
     input_format = WavpackGetFileFormat (wpc);
 
-    if (raw_decode)
+    if (raw_decode) {
+        output_format = 0;
         output_qmode = 0;
+    }
     else if (format_specified) {
         if (decode_format == WP_FORMAT_CAF)
             output_qmode = QMODE_SIGNED_BYTES | (caf_be ? QMODE_BIG_ENDIAN : 0) | (input_qmode & QMODE_REORDERED_CHANS);
