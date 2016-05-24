@@ -252,21 +252,29 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 return WAVPACK_SOFT_ERROR;
             }
 
-            total_samples = data_chunk_size / WaveHeader.BlockAlign;
-
-            if (got_ds64 && total_samples != ds64_chunk.sampleCount64) {
-                error_line ("%s is not a valid .WAV file!", infilename);
-                return WAVPACK_SOFT_ERROR;
+            if (config->qmode & QMODE_IGNORE_LENGTH) {
+                if (infilesize && DoGetFilePosition (infile) != -1LL)
+                    total_samples = (infilesize - DoGetFilePosition (infile)) / WaveHeader.BlockAlign;
+                else
+                    total_samples = -1LL;
             }
+            else {
+                total_samples = data_chunk_size / WaveHeader.BlockAlign;
 
-            if (!total_samples && !(config->qmode & QMODE_IGNORE_LENGTH)) {
-                error_line ("this .WAV file has no audio samples, probably is corrupt!");
-                return WAVPACK_SOFT_ERROR;
-            }
+                if (got_ds64 && total_samples != ds64_chunk.sampleCount64) {
+                    error_line ("%s is not a valid .WAV file!", infilename);
+                    return WAVPACK_SOFT_ERROR;
+                }
 
-            if (total_samples >= 4294967295LL) {
-                error_line ("%s has too many samples for WavPack!", infilename);
-                return WAVPACK_SOFT_ERROR;
+                if (!total_samples) {
+                    error_line ("this .WAV file has no audio samples, probably is corrupt!");
+                    return WAVPACK_SOFT_ERROR;
+                }
+
+                if (total_samples >= 4294967295LL) {
+                    error_line ("%s has too many samples for WavPack!", infilename);
+                    return WAVPACK_SOFT_ERROR;
+                }
             }
 
             config->bytes_per_sample = WaveHeader.BlockAlign / WaveHeader.NumChannels;

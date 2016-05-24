@@ -358,31 +358,29 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             free (caf_channel_layout);
         }
         else if (!strncmp (caf_chunk_header.mChunkType, "data", 4)) {     // on the data chunk, get size and exit loop
-            int64_t data_chunk_size = caf_chunk_header.mChunkSize;
+            uint32_t mEditCount;
 
-            if (data_chunk_size == -1 || data_chunk_size >= 4) {
-                uint32_t mEditCount;
-
-                if (!DoReadFile (infile, &mEditCount, sizeof (mEditCount), &bcount) ||
-                    bcount != sizeof (mEditCount)) {
-                        error_line ("%s is not a valid .CAF file!", infilename);
-                        return WAVPACK_SOFT_ERROR;
-                }
-                else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                    !WavpackAddWrapper (wpc, &mEditCount, sizeof (mEditCount))) {
-                        error_line ("%s", WavpackGetErrorMessage (wpc));
-                        return WAVPACK_SOFT_ERROR;
-                }
-
-                WavpackBigEndianToNative (&mEditCount, "L");
+            if (!DoReadFile (infile, &mEditCount, sizeof (mEditCount), &bcount) ||
+                bcount != sizeof (mEditCount)) {
+                    error_line ("%s is not a valid .CAF file!", infilename);
+                    return WAVPACK_SOFT_ERROR;
+            }
+            else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
+                !WavpackAddWrapper (wpc, &mEditCount, sizeof (mEditCount))) {
+                    error_line ("%s", WavpackGetErrorMessage (wpc));
+                    return WAVPACK_SOFT_ERROR;
             }
 
-            if (data_chunk_size == -1) {
+            if ((config->qmode & QMODE_IGNORE_LENGTH) || caf_chunk_header.mChunkSize == -1) {
                 config->qmode |= QMODE_IGNORE_LENGTH;
-                total_samples = -1;
+
+                if (infilesize && DoGetFilePosition (infile) != -1LL)
+                    total_samples = (infilesize - DoGetFilePosition (infile)) / caf_audio_format.mBytesPerPacket;
+                else
+                    total_samples = -1;
             }
             else {
-                if (infilesize && !(config->qmode & QMODE_IGNORE_LENGTH) && infilesize - caf_chunk_header.mChunkSize > 16777216) {
+                if (infilesize && infilesize - caf_chunk_header.mChunkSize > 16777216) {
                     error_line (".CAF file %s has over 16 MB of extra CAFF data, probably is corrupt!", infilename);
                     return WAVPACK_SOFT_ERROR;
                 }
@@ -394,7 +392,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
 
                 total_samples = (uint32_t) ((caf_chunk_header.mChunkSize - 4) / caf_audio_format.mBytesPerPacket);
 
-                if (!total_samples && !(config->qmode & QMODE_IGNORE_LENGTH)) {
+                if (!total_samples) {
                     error_line ("this .CAF file has no audio samples, probably is corrupt!");
                     return WAVPACK_SOFT_ERROR;
                 }

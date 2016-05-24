@@ -73,9 +73,10 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 #if 1   // this might be a little too picky...
     WavpackLittleEndianToNative (&filehdr, Wave64ChunkHeaderFormat);
 
-    if (infilesize && filehdr.ckSize != infilesize) {
-        error_line ("%s is not a valid .W64 file!", infilename);
-        return WAVPACK_SOFT_ERROR;
+    if (infilesize && !(config->qmode & QMODE_IGNORE_LENGTH) &&
+        filehdr.ckSize && filehdr.ckSize + 1 && filehdr.ckSize != infilesize) {
+            error_line ("%s is not a valid .W64 file!", infilename);
+            return WAVPACK_SOFT_ERROR;
     }
 #endif
 
@@ -201,23 +202,31 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
         }
         else if (!memcmp (chunk_header.ckID, data_guid, sizeof (data_guid))) { // on the data chunk, get size and exit loop
 
-            int64_t data_chunk_size = chunk_header.ckSize;
-
             if (!WaveHeader.NumChannels) {          // make sure we saw "fmt" chunk
                 error_line ("%s is not a valid .W64 file!", infilename);
                 return WAVPACK_SOFT_ERROR;
             }
 
-            if (infilesize && !(config->qmode & QMODE_IGNORE_LENGTH) && infilesize - data_chunk_size > 16777216) {
-                error_line ("this .W64 file has over 16 MB of extra RIFF data, probably is corrupt!");
-                return WAVPACK_SOFT_ERROR;
+            if ((config->qmode & QMODE_IGNORE_LENGTH) || chunk_header.ckSize <= 0) {
+                config->qmode |= QMODE_IGNORE_LENGTH;
+
+                if (infilesize && DoGetFilePosition (infile) != -1LL)
+                    total_samples = (infilesize - DoGetFilePosition (infile)) / WaveHeader.BlockAlign;
+                else
+                    total_samples = -1;
             }
+            else {
+                if (infilesize && infilesize - chunk_header.ckSize > 16777216) {
+                    error_line ("this .W64 file has over 16 MB of extra RIFF data, probably is corrupt!");
+                    return WAVPACK_SOFT_ERROR;
+                }
 
-            total_samples = data_chunk_size / WaveHeader.BlockAlign;
+                total_samples = chunk_header.ckSize / WaveHeader.BlockAlign;
 
-            if (!total_samples && !(config->qmode & QMODE_IGNORE_LENGTH)) {
-                error_line ("this .W64 file has no audio samples, probably is corrupt!");
-                return WAVPACK_SOFT_ERROR;
+                if (!total_samples) {
+                    error_line ("this .W64 file has no audio samples, probably is corrupt!");
+                    return WAVPACK_SOFT_ERROR;
+                }
             }
 
             if (total_samples >= 4294967295LL) {

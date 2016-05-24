@@ -151,9 +151,9 @@ static struct {
     char *default_extension, *format_name;
     int (* WriteHeader) (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
 } file_formats [] = {
-    { "wav", "Microsoft RIFF",  WriteRiffHeader },
-    { "w64", "Sony Wave64",     WriteWave64Header },
-    { "caf", "Apple CoreAudio", WriteCaffHeader }
+    { "wav", "Microsoft RIFF",   WriteRiffHeader },
+    { "w64", "Sony Wave64",      WriteWave64Header },
+    { "caf", "Apple Core Audio", WriteCaffHeader }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
