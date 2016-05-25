@@ -146,12 +146,12 @@ static struct {
 
 int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
 {
-    uint32_t total_samples = 0, chan_chunk = 0, channel_layout = 0, bcount;
+    uint32_t chan_chunk = 0, channel_layout = 0, bcount;
     const unsigned char *channel_reorder = NULL;
+    int64_t total_samples = 0, infilesize;
     CAFFileHeader caf_file_header;
     CAFChunkHeader caf_chunk_header;
     CAFAudioFormat caf_audio_format;
-    int64_t infilesize;
 
     infilesize = DoGetFileSize (infile);
 
@@ -390,10 +390,15 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     return WAVPACK_SOFT_ERROR;
                 }
 
-                total_samples = (uint32_t) ((caf_chunk_header.mChunkSize - 4) / caf_audio_format.mBytesPerPacket);
+                total_samples = (caf_chunk_header.mChunkSize - 4) / caf_audio_format.mBytesPerPacket;
 
                 if (!total_samples) {
                     error_line ("this .CAF file has no audio samples, probably is corrupt!");
+                    return WAVPACK_SOFT_ERROR;
+                }
+
+                if (total_samples >= 4294967295LL) {
+                    error_line ("%s has too many samples for WavPack!", infilename);
                     return WAVPACK_SOFT_ERROR;
                 }
             }
@@ -426,7 +431,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
     if (!chan_chunk && !config->channel_mask && config->num_channels <= 2 && !(config->qmode & QMODE_CHANS_UNASSIGNED))
         config->channel_mask = 0x5 - config->num_channels;
 
-    if (!WavpackSetConfiguration (wpc, config, total_samples)) {
+    if (!WavpackSetConfiguration (wpc, config, (uint32_t) total_samples)) {
         error_line ("%s", WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }

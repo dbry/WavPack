@@ -227,11 +227,11 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                     error_line ("this .W64 file has no audio samples, probably is corrupt!");
                     return WAVPACK_SOFT_ERROR;
                 }
-            }
 
-            if (total_samples >= 4294967295LL) {
-                error_line ("%s has too many samples for WavPack!", infilename);
-                return WAVPACK_SOFT_ERROR;
+                if (total_samples >= 4294967295LL) {
+                    error_line ("%s has too many samples for WavPack!", infilename);
+                    return WAVPACK_SOFT_ERROR;
+                }
             }
 
             config->bytes_per_sample = WaveHeader.BlockAlign / WaveHeader.NumChannels;

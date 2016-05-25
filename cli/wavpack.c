@@ -1688,8 +1688,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // handle case where the CAF header indicated a channel layout that requires reordering
 
     if (loc_config.qmode & QMODE_REORDERED_CHANS) {
-        uint32_t layout = WavpackGetChannelLayout (wpc, NULL);
-        int i;
+        int layout = WavpackGetChannelLayout (wpc, NULL), i;
 
         if ((layout & 0xff) <= loc_config.num_channels) {
             new_channel_order = malloc (loc_config.num_channels);
@@ -2799,8 +2798,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
         MD5Init (&md5_context);
 
         if (qmode & QMODE_REORDERED_CHANS) {
-            uint32_t layout = WavpackGetChannelLayout (infile, NULL);
-            int i;
+            int layout = WavpackGetChannelLayout (infile, NULL), i;
 
             if ((layout & 0xff) <= num_channels) {
                 new_channel_order = malloc (num_channels);
@@ -2993,8 +2991,7 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     temp_buffer = malloc (4096L * num_channels * 4);
 
     if (qmode & QMODE_REORDERED_CHANS) {
-        uint32_t layout = WavpackGetChannelLayout (wpc, NULL);
-        int i;
+        int layout = WavpackGetChannelLayout (wpc, NULL), i;
 
         if ((layout & 0xff) <= num_channels) {
             new_channel_order = malloc (num_channels);

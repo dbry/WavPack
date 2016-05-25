@@ -1050,8 +1050,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     }
 
     if (output_qmode & QMODE_REORDERED_CHANS) {
-        uint32_t layout = WavpackGetChannelLayout (wpc, NULL);
-        int i;
+        int layout = WavpackGetChannelLayout (wpc, NULL), i;
 
         if ((layout & 0xff) <= num_channels) {
             new_channel_order = malloc (num_channels);
