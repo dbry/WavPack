@@ -1095,7 +1095,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         }
         else {
             if (until.value_is_relative == 1)
-                until_samples_total = (uint32_t) until.value;
+                until_samples_total = (uint32_t) until_sample_index;
             else if ((uint32_t) until_sample_index > skip_sample_index)
                 until_samples_total = (uint32_t) until_sample_index - skip_sample_index;
             else
