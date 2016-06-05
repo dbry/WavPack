@@ -253,10 +253,10 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             }
 
             if (config->qmode & QMODE_IGNORE_LENGTH) {
-                if (infilesize && DoGetFilePosition (infile) != -1LL)
+                if (infilesize && DoGetFilePosition (infile) != -1)
                     total_samples = (infilesize - DoGetFilePosition (infile)) / WaveHeader.BlockAlign;
                 else
-                    total_samples = -1LL;
+                    total_samples = -1;
             }
             else {
                 total_samples = data_chunk_size / WaveHeader.BlockAlign;
@@ -271,7 +271,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     return WAVPACK_SOFT_ERROR;
                 }
 
-                if (total_samples >= 4294967295LL) {
+                if (total_samples > MAX_WAVPACK_SAMPLES) {
                     error_line ("%s has too many samples for WavPack!", infilename);
                     return WAVPACK_SOFT_ERROR;
                 }
@@ -305,7 +305,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         }
     }
 
-    if (!WavpackSetConfiguration (wpc, config, (uint32_t) total_samples)) {
+    if (!WavpackSetConfiguration64 (wpc, config, total_samples)) {
         error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }
@@ -313,7 +313,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
     return WAVPACK_NO_ERROR;
 }
 
-int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode)
+int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode)
 {
     int do_rf64 = 0, write_junk = 1;
     ChunkHeader ds64hdr, datahdr, fmthdr;
@@ -337,10 +337,10 @@ int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples,
         return FALSE;
     }
 
-    if (total_samples == (uint32_t) -1)
+    if (total_samples == -1)
         total_samples = 0x7ffff000 / (bytes_per_sample * num_channels);
 
-    total_data_bytes = (int64_t) total_samples * bytes_per_sample * num_channels;
+    total_data_bytes = total_samples * bytes_per_sample * num_channels;
 
     if (total_data_bytes > 0xff000000) {
         if (debug_logging_mode)

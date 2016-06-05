@@ -1456,13 +1456,12 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     }
 
     if (loc_config.qmode & QMODE_RAW_PCM) {
-        int64_t infilesize = DoGetFileSize (infile);
-        uint32_t total_samples;
+        int64_t infilesize = DoGetFileSize (infile), total_samples;
 
         if (infilesize) {
             int sample_size = loc_config.bytes_per_sample * loc_config.num_channels;
 
-            total_samples = (int) (infilesize / sample_size);
+            total_samples = infilesize / sample_size;
 
             if (infilesize % sample_size)
                 error_line ("warning: raw pcm infile length does not divide evenly, %d bytes will be discarded",
@@ -1480,7 +1479,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 loc_config.channel_mask = 0x3ffff;
         }
 
-        if (!WavpackSetConfiguration (wpc, &loc_config, total_samples)) {
+        if (!WavpackSetConfiguration64 (wpc, &loc_config, total_samples)) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             DoCloseHandle (infile);
             WavpackCloseFile (wpc);
@@ -1813,7 +1812,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // the only case is if we're ignoring length or reading raw pcm data; otherwise
     // it's an error.
 
-    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples (wpc) != WavpackGetSampleIndex (wpc)) {
+    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples64 (wpc) != WavpackGetSampleIndex64 (wpc)) {
         if (loc_config.qmode & (QMODE_RAW_PCM | QMODE_IGNORE_LENGTH)) {
             char *block_buff = malloc (wv_file.first_block_size);
 
@@ -1990,7 +1989,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         sum = WavpackGetEncodedNoise (wpc, &peak);
 
         error_line ("ave noise = %.2f dB, peak noise = %.2f dB",
-            log10 (sum / WavpackGetNumSamples (wpc) / full_scale_rms) * 10,
+            log10 (sum / WavpackGetNumSamples64 (wpc) / full_scale_rms) * 10,
             log10 (peak / full_scale_rms) * 10);
     }
 
@@ -2055,7 +2054,7 @@ static void unreorder_channels (int32_t *data, unsigned char *order, int num_cha
 
 static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source)
 {
-    uint32_t samples_remaining, input_samples = INPUT_SAMPLES, samples_read = 0;
+    int64_t samples_remaining, input_samples = INPUT_SAMPLES, samples_read = 0;
     double progress = -1.0;
     int bytes_per_sample;
     int32_t *sample_buffer;
@@ -2076,7 +2075,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
     bytes_per_sample = WavpackGetBytesPerSample (wpc) * WavpackGetNumChannels (wpc);
     input_buffer = malloc (input_samples * bytes_per_sample);
     sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc));
-    samples_remaining = WavpackGetNumSamples (wpc);
+    samples_remaining = WavpackGetNumSamples64 (wpc);
 
     if (quantize_bits && quantize_bits < WavpackGetBytesPerSample (wpc) * 8) {
         quantize_bit_mask = ~((1<<(WavpackGetBytesPerSample (wpc)*8-quantize_bits))-1);
@@ -2212,7 +2211,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     WavpackContext *infile, *outfile;
     int flags = OPEN_WVC | OPEN_TAGS;
     write_id wv_file, wvc_file;
-    uint32_t total_samples = 0;
+    int64_t total_samples = 0;
     char error [80];
     double dtime;
     int result;
@@ -2248,9 +2247,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         return WAVPACK_SOFT_ERROR;
     }
 
-    total_samples = WavpackGetNumSamples (infile);
+    total_samples = WavpackGetNumSamples64 (infile);
 
-    if (total_samples == (uint32_t) -1) {
+    if (total_samples == -1) {
         error_line ("can't transcode file %s of unknown length!", infilename);
         WavpackCloseFile (infile);
         return WAVPACK_SOFT_ERROR;
@@ -2429,7 +2428,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     if (input_mode & MODE_MD5)
         loc_config.flags |= CONFIG_MD5_CHECKSUM;
 
-    if (!WavpackSetConfiguration (outfile, &loc_config, total_samples)) {
+    if (!WavpackSetConfiguration64 (outfile, &loc_config, total_samples)) {
         error_line ("%s", WavpackGetErrorMessage (outfile));
         WavpackCloseFile (infile);
         DoCloseHandle (wv_file.file);
@@ -2475,7 +2474,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             result = WAVPACK_SOFT_ERROR;
         }
 
-        if (WavpackGetNumSamples (outfile) != total_samples) {
+        if (WavpackGetNumSamples64 (outfile) != total_samples) {
             error_line ("incorrect number of samples read from source file!");
             result = WAVPACK_SOFT_ERROR;
         }
@@ -2961,7 +2960,7 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 {
     int num_channels, bps, qmode, result = WAVPACK_NO_ERROR;
     unsigned char *new_channel_order = NULL;
-    uint32_t total_unpacked_samples = 0;
+    int64_t total_unpacked_samples = 0;
     unsigned char md5_digest_result [16];
     double progress = -1.0;
     int32_t *temp_buffer;
@@ -3082,15 +3081,15 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     // late in the decoding process (e.g., after the CRC).
 
     if (result == WAVPACK_NO_ERROR) {
-        if (WavpackGetNumSamples (wpc) != (uint32_t) -1) {
-            if (total_unpacked_samples < WavpackGetNumSamples (wpc)) {
-                error_line ("file is missing %u samples!",
-                    WavpackGetNumSamples (wpc) - total_unpacked_samples);
+        if (WavpackGetNumSamples64 (wpc) != -1) {
+            if (total_unpacked_samples < WavpackGetNumSamples64 (wpc)) {
+                error_line ("file is missing %llu samples!",
+                    WavpackGetNumSamples64 (wpc) - total_unpacked_samples);
                 result = WAVPACK_SOFT_ERROR;
             }
-            else if (total_unpacked_samples > WavpackGetNumSamples (wpc)) {
-                error_line ("file has %u extra samples!",
-                    total_unpacked_samples - WavpackGetNumSamples (wpc));
+            else if (total_unpacked_samples > WavpackGetNumSamples64 (wpc)) {
+                error_line ("file has %llu extra samples!",
+                    total_unpacked_samples - WavpackGetNumSamples64 (wpc));
                 result = WAVPACK_SOFT_ERROR;
             }
         }

@@ -154,12 +154,6 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
     CAFAudioFormat caf_audio_format;
 
     infilesize = DoGetFileSize (infile);
-
-    // if (infilesize >= 4294967296LL && !(config->qmode & QMODE_IGNORE_LENGTH)) {
-    //     error_line ("can't handle .CAF files larger than 4 GB (yet)!");
-    //     return WAVPACK_SOFT_ERROR;
-    // }
-
     memcpy (&caf_file_header, fourcc, 4);
 
     if ((!DoReadFile (infile, ((char *) &caf_file_header) + 4, sizeof (CAFFileHeader) - 4, &bcount) ||
@@ -374,7 +368,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             if ((config->qmode & QMODE_IGNORE_LENGTH) || caf_chunk_header.mChunkSize == -1) {
                 config->qmode |= QMODE_IGNORE_LENGTH;
 
-                if (infilesize && DoGetFilePosition (infile) != -1LL)
+                if (infilesize && DoGetFilePosition (infile) != -1)
                     total_samples = (infilesize - DoGetFilePosition (infile)) / caf_audio_format.mBytesPerPacket;
                 else
                     total_samples = -1;
@@ -397,7 +391,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     return WAVPACK_SOFT_ERROR;
                 }
 
-                if (total_samples >= 4294967295LL) {
+                if (total_samples > MAX_WAVPACK_SAMPLES) {
                     error_line ("%s has too many samples for WavPack!", infilename);
                     return WAVPACK_SOFT_ERROR;
                 }
@@ -431,7 +425,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
     if (!chan_chunk && !config->channel_mask && config->num_channels <= 2 && !(config->qmode & QMODE_CHANS_UNASSIGNED))
         config->channel_mask = 0x5 - config->num_channels;
 
-    if (!WavpackSetConfiguration (wpc, config, (uint32_t) total_samples)) {
+    if (!WavpackSetConfiguration64 (wpc, config, total_samples)) {
         error_line ("%s", WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }
@@ -444,7 +438,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
     return WAVPACK_NO_ERROR;
 }
 
-int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode)
+int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode)
 {
     CAFChunkHeader caf_desc_chunk_header, caf_chan_chunk_header, caf_data_chunk_header;
     CAFChannelLayout caf_channel_layout;
@@ -535,10 +529,10 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples,
 
     strncpy (caf_data_chunk_header.mChunkType, "data", sizeof (caf_data_chunk_header.mChunkType));
 
-    if (total_samples == (uint32_t) -1)
+    if (total_samples == -1)
         caf_data_chunk_header.mChunkSize = -1;
     else
-        caf_data_chunk_header.mChunkSize = ((uint64_t) total_samples * bytes_per_sample * num_channels) + sizeof (mEditCount);
+        caf_data_chunk_header.mChunkSize = (total_samples * bytes_per_sample * num_channels) + sizeof (mEditCount);
 
     WavpackNativeToBigEndian (&caf_data_chunk_header, CAFChunkHeaderFormat);
 

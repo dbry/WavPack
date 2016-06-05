@@ -245,6 +245,8 @@ typedef void WavpackContext;
 extern "C" {
 #endif
 
+#define MAX_WAVPACK_SAMPLES ((1LL << 40) - 257)
+
 WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);

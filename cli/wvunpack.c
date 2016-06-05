@@ -138,13 +138,13 @@ static const char *usage =
 #endif
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
-int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
-int WriteWave64Header (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
-int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
+int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
+int WriteWave64Header (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
+int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 
 static struct {
     char *default_extension, *format_name;
-    int (* WriteHeader) (FILE *outfile, WavpackContext *wpc, uint32_t total_samples, int qmode);
+    int (* WriteHeader) (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 } file_formats [] = {
     { "wav", "Microsoft RIFF",   WriteRiffHeader },
     { "w64", "Sony Wave64",      WriteWave64Header },
@@ -967,8 +967,8 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 {
     int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE, input_qmode, output_qmode, input_format, output_format;
     int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
-    uint32_t output_buffer_size = 0, bcount, total_unpacked_samples = 0;
-    uint32_t skip_sample_index = 0, until_samples_total = 0;
+    uint32_t output_buffer_size = 0, bcount;
+    int64_t skip_sample_index = 0, until_samples_total = 0, total_unpacked_samples = 0;
     unsigned char *output_buffer = NULL, *output_pointer = NULL;
     unsigned char *new_channel_order = NULL;
     double dtime, progress = -1.0;
@@ -1064,46 +1064,46 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     if (skip.value_is_valid) {
         if (skip.value_is_time)
-            skip_sample_index = (uint32_t) (skip.value * WavpackGetSampleRate (wpc));
+            skip_sample_index = skip.value * WavpackGetSampleRate (wpc);
         else
-            skip_sample_index = (uint32_t) skip.value;
+            skip_sample_index = skip.value;
 
-        if (skip_sample_index && !WavpackSeekSample (wpc, skip_sample_index)) {
+        if (skip_sample_index && !WavpackSeekSample64 (wpc, skip_sample_index)) {
             error_line ("can't seek to specified --skip point!");
             WavpackCloseFile (wpc);
             return WAVPACK_SOFT_ERROR;
         }
 
-        if (WavpackGetNumSamples (wpc) != (uint32_t) -1)
-            until_samples_total = WavpackGetNumSamples (wpc) - skip_sample_index;
+        if (WavpackGetNumSamples64 (wpc) != -1)
+            until_samples_total = WavpackGetNumSamples64 (wpc) - skip_sample_index;
     }
 
     if (until.value_is_valid) {
         double until_sample_index = until.value_is_time ? until.value * WavpackGetSampleRate (wpc) : until.value;
 
         if (until.value_is_relative == -1) {
-            if (WavpackGetNumSamples (wpc) == (uint32_t) -1) {
+            if (WavpackGetNumSamples64 (wpc) == -1) {
                 error_line ("can't use negative relative --until command with files of unknown length!");
                 WavpackCloseFile (wpc);
                 return WAVPACK_SOFT_ERROR;
             }
 
-            if ((uint32_t) until_sample_index + skip_sample_index < WavpackGetNumSamples (wpc))
-                until_samples_total = WavpackGetNumSamples (wpc) - (uint32_t) until_sample_index - skip_sample_index;
+            if (until_sample_index + skip_sample_index < WavpackGetNumSamples64 (wpc))
+                until_samples_total = WavpackGetNumSamples64 (wpc) - until_sample_index - skip_sample_index;
             else
                 until_samples_total = 0;
         }
         else {
             if (until.value_is_relative == 1)
-                until_samples_total = (uint32_t) until_sample_index;
-            else if ((uint32_t) until_sample_index > skip_sample_index)
-                until_samples_total = (uint32_t) until_sample_index - skip_sample_index;
+                until_samples_total = until_sample_index;
+            else if (until_sample_index > skip_sample_index)
+                until_samples_total = until_sample_index - skip_sample_index;
             else
                 until_samples_total = 0;
 
-            if (WavpackGetNumSamples (wpc) != (uint32_t) -1 &&
-                skip_sample_index + until_samples_total > WavpackGetNumSamples (wpc))
-                    until_samples_total = WavpackGetNumSamples (wpc) - skip_sample_index;
+            if (WavpackGetNumSamples64 (wpc) != -1 &&
+                skip_sample_index + until_samples_total > WavpackGetNumSamples64 (wpc))
+                    until_samples_total = WavpackGetNumSamples64 (wpc) - skip_sample_index;
         }
 
         if (!until_samples_total) {
@@ -1208,7 +1208,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
             WavpackFreeWrapper (wpc);
         }
-        else if (!file_formats [output_format].WriteHeader (outfile, wpc, WavpackGetNumSamples (wpc), output_qmode)) {
+        else if (!file_formats [output_format].WriteHeader (outfile, wpc, WavpackGetNumSamples64 (wpc), output_qmode)) {
             DoTruncateFile (outfile);
             result = WAVPACK_HARD_ERROR;
         }
@@ -1339,8 +1339,8 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     free (temp_buffer);
 
     if (result == WAVPACK_NO_ERROR && outfile && created_riff_header &&
-        (WavpackGetNumSamples (wpc) == (uint32_t) -1 ||
-         (until_samples_total ? until_samples_total : WavpackGetNumSamples (wpc)) != total_unpacked_samples)) {
+        (WavpackGetNumSamples64 (wpc) == -1 ||
+         (until_samples_total ? until_samples_total : WavpackGetNumSamples64 (wpc)) != total_unpacked_samples)) {
             if (*outfilename == '-' || DoSetFilePositionAbsolute (outfile, 0))
                 error_line ("can't update file header with actual size");
             else if (!file_formats [output_format].WriteHeader (outfile, wpc, total_unpacked_samples, output_qmode)) {
@@ -1396,15 +1396,15 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             error_line ("failure copying time stamp!");
 
     if (result == WAVPACK_NO_ERROR) {
-        if (!until_samples_total && WavpackGetNumSamples (wpc) != (uint32_t) -1) {
-            if (total_unpacked_samples < WavpackGetNumSamples (wpc)) {
-                error_line ("file is missing %u samples!",
-                    WavpackGetNumSamples (wpc) - total_unpacked_samples);
+        if (!until_samples_total && WavpackGetNumSamples64 (wpc) != -1) {
+            if (total_unpacked_samples < WavpackGetNumSamples64 (wpc)) {
+                error_line ("file is missing %llu samples!",
+                    WavpackGetNumSamples64 (wpc) - total_unpacked_samples);
                 result = WAVPACK_SOFT_ERROR;
             }
-            else if (total_unpacked_samples > WavpackGetNumSamples (wpc)) {
-                error_line ("file has %u extra samples!",
-                    total_unpacked_samples - WavpackGetNumSamples (wpc));
+            else if (total_unpacked_samples > WavpackGetNumSamples64 (wpc)) {
+                error_line ("file has %llu extra samples!",
+                    total_unpacked_samples - WavpackGetNumSamples64 (wpc));
                 result = WAVPACK_SOFT_ERROR;
             }
         }
@@ -1897,8 +1897,8 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
     fprintf (dst, "channels:          %d (%s)\n", num_channels, modes);
 
-    if (WavpackGetNumSamples (wpc) != (uint32_t) -1) {
-        double seconds = (double) WavpackGetNumSamples (wpc) / WavpackGetSampleRate (wpc);
+    if (WavpackGetNumSamples64 (wpc) != -1) {
+        double seconds = (double) WavpackGetNumSamples64 (wpc) / WavpackGetSampleRate (wpc);
         int minutes = (int) floor (seconds / 60.0);
         int hours = (int) floor (seconds / 3600.0);
 
@@ -1980,9 +1980,19 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         fprintf (dst, "source format:     %s with '%s' extension\n",
             file_formats [WavpackGetFileFormat (wpc)].format_name, WavpackGetFileExtension (wpc));
 
-        if (header_bytes && trailer_bytes)
-            fprintf (dst, "file wrapper:      %d + %d bytes (%s)\n",
-                header_bytes, trailer_bytes, header_name);
+        if (header_bytes && trailer_bytes) {
+            unsigned char *trailer_data = WavpackGetWrapperData (wpc);
+            char trailer_name [5];
+
+            strcpy (trailer_name, "????");
+
+            for (i = 0; i < 4 && i < trailer_bytes; ++i)
+                if (trailer_data [i] >= 0x20 && trailer_data [i] <= 0x7f)
+                    trailer_name [i] = trailer_data [i];
+
+            fprintf (dst, "file wrapper:      %d + %d bytes (%s, %s)\n",
+                header_bytes, trailer_bytes, header_name, trailer_name);
+        }
         else if (header_bytes)
             fprintf (dst, "file wrapper:      %d byte %s header\n",
                 header_bytes, header_name);
@@ -2109,8 +2119,8 @@ static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst)
     sprintf (str, "%d;%d;%s;%d;0x%x;", WavpackGetSampleRate (wpc), WavpackGetBitsPerSample (wpc),
         (WavpackGetMode (wpc) & MODE_FLOAT) ? "float" : "int", WavpackGetNumChannels (wpc), WavpackGetChannelMask (wpc));
 
-    if (WavpackGetNumSamples (wpc) != (uint32_t) -1)
-        sprintf (str + strlen (str), "%u;", WavpackGetNumSamples (wpc));
+    if (WavpackGetNumSamples64 (wpc) != -1)
+        sprintf (str + strlen (str), "%lld;", (long long int) WavpackGetNumSamples64 (wpc));
     else
         strcat (str, ";");
 

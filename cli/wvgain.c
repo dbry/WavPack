@@ -582,7 +582,7 @@ static void float_samples (float *dst, int32_t *src, uint32_t samcnt, float scal
 static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 {
     int result = WAVPACK_NO_ERROR, open_flags = 0, num_channels, wvc_mode;
-    uint32_t total_unpacked_samples = 0, window_samples;
+    int64_t total_unpacked_samples = 0, window_samples;
     double progress = -1.0;
     int32_t *temp_buffer;
     WavpackContext *wpc;
@@ -711,8 +711,8 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 
     free (temp_buffer);
 
-    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples (wpc) != (uint32_t) -1 &&
-        total_unpacked_samples != WavpackGetNumSamples (wpc)) {
+    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples64 (wpc) != -1 &&
+        total_unpacked_samples != WavpackGetNumSamples64 (wpc)) {
             error_line ("incorrect number of samples!");
             result = WAVPACK_SOFT_ERROR;
     }

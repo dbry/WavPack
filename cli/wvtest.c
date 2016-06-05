@@ -292,7 +292,7 @@ static int seeking_test (char *filename, uint32_t test_count)
 {
     char error [80];
     WavpackContext *wpc = WavpackOpenFileInput (filename, error, OPEN_WVC, 0);
-    uint32_t min_chunk_size = 256, total_samples, sample_count = 0;
+    int64_t min_chunk_size = 256, total_samples, sample_count = 0;
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
     int32_t *decoded_samples, num_chans, bps, test_index;
@@ -309,10 +309,10 @@ static int seeking_test (char *filename, uint32_t test_count)
     }
 
     num_chans = WavpackGetNumChannels (wpc);
-    total_samples = WavpackGetNumSamples (wpc);
+    total_samples = WavpackGetNumSamples64 (wpc);
     bps = WavpackGetBytesPerSample (wpc);
 
-    if (total_samples < 2 || total_samples == (uint32_t) -1) {
+    if (total_samples < 2 || total_samples == -1) {
         printf ("seeking_test(): can't determine file size!\n");
         return -1;
     }
@@ -330,7 +330,7 @@ static int seeking_test (char *filename, uint32_t test_count)
         decoded_samples = malloc (sizeof (int32_t) * chunk_samples * num_chans);
         chunked_md5 = malloc (total_chunks * 16);
 
-        if (!total_chunks || !decoded_samples) {
+        if (!chunked_md5 || !decoded_samples) {
             printf ("seeking_test(): can't allocate memory!\n");
             return -1;
         }
@@ -386,7 +386,7 @@ static int seeking_test (char *filename, uint32_t test_count)
                 sprintf (md5_string2 + (i * 2), "%02x", md5_initial [i]);
             }
 
-            printf ("stored/actual sample count: %u / %u\n", total_samples, sample_count);
+            printf ("stored/actual sample count: %lld / %lld\n", (long long int) total_samples, (long long int) sample_count);
             if (file_has_md5) printf ("stored md5: %s\n", md5_string1);
             printf ("actual md5: %s\n", md5_string2);
 
@@ -439,7 +439,7 @@ static int seeking_test (char *filename, uint32_t test_count)
 
             stop_chunk = start_chunk + num_chunks - 1;
 
-            if (!WavpackSeekSample (wpc, start_chunk * chunk_samples)) {
+            if (!WavpackSeekSample64 (wpc, (int64_t) start_chunk * chunk_samples)) {
                 printf ("seeking_test(): seek error!\n");
                 return -1;
             }
@@ -463,7 +463,7 @@ static int seeking_test (char *filename, uint32_t test_count)
                 MD5Final (md5_chunk, &md5_local);
 
                 if (memcmp (chunked_md5 + current_chunk * 16, md5_chunk, sizeof (md5_chunk))) {
-                    printf ("seeking_test(): seek+decode error!\n");
+                    printf ("seeking_test(): seek+decode error at %lld!\n", (long long int) current_chunk * chunk_samples);
                     return -1;
                 }
 
