@@ -122,12 +122,22 @@ char *WavpackGetErrorMessage (WavpackContext *wpc)
 
 uint32_t WavpackGetNumSamples (WavpackContext *wpc)
 {
-    return wpc ? wpc->total_samples : (uint32_t) -1;
+    return (uint32_t) WavpackGetNumSamples64 (wpc);
+}
+
+int64_t WavpackGetNumSamples64 (WavpackContext *wpc)
+{
+    return wpc ? wpc->total_samples : -1;
 }
 
 // Get the current sample index position, or -1 if unknown
 
 uint32_t WavpackGetSampleIndex (WavpackContext *wpc)
+{
+    return (uint32_t) WavpackGetSampleIndex64 (wpc);
+}
+
+int64_t WavpackGetSampleIndex64 (WavpackContext *wpc)
 {
     if (wpc) {
 #ifndef VER4_ONLY
@@ -141,7 +151,7 @@ uint32_t WavpackGetSampleIndex (WavpackContext *wpc)
 #endif
     }
 
-    return (uint32_t) -1;
+    return -1;
 }
 
 // Get the number of errors encountered so far
@@ -164,8 +174,8 @@ int WavpackLossyBlocks (WavpackContext *wpc)
 
 double WavpackGetProgress (WavpackContext *wpc)
 {
-    if (wpc && wpc->total_samples != (uint32_t) -1 && wpc->total_samples != 0)
-        return (double) WavpackGetSampleIndex (wpc) / wpc->total_samples;
+    if (wpc && wpc->total_samples != -1 && wpc->total_samples != 0)
+        return (double) WavpackGetSampleIndex64 (wpc) / wpc->total_samples;
     else
         return -1.0;
 }
@@ -189,7 +199,7 @@ int64_t WavpackGetFileSize64 (WavpackContext *wpc)
 
 double WavpackGetRatio (WavpackContext *wpc)
 {
-    if (wpc && wpc->total_samples != (uint32_t) -1 && wpc->filelen) {
+    if (wpc && wpc->total_samples != -1 && wpc->filelen) {
         double output_size = (double) wpc->total_samples * wpc->config.num_channels *
             wpc->config.bytes_per_sample;
         double input_size = (double) wpc->filelen + wpc->file2len;
@@ -207,7 +217,7 @@ double WavpackGetRatio (WavpackContext *wpc)
 
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc)
 {
-    if (wpc && wpc->total_samples != (uint32_t) -1 && wpc->filelen) {
+    if (wpc && wpc->total_samples != -1 && wpc->filelen) {
         double output_time = (double) wpc->total_samples / wpc->config.sample_rate;
         double input_size = (double) wpc->filelen + (count_wvc ? wpc->file2len : 0);
 

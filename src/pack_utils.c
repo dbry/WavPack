@@ -123,6 +123,11 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples)
 {
+    return WavpackSetConfiguration64 (wpc, config, total_samples == (uint32_t) -1 ? -1 : total_samples);
+}
+
+int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples)
+{
     uint32_t flags = (config->bytes_per_sample - 1), bps = 0, shift = 0;
     uint32_t chan_mask = config->channel_mask;
     int num_chans = config->num_channels;
@@ -228,7 +233,7 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
 
         memcpy (wps->wphdr.ckID, "wvpk", 4);
         wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
-        wps->wphdr.total_samples = wpc->total_samples;
+        SET_TOTAL_SAMPLES (wps->wphdr, wpc->total_samples);
         wps->wphdr.version = wpc->stream_version;
         wps->wphdr.flags = flags;
         wps->bits = bps;
@@ -363,7 +368,7 @@ int WavpackPackInit (WavpackContext *wpc)
 // WavpackOpenFileOutput(). A return of FALSE indicates an error.
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples);
-static int create_riff_header (WavpackContext *wpc, uint32_t total_samples, void *outbuffer);
+static int create_riff_header (WavpackContext *wpc, int64_t total_samples, void *outbuffer);
 
 int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count)
 {
@@ -582,7 +587,7 @@ typedef struct {
 
 #define DS64ChunkFormat "DDDL"
 
-static int create_riff_header (WavpackContext *wpc, uint32_t total_samples, void *outbuffer)
+static int create_riff_header (WavpackContext *wpc, int64_t total_samples, void *outbuffer)
 {
     int do_rf64 = 0, write_junk = 1;
     ChunkHeader ds64hdr, datahdr, fmthdr;
@@ -608,10 +613,10 @@ static int create_riff_header (WavpackContext *wpc, uint32_t total_samples, void
         return FALSE;
     }
 
-    if (total_samples == (uint32_t) -1)
+    if (total_samples == -1)
         total_samples = 0x7ffff000 / (bytes_per_sample * num_channels);
 
-    total_data_bytes = (int64_t) total_samples * bytes_per_sample * num_channels;
+    total_data_bytes = total_samples * bytes_per_sample * num_channels;
 
     if (total_data_bytes > 0xff000000) {
         write_junk = 0;
@@ -723,7 +728,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         flags &= ~MAG_MASK;
         flags += (1 << MAG_LSB) * ((flags & BYTES_STORED) * 8 + 7);
 
-        wps->wphdr.block_index = wps->sample_index;
+        SET_BLOCK_INDEX (wps->wphdr, wps->sample_index);
         wps->wphdr.block_samples = block_samples;
         wps->wphdr.flags = flags;
         wps->block2buff = out2buff;
@@ -795,6 +800,7 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
 
     WavpackLittleEndianToNative (first_block, WavpackHeaderFormat);
     ((WavpackHeader *) first_block)->total_samples = WavpackGetSampleIndex (wpc);
+    SET_TOTAL_SAMPLES (* (WavpackHeader *) first_block, WavpackGetSampleIndex (wpc));
 
     if (wpc->riff_header_created && WavpackGetWrapperLocation (first_block, &wrapper_size)) {
         unsigned char riff_header [128];
@@ -1018,7 +1024,7 @@ static int write_metadata_block (WavpackContext *wpc)
 
         CLEAR (*wphdr);
         memcpy (wphdr->ckID, "wvpk", 4);
-        wphdr->total_samples = wpc->total_samples;
+        SET_TOTAL_SAMPLES (*wphdr, wpc->total_samples);
         wphdr->version = wpc->stream_version;
         wphdr->ckSize = block_size - 8;
         wphdr->block_samples = 0;

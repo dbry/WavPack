@@ -282,10 +282,13 @@ char *WavpackGetFileExtension (WavpackContext *wpc);
 unsigned char WavpackGetFileFormat (WavpackContext *wpc);
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
 uint32_t WavpackGetNumSamples (WavpackContext *wpc);
+int64_t WavpackGetNumSamples64 (WavpackContext *wpc);
 uint32_t WavpackGetSampleIndex (WavpackContext *wpc);
+int64_t WavpackGetSampleIndex64 (WavpackContext *wpc);
 int WavpackGetNumErrors (WavpackContext *wpc);
 int WavpackLossyBlocks (WavpackContext *wpc);
 int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
+int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample);
 WavpackContext *WavpackCloseFile (WavpackContext *wpc);
 uint32_t WavpackGetSampleRate (WavpackContext *wpc);
 int WavpackGetBitsPerSample (WavpackContext *wpc);
@@ -325,6 +328,7 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 #define WP_FORMAT_CAF   2       // Apple CoreAudio
 
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
+int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples);
 int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder);
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
 int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);

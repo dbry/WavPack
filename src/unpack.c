@@ -82,11 +82,11 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 
     // don't attempt to decode past the end of the block, but watch out for overflow!
 
-    if (wps->sample_index + sample_count > wps->wphdr.block_index + wps->wphdr.block_samples &&
-        wps->wphdr.block_index + wps->wphdr.block_samples - wps->sample_index < sample_count)
-            sample_count = wps->wphdr.block_index + wps->wphdr.block_samples - wps->sample_index;
+    if (wps->sample_index + sample_count > GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples &&
+        GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index < sample_count)
+            sample_count = GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index;
 
-    if (wps->wphdr.block_index > wps->sample_index || wps->wphdr.block_samples < sample_count)
+    if (GET_BLOCK_INDEX (wps->wphdr) > wps->sample_index || wps->wphdr.block_samples < sample_count)
         wps->mute_error = TRUE;
 
     if (wps->mute_error) {

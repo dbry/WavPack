@@ -20,7 +20,7 @@
 
 ///////////////////////////// executable code ////////////////////////////////
 
-static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, uint32_t sample);
+static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, int64_t sample);
 
 // Seek to the specifed sample index, returning TRUE on success. Note that
 // files generated with version 4.0 or newer will seek almost immediately.
@@ -32,11 +32,16 @@ static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_po
 
 int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
 {
+    return WavpackSeekSample64 (wpc, sample);
+}
+
+int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
+{
     WavpackStream *wps = wpc->streams ? wpc->streams [wpc->current_stream = 0] : NULL;
     uint32_t bcount, samples_to_skip;
     int32_t *buffer;
 
-    if (wpc->total_samples == (uint32_t) -1 || sample >= wpc->total_samples ||
+    if (wpc->total_samples == -1 || sample >= wpc->total_samples ||
         !wpc->reader->can_seek (wpc->wv_in) || (wpc->open_flags & OPEN_STREAMING) ||
         (wpc->wvc_flag && !wpc->reader->can_seek (wpc->wvc_in)))
             return FALSE;
@@ -46,8 +51,8 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
         return seek_sample3 (wpc, sample);
 #endif
 
-    if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) || sample < wps->wphdr.block_index ||
-        sample >= wps->wphdr.block_index + wps->wphdr.block_samples) {
+    if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) || sample < GET_BLOCK_INDEX (wps->wphdr) ||
+        sample >= GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples) {
 
             free_streams (wpc);
             wpc->filepos = find_sample (wpc, wpc->wv_in, wpc->filepos, sample);
@@ -67,7 +72,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
         wpc->reader->set_pos_abs (wpc->wv_in, wpc->filepos);
         wpc->reader->read_bytes (wpc->wv_in, &wps->wphdr, sizeof (WavpackHeader));
         WavpackLittleEndianToNative (&wps->wphdr, WavpackHeaderFormat);
-        wps->wphdr.block_index -= wpc->initial_index;
+        SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
         wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
         memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
@@ -83,7 +88,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
             wpc->reader->set_pos_abs (wpc->wvc_in, wpc->file2pos);
             wpc->reader->read_bytes (wpc->wvc_in, &wps->wphdr, sizeof (WavpackHeader));
             WavpackLittleEndianToNative (&wps->wphdr, WavpackHeaderFormat);
-            wps->wphdr.block_index -= wpc->initial_index;
+            SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
             wps->block2buff = malloc (wps->wphdr.ckSize + 8);
             memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
 
@@ -246,7 +251,7 @@ static int64_t find_header (WavpackStreamReader64 *reader, void *id, int64_t fil
 // or below that point. If a .wvc file is being used, then this must be called
 // for that file also.
 
-static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, uint32_t sample)
+static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, int64_t sample)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     int64_t file_pos1 = 0, file_pos2 = wpc->reader->get_length (infile);
@@ -258,12 +263,12 @@ static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_po
         return -1;
 
     if (header_pos && wps->wphdr.block_samples) {
-        if (wps->wphdr.block_index > sample) {
-            sample_pos2 = wps->wphdr.block_index;
+        if (GET_BLOCK_INDEX (wps->wphdr) > sample) {
+            sample_pos2 = GET_BLOCK_INDEX (wps->wphdr);
             file_pos2 = header_pos;
         }
-        else if (wps->wphdr.block_index + wps->wphdr.block_samples <= sample) {
-            sample_pos1 = wps->wphdr.block_index;
+        else if (GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples <= sample) {
+            sample_pos1 = GET_BLOCK_INDEX (wps->wphdr);
             file_pos1 = header_pos;
         }
         else
@@ -281,7 +286,7 @@ static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_po
         seek_pos = find_header (wpc->reader, infile, seek_pos, &wps->wphdr);
 
         if (seek_pos != (int64_t) -1)
-            wps->wphdr.block_index -= wpc->initial_index;
+            SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
 
         if (seek_pos == (int64_t) -1 || seek_pos >= file_pos2) {
             if (ratio > 0.0) {
@@ -291,16 +296,16 @@ static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_po
             else
                 return -1;
         }
-        else if (wps->wphdr.block_index > sample) {
-            sample_pos2 = wps->wphdr.block_index;
+        else if (GET_BLOCK_INDEX (wps->wphdr) > sample) {
+            sample_pos2 = GET_BLOCK_INDEX (wps->wphdr);
             file_pos2 = seek_pos;
         }
-        else if (wps->wphdr.block_index + wps->wphdr.block_samples <= sample) {
+        else if (GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples <= sample) {
 
             if (seek_pos == file_pos1)
                 file_skip = 1;
             else {
-                sample_pos1 = wps->wphdr.block_index;
+                sample_pos1 = GET_BLOCK_INDEX (wps->wphdr);
                 file_pos1 = seek_pos;
             }
         }

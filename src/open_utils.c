@@ -29,7 +29,7 @@
 // function which handles the correction file transparently, in this case it
 // is the responsibility of the caller to be aware of correction files.
 
-static uint32_t seek_final_index (WavpackStreamReader64 *reader, void *id);
+static int64_t seek_final_index (WavpackStreamReader64 *reader, void *id);
 
 WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
@@ -48,7 +48,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
     wpc->wv_in = wv_id;
     wpc->wvc_in = wvc_id;
     wpc->reader = reader;
-    wpc->total_samples = (uint32_t) -1;
+    wpc->total_samples = -1;
     wpc->norm_offset = norm_offset;
     wpc->max_streams = OLD_MAX_STREAMS;     // use this until overwritten with actual number
     wpc->open_flags = flags;
@@ -119,22 +119,22 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         wps->init_done = FALSE;
 
         if (wps->wphdr.block_samples && !(flags & OPEN_STREAMING)) {
-            if (wps->wphdr.block_index || wps->wphdr.total_samples == (uint32_t) -1) {
-                wpc->initial_index = wps->wphdr.block_index;
-                wps->wphdr.block_index = 0;
+            if (GET_BLOCK_INDEX (wps->wphdr) || GET_TOTAL_SAMPLES (wps->wphdr) == -1) {
+                wpc->initial_index = GET_BLOCK_INDEX (wps->wphdr);
+                SET_BLOCK_INDEX (wps->wphdr, 0);
 
                 if (wpc->reader->can_seek (wpc->wv_in)) {
                     int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
-                    uint32_t final_index = seek_final_index (wpc->reader, wpc->wv_in);
+                    int64_t final_index = seek_final_index (wpc->reader, wpc->wv_in);
 
-                    if (final_index != (uint32_t) -1)
+                    if (final_index != -1)
                         wpc->total_samples = final_index - wpc->initial_index;
 
                     wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
                 }
             }
             else
-                wpc->total_samples = wps->wphdr.total_samples;
+                wpc->total_samples = GET_TOTAL_SAMPLES (wps->wphdr);
         }
 
         if (wpc->wvc_in && wps->wphdr.block_samples && (wps->wphdr.flags & HYBRID_FLAG)) {
@@ -230,9 +230,10 @@ char *WavpackGetFileExtension (WavpackContext *wpc)
 // pointer undefined. A return value of -1 indicates the length could not
 // be determined.
 
-static uint32_t seek_final_index (WavpackStreamReader64 *reader, void *id)
+static int64_t seek_final_index (WavpackStreamReader64 *reader, void *id)
 {
-    uint32_t result = (uint32_t) -1, bcount;
+    int64_t result = -1;
+    uint32_t bcount;
     WavpackHeader wphdr;
     unsigned char *tempbuff;
 
@@ -260,7 +261,7 @@ static uint32_t seek_final_index (WavpackStreamReader64 *reader, void *id)
         free (tempbuff);
 
         if (wphdr.block_samples && (wphdr.flags & FINAL_BLOCK))
-            result = wphdr.block_index + wphdr.block_samples;
+            result = GET_BLOCK_INDEX (wphdr) + wphdr.block_samples;
     }
 }
 
@@ -341,7 +342,7 @@ int unpack_init (WavpackContext *wpc)
     }
 
     if (wps->wphdr.block_samples)
-        wps->sample_index = wps->wphdr.block_index;
+        wps->sample_index = GET_BLOCK_INDEX (wps->wphdr);
 
     return TRUE;
 }
@@ -885,7 +886,7 @@ uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeade
 
 static int match_wvc_header (WavpackHeader *wv_hdr, WavpackHeader *wvc_hdr)
 {
-    if (wv_hdr->block_index == wvc_hdr->block_index &&
+    if (GET_BLOCK_INDEX (*wv_hdr) == GET_BLOCK_INDEX (*wvc_hdr) &&
         wv_hdr->block_samples == wvc_hdr->block_samples) {
             int wvi = 0, wvci = 0;
 
@@ -907,7 +908,7 @@ static int match_wvc_header (WavpackHeader *wv_hdr, WavpackHeader *wvc_hdr)
             return (wvci - wvi < 0) ? 1 : -1;
         }
 
-    if ((int32_t)(wvc_hdr->block_index - wv_hdr->block_index) < 0)
+    if (GET_BLOCK_INDEX (*wvc_hdr) > GET_BLOCK_INDEX (*wv_hdr))
         return 1;
     else
         return -1;
@@ -939,9 +940,9 @@ int read_wvc_block (WavpackContext *wpc)
         }
 
         if (wpc->open_flags & OPEN_STREAMING)
-            wphdr.block_index = wps->sample_index = 0;
+            SET_BLOCK_INDEX (wphdr, wps->sample_index = 0);
         else
-            wphdr.block_index -= wpc->initial_index;
+            SET_BLOCK_INDEX (wphdr, GET_BLOCK_INDEX (wphdr) - wpc->initial_index);
 
         if (wphdr.flags & INITIAL_BLOCK)
             wpc->file2pos = file2pos + bcount;

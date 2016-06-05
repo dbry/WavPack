@@ -134,11 +134,41 @@ typedef struct {
     char ckID [4];
     uint32_t ckSize;
     int16_t version;
-    unsigned char track_no, index_no;
+    unsigned char block_index_u8;
+    unsigned char total_samples_u8;
     uint32_t total_samples, block_index, block_samples, flags, crc;
 } WavpackHeader;
 
 #define WavpackHeaderFormat "4LS2LLLLL"
+
+// Macros to access the 40-bit block_index field
+
+#define GET_BLOCK_INDEX(hdr) ( (int64_t) (hdr).block_index + ((int64_t) (hdr).block_index_u8 << 32) )
+
+#define SET_BLOCK_INDEX(hdr,value) do { \
+    int64_t tmp = (value);              \
+    (hdr).block_index = (uint32_t) tmp; \
+    (hdr).block_index_u8 =              \
+        (unsigned char) (tmp >> 32);    \
+} while (0)
+
+// Macros to access the 40-bit total_samples field, which is complicated by the fact that
+// all 1's in the lower 32 bits indicates "unknown" (regardless of upper 8 bits)
+
+#define GET_TOTAL_SAMPLES(hdr) ( ((hdr).total_samples == (uint32_t) -1) ? -1 : \
+    (int64_t) (hdr).total_samples + ((int64_t) (hdr).total_samples_u8 << 32) - (hdr).total_samples_u8 )
+
+#define SET_TOTAL_SAMPLES(hdr,value) do {       \
+    int64_t tmp = (value);                      \
+    if (tmp < 0)                                \
+        (hdr).total_samples = (uint32_t) -1;    \
+    else {                                      \
+        tmp += (tmp / 0xffffffffLL);            \
+        (hdr).total_samples = (uint32_t) tmp;   \
+        (hdr).total_samples_u8 =                \
+            (unsigned char) (tmp >> 32);        \
+    }                                           \
+} while (0)
 
 // or-values for "flags"
 
@@ -353,9 +383,10 @@ typedef struct {
     unsigned char *block2buff, *block2end;
     int32_t *sample_buffer;
 
+    int64_t sample_index;
     int bits, num_terms, mute_error, joint_stereo, false_stereo, shift;
     int num_decorrs, num_passes, best_decorr, mask_decorr;
-    uint32_t sample_index, crc, crc_x, crc_wvx;
+    uint32_t crc, crc_x, crc_wvx;
     Bitstream wvbits, wvcbits, wvxbits;
     int init_done, wvc_skip;
     float delta_decay;
@@ -436,10 +467,10 @@ typedef struct {
     WavpackStreamReader64 *reader;
     void *wv_in, *wvc_in;
 
-    uint64_t filelen, file2len, filepos, file2pos;
-    uint32_t total_samples, crc_errors, first_flags;
+    int64_t filelen, file2len, filepos, file2pos, total_samples, initial_index;
+    uint32_t crc_errors, first_flags;
     int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, version_five;
-    uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, initial_index, riff_trailer_bytes;
+    uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, riff_trailer_bytes;
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
 
@@ -741,6 +772,7 @@ int WavpackGetMode (WavpackContext *wpc);
 int WavpackGetVersion (WavpackContext *wpc);
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
 int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
+int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample);
 int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 
 uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr);
@@ -751,6 +783,7 @@ int read_wvc_block (WavpackContext *wpc);
 
 WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
+int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples);
 int WavpackPackInit (WavpackContext *wpc);
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
 int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);
@@ -774,7 +807,9 @@ int WavpackGetChannelMask (WavpackContext *wpc);
 int WavpackGetReducedChannels (WavpackContext *wpc);
 int WavpackGetFloatNormExp (WavpackContext *wpc);
 uint32_t WavpackGetNumSamples (WavpackContext *wpc);
+int64_t WavpackGetNumSamples64 (WavpackContext *wpc);
 uint32_t WavpackGetSampleIndex (WavpackContext *wpc);
+int64_t WavpackGetSampleIndex64 (WavpackContext *wpc);
 char *WavpackGetErrorMessage (WavpackContext *wpc);
 int WavpackGetNumErrors (WavpackContext *wpc);
 int WavpackLossyBlocks (WavpackContext *wpc);
