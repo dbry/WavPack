@@ -147,11 +147,12 @@ static struct {
 int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
 {
     uint32_t chan_chunk = 0, channel_layout = 0, bcount;
-    const unsigned char *channel_reorder = NULL;
+    unsigned char *channel_reorder = NULL;
     int64_t total_samples = 0, infilesize;
     CAFFileHeader caf_file_header;
     CAFChunkHeader caf_chunk_header;
     CAFAudioFormat caf_audio_format;
+    int i;
 
     infilesize = DoGetFileSize (infile);
     memcpy (&caf_file_header, fourcc, 4);
@@ -291,62 +292,124 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 return WAVPACK_SOFT_ERROR;
             }
 
-            if (caf_channel_layout->mChannelLayoutTag == kCAFChannelLayoutTag_UseChannelDescriptions) {
-                CAFChannelDescription *descriptions = (CAFChannelDescription *) (caf_channel_layout + 1);
-                int num_descriptions = caf_channel_layout->mNumberChannelDescriptions;
-                int last_label = 0, label, i;
+            switch (caf_channel_layout->mChannelLayoutTag) {
+                case kCAFChannelLayoutTag_UseChannelDescriptions:
+                    {
+                        CAFChannelDescription *descriptions = (CAFChannelDescription *) (caf_channel_layout + 1);
+                        int num_descriptions = caf_channel_layout->mNumberChannelDescriptions;
+                        int label, cindex = 0;
 
-                if (caf_chunk_header.mChunkSize != sizeof (CAFChannelLayout) + sizeof (CAFChannelDescription) * num_descriptions) {
-                    error_line ("channel descriptions in 'chan' chunk are the wrong size!");
-                    free (caf_channel_layout);
-                    return WAVPACK_SOFT_ERROR;
-                }
+                        if (caf_chunk_header.mChunkSize != sizeof (CAFChannelLayout) + sizeof (CAFChannelDescription) * num_descriptions ||
+                            num_descriptions != config->num_channels) {
+                                error_line ("channel descriptions in 'chan' chunk are the wrong size!");
+                                free (caf_channel_layout);
+                                return WAVPACK_SOFT_ERROR;
+                        }
 
-                for (i = 0; i < num_descriptions; ++i) {
-                    WavpackBigEndianToNative (descriptions + i, CAFChannelDescriptionFormat);
-                    label = descriptions [i].mChannelLabel;
+                        if (num_descriptions >= 256) {
+                            error_line ("%d channel descriptions is more than we can handle...ignoring!");
+                            break;
+                        }
 
-                    if (label > last_label && label <= 18 && !(config->channel_mask & (1 << (label - 1)))) {
-                        config->channel_mask |= 1 << (label - 1);
-                        last_label = label;
+                        // we allocate (and initialize to invalid values) a channel reorder array
+                        // (even though we might not end up doing any reordering)
+
+                        channel_reorder = malloc (num_descriptions);
+                        memset (channel_reorder, -1, num_descriptions);
+
+                        // convert the descriptions array to our native endian so it's easy to access
+
+                        for (i = 0; i < num_descriptions; ++i) {
+                            WavpackBigEndianToNative (descriptions + i, CAFChannelDescriptionFormat);
+
+                            if (debug_logging_mode)
+                                error_line ("chan %d --> %d", i + 1, descriptions [i].mChannelLabel);
+                        }
+
+                        // first, we go though and find any MS channels present, and move those to the beginning
+
+                        for (label = 1; label <= 18; ++label)
+                            for (i = 0; i < num_descriptions; ++i)
+                                if (descriptions [i].mChannelLabel == label) {
+                                    config->channel_mask |= 1 << (label - 1);
+                                    channel_reorder [i] = cindex++;
+                                    break;
+                                }
+
+                        // next, we go though the channels again and assing any we haven't done
+
+                        for (i = 0; i < num_descriptions; ++i)
+                            if (channel_reorder [i] == (unsigned char) -1)
+                                channel_reorder [i] = cindex++;
+
+                        // then, go through the reordering array and see if we really have to reorder
+
+                        for (i = 0; i < num_descriptions; ++i)
+                            if (channel_reorder [i] != i)
+                                break;
+
+                        if (i == num_descriptions) {
+                            free (channel_reorder);                 // no reordering required, so don't
+                            channel_reorder = NULL;
+                        }
+                        else {
+                            config->qmode |= QMODE_REORDERED_CHANS; // reordering required, put channel count into layout
+                            channel_layout = num_descriptions;
+                        }
+
+                        if (debug_logging_mode) {
+                            error_line ("layout_tag = 0x%08x, so generated bitmap of 0x%08x from %d descriptions",
+                                caf_channel_layout->mChannelLayoutTag, config->channel_mask,
+                                caf_channel_layout->mNumberChannelDescriptions);
+
+                            // if debugging, display the reordering as a string (but only little ones)
+
+                            if (channel_reorder && num_descriptions <= 8) {
+                                char reorder_string [] = "12345678";
+
+                                for (i = 0; i < num_descriptions; ++i)
+                                    reorder_string [i] = channel_reorder [i] + '1';
+
+                                reorder_string [i] = 0;
+                                error_line ("reordering string = \"%s\"\n", reorder_string);
+                            }
+                        }
                     }
-                    else
-                        break;
-                }
 
-                if (debug_logging_mode)
-                    error_line ("layout_tag = 0x%08x, so generated bitmap of 0x%08x from descriptions",
-                        caf_channel_layout->mChannelLayoutTag, config->channel_mask);
-            }
-            else if (caf_channel_layout->mChannelLayoutTag == kCAFChannelLayoutTag_UseChannelBitmap) {
-                config->channel_mask = caf_channel_layout->mChannelBitmap;
+                    break;
 
-                if (debug_logging_mode)
-                    error_line ("layout_tag = 0x%08x, so using supplied bitmap of 0x%08x",
-                        caf_channel_layout->mChannelLayoutTag, caf_channel_layout->mChannelBitmap);
-            }
-            else {
-                int i;
+                case kCAFChannelLayoutTag_UseChannelBitmap:
+                    config->channel_mask = caf_channel_layout->mChannelBitmap;
 
-                for (i = 0; i < NUM_LAYOUTS; ++i)
-                    if (caf_channel_layout->mChannelLayoutTag == layouts [i].mChannelLayoutTag) {
-                        config->channel_mask = layouts [i].mChannelBitmap;
-                        channel_layout = layouts [i].mChannelLayoutTag;
-                        channel_reorder = (unsigned char *) layouts [i].mChannelReorder;
+                    if (debug_logging_mode)
+                        error_line ("layout_tag = 0x%08x, so using supplied bitmap of 0x%08x",
+                            caf_channel_layout->mChannelLayoutTag, caf_channel_layout->mChannelBitmap);
 
-                        if (channel_reorder)
-                            config->qmode |= QMODE_REORDERED_CHANS;
+                    break;
 
-                        if (debug_logging_mode)
-                            error_line ("layout_tag 0x%08x found in table, bitmap = 0x%08x, reorder = %s",
-                                channel_layout, config->channel_mask, channel_reorder ? "yes" : "no");
+                default:
+                    for (i = 0; i < NUM_LAYOUTS; ++i)
+                        if (caf_channel_layout->mChannelLayoutTag == layouts [i].mChannelLayoutTag) {
+                            config->channel_mask = layouts [i].mChannelBitmap;
+                            channel_layout = layouts [i].mChannelLayoutTag;
 
-                        break;
-                    }
+                            if (layouts [i].mChannelReorder) {
+                                channel_reorder = (unsigned char *) strdup (layouts [i].mChannelReorder);
+                                config->qmode |= QMODE_REORDERED_CHANS;
+                            }
 
-                if (i == NUM_LAYOUTS && debug_logging_mode)
-                    error_line ("layout_tag 0x%08x not found in table...all channels unassigned",
-                        caf_channel_layout->mChannelLayoutTag);
+                            if (debug_logging_mode)
+                                error_line ("layout_tag 0x%08x found in table, bitmap = 0x%08x, reorder = %s",
+                                    channel_layout, config->channel_mask, channel_reorder ? "yes" : "no");
+
+                            break;
+                        }
+
+                    if (i == NUM_LAYOUTS && debug_logging_mode)
+                        error_line ("layout_tag 0x%08x not found in table...all channels unassigned",
+                            caf_channel_layout->mChannelLayoutTag);
+
+                    break;
             }
 
             free (caf_channel_layout);
@@ -430,9 +493,14 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         return WAVPACK_SOFT_ERROR;
     }
 
-    if (channel_layout && !WavpackSetChannelLayout (wpc, channel_layout, channel_reorder)) {
-        error_line ("problem with setting channel layout (should not happen)");
-        return WAVPACK_SOFT_ERROR;
+    if (channel_layout || channel_reorder) {
+        if (!WavpackSetChannelLayout (wpc, channel_layout, channel_reorder)) {
+            error_line ("problem with setting channel layout (should not happen)");
+            return WAVPACK_SOFT_ERROR;
+        }
+
+        if (channel_reorder)
+            free (channel_reorder);
     }
 
     return WAVPACK_NO_ERROR;
@@ -497,32 +565,120 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
         bcount != sizeof (caf_audio_format))
             return FALSE;
 
-    // conditionally format and write the Channel Layout Chunk
+    // we write the Channel Layout Chunk if any of these are true:
+    // 1. a specific CAF layout was specified (100 - 147)
+    // 2. there are more than 2 channels and ANY are MS defined
+    // 3. there are 1 or 2 channels and NOT regular mono/stereo
 
     if (channel_layout_tag || (num_channels > 2 ? channel_mask : channel_mask != 5 - num_channels)) {
-        strncpy (caf_chan_chunk_header.mChunkType, "chan", sizeof (caf_chan_chunk_header.mChunkType));
-        caf_chan_chunk_header.mChunkSize = sizeof (caf_channel_layout);
-        WavpackNativeToBigEndian (&caf_chan_chunk_header, CAFChunkHeaderFormat);
+        int bits = 0, bmask;
 
-        if (!DoWriteFile (outfile, &caf_chan_chunk_header, sizeof (caf_chan_chunk_header), &bcount) ||
-            bcount != sizeof (caf_chan_chunk_header))
-                return FALSE;
+        for (bmask = 1; bmask; bmask <<= 1)     // count the set bits in the channel mask
+            if (bmask & channel_mask)
+                ++bits;
 
-        if (channel_layout_tag) {
-            caf_channel_layout.mChannelLayoutTag = channel_layout_tag;
+        // we use a layout tag if there is a specific CAF layout (100 - 147) or
+        // all the channels are MS defined and in MS order...otherwise we have to
+        // write a full channel description array
+
+        if ((channel_layout_tag & 0xff0000) || (bits == num_channels && !(qmode & QMODE_REORDERED_CHANS))) {
+
+            strncpy (caf_chan_chunk_header.mChunkType, "chan", sizeof (caf_chan_chunk_header.mChunkType));
+            caf_chan_chunk_header.mChunkSize = sizeof (caf_channel_layout);
+            WavpackNativeToBigEndian (&caf_chan_chunk_header, CAFChunkHeaderFormat);
+
+            if (!DoWriteFile (outfile, &caf_chan_chunk_header, sizeof (caf_chan_chunk_header), &bcount) ||
+                bcount != sizeof (caf_chan_chunk_header))
+                    return FALSE;
+
+            if (channel_layout_tag) {
+                if (debug_logging_mode)
+                    error_line ("writing \"chan\" chunk with layout tag 0x%08x", channel_layout_tag);
+
+                caf_channel_layout.mChannelLayoutTag = channel_layout_tag;
+                caf_channel_layout.mChannelBitmap = 0;
+            }
+            else {
+                if (debug_logging_mode)
+                    error_line ("writing \"chan\" chunk with UseChannelBitmap tag, bitmap = 0x%08x", channel_mask);
+
+                caf_channel_layout.mChannelLayoutTag = kCAFChannelLayoutTag_UseChannelBitmap;
+                caf_channel_layout.mChannelBitmap = channel_mask;
+            }
+
+            caf_channel_layout.mNumberChannelDescriptions = 0;
+            WavpackNativeToBigEndian (&caf_channel_layout, CAFChannelLayoutFormat);
+
+            if (!DoWriteFile (outfile, &caf_channel_layout, sizeof (caf_channel_layout), &bcount) ||
+                bcount != sizeof (caf_channel_layout))
+                    return FALSE;
+        }
+        else {  // write a channel description array because a single layout or bitmap won't do it...
+            char *channel_labels = malloc (num_channels), chan = 1;
+            CAFChannelDescription caf_channel_description;
+            unsigned char *new_channel_order = NULL;
+            uint32_t bitmap = channel_mask, i;
+
+            if (debug_logging_mode)
+                error_line ("writing \"chan\" chunk with UseChannelDescriptions tag, bitmap = 0x%08x, reordered = %s",
+                    channel_mask, (qmode & QMODE_REORDERED_CHANS) ? "yes" : "no");
+
+            for (i = 0; i < num_channels; ++i)
+                if (bitmap) {
+                    while (!(bitmap & 1)) { bitmap >>= 1; chan++; }
+                    channel_labels [i] = chan;
+                    bitmap >>= 1; chan++;
+                }
+                else
+                    channel_labels [i] = 0;
+
+            if (qmode & QMODE_REORDERED_CHANS) {
+                if ((channel_layout_tag & 0xff) <= num_channels) {
+                    new_channel_order = malloc (num_channels);
+
+                    for (i = 0; i < num_channels; ++i)
+                        new_channel_order [i] = i;
+
+                    WavpackGetChannelLayout (wpc, new_channel_order);
+                }
+            }
+
+            strncpy (caf_chan_chunk_header.mChunkType, "chan", sizeof (caf_chan_chunk_header.mChunkType));
+            caf_chan_chunk_header.mChunkSize = sizeof (caf_channel_layout) + sizeof (caf_channel_description) * num_channels;
+            WavpackNativeToBigEndian (&caf_chan_chunk_header, CAFChunkHeaderFormat);
+
+            if (!DoWriteFile (outfile, &caf_chan_chunk_header, sizeof (caf_chan_chunk_header), &bcount) ||
+                bcount != sizeof (caf_chan_chunk_header))
+                    return FALSE;
+
+            caf_channel_layout.mChannelLayoutTag = kCAFChannelLayoutTag_UseChannelDescriptions;
             caf_channel_layout.mChannelBitmap = 0;
-        }
-        else {
-            caf_channel_layout.mChannelLayoutTag = kCAFChannelLayoutTag_UseChannelBitmap;
-            caf_channel_layout.mChannelBitmap = channel_mask;
-        }
+            caf_channel_layout.mNumberChannelDescriptions = num_channels;
+            WavpackNativeToBigEndian (&caf_channel_layout, CAFChannelLayoutFormat);
 
-        caf_channel_layout.mNumberChannelDescriptions = 0;
-        WavpackNativeToBigEndian (&caf_channel_layout, CAFChannelLayoutFormat);
+            if (!DoWriteFile (outfile, &caf_channel_layout, sizeof (caf_channel_layout), &bcount) ||
+                bcount != sizeof (caf_channel_layout))
+                    return FALSE;
 
-        if (!DoWriteFile (outfile, &caf_channel_layout, sizeof (caf_channel_layout), &bcount) ||
-            bcount != sizeof (caf_channel_layout))
-                return FALSE;
+            for (i = 0; i < num_channels; ++i) {
+                CLEAR (caf_channel_description);
+                caf_channel_description.mChannelLabel = new_channel_order ? channel_labels [new_channel_order [i]] : channel_labels [i];
+
+                if (debug_logging_mode)
+                    error_line ("chan %d --> %d", i + 1, caf_channel_description.mChannelLabel);
+
+                WavpackNativeToBigEndian (&caf_channel_description, CAFChannelDescriptionFormat);
+
+                if (!DoWriteFile (outfile, &caf_channel_description, sizeof (caf_channel_description), &bcount) ||
+                    bcount != sizeof (caf_channel_description))
+                        return FALSE;
+            }
+
+            if (new_channel_order)
+                free (new_channel_order);
+
+            free (channel_labels);
+        }
     }
 
     // format and write the Audio Data Chunk
