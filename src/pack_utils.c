@@ -898,9 +898,6 @@ int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned 
     uint32_t mdsize = wpmd->byte_length + (wpmd->byte_length & 1);
     WavpackHeader *wphdr = (WavpackHeader *) buffer_start;
 
-    if (wpmd->byte_length & 1)
-        ((char *) wpmd->data) [wpmd->byte_length] = 0;
-
     mdsize += (wpmd->byte_length > 510) ? 4 : 2;
     buffer_start += wphdr->ckSize + 8;
 
@@ -917,14 +914,10 @@ int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned 
     }
 
     if (wpmd->data && wpmd->byte_length) {
-        if (wpmd->byte_length > 510) {
-            buffer_start [0] |= ID_LARGE;
-            buffer_start [2] = (wpmd->byte_length + 1) >> 9;
-            buffer_start [3] = (wpmd->byte_length + 1) >> 17;
-            memcpy (buffer_start + 4, wpmd->data, mdsize - 4);
-        }
-        else
-            memcpy (buffer_start + 2, wpmd->data, mdsize - 2);
+        memcpy (buffer_start + (wpmd->byte_length > 510 ? 4 : 2), wpmd->data, wpmd->byte_length);
+
+        if (wpmd->byte_length & 1)          // if size is odd, make sure pad byte is a zero
+            buffer_start [mdsize - 1] = 0;
     }
 
     wphdr->ckSize += mdsize;
@@ -978,10 +971,8 @@ static char *write_metadata (WavpackMetadata *wpmd, char *outdata)
     wordlen [1] = (wpmd->byte_length + 1) >> 9;
     wordlen [2] = (wpmd->byte_length + 1) >> 17;
 
-    if (wpmd->byte_length & 1) {
-//      ((char *) wpmd->data) [wpmd->byte_length] = 0;
+    if (wpmd->byte_length & 1)
         id |= ID_ODD_SIZE;
-    }
 
     if (wordlen [1] || wordlen [2])
         id |= ID_LARGE;
