@@ -406,10 +406,11 @@ static void write_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
 
-// Allocate room for and copy the non-standard sampling rateinto the specified
-// metadata structure. We just store the lower 3 bytes of the sampling rate.
-// Note that this would only be used when the sampling rate was not included
-// in the table of 15 "standard" values.
+// Allocate room for and copy the non-standard sampling rate into the specified
+// metadata structure. We normally store the lower 3 bytes of the sampling rate,
+// unless 4 bytes are required (introduced in version 5). Note that this would
+// only be used when the sampling rate was not included in the table of 15
+// "standard" values.
 
 static void write_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
@@ -420,6 +421,12 @@ static void write_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
     *byteptr++ = (char) (wpc->config.sample_rate);
     *byteptr++ = (char) (wpc->config.sample_rate >> 8);
     *byteptr++ = (char) (wpc->config.sample_rate >> 16);
+
+    // handle 4-byte sampling rates for scientific applications, etc.
+
+    if (wpc->config.sample_rate & 0x7f000000)
+        *byteptr++ = (char) (wpc->config.sample_rate >> 24) & 0x7f;
+
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
 
