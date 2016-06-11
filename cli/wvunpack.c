@@ -95,7 +95,8 @@ static const char *usage =
 "          --caf-be = force extraction to big-endian Core Audio (extension .caf)\n"
 "          --caf-le = force extraction to little-endian Core Audio (extension .caf)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
-"          -f  = file info to stdout in machine-parsable format\n"
+"          -f[n]  = file info to stdout in machine-parsable format\n"
+"                (optional \"n\" = 1-10 for specific item, otherwise all)\n"
 "          --help = this help display\n"
 "          -i  = ignore .wvc file (forces hybrid lossy decompression)\n"
 #if defined (_WIN32) || defined (__OS2__)
@@ -346,7 +347,18 @@ int main(int argc, char **argv)
                         break;
 
                     case 'F': case 'f':
-                        file_info = quiet_mode = no_audio_decode = 1;
+                        file_info = (char) strtol (++*argv, argv, 10);
+
+                        if (file_info < 0 || file_info > 10) {
+                            error_line ("-f option must be 1-10, or omit (or 0) for all!");
+                            ++error_count;
+                        }
+                        else {
+                            quiet_mode = no_audio_decode = 1;
+                            file_info++;
+                        }
+
+                        --*argv;
                         break;
 
                     case 'S': case 's':
@@ -958,7 +970,7 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename);
 static void *store_samples (void *dst, int32_t *src, int qmode, int bps, int count);
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
-static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst);
+static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int parameter);
 static void unreorder_channels (int32_t *data, unsigned char *order, int num_chans, int num_samples);
 
 #define TEMP_BUFFER_SAMPLES 4096L   // composite samples in temporary buffer used during unpacking
@@ -1114,7 +1126,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     }
 
     if (file_info)
-        dump_file_info (wpc, infilename, stdout);
+        dump_file_info (wpc, infilename, stdout, file_info - 1);
     else if (summary)
         dump_summary (wpc, infilename, stdout);
     else if (tag_extract_stdout) {
@@ -2107,41 +2119,95 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 // 5. channel mask (in hex because it's a mask, always prefixed with "0x")
 // 6. number of samples (missing if unknown)
 // 7. md5sum (technically is hex, but not prefixed with "0x", might be missing)
-// 8. encoder version (basically this will always be 4, but there are some old files out there, could be 5 one day)
+// 8. encoder version (basically this will always be 4 or 5, but there are some old files out there)
 // 9. encoding mode (in hex because it's a bitfield, always prefixed with "0x") 
 // 10. filename (if available)
 
-static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst)
+static void dump_file_item (WavpackContext *wpc, char *str, int item_id);
+
+static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int parameter)
+{
+    char str [80];
+    int item_id;
+
+    str [0] = 0;
+
+    if (parameter == 0) {
+        for (item_id = 1; item_id <= 9; ++item_id) {
+            dump_file_item (wpc, str, item_id);
+            strcat (str, ";");
+        }
+
+        if (name && *name != '-')
+            fprintf (dst, "%s%s\n", str, name);
+        else
+            fprintf (dst, "%s\n", str);
+    }
+    else if (parameter < 10) {
+        dump_file_item (wpc, str, parameter);
+        fprintf (dst, "%s\n", str);
+    }
+    else if (parameter == 10 && name && *name != '-')
+        fprintf (dst, "%s\n", name);
+    else
+        fprintf (dst, "\n");
+}
+
+static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
 {
     unsigned char md5_sum [16];
-    char str [80];
 
-    sprintf (str, "%d;%d;%s;%d;0x%x;", WavpackGetSampleRate (wpc), WavpackGetBitsPerSample (wpc),
-        (WavpackGetMode (wpc) & MODE_FLOAT) ? "float" : "int", WavpackGetNumChannels (wpc), WavpackGetChannelMask (wpc));
+    switch (item_id) {
+        case 1:
+            sprintf (str + strlen (str), "%d", WavpackGetSampleRate (wpc));
+            break;
 
-    if (WavpackGetNumSamples64 (wpc) != -1)
-        sprintf (str + strlen (str), "%lld;", (long long int) WavpackGetNumSamples64 (wpc));
-    else
-        strcat (str, ";");
+        case 2:
+            sprintf (str + strlen (str), "%d", WavpackGetBitsPerSample (wpc));
+            break;
 
-    if (WavpackGetMD5Sum (wpc, md5_sum)) {
-        char md5_string [] = "00000000000000000000000000000000";
-        int i;
+        case 3:
+            sprintf (str + strlen (str), "%s", (WavpackGetMode (wpc) & MODE_FLOAT) ? "float" : "int");
+            break;
 
-        for (i = 0; i < 16; ++i)
-            sprintf (md5_string + (i * 2), "%02x", md5_sum [i]);
+        case 4:
+            sprintf (str + strlen (str), "%d", WavpackGetNumChannels (wpc));
+            break;
 
-        sprintf (str + strlen (str), "%s;", md5_string);
+        case 5:
+            sprintf (str + strlen (str), "0x%x", WavpackGetChannelMask (wpc));
+            break;
+
+        case 6:
+            if (WavpackGetNumSamples64 (wpc) != -1)
+                sprintf (str + strlen (str), "%lld", (long long int) WavpackGetNumSamples64 (wpc));
+
+            break;
+
+        case 7:
+            if (WavpackGetMD5Sum (wpc, md5_sum)) {
+                char md5_string [] = "00000000000000000000000000000000";
+                int i;
+
+                for (i = 0; i < 16; ++i)
+                    sprintf (md5_string + (i * 2), "%02x", md5_sum [i]);
+
+                sprintf (str + strlen (str), "%s", md5_string);
+            }
+
+            break;
+
+        case 8:
+            sprintf (str + strlen (str), "%d", WavpackGetVersion (wpc));
+            break;
+
+        case 9:
+            sprintf (str + strlen (str), "0x%x", WavpackGetMode (wpc));
+            break;
+
+        default:
+            break;
     }
-    else
-        strcat (str, ";");
-
-    sprintf (str + strlen (str), "%d;0x%x", WavpackGetVersion (wpc), WavpackGetMode (wpc));
-
-    if (name && *name != '-')
-        fprintf (dst, "%s;%s\n", str, name);
-    else
-        fprintf (dst, "%s;\n", str);
 }
 
 // Dump the specified tag field to the specified stream. Both text and binary tags may be written,
