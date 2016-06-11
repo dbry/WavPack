@@ -121,6 +121,18 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 // WavPack file will not be directly unpackable to a valid wav file (although
 // it will still be usable by itself). A return of FALSE indicates an error.
 
+static const uint32_t stereo_pairings [] = {
+    (1 << 0) | (1 << 1),        // FL, FR
+    (1 << 4) | (1 << 5),        // BL, BR
+    (1 << 6) | (1 << 7),        // FLC, FRC
+    (1 << 9) | (1 << 10),       // SL, SR
+    (1 << 12) | (1 << 14),      // TFL, TFR
+    (1 << 15) | (1 << 17),      // TBL, TBR
+    (1 << 29) | (1 << 30)       // stereo mix L,R (RF64)
+};
+
+#define NUM_STEREO_PAIRINGS (sizeof (stereo_pairings) / sizeof (stereo_pairings [0]))
+
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples)
 {
     return WavpackSetConfiguration64 (wpc, config, total_samples == (uint32_t) -1 ? -1 : total_samples);
@@ -196,27 +208,39 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
 
     for (wpc->current_stream = 0; num_chans; wpc->current_stream++) {
         WavpackStream *wps = malloc (sizeof (WavpackStream));
-        uint32_t stereo_mask, mono_mask;
+        uint32_t stereo_mask = 0, mono_mask = 0;
         int pos, chans = 0;
 
         wpc->streams = realloc (wpc->streams, (wpc->current_stream + 1) * sizeof (wpc->streams [0]));
         wpc->streams [wpc->current_stream] = wps;
         CLEAR (*wps);
 
-        for (pos = 1; pos <= 31; ++pos) {
-            stereo_mask = 3 << (pos - 1);
-            mono_mask = 1 << (pos - 1);
-
-            if ((chan_mask & stereo_mask) == stereo_mask && (mono_mask & 0x20000251)) {
-                chan_mask &= ~stereo_mask;
-                chans = 2;
-                break;
+        for (pos = 0; pos < 32; ++pos)
+            if (chan_mask & (1 << pos)) {
+                if (mono_mask) {
+                    stereo_mask = mono_mask | (1 << pos);
+                    break;
+                }
+                else
+                    mono_mask = 1 << pos;
             }
-            else if (chan_mask & mono_mask) {
+
+        if (num_chans > 1 && stereo_mask) {
+            for (i = 0; i < NUM_STEREO_PAIRINGS; ++i)
+                if (stereo_mask == stereo_pairings [i]) {
+                    chan_mask &= ~stereo_mask;
+                    chans = 2;
+                    break;
+                }
+
+            if (i == NUM_STEREO_PAIRINGS) {
                 chan_mask &= ~mono_mask;
                 chans = 1;
-                break;
             }
+        }
+        else if (mono_mask) {
+            chan_mask &= ~mono_mask;
+            chans = 1;
         }
 
         if (!chans) {
