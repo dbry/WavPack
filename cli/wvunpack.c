@@ -115,7 +115,8 @@ static const char *usage =
 "          -r  = force raw audio decode (results in .raw extension)\n"
 "          -s  = display summary information only to stdout (no audio decode)\n"
 "          -ss = display super summary (including tags) to stdout (no decode)\n"
-"          --skip=[sample|hh:mm:ss.ss] = start decoding at specified sample/time\n"
+"          --skip=[-][sample|hh:mm:ss.ss] = start decoding at specified sample/time\n"
+"              (specifying a '-' causes sample/time to be relative to end of file)\n"
 "          -t  = copy input file's time stamp to output file(s)\n"
 "          --until=[+|-][sample|hh:mm:ss.ss] = stop decoding at specified sample/time\n"
 "              (specifying a '+' causes sample/time to be relative to '--skip' point;\n"
@@ -268,7 +269,7 @@ int main(int argc, char **argv)
             else if (!strncmp (long_option, "skip", 4)) {               // --skip
                 parse_sample_time_index (&skip, long_param);
 
-                if (!skip.value_is_valid || skip.value_is_relative) {
+                if (!skip.value_is_valid) {
                     error_line ("invalid --skip parameter!");
                     ++error_count;
                 }
@@ -1079,6 +1080,19 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             skip_sample_index = skip.value * WavpackGetSampleRate (wpc);
         else
             skip_sample_index = skip.value;
+
+        if (skip.value_is_relative == -1) {
+            if (WavpackGetNumSamples64 (wpc) == -1) {
+                error_line ("can't use negative relative --skip command with files of unknown length!");
+                WavpackCloseFile (wpc);
+                return WAVPACK_SOFT_ERROR;
+            }
+
+            if (skip_sample_index < WavpackGetNumSamples64 (wpc))
+                skip_sample_index = WavpackGetNumSamples64 (wpc) - skip_sample_index;
+            else
+                skip_sample_index = 0;
+        }
 
         if (skip_sample_index && !WavpackSeekSample64 (wpc, skip_sample_index)) {
             error_line ("can't seek to specified --skip point!");
