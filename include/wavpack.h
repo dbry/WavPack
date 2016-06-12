@@ -112,7 +112,6 @@ typedef struct {
 
 #define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
 #define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
-#define CUR_STREAM_VERS     0x407       // stream version we are writing now
 
 // These are the mask bit definitions for the metadata chunk id byte (see format.txt)
 
@@ -138,11 +137,14 @@ typedef struct {
 
 #define ID_RIFF_HEADER          (ID_OPTIONAL_DATA | 0x1)
 #define ID_RIFF_TRAILER         (ID_OPTIONAL_DATA | 0x2)
-#define ID_REPLAY_GAIN          (ID_OPTIONAL_DATA | 0x3)    // never used (APEv2)
-#define ID_CUESHEET             (ID_OPTIONAL_DATA | 0x4)    // never used (APEv2)
+#define ID_ALT_HEADER           (ID_OPTIONAL_DATA | 0x3)
+#define ID_ALT_TRAILER          (ID_OPTIONAL_DATA | 0x4)
 #define ID_CONFIG_BLOCK         (ID_OPTIONAL_DATA | 0x5)
 #define ID_MD5_CHECKSUM         (ID_OPTIONAL_DATA | 0x6)
 #define ID_SAMPLE_RATE          (ID_OPTIONAL_DATA | 0x7)
+#define ID_ALT_EXTENSION        (ID_OPTIONAL_DATA | 0x8)
+#define ID_ALT_MD5_CHECKSUM     (ID_OPTIONAL_DATA | 0x9)
+#define ID_NEW_CONFIG_BLOCK     (ID_OPTIONAL_DATA | 0xa)
 
 ///////////////////////// WavPack Configuration ///////////////////////////////
 
