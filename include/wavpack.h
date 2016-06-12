@@ -70,11 +70,41 @@ typedef struct {
     char ckID [4];
     uint32_t ckSize;
     int16_t version;
-    unsigned char track_no, index_no;
+    unsigned char block_index_u8;
+    unsigned char total_samples_u8;
     uint32_t total_samples, block_index, block_samples, flags, crc;
 } WavpackHeader;
 
 #define WavpackHeaderFormat "4LS2LLLLL"
+
+// Macros to access the 40-bit block_index field
+
+#define GET_BLOCK_INDEX(hdr) ( (int64_t) (hdr).block_index + ((int64_t) (hdr).block_index_u8 << 32) )
+
+#define SET_BLOCK_INDEX(hdr,value) do { \
+    int64_t tmp = (value);              \
+    (hdr).block_index = (uint32_t) tmp; \
+    (hdr).block_index_u8 =              \
+        (unsigned char) (tmp >> 32);    \
+} while (0)
+
+// Macros to access the 40-bit total_samples field, which is complicated by the fact that
+// all 1's in the lower 32 bits indicates "unknown" (regardless of upper 8 bits)
+
+#define GET_TOTAL_SAMPLES(hdr) ( ((hdr).total_samples == (uint32_t) -1) ? -1 : \
+    (int64_t) (hdr).total_samples + ((int64_t) (hdr).total_samples_u8 << 32) - (hdr).total_samples_u8 )
+
+#define SET_TOTAL_SAMPLES(hdr,value) do {       \
+    int64_t tmp = (value);                      \
+    if (tmp < 0)                                \
+        (hdr).total_samples = (uint32_t) -1;    \
+    else {                                      \
+        tmp += (tmp / 0xffffffffLL);            \
+        (hdr).total_samples = (uint32_t) tmp;   \
+        (hdr).total_samples_u8 =                \
+            (unsigned char) (tmp >> 32);        \
+    }                                           \
+} while (0)
 
 // or-values for WavpackHeader.flags
 #define BYTES_STORED    3       // 1-4 bytes/sample
