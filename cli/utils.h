@@ -28,7 +28,7 @@
 #else
 #define VERSION_OS "Win32"
 #endif
-#define PACKAGE_VERSION "5.0.0-alpha2"
+#define PACKAGE_VERSION "5.0.0-alpha3"
 #endif
 
 #define FALSE 0
