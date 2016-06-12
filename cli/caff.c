@@ -21,6 +21,11 @@
 #include "utils.h"
 #include "md5.h"
 
+#ifdef _WIN32
+#define strdup(x) _strdup(x)
+#endif
+
+
 #define WAVPACK_NO_ERROR    0
 #define WAVPACK_SOFT_ERROR  1
 #define WAVPACK_HARD_ERROR  2
@@ -617,7 +622,8 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
             char *channel_labels = malloc (num_channels), chan = 1;
             CAFChannelDescription caf_channel_description;
             unsigned char *new_channel_order = NULL;
-            uint32_t bitmap = channel_mask, i;
+            uint32_t bitmap = channel_mask;
+            int i;
 
             if (debug_logging_mode)
                 error_line ("writing \"chan\" chunk with UseChannelDescriptions tag, bitmap = 0x%08x, reordered = %s",
@@ -633,7 +639,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
                     channel_labels [i] = 0;
 
             if (qmode & QMODE_REORDERED_CHANS) {
-                if ((channel_layout_tag & 0xff) <= num_channels) {
+                if ((int)(channel_layout_tag & 0xff) <= num_channels) {
                     new_channel_order = malloc (num_channels);
 
                     for (i = 0; i < num_channels; ++i)

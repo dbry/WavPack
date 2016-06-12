@@ -264,7 +264,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
     WavpackStream3 *wps = (WavpackStream3 *) wpc->stream3;
     int shift = wps->wphdr.shift, flags = wps->wphdr.flags, min_weight = 0, m = wps->dc.m, tcount;
 #ifndef NO_SEEKING
-    int points_index = wps->sample_index / ((wpc->total_samples >> 8) + 1);
+    int points_index = wps->sample_index / (((uint32_t) wpc->total_samples >> 8) + 1);
 #endif
     int32_t min_value, max_value, min_shifted, max_shifted;
     int32_t correction [2], crc = wps->dc.crc;
@@ -287,7 +287,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 #endif
 
     if (wps->sample_index + sample_count > wpc->total_samples)
-        sample_count = wpc->total_samples - wps->sample_index;
+        sample_count = (uint32_t) (wpc->total_samples - wps->sample_index);
 
     if (!sample_count)
         return 0;

@@ -28,7 +28,7 @@ static void bs_restore3 (Bitstream3 *bs);
 
 int seek_sample3 (WavpackContext *wpc, uint32_t desired_index)
 {
-    int points_index = desired_index / ((wpc->total_samples >> 8) + 1);
+    int points_index = desired_index / (((uint32_t) wpc->total_samples >> 8) + 1);
     WavpackStream3 *wps = (WavpackStream3 *) wpc->stream3;
 
     if (desired_index >= wpc->total_samples)

@@ -1077,9 +1077,9 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     if (skip.value_is_valid) {
         if (skip.value_is_time)
-            skip_sample_index = skip.value * WavpackGetSampleRate (wpc);
+            skip_sample_index = (int64_t) (skip.value * WavpackGetSampleRate (wpc));
         else
-            skip_sample_index = skip.value;
+            skip_sample_index = (int64_t) skip.value;
 
         if (skip.value_is_relative == -1) {
             if (WavpackGetNumSamples64 (wpc) == -1) {
@@ -1115,15 +1115,15 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             }
 
             if (until_sample_index + skip_sample_index < WavpackGetNumSamples64 (wpc))
-                until_samples_total = WavpackGetNumSamples64 (wpc) - until_sample_index - skip_sample_index;
+                until_samples_total = (int64_t) (WavpackGetNumSamples64 (wpc) - until_sample_index - skip_sample_index);
             else
                 until_samples_total = 0;
         }
         else {
             if (until.value_is_relative == 1)
-                until_samples_total = until_sample_index;
+                until_samples_total = (int64_t) until_sample_index;
             else if (until_sample_index > skip_sample_index)
-                until_samples_total = until_sample_index - skip_sample_index;
+                until_samples_total = (int64_t) (until_sample_index - skip_sample_index);
             else
                 until_samples_total = 0;
 
@@ -1257,7 +1257,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             samples_to_unpack = TEMP_BUFFER_SAMPLES;
 
         if (until_samples_total && samples_to_unpack > until_samples_total - total_unpacked_samples)
-            samples_to_unpack = until_samples_total - total_unpacked_samples;
+            samples_to_unpack = (uint32_t) (until_samples_total - total_unpacked_samples);
 
         samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
         total_unpacked_samples += samples_unpacked;

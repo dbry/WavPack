@@ -48,7 +48,7 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
 
 #ifndef VER4_ONLY
     if (wpc->stream3)
-        return seek_sample3 (wpc, sample);
+        return seek_sample3 (wpc, (uint32_t) sample);
 #endif
 
     if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) || sample < GET_BLOCK_INDEX (wps->wphdr) ||
@@ -160,7 +160,7 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
                 wpc->streams [wpc->current_stream]->init_done = TRUE;
     }
 
-    samples_to_skip = sample - wps->sample_index;
+    samples_to_skip = (uint32_t) (sample - wps->sample_index);
 
     if (samples_to_skip > 131072) {
         free_streams (wpc);

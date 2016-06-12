@@ -125,7 +125,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         // If it's not too much data, just fill in with silence here and loop back.
 
         if (wps->sample_index < GET_BLOCK_INDEX (wps->wphdr)) {
-            samples_to_unpack = GET_BLOCK_INDEX (wps->wphdr) - wps->sample_index;
+            samples_to_unpack = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) - wps->sample_index);
 
             if (samples_to_unpack > 262144) {
                 strcpy (wpc->error_message, "discontinuity found, aborting file!");
@@ -155,7 +155,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         // calculate number of samples to process from this block, then initialize the decoder for
         // this block if we haven't already
 
-        samples_to_unpack = GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index;
+        samples_to_unpack = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index);
 
         if (samples_to_unpack > samples)
             samples_to_unpack = samples;

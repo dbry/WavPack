@@ -214,7 +214,7 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
     // before 3.0 that had smaller headers
 
     if (wphdr.version < 3) {
-        wphdr.total_samples = wpc->total_samples;
+        wphdr.total_samples = (int32_t) wpc->total_samples;
         wphdr.flags = wavhdr.NumChannels == 1 ? MONO_FLAG : 0;
         wphdr.shift = 16 - wavhdr.BitsPerSample;
 

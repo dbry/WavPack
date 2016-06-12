@@ -2099,8 +2099,8 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
 
     WavpackPackInit (wpc);
     bytes_per_sample = WavpackGetBytesPerSample (wpc) * WavpackGetNumChannels (wpc);
-    input_buffer = malloc (input_samples * bytes_per_sample);
-    sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc));
+    input_buffer = malloc ((uint32_t) input_samples * bytes_per_sample);
+    sample_buffer = malloc ((uint32_t) input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc));
     samples_remaining = WavpackGetNumSamples64 (wpc);
 
     if (quantize_bits && quantize_bits < WavpackGetBytesPerSample (wpc) * 8) {
@@ -2117,9 +2117,9 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
         unsigned int sample_count;
 
         if ((qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM)) || samples_remaining > input_samples)
-            bytes_to_read = input_samples * bytes_per_sample;
+            bytes_to_read = (uint32_t) input_samples * bytes_per_sample;
         else
-            bytes_to_read = samples_remaining * bytes_per_sample;
+            bytes_to_read = (uint32_t) samples_remaining * bytes_per_sample;
 
         samples_remaining -= bytes_to_read / bytes_per_sample;
         DoReadFile (infile, input_buffer, bytes_to_read, &bytes_read);

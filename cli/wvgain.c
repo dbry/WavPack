@@ -582,7 +582,8 @@ static void float_samples (float *dst, int32_t *src, uint32_t samcnt, float scal
 static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 {
     int result = WAVPACK_NO_ERROR, open_flags = 0, num_channels, wvc_mode;
-    int64_t total_unpacked_samples = 0, window_samples;
+    int64_t total_unpacked_samples = 0;
+    uint32_t window_samples;
     double progress = -1.0;
     int32_t *temp_buffer;
     WavpackContext *wpc;
