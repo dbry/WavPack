@@ -179,6 +179,7 @@ static const char *help =
 "                             sample bit depth (float or signed or unsigned), number\n"
 "                             of channels, and little-endian or big-endian\n"
 "                             (defaulted parameters may be omitted)\n"
+"    --raw-pcm-skip=bytes    skip <bytes> before encoding (presumably a header)\n"
 "    -sn                     override default noise shaping where n is a float\n"
 "                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
@@ -237,7 +238,7 @@ static struct {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
-    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits;
+    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, raw_pcm_skip_bytes;
 
 static int num_channels_order;
 static unsigned char channel_order [18];
@@ -371,6 +372,8 @@ int main (int argc, char **argv)
                 allow_huge_tags = 1;
             else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
                 tag_next_arg = 2;
+            else if (!strncmp (long_option, "raw-pcm-skip", 12))        // --raw-pcm-skip
+                raw_pcm_skip_bytes = strtol (long_param, NULL, 10);
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
                 int params [] = { 44100, 16, 2 };
                 int pi, fp = 0, be = 0, us = 0, s = 0;
@@ -1461,6 +1464,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         if (infilesize) {
             int sample_size = loc_config.bytes_per_sample * loc_config.num_channels;
 
+            infilesize -= raw_pcm_skip_bytes;
             total_samples = infilesize / sample_size;
 
             if (infilesize % sample_size)
@@ -1676,6 +1680,28 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
         if (i == NUM_FILE_FORMATS)  {
             error_line ("%s is not a recognized file type!", infilename);
+            DoCloseHandle (infile);
+            DoCloseHandle (wv_file.file);
+            DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
+            WavpackCloseFile (wpc);
+            return WAVPACK_SOFT_ERROR;
+        }
+    }
+    else if (raw_pcm_skip_bytes) {          // if raw pcm mode and bytes to skip, do that here
+        int bytes_to_skip = raw_pcm_skip_bytes;
+        char dummy [256];
+
+        while (bytes_to_skip) {
+            int requested_bytes = (bytes_to_skip >= sizeof (dummy)) ? sizeof (dummy) : bytes_to_skip;
+
+            if (DoReadFile (infile, dummy, requested_bytes, &bcount) && bcount == requested_bytes)
+                bytes_to_skip -= bcount;
+            else
+                break;
+        }
+
+        if (bytes_to_skip) {
+            error_line ("can't read file %s!", infilename);
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
