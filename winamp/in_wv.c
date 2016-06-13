@@ -545,7 +545,7 @@ void stop()
 
 int getlength()
 {
-    return (int)(WavpackGetNumSamples (curr.wpc) * 1000.0 / WavpackGetSampleRate (curr.wpc));
+    return (int)(WavpackGetNumSamples64 (curr.wpc) * 1000.0 / WavpackGetSampleRate (curr.wpc));
 }
 
 int getoutputtime()
@@ -731,7 +731,7 @@ void getfileinfo (char *filename, char *title, int *length_in_ms)
 
         if (wpc) {
             if (length_in_ms)
-                *length_in_ms = (int)(WavpackGetNumSamples (wpc) * 1000.0 / WavpackGetSampleRate (wpc));
+                *length_in_ms = (int)(WavpackGetNumSamples64 (wpc) * 1000.0 / WavpackGetSampleRate (wpc));
 
             if (title && WavpackGetTagItem (wpc, "title", NULL, 0)) {
                 char art [128], ttl [128];
@@ -794,8 +794,8 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
 
             mod.outMod->Flush (decode_pos_ms = seek_position);
 
-            if (WavpackSeekSample (curr.wpc, (int)(sample_rate / 1000.0 * seek_position))) {
-                decode_pos_ms = (int)(WavpackGetSampleIndex (curr.wpc) * 1000.0 / sample_rate);
+            if (WavpackSeekSample64 (curr.wpc, (int64_t)(sample_rate / 1000.0 * seek_position))) {
+                decode_pos_ms = (int)(WavpackGetSampleIndex64 (curr.wpc) * 1000.0 / sample_rate);
                 mod.outMod->Flush (decode_pos_ms);
                 continue;
             }
@@ -820,7 +820,7 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
             if (tsamples) {
                 mod.SAAddPCMData ((char *) curr.sample_buffer, num_chans, curr.output_bits, decode_pos_ms);
                 mod.VSAAddPCMData ((char *) curr.sample_buffer, num_chans, curr.output_bits, decode_pos_ms);
-                decode_pos_ms = (int)(WavpackGetSampleIndex (curr.wpc) * 1000.0 / sample_rate);
+                decode_pos_ms = (int)(WavpackGetSampleIndex64 (curr.wpc) * 1000.0 / sample_rate);
 
                 if (mod.dsp_isactive())
                     tbytes = mod.dsp_dosamples ((short *) curr.sample_buffer,
@@ -847,6 +847,7 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
 {
     struct wpcnxt *cnxt = (struct wpcnxt *) malloc (sizeof (struct wpcnxt));
     int num_chans, sample_rate, open_flags;
+    int64_t actual_size;
     char error [128];
 
 #ifdef DEBUG_CONSOLE
@@ -903,7 +904,12 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
     *nch = num_chans;
     *srate = sample_rate;
     *bps = cnxt->output_bits;
-    *size = WavpackGetNumSamples (cnxt->wpc) * (*bps / 8) * (*nch);
+    actual_size = WavpackGetNumSamples64 (cnxt->wpc) * (*bps / 8) * (*nch);
+
+    if (actual_size < 2147483648)
+        *size = (int) actual_size;
+    else
+        *size = -1;
   
     cnxt->play_gain = calculate_gain (cnxt->wpc, &cnxt->soft_clipping);
 
@@ -961,7 +967,7 @@ __declspec (dllexport) int winampGetExtendedRead_setTime (intptr_t handle, int m
     struct wpcnxt *cnxt = (struct wpcnxt *) handle;
     int sample_rate = WavpackGetSampleRate (cnxt->wpc);
 
-    return WavpackSeekSample (cnxt->wpc, (int)(sample_rate / 1000.0 * millisecs));
+    return WavpackSeekSample64 (cnxt->wpc, (int64_t)(sample_rate / 1000.0 * millisecs));
 }
 
 __declspec (dllexport) void winampGetExtendedRead_close (intptr_t handle)
@@ -1334,7 +1340,7 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
         retval = 1;
     }
     else if (!_stricmp (metadata, "length")) {
-        _snprintf (ret, retlen, "%d", (int)(WavpackGetNumSamples (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
+        _snprintf (ret, retlen, "%lld", (long long int)(WavpackGetNumSamples64 (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
         retval = 1;
     }
     else if (!_stricmp (metadata, "lossless")) {
@@ -1342,7 +1348,7 @@ __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *meta
         retval = 1;
     }
     else if (!_stricmp (metadata, "numsamples")) {
-        _snprintf (ret, retlen, "%d", WavpackGetNumSamples (info.wpc));
+        _snprintf (ret, retlen, "%lld", (long long int)WavpackGetNumSamples64 (info.wpc));
         retval = 1;
     }
     else if (WavpackGetTagItem (info.wpc, metadata, ret, retlen)) {
@@ -1448,7 +1454,7 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
         }
     }
     else if (!_stricmp (metadata, "length")) {
-        swprintf (ret, retlen, L"%d", (int)(WavpackGetNumSamples (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
+        swprintf (ret, retlen, L"%lld", (long long int)(WavpackGetNumSamples64 (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
         retval = 1;
     }
     else if (!_stricmp (metadata, "lossless")) {
@@ -1456,7 +1462,7 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
         retval = 1;
     }
     else if (!_stricmp (metadata, "numsamples")) {
-        swprintf (ret, retlen, L"%d", WavpackGetNumSamples (info.wpc));
+        swprintf (ret, retlen, L"%lld", WavpackGetNumSamples64 (info.wpc));
         retval = 1;
     }
     else if (WavpackGetTagItem (info.wpc, metadata, res, sizeof (res))) {
