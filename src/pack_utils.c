@@ -563,10 +563,10 @@ int WavpackFlushSamples (WavpackContext *wpc)
 
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
 {
-    uint32_t index = WavpackGetSampleIndex (wpc);
+    int64_t index = WavpackGetSampleIndex64 (wpc);
     unsigned char meta_id;
 
-    if (!index || index == (uint32_t) -1) {
+    if (!index || index == -1) {
         wpc->riff_header_added = TRUE;
         meta_id = wpc->file_format ? ID_ALT_HEADER : ID_RIFF_HEADER;
     }
@@ -823,13 +823,12 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
     uint32_t wrapper_size;
 
     WavpackLittleEndianToNative (first_block, WavpackHeaderFormat);
-    ((WavpackHeader *) first_block)->total_samples = WavpackGetSampleIndex (wpc);
-    SET_TOTAL_SAMPLES (* (WavpackHeader *) first_block, WavpackGetSampleIndex (wpc));
+    SET_TOTAL_SAMPLES (* (WavpackHeader *) first_block, WavpackGetSampleIndex64 (wpc));
 
     if (wpc->riff_header_created && WavpackGetWrapperLocation (first_block, &wrapper_size)) {
         unsigned char riff_header [128];
 
-        if (wrapper_size == create_riff_header (wpc, WavpackGetSampleIndex (wpc), riff_header))
+        if (wrapper_size == create_riff_header (wpc, WavpackGetSampleIndex64 (wpc), riff_header))
             memcpy (WavpackGetWrapperLocation (first_block, NULL), riff_header, wrapper_size);
     }
 
