@@ -150,7 +150,9 @@ static struct {
 } file_formats [] = {
     { "wav", "Microsoft RIFF",   WriteRiffHeader },
     { "w64", "Sony Wave64",      WriteWave64Header },
-    { "caf", "Apple Core Audio", WriteCaffHeader }
+    { "caf", "Apple Core Audio", WriteCaffHeader },
+    { "dff", "Philips DSD",      NULL },
+    { "dsf", "Sony DSD",         NULL }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))

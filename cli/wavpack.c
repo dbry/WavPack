@@ -218,6 +218,8 @@ static const char *speakers [] = {
 int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 
 static struct {
     unsigned char id;
@@ -227,7 +229,9 @@ static struct {
     { WP_FORMAT_WAV,  "RIFF", "wav", ParseRiffHeaderConfig },
     { WP_FORMAT_WAV,  "RF64", "wav", ParseRiffHeaderConfig },
     { WP_FORMAT_W64,  "riff", "w64", ParseWave64HeaderConfig },
-    { WP_FORMAT_CAF,  "caff", "caf", ParseCaffHeaderConfig }
+    { WP_FORMAT_CAF,  "caff", "caf", ParseCaffHeaderConfig },
+    { WP_FORMAT_DFF,  "FRM8", "dff", ParseDsdiffHeaderConfig },
+    { WP_FORMAT_DSF,  "DSD ", "dsf", ParseDsfHeaderConfig }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))

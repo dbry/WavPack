@@ -360,6 +360,8 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 #define WP_FORMAT_WAV   0       // Microsoft RIFF, including BWF and RF64 varients
 #define WP_FORMAT_W64   1       // Sony Wave64
 #define WP_FORMAT_CAF   2       // Apple CoreAudio
+#define WP_FORMAT_DFF   3       // Philips DSDIFF
+#define WP_FORMAT_DSF   4       // Sony DSD Format
 
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
 int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples);
