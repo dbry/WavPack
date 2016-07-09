@@ -140,10 +140,28 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
 
 int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples)
 {
-    uint32_t flags = (config->bytes_per_sample - 1), bps = 0, shift = 0;
+    uint32_t flags, bps = 0, shift = 0;
     uint32_t chan_mask = config->channel_mask;
     int num_chans = config->num_channels;
     int i;
+
+    if (config->bytes_per_sample == 1 && config->bits_per_sample == 8) {
+        wpc->dsd_multiplier = 1;
+        flags = DSD_FLAG;
+
+        for (i = 14; i >= 0; --i)
+            if (config->sample_rate % sample_rates [i] == 0) {
+                int divisor = config->sample_rate / sample_rates [i];
+
+                if (divisor && (divisor & (divisor - 1)) == 0) {
+                    config->sample_rate /= divisor;
+                    wpc->dsd_multiplier = divisor;
+                    break;
+                }
+            }
+    }
+    else
+        flags = config->bytes_per_sample - 1;
 
     wpc->total_samples = total_samples;
     wpc->config.sample_rate = config->sample_rate;
@@ -350,6 +368,16 @@ int WavpackPackInit (WavpackContext *wpc)
     else
         wpc->block_samples = wpc->config.sample_rate;
 
+    if (wpc->dsd_multiplier) {
+        if (wpc->config.flags & CONFIG_HIGH_FLAG)
+            wpc->block_samples = 22050;
+        else
+            wpc->block_samples = 44100;
+
+        if (wpc->config.num_channels == 1)
+            wpc->block_samples *= 2;
+    }
+
     while (wpc->block_samples * wpc->config.num_channels > 150000)
         wpc->block_samples /= 2;
 
@@ -374,7 +402,11 @@ int WavpackPackInit (WavpackContext *wpc)
         WavpackStream *wps = wpc->streams [wpc->current_stream];
 
         wps->sample_buffer = malloc (wpc->max_samples * (wps->wphdr.flags & MONO_FLAG ? 4 : 8));
-        pack_init (wpc);
+
+        if (wps->wphdr.flags & DSD_FLAG)
+            pack_dsd_init (wpc);
+        else
+            pack_init (wpc);
     }
 
     return TRUE;
@@ -393,6 +425,7 @@ int WavpackPackInit (WavpackContext *wpc)
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples);
 static int create_riff_header (WavpackContext *wpc, int64_t total_samples, void *outbuffer);
+static int pack_dsd_samples (WavpackContext *wpc, unsigned char *sample_buffer, uint32_t sample_count);
 
 int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count)
 {
@@ -760,7 +793,11 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         wps->blockbuff = outbuff;
         wps->blockend = outend;
 
-        result = pack_block (wpc, wps->sample_buffer);
+        if (flags & DSD_FLAG)
+            result = pack_dsd_block (wpc, wps->sample_buffer);
+        else
+            result = pack_block (wpc, wps->sample_buffer);
+
         wps->blockbuff = wps->block2buff = NULL;
 
         if (wps->wphdr.block_samples != block_samples)

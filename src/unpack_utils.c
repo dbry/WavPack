@@ -243,7 +243,11 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                 // unpack the correct number of samples (either mono or stereo) into the temp buffer
 
-                unpack_samples (wpc, src = temp_buffer, samples_to_unpack);
+                if (wps->wphdr.flags & DSD_FLAG)
+                    unpack_dsd_samples (wpc, src = temp_buffer, samples_to_unpack);
+                else
+                    unpack_samples (wpc, src = temp_buffer, samples_to_unpack);
+
                 samcnt = samples_to_unpack;
                 dst = buffer + offset;
 
@@ -313,6 +317,8 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
             wps->sample_index += samples_to_unpack;
             wpc->crc_errors++;
         }
+        else if (wps->wphdr.flags & DSD_FLAG)
+            unpack_dsd_samples (wpc, buffer, samples_to_unpack);
         else
             unpack_samples (wpc, buffer, samples_to_unpack);
 

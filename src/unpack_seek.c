@@ -171,7 +171,10 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
         buffer = malloc (samples_to_skip * 8);
 
         for (wpc->current_stream = 0; wpc->current_stream < wpc->num_streams; wpc->current_stream++)
-            unpack_samples (wpc, buffer, samples_to_skip);
+            if (wpc->streams [wpc->current_stream]->wphdr.flags & DSD_FLAG)
+                unpack_dsd_samples (wpc, buffer, samples_to_skip);
+            else
+                unpack_samples (wpc, buffer, samples_to_skip);
 
         free (buffer);
     }

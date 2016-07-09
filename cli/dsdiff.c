@@ -254,6 +254,9 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
         }
     }
 
+    if (debug_logging_mode)
+        error_line ("setting configuration with %lld samples", total_samples);
+
     if (!WavpackSetConfiguration64 (wpc, config, total_samples)) {
         error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;

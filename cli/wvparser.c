@@ -87,8 +87,10 @@ typedef struct {
 
 #define IGNORED_FLAGS   0x18000000      // reserved, but ignore if encountered
 #define NEW_SHAPING     0x20000000      // use IIR filter for negative shaping
-#define UNKNOWN_FLAGS   0x80000000      // also reserved, but refuse decode if
-                                        //  encountered
+#define DSD_FLAG        0x80000000      // block is DSD encoded (introduced in
+                                        //  WavPack 5.0)
+
+#define UNKNOWN_FLAGS   0x00000000      // we no longer have any of these spares
 
 #define MONO_DATA (MONO_FLAG | FALSE_STEREO)
 
@@ -115,7 +117,7 @@ typedef struct {
 
 static const char *metadata_names [] = {
     "DUMMY", "ENCODER_INFO", "DECORR_TERMS", "DECORR_WEIGHTS", "DECORR_SAMPLES", "ENTROPY_VARS", "HYBRID_PROFILE", "SHAPING_WEIGHTS",
-    "FLOAT_INFO", "INT32_INFO", "WV_BITSTREAM", "WVC_BITSTREAM", "WVX_BITSTREAM", "CHANNEL_INFO", "UNASSIGNED", "UNASSIGNED",
+    "FLOAT_INFO", "INT32_INFO", "WV_BITSTREAM", "WVC_BITSTREAM", "WVX_BITSTREAM", "CHANNEL_INFO", "DSD_BLOCK", "UNASSIGNED",
     "UNASSIGNED", "RIFF_HEADER", "RIFF_TRAILER", "ALT_HEADER", "ALT_TRAILER", "CONFIG_BLOCK", "MD5_CHECKSUM", "SAMPLE_RATE",
     "ALT_EXTENSION", "ALT_MD5_CHECKSUM", "NEW_CONFIG", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED"
 };
@@ -186,6 +188,7 @@ int main ()
             if (wphdr.flags) {
                 if (wphdr.flags & INITIAL_BLOCK) strcat (flags_list, "INITIAL ");
                 if (wphdr.flags & MONO_FLAG) strcat (flags_list, "MONO ");
+                if (wphdr.flags & DSD_FLAG) strcat (flags_list, "DSD ");
                 if (wphdr.flags & HYBRID_FLAG) strcat (flags_list, "HYBRID ");
                 if (wphdr.flags & JOINT_STEREO) strcat (flags_list, "JOINT-STEREO ");
                 if (wphdr.flags & CROSS_DECORR) strcat (flags_list, "CROSS-DECORR ");

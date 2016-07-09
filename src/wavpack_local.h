@@ -200,8 +200,10 @@ typedef struct {
 
 #define IGNORED_FLAGS   0x18000000      // reserved, but ignore if encountered
 #define NEW_SHAPING     0x20000000      // use IIR filter for negative shaping
-#define UNKNOWN_FLAGS   0x80000000      // also reserved, but refuse decode if
-                                        //  encountered
+#define DSD_FLAG        0x80000000      // block is DSD encoded (introduced in
+                                        //  WavPack 5.0)
+
+#define UNKNOWN_FLAGS   0x00000000      // we no longer have any of these spares
 
 #define MONO_DATA (MONO_FLAG | FALSE_STEREO)
 
@@ -239,6 +241,7 @@ typedef struct {
 #define ID_WVC_BITSTREAM        0xb
 #define ID_WVX_BITSTREAM        0xc
 #define ID_CHANNEL_INFO         0xd
+#define ID_DSD_BLOCK            0xe
 
 #define ID_RIFF_HEADER          (ID_OPTIONAL_DATA | 0x1)
 #define ID_RIFF_TRAILER         (ID_OPTIONAL_DATA | 0x2)
@@ -403,6 +406,9 @@ typedef struct {
 
     struct decorr_pass decorr_passes [MAX_NTERMS], analysis_pass;
     const WavpackDecorrSpec *decorr_specs;
+
+    unsigned char *dsd_data_ptr;
+    int32_t dsd_data_index, dsd_data_bcount;
 } WavpackStream;
 
 // flags for float_flags:
@@ -478,10 +484,10 @@ typedef struct {
     WavpackStream **streams;
     void *stream3;
 
-    // these items were added in 5.0 to support alternate file types (especially CAF)
+    // these items were added in 5.0 to support alternate file types (especially CAF & DSD)
     unsigned char file_format, *channel_reordering;
+    uint32_t channel_layout, dsd_multiplier;
     char file_extension [8];
-    uint32_t channel_layout;
 
     char error_message [80];
 } WavpackContext;

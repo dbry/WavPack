@@ -218,7 +218,7 @@ double WavpackGetRatio (WavpackContext *wpc)
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc)
 {
     if (wpc && wpc->total_samples != -1 && wpc->filelen) {
-        double output_time = (double) wpc->total_samples / wpc->config.sample_rate;
+        double output_time = (double) wpc->total_samples / WavpackGetSampleRate (wpc);
         double input_size = (double) wpc->filelen + (count_wvc ? wpc->file2len : 0);
 
         if (output_time >= 0.1 && input_size >= 1.0)
@@ -239,7 +239,7 @@ double WavpackGetInstantBitrate (WavpackContext *wpc)
         return WavpackGetAverageBitrate (wpc, TRUE);
 
     if (wpc && wpc->streams && wpc->streams [0] && wpc->streams [0]->wphdr.block_samples) {
-        double output_time = (double) wpc->streams [0]->wphdr.block_samples / wpc->config.sample_rate;
+        double output_time = (double) wpc->streams [0]->wphdr.block_samples / WavpackGetSampleRate (wpc);
         double input_size = 0;
         int si;
 
@@ -344,7 +344,7 @@ void WavpackFreeWrapper (WavpackContext *wpc)
 
 uint32_t WavpackGetSampleRate (WavpackContext *wpc)
 {
-    return wpc ? wpc->config.sample_rate : 44100;
+    return wpc ? (wpc->dsd_multiplier ? wpc->config.sample_rate * wpc->dsd_multiplier : wpc->config.sample_rate) : 44100;
 }
 
 // Returns the number of channels of the specified WavPack file. Note that

@@ -13,6 +13,7 @@ libwavpack_la_SOURCES = \
 	pack_dns.c \
 	pack_floats.c \
 	pack_utils.c \
+	pack_dsd.c \
 	read_words.c \
 	tags.c \
 	tag_utils.c \
@@ -23,6 +24,7 @@ libwavpack_la_SOURCES = \
 	unpack_floats.c \
 	unpack_seek.c \
 	unpack_utils.c \
+	unpack_dsd.c \
 	write_words.c
 
 if ENABLE_X86ASM
