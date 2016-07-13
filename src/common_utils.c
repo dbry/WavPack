@@ -441,6 +441,28 @@ void free_streams (WavpackContext *wpc)
             wpc->streams [si]->dc.shaping_data = NULL;
         }
 
+        if (wpc->streams [si]->dsd.probabilities) {
+            free (wpc->streams [si]->dsd.probabilities);
+            wpc->streams [si]->dsd.probabilities = NULL;
+        }
+
+        if (wpc->streams [si]->dsd.summed_probabilities) {
+            free (wpc->streams [si]->dsd.summed_probabilities);
+            wpc->streams [si]->dsd.summed_probabilities = NULL;
+        }
+
+        if (wpc->streams [si]->dsd.value_lookup) {
+            int i;
+
+            for (i = 0; i < wpc->streams [si]->dsd.history_bins; ++i)
+                free (wpc->streams [si]->dsd.value_lookup [i]);
+
+            free (wpc->streams [si]->dsd.value_lookup);
+            wpc->streams [si]->dsd.value_lookup = NULL;
+        }
+
+        wpc->streams [si]->dsd.allocated_bins = 0;
+
         if (si) {
             wpc->num_streams--;
             free (wpc->streams [si]);

@@ -288,7 +288,7 @@ int unpack_init (WavpackContext *wpc)
     wps->num_terms = 0;
     wps->mute_error = FALSE;
     wps->crc = wps->crc_x = 0xffffffff;
-    wps->dsd_data_bcount = 0;
+    wps->dsd.ready = 0;
     CLEAR (wps->wvbits);
     CLEAR (wps->wvcbits);
     CLEAR (wps->wvxbits);
@@ -325,7 +325,7 @@ int unpack_init (WavpackContext *wpc)
             }
     }
 
-    if (wps->wphdr.block_samples && ((wps->wphdr.flags & DSD_FLAG) ? !wps->dsd_data_bcount : !bs_is_open (&wps->wvbits))) {
+    if (wps->wphdr.block_samples && ((wps->wphdr.flags & DSD_FLAG) ? !wps->dsd.ready : !bs_is_open (&wps->wvbits))) {
         if (bs_is_open (&wps->wvcbits))
             strcpy (wpc->error_message, "can't unpack correction files alone!");
 
@@ -723,7 +723,7 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
             return init_wvx_bitstream (wps, wpmd);
 
         case ID_DSD_BLOCK:
-            return init_dsd_block (wps, wpmd);
+            return init_dsd_block (wpc, wpmd);
 
         case ID_RIFF_HEADER: case ID_RIFF_TRAILER:
         case ID_ALT_HEADER: case ID_ALT_TRAILER:

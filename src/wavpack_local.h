@@ -407,8 +407,13 @@ typedef struct {
     struct decorr_pass decorr_passes [MAX_NTERMS], analysis_pass;
     const WavpackDecorrSpec *decorr_specs;
 
-    unsigned char *dsd_data_ptr;
-    int32_t dsd_data_index, dsd_data_bcount;
+    struct {
+        unsigned char *byteptr, *endptr, (*probabilities) [256], **value_lookup, dsd_mode, ready;
+        int history_bins, allocated_bins, p0, p1;
+        int16_t (*summed_probabilities) [256];
+        uint32_t low, high, value;
+    } dsd;
+
 } WavpackStream;
 
 // flags for float_flags:
