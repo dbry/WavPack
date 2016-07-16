@@ -848,6 +848,39 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
         }
 }
 
+void send_general_metadata (WavpackContext *wpc)
+{
+    WavpackStream *wps = wpc->streams [wpc->current_stream], saved_stream;
+    uint32_t flags = wps->wphdr.flags;
+    WavpackMetadata wpmd;
+
+    if ((flags & SRATE_MASK) == SRATE_MASK && wpc->config.sample_rate != 44100) {
+        write_sample_rate (wpc, &wpmd);
+        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+        free_metadata (&wpmd);
+    }
+
+    if ((flags & INITIAL_BLOCK) &&
+        (wpc->config.num_channels > 2 ||
+        wpc->config.channel_mask != 0x5 - wpc->config.num_channels)) {
+            write_channel_info (wpc, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+            free_metadata (&wpmd);
+    }
+
+    if ((flags & INITIAL_BLOCK) && !wps->sample_index) {
+        write_config_info (wpc, &wpmd);
+        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+        free_metadata (&wpmd);
+    }
+
+    if (flags & INITIAL_BLOCK) {
+        write_new_config_info (wpc, &wpmd);
+        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+        free_metadata (&wpmd);
+    }
+}
+
 // Pack an entire block of samples (either mono or stereo) into a completed
 // WavPack block. It is assumed that there is sufficient space for the
 // completed block at "wps->blockbuff" and that "wps->blockend" points to the
@@ -1001,12 +1034,6 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
 
-        if ((flags & SRATE_MASK) == SRATE_MASK && wpc->config.sample_rate != 44100) {
-            write_sample_rate (wpc, &wpmd);
-            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-            free_metadata (&wpmd);
-        }
-
         if (flags & HYBRID_FLAG) {
             write_hybrid_profile (wps, &wpmd);
             copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
@@ -1025,26 +1052,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             free_metadata (&wpmd);
         }
 
-        if ((flags & INITIAL_BLOCK) &&
-            (wpc->config.num_channels > 2 ||
-            wpc->config.channel_mask != 0x5 - wpc->config.num_channels)) {
-                write_channel_info (wpc, &wpmd);
-                copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-                free_metadata (&wpmd);
-        }
-
-        if ((flags & INITIAL_BLOCK) && !wps->sample_index) {
-            write_config_info (wpc, &wpmd);
-            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-            free_metadata (&wpmd);
-        }
-
-        if (flags & INITIAL_BLOCK) {
-            write_new_config_info (wpc, &wpmd);
-            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-            free_metadata (&wpmd);
-        }
-
+        send_general_metadata (wpc);
         bs_open_write (&wps->wvbits, wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12, wps->blockend);
 
         if (wpc->wvc_flag) {

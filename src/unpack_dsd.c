@@ -16,17 +16,19 @@
 
 #include "wavpack_local.h"
 
-#define MAX_HISTORY_BITS    5
-
 ///////////////////////////// executable code ////////////////////////////////
 
 // This function initialzes the main range-encoded data for DSD audio samples
 
+static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd);
+static int init_dsd_block_high (WavpackStream *wps, WavpackMetadata *wpmd);
+static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count);
+static int decode_high (WavpackStream *wps, int32_t *output, int sample_count);
+
 int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
-    unsigned char dsd_power, history_bits, max_probability;
-    int i;
+    unsigned char dsd_power;
 
     if (wpmd->byte_length < 2)
         return FALSE;
@@ -37,15 +39,81 @@ int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
     dsd_power = *wps->dsd.byteptr++;
     for (wpc->dsd_multiplier = 1; dsd_power--; wpc->dsd_multiplier <<= 1);
 
-    wps->dsd.dsd_mode = *wps->dsd.byteptr++;
+    wps->dsd.mode = *wps->dsd.byteptr++;
 
-    if (!wps->dsd.dsd_mode) {
-        if (wps->dsd.endptr - wps->dsd.byteptr != wps->wphdr.block_samples * (wps->wphdr.flags & MONO_FLAG ? 1 : 2))
+    if (!wps->dsd.mode) {
+        if (wps->dsd.endptr - wps->dsd.byteptr != wps->wphdr.block_samples * (wps->wphdr.flags & MONO_FLAG ? 1 : 2)) {
             return FALSE;
+        }
 
         wps->dsd.ready = 1;
         return TRUE;
     }
+
+    if (wps->dsd.mode == 1)
+        return init_dsd_block_fast (wps, wpmd);
+    else if (wps->dsd.mode == 2)
+        return init_dsd_block_high (wps, wpmd);
+    else
+        return FALSE;
+}
+
+int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count)
+{
+    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    uint32_t flags = wps->wphdr.flags, crc = wps->crc;
+    int bytes_to_copy;
+
+    // don't attempt to decode past the end of the block, but watch out for overflow!
+
+    if (wps->sample_index + sample_count > GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples &&
+        GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index < sample_count)
+            sample_count = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index);
+
+    if (GET_BLOCK_INDEX (wps->wphdr) > wps->sample_index || wps->wphdr.block_samples < sample_count)
+        wps->mute_error = TRUE;
+
+    if (wps->mute_error) {
+        if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))
+            memset (buffer, 0, sample_count * 4);
+        else
+            memset (buffer, 0, sample_count * 8);
+
+        wps->sample_index += sample_count;
+        return sample_count;
+    }
+
+    if (!wps->dsd.mode) {
+        int total_samples = sample_count * ((flags & MONO_FLAG) ? 1 : 2);
+
+        if (wps->dsd.endptr - wps->dsd.byteptr < total_samples)
+            total_samples = wps->dsd.endptr - wps->dsd.byteptr;
+
+        while (total_samples--)
+            *buffer++ = *wps->dsd.byteptr++;
+    }
+    else if (wps->dsd.mode == 1)
+        decode_fast (wps, buffer, sample_count);
+    else
+        decode_high (wps, buffer, sample_count);
+
+    wps->sample_index += sample_count;
+    wps->crc = wps->wphdr.crc;          // TODO: no cheating!!
+
+    return sample_count;
+}
+
+/*------------------------------------------------------------------------------------------------------------------------*/
+
+// #define DSD_BYTE_READY(low,high) (((low) >> 24) == ((high) >> 24))
+// #define DSD_BYTE_READY(low,high) (!(((low) ^ (high)) >> 24))
+#define DSD_BYTE_READY(low,high) (!(((low) ^ (high)) & 0xff000000))
+#define MAX_HISTORY_BITS    5
+
+static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    unsigned char dsd_power, history_bits, max_probability;
+    int i;
 
     if (wps->dsd.byteptr == wps->dsd.endptr)
         return FALSE;
@@ -127,67 +195,12 @@ int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
     return TRUE;
 }
 
-static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count);
-
-int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count)
-{
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uint32_t flags = wps->wphdr.flags, crc = wps->crc;
-    int bytes_to_copy;
-
-    // don't attempt to decode past the end of the block, but watch out for overflow!
-
-    if (wps->sample_index + sample_count > GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples &&
-        GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index < sample_count)
-            sample_count = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index);
-
-    if (GET_BLOCK_INDEX (wps->wphdr) > wps->sample_index || wps->wphdr.block_samples < sample_count)
-        wps->mute_error = TRUE;
-
-    if (wps->mute_error) {
-        if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))
-            memset (buffer, 0, sample_count * 4);
-        else
-            memset (buffer, 0, sample_count * 8);
-
-        wps->sample_index += sample_count;
-        return sample_count;
-    }
-
-    decode_fast (wps, buffer, sample_count);
-
-    wps->sample_index += sample_count;
-    wps->crc = wps->wphdr.crc;          // TODO: no cheating!!
-
-    return sample_count;
-}
-
-/*------------------------------------------------------------------------------------------------------------------------*/
-
 static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
 {
     int total_samples = sample_count;
 
     if (!(wps->wphdr.flags & MONO_FLAG))
         total_samples *= 2;
-
-    if (!wps->dsd.dsd_mode) {
-        if (wps->dsd.endptr - wps->dsd.byteptr < total_samples) {
-            total_samples = wps->dsd.endptr - wps->dsd.byteptr;
-
-            if (wps->wphdr.flags & MONO_FLAG)
-                sample_count = total_samples;
-            else {
-                total_samples &= ~1;
-                sample_count = total_samples >> 1;
-            }
-        }
-
-        while (total_samples--)
-            *output++ = *wps->dsd.byteptr++;
-
-        return sample_count;
-    }
 
     while (total_samples--) {
         int mult = (wps->dsd.high - wps->dsd.low) / wps->dsd.summed_probabilities [wps->dsd.p0] [255], i;
@@ -214,11 +227,153 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
             wps->dsd.p1 = i & (wps->dsd.history_bins-1);
         }
 
-        while ((wps->dsd.high >> 24) == (wps->dsd.low >> 24) && wps->dsd.byteptr < wps->dsd.endptr) {
+        while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low) && wps->dsd.byteptr < wps->dsd.endptr) {
             wps->dsd.value = (wps->dsd.value << 8) | *wps->dsd.byteptr++;
             wps->dsd.high = (wps->dsd.high << 8) | 0xff;
             wps->dsd.low <<= 8;
         }
+    }
+
+    return sample_count;
+}
+
+/*------------------------------------------------------------------------------------------------------------------------*/
+
+#define PTABLE_BITS 8
+#define PTABLE_BINS (1<<PTABLE_BITS)
+#define PTABLE_MASK (PTABLE_BINS-1)
+
+#define UP   0x010000fe
+#define DOWN 0x00010000
+#define DECAY 8
+
+#define PRECISION 24
+#define VALUE_ONE (1 << PRECISION)
+#define PRECISION_USE 12
+
+#define RATE_S 20
+
+static void init_ptable (int *table, int rate_i, int rate_s)
+{
+    int value = 0x808000, rate = rate_i << 8, c, i;
+
+    for (c = (rate + 128) >> 8; c--;)
+        value += (DOWN - value) >> DECAY;
+
+    for (i = 0; i < PTABLE_BINS/2; ++i) {
+        table [i] = value;
+        table [PTABLE_BINS-1-i] = 0x100ffff - value;
+
+        if (value > 0x010000) {
+            rate += (rate * rate_s + 128) >> 8;
+
+            for (c = (rate + 64) >> 7; c--;)
+                value += (DOWN - value) >> DECAY;
+        }
+    }
+}
+
+static int init_dsd_block_high (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    uint32_t flags = wps->wphdr.flags;
+    int channel, rate_i, rate_s, i;
+
+    if (wps->dsd.endptr - wps->dsd.byteptr < ((flags & MONO_FLAG) ? 13 : 20))
+        return FALSE;
+
+    rate_i = *wps->dsd.byteptr++;
+    rate_s = *wps->dsd.byteptr++;
+
+    if (rate_s != RATE_S)
+        return FALSE;
+
+    if (!wps->dsd.ptable)
+        wps->dsd.ptable = malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
+
+    init_ptable (wps->dsd.ptable, rate_i, rate_s);
+
+    for (channel = 0; channel < ((flags & MONO_FLAG) ? 1 : 2); ++channel) {
+        DSDfilters *sp = wps->dsd.filters + channel;
+
+        sp->filter1 = *wps->dsd.byteptr++ << 16;
+        sp->filter2 = *wps->dsd.byteptr++ << 16;
+        sp->filter3 = *wps->dsd.byteptr++ << 16;
+        sp->filter4 = *wps->dsd.byteptr++ << 16;
+        sp->filter5 = *wps->dsd.byteptr++ << 16;
+        sp->filter6 = 0;
+        sp->factor = *wps->dsd.byteptr++ & 0xff;
+        sp->factor |= (*wps->dsd.byteptr++ << 8) & 0xff00;
+        sp->factor = (sp->factor << 16) >> 16;
+    }
+
+    wps->dsd.high = 0xffffffff;
+    wps->dsd.low = 0x0;
+
+    for (i = 4; i--;)
+        wps->dsd.value = (wps->dsd.value << 8) | *wps->dsd.byteptr++;
+
+    wps->dsd.ready = 1;
+
+    return TRUE;
+}
+
+static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
+{
+    int total_samples = sample_count, channel = 0;
+
+    if (!(wps->wphdr.flags & MONO_FLAG))
+        total_samples *= 2;
+
+    while (total_samples--) {
+        DSDfilters *sp = wps->dsd.filters + channel;
+        int byte = 0, bitcount = 8;
+
+        while (bitcount--) {
+            int value = sp->filter1 - sp->filter5 + sp->filter6 * (sp->factor >> 2);
+            int index = (value >> (PRECISION - PRECISION_USE)) & PTABLE_MASK;
+            unsigned int range = wps->dsd.high - wps->dsd.low, split;
+            int *val = wps->dsd.ptable + index;
+
+            split = wps->dsd.low + ((range & 0xff000000) ? (range >> 8) * (*val >> 16) : ((range * (*val >> 16)) >> 8));
+            value += sp->filter6 << 3;
+
+            if (wps->dsd.value <= split) {
+                wps->dsd.high = split;
+                byte = (byte << 1) | 1;
+                *val += (UP - *val) >> DECAY;
+                sp->filter1 += (VALUE_ONE - sp->filter1) >> 6;
+                sp->filter2 += (VALUE_ONE - sp->filter2) >> 4;
+
+                if ((value ^ (value - (sp->filter6 << 4))) < 0)
+                    sp->factor -= (value >> 31) | 1;
+            }
+            else {
+                wps->dsd.low = split + 1;
+                byte <<= 1;
+                *val += (DOWN - *val) >> DECAY;
+                sp->filter1 -= sp->filter1 >> 6;
+                sp->filter2 -= sp->filter2 >> 4;
+
+                if ((value ^ (value - (sp->filter6 << 4))) < 0)
+                    sp->factor += (value >> 31) | 1;
+            }
+
+            while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low) && wps->dsd.byteptr < wps->dsd.endptr) {
+                wps->dsd.value = (wps->dsd.value << 8) | *wps->dsd.byteptr++;
+                wps->dsd.high = (wps->dsd.high << 8) | 0xff;
+                wps->dsd.low <<= 8;
+            }
+
+            sp->filter3 += (sp->filter2 - sp->filter3) >> 4;
+            sp->filter4 += (sp->filter3 - sp->filter4) >> 4;
+            sp->filter5 += value = (sp->filter4 - sp->filter5) >> 4;
+            sp->filter6 += (value - sp->filter6) >> 3;
+        }
+
+        *output++ = byte;
+
+        if (!(wps->wphdr.flags & MONO_FLAG))
+            channel ^= 1;
     }
 
     return sample_count;

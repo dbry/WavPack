@@ -463,6 +463,11 @@ void free_streams (WavpackContext *wpc)
 
         wpc->streams [si]->dsd.allocated_bins = 0;
 
+        if (wpc->streams [si]->dsd.ptable) {
+            free (wpc->streams [si]->dsd.ptable);
+            wpc->streams [si]->dsd.ptable = NULL;
+        }
+
         if (si) {
             wpc->num_streams--;
             free (wpc->streams [si]);

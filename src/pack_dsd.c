@@ -16,9 +16,6 @@
 
 #include "wavpack_local.h"
 
-#define MAX_HISTORY_BITS    5
-#define MAX_PROBABILITY     0xa0    // set to 0xff to disable RLE encoding for probabilities table
-
 ///////////////////////////// executable code ////////////////////////////////
 
 // This function initializes everything required to pack WavPack DSD bitstreams
@@ -58,7 +55,9 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
 // the caller must look at the ckSize field of the written WavpackHeader, NOT
 // the one in the WavpackStream.
 
-static int encode_buffer (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination);
+static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination);
+static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination);
+void send_general_metadata (WavpackContext *wpc);
 
 static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
 {
@@ -89,6 +88,7 @@ static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
     if (!sample_count)
         return TRUE;
 
+    send_general_metadata (wpc);
     memcpy (&wps->wphdr, wps->blockbuff, sizeof (WavpackHeader));
 
     dsd_encoding = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12;
@@ -98,7 +98,10 @@ static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
 
     *dsd_encoding++ = dsd_power;
 
-    res = encode_buffer (wps, buffer, sample_count, dsd_encoding + 1);
+    if (wpc->config.flags & CONFIG_HIGH_FLAG)
+        res = encode_buffer_high (wps, buffer, sample_count, dsd_encoding);
+    else
+        res = encode_buffer_fast (wps, buffer, sample_count, dsd_encoding);
 
     if (res == -1) {
         int num_samples = sample_count * ((flags & MONO_FLAG) ? 1 : 2);
@@ -110,10 +113,8 @@ static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
             *dsd_encoding++ = *buffer++;
         }
     }
-    else {
-        *dsd_encoding = 1;
-        data_count = res + 2;
-    }
+    else
+        data_count = res + 1;
 
     if (data_count) {
         unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
@@ -134,6 +135,15 @@ static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
     wps->sample_index += sample_count;
     return TRUE;
 }
+
+/*------------------------------------------------------------------------------------------------------------------------*/
+
+// #define DSD_BYTE_READY(low,high) (((low) >> 24) == ((high) >> 24))
+// #define DSD_BYTE_READY(low,high) (!(((low) ^ (high)) >> 24))
+#define DSD_BYTE_READY(low,high) (!(((low) ^ (high)) & 0xff000000))
+
+#define MAX_HISTORY_BITS    5
+#define MAX_PROBABILITY     0xa0    // set to 0xff to disable RLE encoding for probabilities table
 
 #if (MAX_PROBABILITY < 0xff)
 
@@ -245,7 +255,7 @@ static void calculate_probabilities (int hist [256], unsigned char probs [256], 
     }
 }
 
-static int encode_buffer (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination)
+static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination)
 {
     uint32_t flags = wps->wphdr.flags;
     int history_bins, bc, p0 = 0, p1 = 0;
@@ -337,6 +347,7 @@ static int encode_buffer (WavpackStream *wps, int32_t *buffer, int num_samples, 
     free (histogram);
     bp = buffer;
     bc = num_samples;
+    *dp++ = 1;
     *dp++ = history_bits;
     *dp++ = MAX_PROBABILITY;
     ep = destination + num_samples - 10;
@@ -357,7 +368,7 @@ static int encode_buffer (WavpackStream *wps, int32_t *buffer, int num_samples, 
         if (!mult) {
             high = low;
 
-            while ((high >> 24) == (low >> 24)) {
+            while (DSD_BYTE_READY (high, low)) {
                 *dp++ = high >> 24;
                 high = (high << 8) | 0xff;
                 low <<= 8;
@@ -371,7 +382,7 @@ static int encode_buffer (WavpackStream *wps, int32_t *buffer, int num_samples, 
 
         high = low + probabilities [p0] [*bp & 0xff] * mult - 1;
 
-        while ((high >> 24) == (low >> 24)) {
+        while (DSD_BYTE_READY (high, low)) {
             *dp++ = high >> 24;
             high = (high << 8) | 0xff;
             low <<= 8;
@@ -387,7 +398,7 @@ static int encode_buffer (WavpackStream *wps, int32_t *buffer, int num_samples, 
 
     high = low;
 
-    while ((high >> 24) == (low >> 24)) {
+    while (DSD_BYTE_READY (high, low)) {
         *dp++ = high >> 24;
         high = (high << 8) | 0xff;
         low <<= 8;
@@ -395,6 +406,192 @@ static int encode_buffer (WavpackStream *wps, int32_t *buffer, int num_samples, 
 
     free (summed_probabilities);
     free (probabilities);
+
+    if (dp < ep)
+        return (int)(dp - destination);
+    else
+        return -1;
+}
+
+/*------------------------------------------------------------------------------------------------------------------------*/
+
+#define PTABLE_BITS 8
+#define PTABLE_BINS (1<<PTABLE_BITS)
+#define PTABLE_MASK (PTABLE_BINS-1)
+
+#define INITIAL_TERM (1536/PTABLE_BINS)
+
+#define UP   0x010000fe
+#define DOWN 0x00010000
+#define DECAY 8
+
+#define PRECISION 24
+#define VALUE_ONE (1 << PRECISION)
+#define PRECISION_USE 12
+
+#define RATE_S 20
+
+static void init_ptable (int *table, int rate_i, int rate_s)
+{
+    int value = 0x808000, rate = rate_i << 8, c, i;
+
+    for (c = (rate + 128) >> 8; c--;)
+        value += (DOWN - value) >> DECAY;
+
+    for (i = 0; i < PTABLE_BINS/2; ++i) {
+        table [i] = value;
+        table [PTABLE_BINS-1-i] = 0x100ffff - value;
+
+        if (value > 0x010000) {
+            rate += (rate * rate_s + 128) >> 8;
+
+            for (c = (rate + 64) >> 7; c--;)
+                value += (DOWN - value) >> DECAY;
+        }
+    }
+}
+
+static int normalize_ptable (int *ptable)
+{
+    int rate = 0, min_error, error_sum, i;
+    int ntable [PTABLE_BINS];
+
+    init_ptable (ntable, rate, RATE_S);
+
+    for (min_error = i = 0; i < PTABLE_BINS; ++i)
+        min_error += abs (ptable [i] - ntable [i]) >> 8;
+
+    while (1) {
+        init_ptable (ntable, ++rate, RATE_S);
+
+        for (error_sum = i = 0; i < PTABLE_BINS; ++i)
+            error_sum += abs (ptable [i] - ntable [i]) >> 8;
+
+        if (error_sum < min_error)
+            min_error = error_sum;
+        else
+            break;
+    }
+
+    return rate - 1;
+}
+
+static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination)
+{
+    uint32_t flags = wps->wphdr.flags;
+    unsigned char *dp = destination, *ep;
+    unsigned int high = 0xffffffff, low = 0;
+    DSDfilters *sp;
+    int channel, i;
+
+    if (!(flags & MONO_FLAG))
+        num_samples *= 2;
+
+    if (num_samples < 280)
+        return -1;
+
+    *dp++ = 2;
+    ep = destination + num_samples - 10;
+
+    if (!wps->sample_index) {
+        if (!wps->dsd.ptable)
+            wps->dsd.ptable = malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
+
+        init_ptable (wps->dsd.ptable, INITIAL_TERM, RATE_S);
+
+        for (channel = 0; channel < 2; ++channel) {
+            sp = wps->dsd.filters + channel;
+
+            sp->filter1 = sp->filter2 = sp->filter3 = sp->filter4 = sp->filter5 = VALUE_ONE / 2;
+            sp->filter6 = sp->factor = 0;
+        }
+
+        *dp++ = INITIAL_TERM;
+        *dp++ = RATE_S;
+    }
+    else {
+        int rate = normalize_ptable (wps->dsd.ptable);
+        init_ptable (wps->dsd.ptable, rate, RATE_S);
+        *dp++ = rate;
+        *dp++ = RATE_S;
+    }
+
+    for (channel = 0; channel < ((flags & MONO_FLAG) ? 1 : 2); ++channel) {
+        sp = wps->dsd.filters + channel;
+
+        *dp++ = (sp->filter1 + 32768) >> 16;
+        *dp++ = (sp->filter2 + 32768) >> 16;
+        *dp++ = (sp->filter3 + 32768) >> 16;
+        *dp++ = (sp->filter4 + 32768) >> 16;
+        *dp++ = (sp->filter5 + 32768) >> 16;
+        *dp++ = sp->factor;
+        *dp++ = sp->factor >> 8;
+
+        sp->filter1 = ((sp->filter1 + 32768) >> 16) << 16;
+        sp->filter2 = ((sp->filter2 + 32768) >> 16) << 16;
+        sp->filter3 = ((sp->filter3 + 32768) >> 16) << 16;
+        sp->filter4 = ((sp->filter4 + 32768) >> 16) << 16;
+        sp->filter5 = ((sp->filter5 + 32768) >> 16) << 16;
+        sp->filter6 = 0;
+        sp->factor = (sp->factor << 16) >> 16;
+    }
+
+    channel = 0;
+
+    while (dp < ep && num_samples--) {
+        int byte = (*buffer++ & 0xff), bitcount = 8;
+        sp = wps->dsd.filters + channel;
+
+        while (bitcount--) {
+            int value = sp->filter1 - sp->filter5 + sp->filter6 * (sp->factor >> 2);
+            int index = (value >> (PRECISION - PRECISION_USE)) & PTABLE_MASK;
+            int *val = wps->dsd.ptable + index;
+
+            value += sp->filter6 << 3;
+
+            if (byte & 0x80) {
+                high = low + (((high - low) >> 24) ? ((high - low) >> 8) * (*val >> 16) : (((high - low) * (*val >> 16)) >> 8));
+                *val += (UP - *val) >> DECAY;
+                sp->filter1 += (VALUE_ONE - sp->filter1) >> 6;
+                sp->filter2 += (VALUE_ONE - sp->filter2) >> 4;
+
+                if ((value ^ (value - (sp->filter6 << 4))) < 0)
+                    sp->factor -= (value >> 31) | 1;
+            }
+            else {
+                low += 1 + (((high - low) >> 24) ? ((high - low) >> 8) * (*val >> 16) : (((high - low) * (*val >> 16)) >> 8));
+                *val += (DOWN - *val) >> DECAY;
+                sp->filter1 -= sp->filter1 >> 6;
+                sp->filter2 -= sp->filter2 >> 4;
+
+                if ((value ^ (value - (sp->filter6 << 4))) < 0)
+                    sp->factor += (value >> 31) | 1;
+            }
+
+            while (DSD_BYTE_READY (high, low)) {
+                *dp++ = high >> 24;
+                high = (high << 8) | 0xff;
+                low <<= 8;
+            }
+
+            sp->filter3 += (sp->filter2 - sp->filter3) >> 4;
+            sp->filter4 += (sp->filter3 - sp->filter4) >> 4;
+            sp->filter5 += value = (sp->filter4 - sp->filter5) >> 4;
+            sp->filter6 += (value - sp->filter6) >> 3;
+            byte <<= 1;
+        }
+
+        if (!(flags & MONO_FLAG))
+            channel ^= 1;
+    }
+
+    high = low;
+
+    while (DSD_BYTE_READY (high, low)) {
+        *dp++ = high >> 24;
+        high = (high << 8) | 0xff;
+        low <<= 8;
+    }
 
     if (dp < ep)
         return (int)(dp - destination);

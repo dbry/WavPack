@@ -379,6 +379,10 @@ struct words_data {
 };
 
 typedef struct {
+    int32_t filter1, filter2, filter3, filter4, filter5, filter6, factor;
+} DSDfilters;
+
+typedef struct {
     WavpackHeader wphdr;
     struct words_data w;
 
@@ -408,10 +412,12 @@ typedef struct {
     const WavpackDecorrSpec *decorr_specs;
 
     struct {
-        unsigned char *byteptr, *endptr, (*probabilities) [256], **value_lookup, dsd_mode, ready;
+        unsigned char *byteptr, *endptr, (*probabilities) [256], **value_lookup, mode, ready;
         int history_bins, allocated_bins, p0, p1;
         int16_t (*summed_probabilities) [256];
         uint32_t low, high, value;
+        DSDfilters filters [2];
+        int32_t *ptable;
     } dsd;
 
 } WavpackStream;
