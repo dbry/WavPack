@@ -98,8 +98,14 @@ static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
 
     *dsd_encoding++ = dsd_power;
 
-    if (wpc->config.flags & CONFIG_HIGH_FLAG)
+    if (wpc->config.flags & CONFIG_HIGH_FLAG) {
+        int fast_res = encode_buffer_fast (wps, buffer, sample_count, dsd_encoding);
+
         res = encode_buffer_high (wps, buffer, sample_count, dsd_encoding);
+
+        if ((fast_res != -1) && (res == -1 || res > fast_res))
+            res = encode_buffer_fast (wps, buffer, sample_count, dsd_encoding);
+    }
     else
         res = encode_buffer_fast (wps, buffer, sample_count, dsd_encoding);
 
