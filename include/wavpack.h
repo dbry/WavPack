@@ -215,7 +215,7 @@ typedef struct {
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
 // The lower 8 bits of qmode indicate the use of new features in version 5 that (presently)
-// only apply to Core Audio Files (CAF), but could apply to other things and file types.
+// only apply to Core Audio Files (CAF) and DSD files, but could apply to other things too.
 // These flags are stored in the file and can be retrieved by a decoder that is aware of
 // them, but the individual bits are meaningless to the library. If ANY of these bits are
 // set then the MD5 sum is written with a new ID so that old decoders will not see it
@@ -225,6 +225,10 @@ typedef struct {
 #define QMODE_SIGNED_BYTES      0x2     // 8-bit audio data is signed (opposite of WAV format)
 #define QMODE_UNSIGNED_WORDS    0x4     // audio data (other than 8-bit) is unsigned (opposite of WAV format)
 #define QMODE_REORDERED_CHANS   0x8     // source channels were not Microsoft order, so they were reordered
+#define QMODE_DSD_LSB_FIRST     0x10    // DSD bytes, LSB first (most Sony .dsf files)
+#define QMODE_DSD_MSB_FIRST     0x20    // DSD bytes, MSB first (Philips .dff files)
+#define QMODE_DSD_IN_BLOCKS     0x40    // DSD data is blocked by channels (Sony .dsf only)
+#define QMODE_DSD_AUDIO         (QMODE_DSD_LSB_FIRST | QMODE_DSD_MSB_FIRST)
 
 // The rest of the qmode word is reserved for the private use of the command-line programs
 // and are ignored by the library (and not stored either). They really should not be defined

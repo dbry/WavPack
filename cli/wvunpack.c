@@ -969,6 +969,8 @@ static FILE *open_output_file (char *filename, char **tempfilename)
 // the resulting audio data and verifying the sum if a sum was stored in the
 // source and lossless compression is used.
 
+static int unpack_audio (WavpackContext *wpc, FILE *outfile, int qmode, unsigned char *md5_digest, int64_t *sample_count);
+static int unpack_dsd_audio (WavpackContext *wpc, FILE *outfile, int qmode, unsigned char *md5_digest, int64_t *sample_count);
 static int do_tag_extractions (WavpackContext *wpc, char *outfilename);
 static void *store_samples (void *dst, int32_t *src, int qmode, int bps, int count);
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
@@ -976,22 +978,17 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int parameter);
 static void unreorder_channels (int32_t *data, unsigned char *order, int num_chans, int num_samples);
 
-#define TEMP_BUFFER_SAMPLES 4096L   // composite samples in temporary buffer used during unpacking
-
 static int unpack_file (char *infilename, char *outfilename, int add_extension)
 {
     int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE, input_qmode, output_qmode, input_format, output_format;
-    int open_flags = 0, bytes_per_sample, num_channels, wvc_mode, bps;
+    int open_flags = 0, num_channels, wvc_mode;
     uint32_t output_buffer_size = 0, bcount;
     int64_t skip_sample_index = 0, until_samples_total = 0, total_unpacked_samples = 0;
-    unsigned char *output_buffer = NULL, *output_pointer = NULL;
-    unsigned char *new_channel_order = NULL;
+    unsigned char md5_unpacked [16];
     double dtime, progress = -1.0;
     char *outfilename_temp = NULL;
     char *extension = NULL;
-    MD5_CTX md5_context;
     WavpackContext *wpc;
-    int32_t *temp_buffer;
     char error [80];
     FILE *outfile;
 
@@ -1028,9 +1025,6 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         return WAVPACK_SOFT_ERROR;
     }
 
-    if (calc_md5)
-        MD5Init (&md5_context);
-
     if (add_extension) {
         if (raw_decode)
             extension = "raw";
@@ -1042,8 +1036,6 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
     num_channels = WavpackGetNumChannels (wpc);
-    bps = WavpackGetBytesPerSample (wpc);
-    bytes_per_sample = num_channels * bps;
     input_qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
     input_format = WavpackGetFileFormat (wpc);
 
@@ -1062,19 +1054,6 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     else {
         output_format = input_format;
         output_qmode = input_qmode;
-    }
-
-    if (output_qmode & QMODE_REORDERED_CHANS) {
-        int layout = WavpackGetChannelLayout (wpc, NULL), i;
-
-        if ((layout & 0xff) <= num_channels) {
-            new_channel_order = malloc (num_channels);
-
-            for (i = 0; i < num_channels; ++i)
-                new_channel_order [i] = i;
-
-            WavpackGetChannelLayout (wpc, new_channel_order);
-        }
     }
 
     if (skip.value_is_valid) {
@@ -1187,19 +1166,6 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             fprintf (stderr, "restoring %s,", FN_FIT (outfilename));
             fflush (stderr);
         }
-
-        if (outbuf_k)
-            output_buffer_size = outbuf_k * 1024;
-        else
-            output_buffer_size = 1024 * 256;
-
-        output_pointer = output_buffer = malloc (output_buffer_size);
-
-        if (!output_buffer) {
-            error_line ("can't allocate buffer for decoding!");
-            WavpackCloseFile (wpc);
-            return WAVPACK_HARD_ERROR;
-        }
     }
     else {      // in verify only mode we don't worry about headers
         outfile = NULL;
@@ -1244,95 +1210,18 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             created_riff_header = TRUE;
     }
 
-    temp_buffer = malloc (TEMP_BUFFER_SAMPLES * num_channels * sizeof (temp_buffer [0]));
+    total_unpacked_samples = until_samples_total;
 
-    while (result == WAVPACK_NO_ERROR) {
-        uint32_t samples_to_unpack, samples_unpacked;
-
-        if (output_buffer) {
-            samples_to_unpack = (output_buffer_size - (uint32_t)(output_pointer - output_buffer)) / bytes_per_sample;
-
-            if (samples_to_unpack > TEMP_BUFFER_SAMPLES)
-                samples_to_unpack = TEMP_BUFFER_SAMPLES;
-        }
-        else
-            samples_to_unpack = TEMP_BUFFER_SAMPLES;
-
-        if (until_samples_total && samples_to_unpack > until_samples_total - total_unpacked_samples)
-            samples_to_unpack = (uint32_t) (until_samples_total - total_unpacked_samples);
-
-        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
-        total_unpacked_samples += samples_unpacked;
-
-        if (new_channel_order)
-            unreorder_channels (temp_buffer, new_channel_order, num_channels, samples_unpacked);
-
-        if (output_buffer) {
-            if (samples_unpacked)
-                output_pointer = store_samples (output_pointer, temp_buffer, output_qmode, bps, samples_unpacked * num_channels);
-
-            if (!samples_unpacked || (output_buffer_size - (output_pointer - output_buffer)) < (uint32_t) bytes_per_sample) {
-                if (!DoWriteFile (outfile, output_buffer, (uint32_t)(output_pointer - output_buffer), &bcount) ||
-                    bcount != output_pointer - output_buffer) {
-                        error_line ("can't write .WAV data, disk probably full!");
-                        DoTruncateFile (outfile);
-                        result = WAVPACK_HARD_ERROR;
-                        break;
-                }
-
-                output_pointer = output_buffer;
-            }
-        }
-
-        if (calc_md5 && samples_unpacked) {
-            store_samples (temp_buffer, temp_buffer, output_qmode, bps, samples_unpacked * num_channels);
-            MD5Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
-        }
-
-        if (!samples_unpacked)
-            break;
-
-        if (check_break ()) {
-#if defined(_WIN32)
-            fprintf (stderr, "^C\n");
-#else
-            fprintf (stderr, "\n");
-#endif
-            fflush (stderr);
-            DoTruncateFile (outfile);
-            result = WAVPACK_SOFT_ERROR;
-            break;
-        }
-
-        if (WavpackGetProgress (wpc) != -1.0 &&
-            progress != floor (WavpackGetProgress (wpc) * 100.0 + 0.5)) {
-                int nobs = progress == -1.0;
-
-                progress = WavpackGetProgress (wpc);
-                display_progress (progress);
-                progress = floor (progress * 100.0 + 0.5);
-
-                if (!quiet_mode) {
-                    fprintf (stderr, "%s%3d%% done...",
-                        nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
-                    fflush (stderr);
-                }
-        }
-    }
-
-    if (output_buffer)
-        free (output_buffer);
-
-    if (new_channel_order)
-        free (new_channel_order);
+    if (output_qmode & QMODE_DSD_AUDIO)
+        result = unpack_dsd_audio (wpc, outfile, output_qmode, calc_md5 ? md5_unpacked : NULL, &total_unpacked_samples);
+    else
+        result = unpack_audio (wpc, outfile, output_qmode, calc_md5 ? md5_unpacked : NULL, &total_unpacked_samples);
 
     if (!check_break () && calc_md5) {
         char md5_string1 [] = "00000000000000000000000000000000";
         char md5_string2 [] = "00000000000000000000000000000000";
-        unsigned char md5_original [16], md5_unpacked [16];
+        unsigned char md5_original [16];
         int i;
-
-        MD5Final (md5_unpacked, &md5_context);
 
         if (WavpackGetMD5Sum (wpc, md5_original)) {
 
@@ -1352,6 +1241,8 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     }
 
     while (!created_riff_header && WavpackGetWrapperBytes (wpc)) {
+        int32_t *temp_buffer;
+
         if (outfile && result == WAVPACK_NO_ERROR &&
             (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
             bcount != WavpackGetWrapperBytes (wpc))) {
@@ -1361,10 +1252,10 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         }
 
         WavpackFreeWrapper (wpc);
+        temp_buffer = malloc (sizeof (temp_buffer [0] * num_channels));
         WavpackUnpackSamples (wpc, temp_buffer, 1); // perhaps there's more RIFF info...
+        free (temp_buffer);
     }
-
-    free (temp_buffer);
 
     if (result == WAVPACK_NO_ERROR && outfile && created_riff_header &&
         (WavpackGetNumSamples64 (wpc) == -1 ||
@@ -1513,6 +1404,296 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         }
     }
 
+    return result;
+}
+
+#define TEMP_BUFFER_SAMPLES 4096L   // composite samples in temporary buffer used during unpacking
+
+static int unpack_audio (WavpackContext *wpc, FILE *outfile, int qmode, unsigned char *md5_digest, int64_t *sample_count)
+{
+    unsigned char *output_buffer = NULL, *output_pointer = NULL, *new_channel_order = NULL;
+    int bps = WavpackGetBytesPerSample (wpc), num_channels = WavpackGetNumChannels (wpc);
+    int64_t until_samples_total = *sample_count, total_unpacked_samples = 0;
+    int bytes_per_sample = bps * num_channels, result = WAVPACK_NO_ERROR;
+    uint32_t output_buffer_size = 0, bcount;
+    double progress = -1.0;
+    int32_t *temp_buffer;
+    MD5_CTX md5_context;
+
+    if (md5_digest)
+        MD5Init (&md5_context);
+
+    if (outfile) {
+        if (outbuf_k)
+            output_buffer_size = outbuf_k * 1024;
+        else
+            output_buffer_size = 1024 * 256;
+
+        output_pointer = output_buffer = malloc (output_buffer_size);
+
+        if (!output_buffer) {
+            error_line ("can't allocate buffer for decoding!");
+            WavpackCloseFile (wpc);
+            return WAVPACK_HARD_ERROR;
+        }
+    }
+
+    if (qmode & QMODE_REORDERED_CHANS) {
+        int layout = WavpackGetChannelLayout (wpc, NULL), i;
+
+        if ((layout & 0xff) <= num_channels) {
+            new_channel_order = malloc (num_channels);
+
+            for (i = 0; i < num_channels; ++i)
+                new_channel_order [i] = i;
+
+            WavpackGetChannelLayout (wpc, new_channel_order);
+        }
+    }
+
+    temp_buffer = malloc (TEMP_BUFFER_SAMPLES * num_channels * sizeof (temp_buffer [0]));
+
+    while (result == WAVPACK_NO_ERROR) {
+        uint32_t samples_to_unpack, samples_unpacked;
+
+        if (output_buffer) {
+            samples_to_unpack = (output_buffer_size - (uint32_t)(output_pointer - output_buffer)) / bytes_per_sample;
+
+            if (samples_to_unpack > TEMP_BUFFER_SAMPLES)
+                samples_to_unpack = TEMP_BUFFER_SAMPLES;
+        }
+        else
+            samples_to_unpack = TEMP_BUFFER_SAMPLES;
+
+        if (until_samples_total && samples_to_unpack > until_samples_total - total_unpacked_samples)
+            samples_to_unpack = (uint32_t) (until_samples_total - total_unpacked_samples);
+
+        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
+        total_unpacked_samples += samples_unpacked;
+
+        if (new_channel_order)
+            unreorder_channels (temp_buffer, new_channel_order, num_channels, samples_unpacked);
+
+        if (output_buffer) {
+            if (samples_unpacked)
+                output_pointer = store_samples (output_pointer, temp_buffer, qmode, bps, samples_unpacked * num_channels);
+
+            if (!samples_unpacked || (output_buffer_size - (output_pointer - output_buffer)) < (uint32_t) bytes_per_sample) {
+                if (!DoWriteFile (outfile, output_buffer, (uint32_t)(output_pointer - output_buffer), &bcount) ||
+                    bcount != output_pointer - output_buffer) {
+                        error_line ("can't write .WAV data, disk probably full!");
+                        DoTruncateFile (outfile);
+                        result = WAVPACK_HARD_ERROR;
+                        break;
+                }
+
+                output_pointer = output_buffer;
+            }
+        }
+
+        if (md5_digest && samples_unpacked) {
+            store_samples (temp_buffer, temp_buffer, qmode, bps, samples_unpacked * num_channels);
+            MD5Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
+        }
+
+        if (!samples_unpacked)
+            break;
+
+        if (check_break ()) {
+#if defined(_WIN32)
+            fprintf (stderr, "^C\n");
+#else
+            fprintf (stderr, "\n");
+#endif
+            fflush (stderr);
+            DoTruncateFile (outfile);
+            result = WAVPACK_SOFT_ERROR;
+            break;
+        }
+
+        if (WavpackGetProgress (wpc) != -1.0 &&
+            progress != floor (WavpackGetProgress (wpc) * 100.0 + 0.5)) {
+                int nobs = progress == -1.0;
+
+                progress = WavpackGetProgress (wpc);
+                display_progress (progress);
+                progress = floor (progress * 100.0 + 0.5);
+
+                if (!quiet_mode) {
+                    fprintf (stderr, "%s%3d%% done...",
+                        nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+                    fflush (stderr);
+                }
+        }
+    }
+
+    if (new_channel_order)
+        free (new_channel_order);
+
+    if (md5_digest)
+        MD5Final (md5_digest, &md5_context);
+
+    free (temp_buffer);
+
+    if (output_buffer)
+        free (output_buffer);
+
+    *sample_count = total_unpacked_samples;
+    return result;
+}
+
+static const unsigned char bit_reverse_table [] = {
+    0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, 0x60, 0xe0, 0x10, 0x90, 0x50, 0xd0, 0x30, 0xb0, 0x70, 0xf0,
+    0x08, 0x88, 0x48, 0xc8, 0x28, 0xa8, 0x68, 0xe8, 0x18, 0x98, 0x58, 0xd8, 0x38, 0xb8, 0x78, 0xf8,
+    0x04, 0x84, 0x44, 0xc4, 0x24, 0xa4, 0x64, 0xe4, 0x14, 0x94, 0x54, 0xd4, 0x34, 0xb4, 0x74, 0xf4,
+    0x0c, 0x8c, 0x4c, 0xcc, 0x2c, 0xac, 0x6c, 0xec, 0x1c, 0x9c, 0x5c, 0xdc, 0x3c, 0xbc, 0x7c, 0xfc,
+    0x02, 0x82, 0x42, 0xc2, 0x22, 0xa2, 0x62, 0xe2, 0x12, 0x92, 0x52, 0xd2, 0x32, 0xb2, 0x72, 0xf2,
+    0x0a, 0x8a, 0x4a, 0xca, 0x2a, 0xaa, 0x6a, 0xea, 0x1a, 0x9a, 0x5a, 0xda, 0x3a, 0xba, 0x7a, 0xfa,
+    0x06, 0x86, 0x46, 0xc6, 0x26, 0xa6, 0x66, 0xe6, 0x16, 0x96, 0x56, 0xd6, 0x36, 0xb6, 0x76, 0xf6,
+    0x0e, 0x8e, 0x4e, 0xce, 0x2e, 0xae, 0x6e, 0xee, 0x1e, 0x9e, 0x5e, 0xde, 0x3e, 0xbe, 0x7e, 0xfe,
+    0x01, 0x81, 0x41, 0xc1, 0x21, 0xa1, 0x61, 0xe1, 0x11, 0x91, 0x51, 0xd1, 0x31, 0xb1, 0x71, 0xf1,
+    0x09, 0x89, 0x49, 0xc9, 0x29, 0xa9, 0x69, 0xe9, 0x19, 0x99, 0x59, 0xd9, 0x39, 0xb9, 0x79, 0xf9,
+    0x05, 0x85, 0x45, 0xc5, 0x25, 0xa5, 0x65, 0xe5, 0x15, 0x95, 0x55, 0xd5, 0x35, 0xb5, 0x75, 0xf5,
+    0x0d, 0x8d, 0x4d, 0xcd, 0x2d, 0xad, 0x6d, 0xed, 0x1d, 0x9d, 0x5d, 0xdd, 0x3d, 0xbd, 0x7d, 0xfd,
+    0x03, 0x83, 0x43, 0xc3, 0x23, 0xa3, 0x63, 0xe3, 0x13, 0x93, 0x53, 0xd3, 0x33, 0xb3, 0x73, 0xf3,
+    0x0b, 0x8b, 0x4b, 0xcb, 0x2b, 0xab, 0x6b, 0xeb, 0x1b, 0x9b, 0x5b, 0xdb, 0x3b, 0xbb, 0x7b, 0xfb,
+    0x07, 0x87, 0x47, 0xc7, 0x27, 0xa7, 0x67, 0xe7, 0x17, 0x97, 0x57, 0xd7, 0x37, 0xb7, 0x77, 0xf7,
+    0x0f, 0x8f, 0x4f, 0xcf, 0x2f, 0xaf, 0x6f, 0xef, 0x1f, 0x9f, 0x5f, 0xdf, 0x3f, 0xbf, 0x7f, 0xff
+};
+
+#define DSD_BLOCKSIZE 4096
+
+static int unpack_dsd_audio (WavpackContext *wpc, FILE *outfile, int qmode, unsigned char *md5_digest, int64_t *sample_count)
+{
+    unsigned char *output_buffer = NULL, *new_channel_order = NULL;
+    int num_channels = WavpackGetNumChannels (wpc), result = WAVPACK_NO_ERROR;
+    int64_t until_samples_total = *sample_count, total_unpacked_samples = 0;
+    uint32_t output_buffer_size = 0, bcount;
+    double progress = -1.0;
+    int32_t *temp_buffer;
+    MD5_CTX md5_context;
+
+    if (md5_digest)
+        MD5Init (&md5_context);
+
+    output_buffer_size = DSD_BLOCKSIZE * num_channels;
+    output_buffer = malloc (output_buffer_size);
+
+    if (!output_buffer) {
+        error_line ("can't allocate buffer for decoding!");
+        WavpackCloseFile (wpc);
+        return WAVPACK_HARD_ERROR;
+    }
+
+    if (qmode & QMODE_REORDERED_CHANS) {
+        int layout = WavpackGetChannelLayout (wpc, NULL), i;
+
+        if ((layout & 0xff) <= num_channels) {
+            new_channel_order = malloc (num_channels);
+
+            for (i = 0; i < num_channels; ++i)
+                new_channel_order [i] = i;
+
+            WavpackGetChannelLayout (wpc, new_channel_order);
+        }
+    }
+
+    temp_buffer = malloc (DSD_BLOCKSIZE * num_channels * sizeof (temp_buffer [0]));
+
+    while (result == WAVPACK_NO_ERROR) {
+        uint32_t samples_to_unpack = DSD_BLOCKSIZE, samples_unpacked;
+
+        if (until_samples_total && samples_to_unpack > until_samples_total - total_unpacked_samples)
+            samples_to_unpack = (uint32_t) (until_samples_total - total_unpacked_samples);
+
+        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
+        total_unpacked_samples += samples_unpacked;
+
+        if (new_channel_order)
+            unreorder_channels (temp_buffer, new_channel_order, num_channels, samples_unpacked);
+
+        if (samples_unpacked) {
+            unsigned char *dptr = output_buffer;
+            int32_t *sptr = temp_buffer;
+
+            if (qmode & QMODE_DSD_IN_BLOCKS) {
+                int cc = num_channels;
+
+                while (cc--) {
+                    int si;
+
+                    for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
+                        if (si < samples_unpacked)
+                            *dptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*sptr & 0xff] : *sptr;
+                        else
+                            *dptr++ = 0;
+
+                    sptr -= (DSD_BLOCKSIZE * num_channels) - 1;
+                }
+
+                samples_unpacked = DSD_BLOCKSIZE;   // make sure we MD5 and write the whole block even if partial (last)
+            }
+            else {
+                int scount = samples_unpacked * num_channels;
+
+                while (scount--)
+                    *dptr++ = *sptr++;
+            }
+
+            if (md5_digest)
+                MD5Update (&md5_context, output_buffer, samples_unpacked * num_channels);
+
+            if (outfile && (!DoWriteFile (outfile, output_buffer, samples_unpacked * num_channels, &bcount) ||
+                bcount != samples_unpacked * num_channels)) {
+                    error_line ("can't write .WAV data, disk probably full!");
+                    DoTruncateFile (outfile);
+                    result = WAVPACK_HARD_ERROR;
+                    break;
+                }
+        }
+        else
+            break;
+
+        if (check_break ()) {
+#if defined(_WIN32)
+            fprintf (stderr, "^C\n");
+#else
+            fprintf (stderr, "\n");
+#endif
+            fflush (stderr);
+            DoTruncateFile (outfile);
+            result = WAVPACK_SOFT_ERROR;
+            break;
+        }
+
+        if (WavpackGetProgress (wpc) != -1.0 &&
+            progress != floor (WavpackGetProgress (wpc) * 100.0 + 0.5)) {
+                int nobs = progress == -1.0;
+
+                progress = WavpackGetProgress (wpc);
+                display_progress (progress);
+                progress = floor (progress * 100.0 + 0.5);
+
+                if (!quiet_mode) {
+                    fprintf (stderr, "%s%3d%% done...",
+                        nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+                    fflush (stderr);
+                }
+        }
+    }
+
+    if (new_channel_order)
+        free (new_channel_order);
+
+    if (md5_digest)
+        MD5Final (md5_digest, &md5_context);
+
+    free (temp_buffer);
+
+    if (output_buffer)
+        free (output_buffer);
+
+    *sample_count = total_unpacked_samples;
     return result;
 }
 

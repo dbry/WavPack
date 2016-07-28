@@ -220,7 +220,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 config->num_channels = numChannels;
                 config->channel_mask = chanMask;
                 config->sample_rate = sampleRate / 8;
-                config->qmode |= QMODE_SIGNED_BYTES;
+                config->qmode |= QMODE_DSD_MSB_FIRST;
             }
             else if (debug_logging_mode)
                 error_line ("got unknown PROP chunk type \"%c%c%c%c\" of %d bytes",

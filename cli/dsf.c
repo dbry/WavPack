@@ -147,6 +147,7 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
         total_blocks++;
 
     if (debug_logging_mode) {
+        error_line ("leftover samples = %lld, leftover bits = %d", leftover_samples, (int)(leftover_samples % 8));
         error_line ("data chunk size (fixed) = %lld", chunk_header.ckSize - 12);
         error_line ("alternate data chunk size = %lld", total_blocks * 4096 * format_chunk.numChannels);
     }
@@ -162,7 +163,12 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
 
     config->sample_rate = format_chunk.sampleRate / 8;
 
-    if (!WavpackSetConfiguration64 (wpc, config, total_blocks * 4096)) {
+    if (format_chunk.bitsPerSample == 1)
+        config->qmode |= QMODE_DSD_LSB_FIRST | QMODE_DSD_IN_BLOCKS;
+    else
+        config->qmode |= QMODE_DSD_MSB_FIRST | QMODE_DSD_IN_BLOCKS;
+
+    if (!WavpackSetConfiguration64 (wpc, config, total_samples / 8)) {
         error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }
