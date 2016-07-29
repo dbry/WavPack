@@ -63,6 +63,9 @@ typedef struct
 #define DSFFileChunkFormat "4DDD"
 #define DSFFormatChunkFormat "4DLLLLLLDL4"
 
+static const uint16_t channel_masks [] = { 0x04, 0x03, 0x07, 0x33, 0x0f, 0x37, 0x3f };
+#define NUM_CHAN_TYPES (sizeof (channel_masks) / sizeof (channel_masks [0]))
+
 int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
 {
     int64_t infilesize, total_samples, total_blocks, leftover_samples;
@@ -114,7 +117,9 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
     WavpackLittleEndianToNative (&format_chunk, DSFFormatChunkFormat);
 
     if (format_chunk.ckSize != sizeof (DSFFormatChunk) || format_chunk.formatVersion != 1 ||
-        format_chunk.formatID != 0) {
+        format_chunk.formatID != 0 || format_chunk.blockSize != 4096 || format_chunk.reserved ||
+        (format_chunk.bitsPerSample != 1 && format_chunk.bitsPerSample != 8) ||
+        format_chunk.chanType < 1 || format_chunk.chanType > NUM_CHAN_TYPES) {
             error_line ("%s is not a valid .DSF file!", infilename);
             return WAVPACK_SOFT_ERROR;
     }
@@ -148,19 +153,20 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
 
     if (debug_logging_mode) {
         error_line ("leftover samples = %lld, leftover bits = %d", leftover_samples, (int)(leftover_samples % 8));
-        error_line ("data chunk size (fixed) = %lld", chunk_header.ckSize - 12);
-        error_line ("alternate data chunk size = %lld", total_blocks * 4096 * format_chunk.numChannels);
+        error_line ("data chunk size (specified) = %lld", chunk_header.ckSize - 12);
+        error_line ("data chunk size (calculated) = %lld", total_blocks * 4096 * format_chunk.numChannels);
     }
+
+    if (total_samples & 0x7)
+        error_line ("warning: DSF file has partial-byte leftover samples!");
+
+    if (format_chunk.sampleRate & 0x7)
+        error_line ("warning: DSF file has non-integer bytes/second!");
 
     config->bits_per_sample = 8;
     config->bytes_per_sample = 1;
     config->num_channels = format_chunk.numChannels;
-
-    if (config->num_channels <= 2)
-        config->channel_mask = 0x5 - config->num_channels;
-    else
-        config->channel_mask = (1 << config->num_channels) - 1;
-
+    config->channel_mask = channel_masks [format_chunk.chanType - 1];
     config->sample_rate = format_chunk.sampleRate / 8;
 
     if (format_chunk.bitsPerSample == 1)
@@ -168,7 +174,7 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
     else
         config->qmode |= QMODE_DSD_MSB_FIRST | QMODE_DSD_IN_BLOCKS;
 
-    if (!WavpackSetConfiguration64 (wpc, config, total_samples / 8)) {
+    if (!WavpackSetConfiguration64 (wpc, config, (total_samples + 7) / 8)) {
         error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }

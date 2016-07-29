@@ -201,9 +201,10 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 
                             cptr += dff_chunk_header.ckDataSize;
                         }
-                        else if (debug_logging_mode) {
-                            error_line ("got PROP/SND chunk type \"%c%c%c%c\" of %d bytes", dff_chunk_header.ckID [0],
-                                dff_chunk_header.ckID [1], dff_chunk_header.ckID [2], dff_chunk_header.ckID [3], dff_chunk_header.ckDataSize);
+                        else {
+                            if (debug_logging_mode)
+                                error_line ("got PROP/SND chunk type \"%c%c%c%c\" of %d bytes", dff_chunk_header.ckID [0],
+                                    dff_chunk_header.ckID [1], dff_chunk_header.ckID [2], dff_chunk_header.ckID [3], dff_chunk_header.ckDataSize);
 
                             cptr += dff_chunk_header.ckDataSize;
                         }
