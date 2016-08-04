@@ -314,6 +314,7 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_XMODE      0x7000  // mask for extra level (1-6, 0=unknown)
 #define MODE_DNS        0x8000
 
+int WavpackGetQualifyMode (WavpackContext *wpc);
 char *WavpackGetErrorMessage (WavpackContext *wpc);
 int WavpackGetVersion (WavpackContext *wpc);
 char *WavpackGetFileExtension (WavpackContext *wpc);

@@ -298,6 +298,8 @@ typedef struct {
 #define CONFIG_PAIR_UNDEF_CHANS 0x20000000 // encode undefined channels in stereo pairs
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
+#define QMODE_DSD_AUDIO         0x30    // if either of these is set in qmode (version 5.0)
+
 /*
  * These config flags were never actually used, or are no longer used, or are
  * used for something else now. They may be used in the future for what they
@@ -786,6 +788,7 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_XMODE      0x7000  // mask for extra level (1-6, 0=unknown)
 #define MODE_DNS        0x8000
 
+int WavpackGetQualifyMode (WavpackContext *wpc);
 int WavpackGetVersion (WavpackContext *wpc);
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
 int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);

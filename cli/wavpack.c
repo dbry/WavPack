@@ -81,7 +81,8 @@ static const char *usage =
 "             (default is lossless; multiple input files allowed)\n\n"
 #endif
 " Formats: .wav (default, bwf/rf64 okay), .wv (transcode),\n"
-"          .w64 (Sony Wave64), .caf (Core Audio Format)\n\n"
+"          .w64 (Sony Wave64), .caf (Core Audio Format),\n"
+"          .dff (Philips DSDIFF), .dsf (Sony DSD stream)\n\n"
 " Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
 "                                           n = 24-9600 kbits/second (kbps)\n"
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
@@ -109,7 +110,9 @@ static const char *help =
 " Input Formats:             .wav (default, includes bwf/rf64 varients)\n"
 "                            .wv  (transcode operation, tags copied)\n"
 "                            .caf (Core Audio Format)\n"
-"                            .w64 (Sony Wave64)\n\n"
+"                            .w64 (Sony Wave64)\n"
+"                            .dff (Philips DSDIFF)\n"
+"                            .dsf (Sony DSD stream)\n\n"
 " Options:\n"
 "    -a                      Adobe Audition (CoolEdit) mode for 32-bit floats\n"
 "    --allow-huge-tags       allow tag data up to 16 MB (embedding > 1 MB is not\n"
@@ -2617,7 +2620,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     loc_config.channel_mask = WavpackGetChannelMask (infile);
     loc_config.num_channels = WavpackGetNumChannels (infile);
     loc_config.sample_rate = WavpackGetSampleRate (infile);
-    loc_config.qmode |= (input_mode >> 16) & 0xff;
+    loc_config.qmode |= WavpackGetQualifyMode (infile);
 
     if (input_mode & MODE_FLOAT)
         loc_config.float_norm_exp = WavpackGetFloatNormExp (infile);
@@ -2974,7 +2977,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsigned char *md5_digest_source)
 {
     int bps = WavpackGetBytesPerSample (infile), num_channels = WavpackGetNumChannels (infile);
-    int qmode = (WavpackGetMode (infile) >> 16) & 0xff;
+    int qmode = WavpackGetQualifyMode (infile);
     unsigned char *new_channel_order = NULL;
     uint32_t input_samples = INPUT_SAMPLES;
     unsigned char *format_buffer;
@@ -3216,7 +3219,7 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     if (md5_digest_source)
         MD5Init (&md5_context);
 
-    qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
+    qmode = WavpackGetQualifyMode (wpc);
     num_channels = WavpackGetNumChannels (wpc);
     bps = WavpackGetBytesPerSample (wpc);
     temp_buffer = malloc (VERIFY_BLOCKSIZE * num_channels * 4);

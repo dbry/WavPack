@@ -145,7 +145,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     int num_chans = config->num_channels;
     int i;
 
-    if (config->bytes_per_sample == 1 && config->bits_per_sample == 8) {
+    if ((config->qmode & QMODE_DSD_AUDIO) && config->bytes_per_sample == 1 && config->bits_per_sample == 8) {
         wpc->dsd_multiplier = 1;
         flags = DSD_FLAG;
 
@@ -159,6 +159,10 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
                     break;
                 }
             }
+
+        // with DSD, very few PCM options work (or make sense), so only allow those that do
+        config->flags &= (CONFIG_HIGH_FLAG | CONFIG_MD5_CHECKSUM | CONFIG_PAIR_UNDEF_CHANS);
+        config->float_norm_exp = config->xmode = 0;
     }
     else
         flags = config->bytes_per_sample - 1;
@@ -176,14 +180,6 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     if (config->flags & CONFIG_VERY_HIGH_FLAG)
         wpc->config.flags |= CONFIG_HIGH_FLAG;
 
-    if (config->float_norm_exp) {
-        wpc->config.float_norm_exp = config->float_norm_exp;
-        wpc->config.flags |= CONFIG_FLOAT_DATA;
-        flags |= FLOAT_DATA;
-    }
-    else
-        shift = (config->bytes_per_sample * 8) - config->bits_per_sample;
-
     for (i = 0; i < 15; ++i)
         if (wpc->config.sample_rate == sample_rates [i])
             break;
@@ -191,38 +187,50 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     flags |= i << SRATE_LSB;
     flags |= shift << SHIFT_LSB;
 
-    if (config->flags & CONFIG_HYBRID_FLAG) {
-        flags |= HYBRID_FLAG | HYBRID_BITRATE | HYBRID_BALANCE;
+    // all of this stuff only applies to PCM
 
-        if (!(wpc->config.flags & CONFIG_SHAPE_OVERRIDE)) {
-            wpc->config.flags |= CONFIG_HYBRID_SHAPE | CONFIG_AUTO_SHAPING;
-            flags |= HYBRID_SHAPE | NEW_SHAPING;
-        }
-        else if (wpc->config.flags & CONFIG_HYBRID_SHAPE) {
-            wpc->config.shaping_weight = config->shaping_weight;
-            flags |= HYBRID_SHAPE | NEW_SHAPING;
-        }
-
-        if (wpc->config.flags & (CONFIG_CROSS_DECORR | CONFIG_OPTIMIZE_WVC))
-            flags |= CROSS_DECORR;
-
-        if (config->flags & CONFIG_BITRATE_KBPS) {
-            bps = (uint32_t) floor (config->bitrate * 256000.0 / config->sample_rate / config->num_channels + 0.5);
-
-            if (bps > (64 << 8))
-                bps = 64 << 8;
+    if (!(flags & DSD_FLAG)) {
+        if (config->float_norm_exp) {
+            wpc->config.float_norm_exp = config->float_norm_exp;
+            wpc->config.flags |= CONFIG_FLOAT_DATA;
+            flags |= FLOAT_DATA;
         }
         else
-            bps = (uint32_t) floor (config->bitrate * 256.0 + 0.5);
+            shift = (config->bytes_per_sample * 8) - config->bits_per_sample;
+
+        if (config->flags & CONFIG_HYBRID_FLAG) {
+            flags |= HYBRID_FLAG | HYBRID_BITRATE | HYBRID_BALANCE;
+
+            if (!(wpc->config.flags & CONFIG_SHAPE_OVERRIDE)) {
+                wpc->config.flags |= CONFIG_HYBRID_SHAPE | CONFIG_AUTO_SHAPING;
+                flags |= HYBRID_SHAPE | NEW_SHAPING;
+            }
+            else if (wpc->config.flags & CONFIG_HYBRID_SHAPE) {
+                wpc->config.shaping_weight = config->shaping_weight;
+                flags |= HYBRID_SHAPE | NEW_SHAPING;
+            }
+
+            if (wpc->config.flags & (CONFIG_CROSS_DECORR | CONFIG_OPTIMIZE_WVC))
+                flags |= CROSS_DECORR;
+
+            if (config->flags & CONFIG_BITRATE_KBPS) {
+                bps = (uint32_t) floor (config->bitrate * 256000.0 / config->sample_rate / config->num_channels + 0.5);
+
+                if (bps > (64 << 8))
+                    bps = 64 << 8;
+            }
+            else
+                bps = (uint32_t) floor (config->bitrate * 256.0 + 0.5);
+        }
+        else
+            flags |= CROSS_DECORR;
+
+        if (!(config->flags & CONFIG_JOINT_OVERRIDE) || (config->flags & CONFIG_JOINT_STEREO))
+            flags |= JOINT_STEREO;
+
+        if (config->flags & CONFIG_CREATE_WVC)
+            wpc->wvc_flag = TRUE;
     }
-    else
-        flags |= CROSS_DECORR;
-
-    if (!(config->flags & CONFIG_JOINT_OVERRIDE) || (config->flags & CONFIG_JOINT_STEREO))
-        flags |= JOINT_STEREO;
-
-    if (config->flags & CONFIG_CREATE_WVC)
-        wpc->wvc_flag = TRUE;
 
     for (wpc->current_stream = 0; num_chans; wpc->current_stream++) {
         WavpackStream *wps = malloc (sizeof (WavpackStream));

@@ -311,10 +311,15 @@ static int seeking_test (char *filename, uint32_t test_count)
     num_chans = WavpackGetNumChannels (wpc);
     total_samples = WavpackGetNumSamples64 (wpc);
     bps = WavpackGetBytesPerSample (wpc);
-    qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
+    qmode = WavpackGetQualifyMode (wpc);
 
     if (total_samples < 2 || total_samples == -1) {
         printf ("seeking_test(): can't determine file size!\n");
+        return -1;
+    }
+
+    if (qmode & QMODE_DSD_IN_BLOCKS) {
+        printf ("seeking_test(): can't handle blocked DSD audio (i.e., from .dsf files)!\n");
         return -1;
     }
 
@@ -1409,7 +1414,7 @@ static void *store_samples (void *dst, int32_t *src, int qmode, int bps, int cou
         else
             return store_big_endian_signed_samples (dst, src, bps, count);
     }
-    else if ((qmode & QMODE_UNSIGNED_WORDS) || (bps == 1 && !(qmode & QMODE_SIGNED_BYTES)))
+    else if ((qmode & QMODE_UNSIGNED_WORDS) || (bps == 1 && !(qmode & (QMODE_SIGNED_BYTES | QMODE_DSD_AUDIO))))
         return store_little_endian_unsigned_samples (dst, src, bps, count);
     else
         return store_little_endian_signed_samples (dst, src, bps, count);

@@ -151,7 +151,7 @@ static struct {
     { "wav", "Microsoft RIFF",   WriteRiffHeader },
     { "w64", "Sony Wave64",      WriteWave64Header },
     { "caf", "Apple Core Audio", WriteCaffHeader },
-    { "dff", "Philips DSD",      NULL },
+    { "dff", "Philips DSDIFF",   NULL },
     { "dsf", "Sony DSD",         NULL }
 };
 
@@ -1036,7 +1036,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     wvc_mode = WavpackGetMode (wpc) & MODE_WVC;
     num_channels = WavpackGetNumChannels (wpc);
-    input_qmode = (WavpackGetMode (wpc) >> 16) & 0xff;
+    input_qmode = WavpackGetQualifyMode (wpc);
     input_format = WavpackGetFileFormat (wpc);
 
     if (raw_decode) {
@@ -2068,9 +2068,12 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         fprintf (dst, "file size:         %lld bytes\n", (long long) WavpackGetFileSize64 (wpc));
     }
 
-    fprintf (dst, "source:            %d-bit %s at %u Hz\n", WavpackGetBitsPerSample (wpc),
-        (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints",
-        WavpackGetSampleRate (wpc));
+    if ((WavpackGetMode (wpc) >> 16) & QMODE_DSD_AUDIO)
+        fprintf (dst, "source:            1-bit DSD at %u Hz\n", WavpackGetSampleRate (wpc) * 8);
+    else
+        fprintf (dst, "source:            %d-bit %s at %u Hz\n", WavpackGetBitsPerSample (wpc),
+            (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints",
+            WavpackGetSampleRate (wpc));
 
     if (!channel_mask)
         strcpy (modes, "unassigned speakers");
