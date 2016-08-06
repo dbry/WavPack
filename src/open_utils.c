@@ -29,7 +29,7 @@
 // function which handles the correction file transparently, in this case it
 // is the responsibility of the caller to be aware of correction files.
 
-static int64_t seek_final_index (WavpackStreamReader64 *reader, void *id);
+static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int get_wrapper);
 
 WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
@@ -124,13 +124,12 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
                 SET_BLOCK_INDEX (wps->wphdr, 0);
 
                 if (wpc->reader->can_seek (wpc->wv_in)) {
-                    int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
-                    int64_t final_index = seek_final_index (wpc->reader, wpc->wv_in);
+                    int64_t final_index = -1;
+
+                    seek_eof_information (wpc, &final_index, FALSE);
 
                     if (final_index != -1)
                         wpc->total_samples = final_index - wpc->initial_index;
-
-                    wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
                 }
             }
             else
@@ -220,49 +219,6 @@ char *WavpackGetFileExtension (WavpackContext *wpc)
         return wpc->file_extension;
     else
         return "wav";
-}
-
-// This function is used to seek to end of a file to determine its actual
-// length in samples by reading the last header block containing data.
-// Currently, all WavPack files contain the sample length in the first block
-// containing samples, however this might not always be the case. Obviously,
-// this function requires a seekable file or stream and leaves the file
-// pointer undefined. A return value of -1 indicates the length could not
-// be determined.
-
-static int64_t seek_final_index (WavpackStreamReader64 *reader, void *id)
-{
-    int64_t result = -1;
-    uint32_t bcount;
-    WavpackHeader wphdr;
-    unsigned char *tempbuff;
-
-    if (reader->get_length (id) > 1200000L)
-        reader->set_pos_rel (id, -1048576L, SEEK_END);
-    else
-        reader->set_pos_abs (id, 0);
-
-    while (1) {
-        bcount = read_next_header (reader, id, &wphdr);
-
-        if (bcount == (uint32_t) -1)
-            return result;
-
-        tempbuff = malloc (wphdr.ckSize + 8);
-        if (!tempbuff)
-            return result;
-        memcpy (tempbuff, &wphdr, 32);
-
-        if (reader->read_bytes (id, tempbuff + 32, wphdr.ckSize - 24) != wphdr.ckSize - 24) {
-            free (tempbuff);
-            return result;
-        }
-
-        free (tempbuff);
-
-        if (wphdr.block_samples && (wphdr.flags & FINAL_BLOCK))
-            result = GET_BLOCK_INDEX (wphdr) + wphdr.block_samples;
-    }
 }
 
 // This function initializes everything required to unpack a WavPack block
@@ -800,44 +756,26 @@ uint32_t bs_close_read (Bitstream *bs)
 // be used for seekable files (not pipes) and is not available for pre-4.0 WavPack
 // files.
 
-static int seek_riff_trailer (WavpackContext *wpc);
-
 void WavpackSeekTrailingWrapper (WavpackContext *wpc)
 {
     if ((wpc->open_flags & OPEN_WRAPPER) &&
-        wpc->reader->can_seek (wpc->wv_in) && !wpc->stream3) {
-            int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
-
-            seek_riff_trailer (wpc);
-            wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
-    }
+        wpc->reader->can_seek (wpc->wv_in) && !wpc->stream3)
+            seek_eof_information (wpc, NULL, TRUE);
 }
 
 // Get any MD5 checksum stored in the metadata (should be called after reading
 // last sample or an extra seek will occur). A return value of FALSE indicates
 // that no MD5 checksum was stored.
 
-static int seek_md5 (WavpackStreamReader64 *reader, void *id, unsigned char data [16]);
-
 int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16])
 {
     if (wpc->config.flags & CONFIG_MD5_CHECKSUM) {
+        if (!wpc->config.md5_read && wpc->reader->can_seek (wpc->wv_in))
+            seek_eof_information (wpc, NULL, FALSE);
+
         if (wpc->config.md5_read) {
             memcpy (data, wpc->config.md5_checksum, 16);
             return TRUE;
-        }
-        else if (wpc->reader->can_seek (wpc->wv_in)) {
-            int64_t pos_save = wpc->reader->get_pos (wpc->wv_in);
-
-            wpc->config.md5_read = seek_md5 (wpc->reader, wpc->wv_in, wpc->config.md5_checksum);
-            wpc->reader->set_pos_abs (wpc->wv_in, pos_save);
-
-            if (wpc->config.md5_read) {
-                memcpy (data, wpc->config.md5_checksum, 16);
-                return TRUE;
-            }
-            else
-                return FALSE;
         }
     }
 
@@ -986,95 +924,134 @@ int read_wvc_block (WavpackContext *wpc)
     }
 }
 
-static int seek_md5 (WavpackStreamReader64 *reader, void *id, unsigned char data [16])
+// This function is used to seek to end of a file to obtain certain information
+// that is stored there at the file creation time because it is not known at
+// the start. This includes the MD5 sum and and trailing part of the file
+// wrapper, and in some rare cases may include the total number of samples in
+// the file (although we usually try to back up and write that at the front of
+// the file). Note this function restores the file position to its original
+// location (and obviously requires a seekable file). The normal return value
+// is TRUE indicating no errors, although this does not actually mean the any
+// information was retrieved. An error return of FALSE usually means the file
+// terminated unexpectedly. Note that this could be used to get all three
+// types of information, but it's not actually used that way now.
+
+static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int get_wrapper)
 {
-    unsigned char meta_id, c1, c2;
-    uint32_t bcount, meta_bc;
-    WavpackHeader wphdr;
-
-    if (reader->get_length (id) > 1200000L)
-        reader->set_pos_rel (id, -1048576L, SEEK_END);
-
-    while (1) {
-        bcount = read_next_header (reader, id, &wphdr);
-
-        if (bcount == (uint32_t) -1)
-            return FALSE;
-
-        bcount = wphdr.ckSize - sizeof (WavpackHeader) + 8;
-
-        while (bcount >= 2) {
-            if (reader->read_bytes (id, &meta_id, 1) != 1 ||
-                reader->read_bytes (id, &c1, 1) != 1)
-                    return FALSE;
-
-            meta_bc = c1 << 1;
-            bcount -= 2;
-
-            if (meta_id & ID_LARGE) {
-                if (bcount < 2 || reader->read_bytes (id, &c1, 1) != 1 ||
-                    reader->read_bytes (id, &c2, 1) != 1)
-                        return FALSE;
-
-                meta_bc += ((uint32_t) c1 << 9) + ((uint32_t) c2 << 17);
-                bcount -= 2;
-            }
-
-            if (meta_id == ID_MD5_CHECKSUM || meta_id == ID_ALT_MD5_CHECKSUM)
-                return (meta_bc == 16 && bcount >= 16 &&
-                    reader->read_bytes (id, data, 16) == 16);
-
-            reader->set_pos_rel (id, meta_bc, SEEK_CUR);
-            bcount -= meta_bc;
-        }
-    }
-}
-
-static int seek_riff_trailer (WavpackContext *wpc)
-{
+    int64_t restore_pos, current_pos, last_block_pos = -1;
     WavpackStreamReader64 *reader = wpc->reader;
+    uint32_t audio_blocks = 0;
     void *id = wpc->wv_in;
-    unsigned char meta_id, c1, c2;
-    uint32_t bcount, meta_bc;
     WavpackHeader wphdr;
 
-    if (reader->get_length (id) > 1200000L)
-        reader->set_pos_rel (id, -1048576L, SEEK_END);
+    restore_pos = reader->get_pos (id);    // we restore file position when done
+
+    // start 1MB from the end-of-file, or from the start if the file is not that big
+
+    if (reader->get_length (id) > 1048576LL)
+        reader->set_pos_rel (id, -1048576, SEEK_END);
+    else
+        reader->set_pos_abs (id, 0);
+
+    // Note that we go backward (without parsing inside blocks) until we find a block
+    // with audio (careful to not get stuck on the same block). Only then do we go
+    // forward parsing all blocks in their entirety.
 
     while (1) {
-        bcount = read_next_header (reader, id, &wphdr);
+        uint32_t bcount = read_next_header (reader, id, &wphdr);
 
-        if (bcount == (uint32_t) -1)
+        if (bcount == (uint32_t) -1) {              // exhausted file is normal exit...
+            reader->set_pos_abs (id, restore_pos);
             return TRUE;
+        }
 
+        // get the current position, and if it's same as last block read, that's bad...
+
+        current_pos = reader->get_pos (id);
+
+        if (current_pos == last_block_pos) {
+            reader->set_pos_abs (id, restore_pos);
+            return FALSE;
+        }
+
+        last_block_pos = current_pos;
         bcount = wphdr.ckSize - sizeof (WavpackHeader) + 8;
 
+        // If the block has audio samples, calculate a final index, although this is not
+        // final since this may not be the last block with audio. On the other hand, if
+        // this block does not have audio, and we haven't seen one with audio, we have
+        // to go back some more.
+
+        if (wphdr.block_samples && (wphdr.flags & FINAL_BLOCK)) {
+            if (final_index)
+                *final_index = GET_BLOCK_INDEX (wphdr) + wphdr.block_samples;
+
+            audio_blocks++;
+        }
+        else if (!audio_blocks) {
+            if (current_pos > 1048576LL)
+                reader->set_pos_rel (id, -1048576, SEEK_CUR);
+            else
+                reader->set_pos_abs (id, 0);
+
+            continue;
+        }
+
+        // at this point we have seen at least one block with audio, so we parse the
+        // entire block looking for MD5 metadata or (conditionally) trailing wrappers
+
         while (bcount >= 2) {
+            unsigned char meta_id, c1, c2;
+            uint32_t meta_bc, meta_size;
+
             if (reader->read_bytes (id, &meta_id, 1) != 1 ||
-                reader->read_bytes (id, &c1, 1) != 1)
-                    return TRUE;
+                reader->read_bytes (id, &c1, 1) != 1) {
+                    reader->set_pos_abs (id, restore_pos);
+                    return FALSE;
+            }
 
             meta_bc = c1 << 1;
             bcount -= 2;
 
             if (meta_id & ID_LARGE) {
                 if (bcount < 2 || reader->read_bytes (id, &c1, 1) != 1 ||
-                    reader->read_bytes (id, &c2, 1) != 1)
-                        return TRUE;
+                    reader->read_bytes (id, &c2, 1) != 1) {
+                        reader->set_pos_abs (id, restore_pos);
+                        return FALSE;
+                }
 
                 meta_bc += ((uint32_t) c1 << 9) + ((uint32_t) c2 << 17);
                 bcount -= 2;
             }
 
-            if (((meta_id & ID_UNIQUE) == ID_RIFF_TRAILER || (meta_id & ID_UNIQUE) == ID_ALT_TRAILER) && meta_bc) {
+            meta_size = (meta_id & ID_ODD_SIZE) ? meta_bc - 1 : meta_bc;
+
+            if (get_wrapper && ((meta_id & ID_UNIQUE) == ID_RIFF_TRAILER || (meta_id & ID_UNIQUE) == ID_ALT_TRAILER) && meta_bc) {
                 wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + meta_bc);
-		if (!wpc->wrapper_data)
-		    return FALSE;
+
+                if (!wpc->wrapper_data) {
+                    reader->set_pos_abs (id, restore_pos);
+                    return FALSE;
+                }
 
                 if (reader->read_bytes (id, wpc->wrapper_data + wpc->wrapper_bytes, meta_bc) == meta_bc)
-                    wpc->wrapper_bytes += meta_bc;
+                    wpc->wrapper_bytes += meta_size;
+                else {
+                    reader->set_pos_abs (id, restore_pos);
+                    return FALSE;
+                }
+            }
+            else if (meta_id == ID_MD5_CHECKSUM || meta_id == ID_ALT_MD5_CHECKSUM) {
+                if (meta_bc == 16 && bcount >= 16) {
+                    if (reader->read_bytes (id, wpc->config.md5_checksum, 16) == 16)
+                        wpc->config.md5_read = TRUE;
+                    else {
+                        reader->set_pos_abs (id, restore_pos);
+                        return FALSE;
+                    }
+                }
                 else
-                    return TRUE;
+                    reader->set_pos_rel (id, meta_bc, SEEK_CUR);
             }
             else
                 reader->set_pos_rel (id, meta_bc, SEEK_CUR);
