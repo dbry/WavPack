@@ -37,12 +37,12 @@ int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
     wps->dsd.endptr = wps->dsd.byteptr + wpmd->byte_length;
 
     dsd_power = *wps->dsd.byteptr++;
-    for (wpc->dsd_multiplier = 1; dsd_power--; wpc->dsd_multiplier <<= 1);
+    wpc->dsd_multiplier = 1 << dsd_power;
 
     wps->dsd.mode = *wps->dsd.byteptr++;
 
     if (!wps->dsd.mode) {
-        if (wps->dsd.endptr - wps->dsd.byteptr != wps->wphdr.block_samples * (wps->wphdr.flags & MONO_FLAG ? 1 : 2)) {
+        if (wps->dsd.endptr - wps->dsd.byteptr != wps->wphdr.block_samples * (wps->wphdr.flags & MONO_DATA ? 1 : 2)) {
             return FALSE;
         }
 
@@ -75,7 +75,7 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
 
     if (wps->mute_error) {
         if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))
-            memset (buffer, 0, sample_count * 4);
+            memset (buffer, 0, sample_count * 4);   // TODO: DSD mute should be 0x55, not zero
         else
             memset (buffer, 0, sample_count * 8);
 
@@ -84,18 +84,30 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
     }
 
     if (!wps->dsd.mode) {
-        int total_samples = sample_count * ((flags & MONO_FLAG) ? 1 : 2);
+        int total_samples = sample_count * ((flags & MONO_DATA) ? 1 : 2);
+        int32_t *bptr = buffer;
 
         if (wps->dsd.endptr - wps->dsd.byteptr < total_samples)
             total_samples = wps->dsd.endptr - wps->dsd.byteptr;
 
         while (total_samples--)
-            *buffer++ = *wps->dsd.byteptr++;
+            *bptr++ = *wps->dsd.byteptr++;
     }
     else if (wps->dsd.mode == 1)
         decode_fast (wps, buffer, sample_count);
     else
         decode_high (wps, buffer, sample_count);
+
+    if (flags & FALSE_STEREO) {
+        int32_t *dptr = buffer + sample_count * 2;
+        int32_t *sptr = buffer + sample_count;
+        int32_t c = sample_count;
+
+        while (c--) {
+            *--dptr = *--sptr;
+            *--dptr = *sptr;
+        }
+    }
 
     wps->sample_index += sample_count;
     wps->crc = wps->wphdr.crc;          // TODO: no cheating!!
@@ -199,7 +211,7 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
 {
     int total_samples = sample_count;
 
-    if (!(wps->wphdr.flags & MONO_FLAG))
+    if (!(wps->wphdr.flags & MONO_DATA))
         total_samples *= 2;
 
     while (total_samples--) {
@@ -220,7 +232,7 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
 
         wps->dsd.high = wps->dsd.low + wps->dsd.probabilities [wps->dsd.p0] [i] * mult - 1;
 
-        if (wps->wphdr.flags & MONO_FLAG)
+        if (wps->wphdr.flags & MONO_DATA)
             wps->dsd.p0 = i & (wps->dsd.history_bins-1);
         else {
             wps->dsd.p0 = wps->dsd.p1;
@@ -278,7 +290,7 @@ static int init_dsd_block_high (WavpackStream *wps, WavpackMetadata *wpmd)
     uint32_t flags = wps->wphdr.flags;
     int channel, rate_i, rate_s, i;
 
-    if (wps->dsd.endptr - wps->dsd.byteptr < ((flags & MONO_FLAG) ? 13 : 20))
+    if (wps->dsd.endptr - wps->dsd.byteptr < ((flags & MONO_DATA) ? 13 : 20))
         return FALSE;
 
     rate_i = *wps->dsd.byteptr++;
@@ -292,7 +304,7 @@ static int init_dsd_block_high (WavpackStream *wps, WavpackMetadata *wpmd)
 
     init_ptable (wps->dsd.ptable, rate_i, rate_s);
 
-    for (channel = 0; channel < ((flags & MONO_FLAG) ? 1 : 2); ++channel) {
+    for (channel = 0; channel < ((flags & MONO_DATA) ? 1 : 2); ++channel) {
         DSDfilters *sp = wps->dsd.filters + channel;
 
         sp->filter1 = *wps->dsd.byteptr++ << 16;
@@ -321,7 +333,7 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
 {
     int total_samples = sample_count, channel = 0;
 
-    if (!(wps->wphdr.flags & MONO_FLAG))
+    if (!(wps->wphdr.flags & MONO_DATA))
         total_samples *= 2;
 
     while (total_samples--) {
@@ -372,7 +384,7 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
 
         *output++ = byte;
 
-        if (!(wps->wphdr.flags & MONO_FLAG))
+        if (!(wps->wphdr.flags & MONO_DATA))
             channel ^= 1;
     }
 

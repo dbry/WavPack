@@ -433,7 +433,6 @@ int WavpackPackInit (WavpackContext *wpc)
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples);
 static int create_riff_header (WavpackContext *wpc, int64_t total_samples, void *outbuffer);
-static int pack_dsd_samples (WavpackContext *wpc, unsigned char *sample_buffer, uint32_t sample_count);
 
 int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count)
 {

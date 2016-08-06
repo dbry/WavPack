@@ -68,6 +68,28 @@ static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
     WavpackMetadata wpmd;
     int32_t res;
 
+    // This code scans stereo data to check whether it can be stored as mono data
+    // (i.e., all L/R samples identical).
+
+    if (!(flags & MONO_FLAG)) {
+        int32_t *sptr, *dptr, i;
+
+        for (sptr = buffer, i = 0; i < (int32_t) sample_count; sptr += 2, i++)
+            if ((sptr [0] ^ sptr [1]) & 0xff)
+                break;
+
+        if (i == sample_count) {
+            wps->wphdr.flags = flags |= FALSE_STEREO;
+            dptr = buffer;
+            sptr = buffer;
+
+            for (i = sample_count; i--; sptr++)
+                *dptr++ = *sptr++;
+        }
+        else
+            wps->wphdr.flags = flags &= ~FALSE_STEREO;
+    }
+
     wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
     memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
@@ -110,14 +132,13 @@ static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
         res = encode_buffer_fast (wps, buffer, sample_count, dsd_encoding);
 
     if (res == -1) {
-        int num_samples = sample_count * ((flags & MONO_FLAG) ? 1 : 2);
+        int num_samples = sample_count * ((flags & MONO_DATA) ? 1 : 2);
         *dsd_encoding++ = 0;
 
         data_count = num_samples + 2;
 
-        while (num_samples--) {
+        while (num_samples--)
             *dsd_encoding++ = *buffer++;
-        }
     }
     else
         data_count = res + 1;
@@ -126,6 +147,7 @@ static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
         unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
 
         if (data_count & 1) {
+            cptr [data_count + 4] = 0;
             *cptr++ = ID_DSD_BLOCK | ID_LARGE | ID_ODD_SIZE;
             data_count++;
         }
@@ -274,7 +296,7 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
     int32_t *bp = buffer;
     char history_bits;
 
-    if (!(flags & MONO_FLAG))
+    if (!(flags & MONO_DATA))
         num_samples *= 2;
 
     if (num_samples < 280)
@@ -309,7 +331,7 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
 
     bc = num_samples;
 
-    if (flags & MONO_FLAG)
+    if (flags & MONO_DATA)
         while (bc--) {
             histogram [p0] [*bp & 0xff]++;
             p0 = *bp++ & (history_bins-1);
@@ -394,7 +416,7 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
             low <<= 8;
         }
 
-        if (flags & MONO_FLAG)
+        if (flags & MONO_DATA)
             p0 = *bp++ & (history_bins-1);
         else {
             p0 = p1;
@@ -490,7 +512,7 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
     DSDfilters *sp;
     int channel, i;
 
-    if (!(flags & MONO_FLAG))
+    if (!(flags & MONO_DATA))
         num_samples *= 2;
 
     if (num_samples < 280)
@@ -522,7 +544,7 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
         *dp++ = RATE_S;
     }
 
-    for (channel = 0; channel < ((flags & MONO_FLAG) ? 1 : 2); ++channel) {
+    for (channel = 0; channel < ((flags & MONO_DATA) ? 1 : 2); ++channel) {
         sp = wps->dsd.filters + channel;
 
         *dp++ = (sp->filter1 + 32768) >> 16;
@@ -587,7 +609,7 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
             byte <<= 1;
         }
 
-        if (!(flags & MONO_FLAG))
+        if (!(flags & MONO_DATA))
             channel ^= 1;
     }
 
