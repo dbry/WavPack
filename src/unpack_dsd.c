@@ -91,7 +91,7 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
             total_samples = wps->dsd.endptr - wps->dsd.byteptr;
 
         while (total_samples--)
-            *bptr++ = *wps->dsd.byteptr++;
+            wps->crc += (wps->crc << 1) + (*bptr++ = *wps->dsd.byteptr++);
     }
     else if (wps->dsd.mode == 1)
         decode_fast (wps, buffer, sample_count);
@@ -110,7 +110,6 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
     }
 
     wps->sample_index += sample_count;
-    wps->crc = wps->wphdr.crc;          // TODO: no cheating!!
 
     return sample_count;
 }
@@ -231,6 +230,7 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
             wps->dsd.low += wps->dsd.summed_probabilities [wps->dsd.p0] [i-1] * mult;
 
         wps->dsd.high = wps->dsd.low + wps->dsd.probabilities [wps->dsd.p0] [i] * mult - 1;
+        wps->crc += (wps->crc << 1) + i;
 
         if (wps->wphdr.flags & MONO_DATA)
             wps->dsd.p0 = i & (wps->dsd.history_bins-1);
@@ -382,7 +382,7 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
             sp->filter6 += (value - sp->filter6) >> 3;
         }
 
-        *output++ = byte;
+        wps->crc += (wps->crc << 1) + (*output++ = byte);
 
         if (!(wps->wphdr.flags & MONO_DATA))
             channel ^= 1;

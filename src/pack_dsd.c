@@ -37,13 +37,6 @@ void pack_dsd_init (WavpackContext *wpc)
 // "wps->blockend" points to the end of the available space. A return value of
 // FALSE indicates an error.
 
-static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer);
-
-int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
-{
-    return pack_dsd_samples (wpc, buffer);
-}
-
 // Pack an entire block of samples (either mono or stereo) into a completed
 // WavPack block. It is assumed that there is sufficient space for the
 // completed block at "wps->blockbuff" and that "wps->blockend" points to the
@@ -59,7 +52,7 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
 static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination);
 void send_general_metadata (WavpackContext *wpc);
 
-static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
+int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags, mult = wpc->dsd_multiplier, data_count, bc;
@@ -133,12 +126,16 @@ static int pack_dsd_samples (WavpackContext *wpc, int32_t *buffer)
 
     if (res == -1) {
         int num_samples = sample_count * ((flags & MONO_DATA) ? 1 : 2);
+        uint32_t crc = 0xffffffff;
+
         *dsd_encoding++ = 0;
 
         data_count = num_samples + 2;
 
         while (num_samples--)
-            *dsd_encoding++ = *buffer++;
+            crc += (crc << 1) + (*dsd_encoding++ = *buffer++);
+
+        ((WavpackHeader *) wps->blockbuff)->crc = crc;
     }
     else
         data_count = res + 1;
@@ -285,12 +282,12 @@ static void calculate_probabilities (int hist [256], unsigned char probs [256], 
 
 static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination)
 {
-    uint32_t flags = wps->wphdr.flags;
-    int history_bins, bc, p0 = 0, p1 = 0;
+    uint32_t flags = wps->wphdr.flags, crc = 0xffffffff;
     unsigned int low = 0, high = 0xffffffff, mult;
     unsigned short (*summed_probabilities) [256];
     unsigned char (*probabilities) [256];
     unsigned char *dp = destination, *ep;
+    int history_bins, bc, p0 = 0, p1 = 0;
     int total_summed_probabilities = 0;
     int (*histogram) [256];
     int32_t *bp = buffer;
@@ -333,11 +330,13 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
 
     if (flags & MONO_DATA)
         while (bc--) {
+            crc += (crc << 1) + (*bp & 0xff);
             histogram [p0] [*bp & 0xff]++;
             p0 = *bp++ & (history_bins-1);
         }
     else
         while (bc--) {
+            crc += (crc << 1) + (*bp & 0xff);
             histogram [p0] [*bp & 0xff]++;
             p0 = p1;
             p1 = *bp++ & (history_bins-1);
@@ -347,6 +346,8 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
         calculate_probabilities (histogram [p0], probabilities [p0], summed_probabilities [p0]);
         total_summed_probabilities += summed_probabilities [p0] [255];
     }
+
+    ((WavpackHeader *) wps->blockbuff)->crc = crc;
 
     // This code detects the case where the required value lookup tables grow silly big and cuts them back down. This would
     // normally only happen with large blocks or poorly compressible data. The target is to guarantee that the total memory
@@ -506,9 +507,9 @@ static int normalize_ptable (int *ptable)
 
 static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination)
 {
-    uint32_t flags = wps->wphdr.flags;
-    unsigned char *dp = destination, *ep;
+    uint32_t flags = wps->wphdr.flags, crc = 0xffffffff;
     unsigned int high = 0xffffffff, low = 0;
+    unsigned char *dp = destination, *ep;
     DSDfilters *sp;
     int channel, i;
 
@@ -570,6 +571,8 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
         int byte = (*buffer++ & 0xff), bitcount = 8;
         sp = wps->dsd.filters + channel;
 
+        crc += (crc << 1) + byte;
+
         while (bitcount--) {
             int value = sp->filter1 - sp->filter5 + sp->filter6 * (sp->factor >> 2);
             int index = (value >> (PRECISION - PRECISION_USE)) & PTABLE_MASK;
@@ -613,6 +616,7 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
             channel ^= 1;
     }
 
+    ((WavpackHeader *) wps->blockbuff)->crc = crc;
     high = low;
 
     while (DSD_BYTE_READY (high, low)) {
