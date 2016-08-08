@@ -415,7 +415,7 @@ typedef struct {
 
     struct {
         unsigned char *byteptr, *endptr, (*probabilities) [256], **value_lookup, mode, ready;
-        int history_bins, allocated_bins, p0, p1;
+        int history_bins, p0, p1;
         int16_t (*summed_probabilities) [256];
         uint32_t low, high, value;
         DSDfilters filters [2];

@@ -124,7 +124,7 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
 static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     unsigned char dsd_power, history_bits, max_probability;
-    int i;
+    int total_summed_probabilities = 0, i;
 
     if (wps->dsd.byteptr == wps->dsd.endptr)
         return FALSE;
@@ -136,38 +136,34 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
 
     wps->dsd.history_bins = 1 << history_bits;
 
-    if (!wps->dsd.allocated_bins || wps->dsd.allocated_bins < wps->dsd.history_bins) {
-        wps->dsd.value_lookup = realloc (wps->dsd.value_lookup, sizeof (*wps->dsd.value_lookup) * wps->dsd.history_bins);
-        wps->dsd.summed_probabilities = realloc (wps->dsd.summed_probabilities, sizeof (*wps->dsd.summed_probabilities) * wps->dsd.history_bins);
-        wps->dsd.probabilities = realloc (wps->dsd.probabilities, sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins);
-        wps->dsd.allocated_bins = wps->dsd.history_bins;
-    }
+    wps->dsd.value_lookup = malloc (sizeof (*wps->dsd.value_lookup) * wps->dsd.history_bins);
+    memset (wps->dsd.value_lookup, 0, sizeof (*wps->dsd.value_lookup) * wps->dsd.history_bins);
+    wps->dsd.summed_probabilities = malloc (sizeof (*wps->dsd.summed_probabilities) * wps->dsd.history_bins);
+    wps->dsd.probabilities = malloc (sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins);
 
     max_probability = *wps->dsd.byteptr++;
 
     if (max_probability < 0xff) {
-        unsigned char *outp = (unsigned char *) wps->dsd.probabilities;
+        unsigned char *outptr = (unsigned char *) wps->dsd.probabilities;
+        unsigned char *outend = outptr + sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins;
 
-        while (wps->dsd.byteptr != wps->dsd.endptr) {
-            if (*wps->dsd.byteptr > max_probability) {
-                int zcount = *wps->dsd.byteptr++ - max_probability;
+        while (outptr < outend && wps->dsd.byteptr < wps->dsd.endptr) {
+            int code = *wps->dsd.byteptr++;
 
-                while (zcount--)
-                    *outp++ = 0;
+            if (code > max_probability) {
+                int zcount = code - max_probability;
+
+                while (outptr < outend && zcount--)
+                    *outptr++ = 0;
             }
-            else if (*wps->dsd.byteptr)
-                *outp++ = *wps->dsd.byteptr++;
-            else {
-                wps->dsd.byteptr++;
+            else if (code)
+                *outptr++ = code;
+            else
                 break;
-            }
         }
 
-        if (outp != (unsigned char *) wps->dsd.probabilities + sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins) {
-            fprintf (stderr, "inexact fatal decoding error, length = %d, written = %d, read = %d!\n",
-                wpmd->byte_length, (int)(outp - (unsigned char *) wps->dsd.probabilities), (int)(wps->dsd.byteptr - (unsigned char *) wpmd->data));
+        if (outptr < outend || (wps->dsd.byteptr < wps->dsd.endptr && *wps->dsd.byteptr++))
             return FALSE;
-        }
     }
     else if (wps->dsd.endptr - wps->dsd.byteptr > sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins) {
         memcpy (wps->dsd.probabilities, wps->dsd.byteptr, sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins);
@@ -183,17 +179,20 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
         for (sum_values = i = 0; i < 256; ++i)
             wps->dsd.summed_probabilities [wps->dsd.p0] [i] = sum_values += wps->dsd.probabilities [wps->dsd.p0] [i];
 
-        vp = wps->dsd.value_lookup [wps->dsd.p0] = malloc (sum_values);
+        if (sum_values) {
+            total_summed_probabilities += sum_values;
+            vp = wps->dsd.value_lookup [wps->dsd.p0] = malloc (sum_values);
 
-        for (i = 0; i < 256; i++) {
-            int c = wps->dsd.probabilities [wps->dsd.p0] [i];
+            for (i = 0; i < 256; i++) {
+                int c = wps->dsd.probabilities [wps->dsd.p0] [i];
 
-            while (c--)
-                *vp++ = i;
+                while (c--)
+                    *vp++ = i;
+            }
         }
     }
 
-    if (wps->dsd.endptr - wps->dsd.byteptr < 4)
+    if (wps->dsd.endptr - wps->dsd.byteptr < 4 || total_summed_probabilities > wps->dsd.history_bins * 1280)
         return FALSE;
 
     for (i = 4; i--;)
@@ -214,7 +213,12 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
         total_samples *= 2;
 
     while (total_samples--) {
-        int mult = (wps->dsd.high - wps->dsd.low) / wps->dsd.summed_probabilities [wps->dsd.p0] [255], i;
+        int mult, index, code, i;
+
+        if (!wps->dsd.summed_probabilities [wps->dsd.p0] [255])
+            return 0;
+
+        mult = (wps->dsd.high - wps->dsd.low) / wps->dsd.summed_probabilities [wps->dsd.p0] [255];
 
         if (!mult) {
             if (wps->dsd.endptr - wps->dsd.byteptr >= 4)
@@ -224,19 +228,27 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
             wps->dsd.low = 0;
             wps->dsd.high = 0xffffffff;
             mult = wps->dsd.high / wps->dsd.summed_probabilities [wps->dsd.p0] [255];
+
+            if (!mult)
+                return 0;
         }
 
-        if (*output++ = i = wps->dsd.value_lookup [wps->dsd.p0] [(wps->dsd.value - wps->dsd.low) / mult])
-            wps->dsd.low += wps->dsd.summed_probabilities [wps->dsd.p0] [i-1] * mult;
+        index = (wps->dsd.value - wps->dsd.low) / mult;
 
-        wps->dsd.high = wps->dsd.low + wps->dsd.probabilities [wps->dsd.p0] [i] * mult - 1;
-        wps->crc += (wps->crc << 1) + i;
+        if (index >= wps->dsd.summed_probabilities [wps->dsd.p0] [255])
+            return 0;
+
+        if (*output++ = code = wps->dsd.value_lookup [wps->dsd.p0] [index])
+            wps->dsd.low += wps->dsd.summed_probabilities [wps->dsd.p0] [code-1] * mult;
+
+        wps->dsd.high = wps->dsd.low + wps->dsd.probabilities [wps->dsd.p0] [code] * mult - 1;
+        wps->crc += (wps->crc << 1) + code;
 
         if (wps->wphdr.flags & MONO_DATA)
-            wps->dsd.p0 = i & (wps->dsd.history_bins-1);
+            wps->dsd.p0 = code & (wps->dsd.history_bins-1);
         else {
             wps->dsd.p0 = wps->dsd.p1;
-            wps->dsd.p1 = i & (wps->dsd.history_bins-1);
+            wps->dsd.p1 = code & (wps->dsd.history_bins-1);
         }
 
         while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low) && wps->dsd.byteptr < wps->dsd.endptr) {
@@ -299,9 +311,7 @@ static int init_dsd_block_high (WavpackStream *wps, WavpackMetadata *wpmd)
     if (rate_s != RATE_S)
         return FALSE;
 
-    if (!wps->dsd.ptable)
-        wps->dsd.ptable = malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
-
+    wps->dsd.ptable = malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
     init_ptable (wps->dsd.ptable, rate_i, rate_s);
 
     for (channel = 0; channel < ((flags & MONO_DATA) ? 1 : 2); ++channel) {

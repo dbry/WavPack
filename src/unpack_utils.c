@@ -127,7 +127,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         if (wps->sample_index < GET_BLOCK_INDEX (wps->wphdr)) {
             samples_to_unpack = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) - wps->sample_index);
 
-            if (samples_to_unpack > 262144) {
+            if (!samples_to_unpack || samples_to_unpack > 262144) {
                 strcpy (wpc->error_message, "discontinuity found, aborting file!");
                 wps->wphdr.block_samples = 0;
                 wps->wphdr.ckSize = 24;

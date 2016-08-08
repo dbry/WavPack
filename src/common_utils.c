@@ -479,13 +479,12 @@ void free_streams (WavpackContext *wpc)
             int i;
 
             for (i = 0; i < wpc->streams [si]->dsd.history_bins; ++i)
-                free (wpc->streams [si]->dsd.value_lookup [i]);
+                if (wpc->streams [si]->dsd.value_lookup [i])
+                    free (wpc->streams [si]->dsd.value_lookup [i]);
 
             free (wpc->streams [si]->dsd.value_lookup);
             wpc->streams [si]->dsd.value_lookup = NULL;
         }
-
-        wpc->streams [si]->dsd.allocated_bins = 0;
 
         if (wpc->streams [si]->dsd.ptable) {
             free (wpc->streams [si]->dsd.ptable);
