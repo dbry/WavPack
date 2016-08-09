@@ -10,7 +10,7 @@ wavpack_LDFLAGS = -rpath $(libdir)
 endif
 wavpack_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
 
-wvunpack_SOURCES = wvunpack.c riff.c wave64.c caff.c utils.c md5.c
+wvunpack_SOURCES = wvunpack.c riff.c wave64.c caff.c dsdiff.c dsf.c utils.c md5.c
 if WINDOWS_HOST
 wvunpack_SOURCES += win32_unicode_support.c
 endif

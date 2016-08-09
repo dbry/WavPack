@@ -81,12 +81,14 @@ static const char *usage =
 "          come from the source and by default the entire file is restored\n"
 "          (including the original headers and trailers). However, this can\n"
 "          be overridden to one of the supported formats listed below (which\n"
-"          discard the original headers).\n\n"
+"          also causes the original headers to be discarded).\n\n"
 #endif
-" Formats: Microsoft RIFF:   'wav', force with -w, RF64 if over 4 GB\n"
+" Formats: Microsoft RIFF:   'wav', force with -w, makes RF64 if > 4 GB\n"
 "          Sony Wave64:      'w64', force with --w64\n"
 "          Apple Core Audio: 'caf', force with --caf-be or --caf-le\n"
-"          Raw PCM:          'raw', force with -r, little-endian\n\n"
+"          Raw PCM:          'raw', force with -r, little-endian\n"
+"          Philips DSDIFF:   'dff', force with --dsdiff or --dff\n"
+"          Sony DSF:         'dsf', force with --dsf\n\n"
 " Options: -b  = blindly decode all stream blocks & ignore length info\n"
 "          -c  = extract cuesheet only to stdout (no audio decode)\n"
 "               (note: equivalent to -x \"cuesheet\")\n"
@@ -95,6 +97,9 @@ static const char *usage =
 "          --caf-be = force extraction to big-endian Core Audio (extension .caf)\n"
 "          --caf-le = force extraction to little-endian Core Audio (extension .caf)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
+"          --dff = force extraction to Philips DSDIFF (DSD only, extension .dff)\n"
+"          --dsf = force extraction to Sony DSF (DSD only, extension .dsf)\n"
+"          --dsdiff = see --dff\n"
 "          -f[n]  = file info to stdout in machine-parsable format\n"
 "                (optional \"n\" = 1-10 for specific item, otherwise all)\n"
 "          --help = this help display\n"
@@ -143,6 +148,8 @@ static const char *usage =
 int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 int WriteWave64Header (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
+int WriteDsdiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
+int WriteDsfHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 
 static struct {
     char *default_extension, *format_name;
@@ -151,8 +158,8 @@ static struct {
     { "wav", "Microsoft RIFF",   WriteRiffHeader },
     { "w64", "Sony Wave64",      WriteWave64Header },
     { "caf", "Apple Core Audio", WriteCaffHeader },
-    { "dff", "Philips DSDIFF",   NULL },
-    { "dsf", "Sony DSD",         NULL }
+    { "dff", "Philips DSDIFF",   WriteDsdiffHeader },
+    { "dsf", "Sony DSF",         WriteDsfHeader }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
@@ -290,6 +297,14 @@ int main(int argc, char **argv)
             }
             else if (!strcmp (long_option, "caf-le")) {                 // --caf-le
                 decode_format = WP_FORMAT_CAF;
+                format_specified = 1;
+            }
+            else if (!strcmp (long_option, "dsf")) {                    // --dsf
+                decode_format = WP_FORMAT_DSF;
+                format_specified = 1;
+            }
+            else if (!strcmp (long_option, "dsdiff") || !strcmp (long_option, "dff")) {
+                decode_format = WP_FORMAT_DFF;                          // --dsdiff or --dff
                 format_specified = 1;
             }
             else if (!strcmp (long_option, "w64")) {                    // --w64
@@ -1044,12 +1059,34 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         output_qmode = 0;
     }
     else if (format_specified) {
-        if (decode_format == WP_FORMAT_CAF)
-            output_qmode = QMODE_SIGNED_BYTES | (caf_be ? QMODE_BIG_ENDIAN : 0) | (input_qmode & QMODE_REORDERED_CHANS);
-        else
-            output_qmode = 0;
+        switch (decode_format) {
+            case WP_FORMAT_CAF:
+                output_qmode = QMODE_SIGNED_BYTES | (caf_be ? QMODE_BIG_ENDIAN : 0) | (input_qmode & QMODE_REORDERED_CHANS);
+                output_format = decode_format;
+                break;
 
-        output_format = decode_format;
+            case WP_FORMAT_WAV:
+            case WP_FORMAT_W64:
+                output_format = decode_format;
+                output_qmode = 0;
+                break;
+
+            case WP_FORMAT_DFF:
+            case WP_FORMAT_DSF:
+                if (!(input_qmode & QMODE_DSD_AUDIO)) {
+                    error_line ("can't export PCM source to DSD file!");
+                    WavpackCloseFile (wpc);
+                    return WAVPACK_SOFT_ERROR;
+                }
+
+                if (decode_format == WP_FORMAT_DSF)
+                    output_qmode = QMODE_DSD_LSB_FIRST | QMODE_DSD_IN_BLOCKS;
+                else
+                    output_qmode = QMODE_DSD_MSB_FIRST;
+
+                output_format = decode_format;
+                break;
+        }
     }
     else {
         output_format = input_format;
