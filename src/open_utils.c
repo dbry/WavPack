@@ -931,16 +931,16 @@ int read_wvc_block (WavpackContext *wpc)
 // the file (although we usually try to back up and write that at the front of
 // the file). Note this function restores the file position to its original
 // location (and obviously requires a seekable file). The normal return value
-// is TRUE indicating no errors, although this does not actually mean the any
+// is TRUE indicating no errors, although this does not actually mean that any
 // information was retrieved. An error return of FALSE usually means the file
 // terminated unexpectedly. Note that this could be used to get all three
-// types of information, but it's not actually used that way now.
+// types of information in one go, but it's not actually used that way now.
 
 static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int get_wrapper)
 {
-    int64_t restore_pos, current_pos, last_block_pos = -1;
+    int64_t restore_pos, last_pos = -1;
     WavpackStreamReader64 *reader = wpc->reader;
-    uint32_t audio_blocks = 0;
+    uint32_t blocks = 0, audio_blocks = 0;
     void *id = wpc->wv_in;
     WavpackHeader wphdr;
 
@@ -954,28 +954,47 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
         reader->set_pos_abs (id, 0);
 
     // Note that we go backward (without parsing inside blocks) until we find a block
-    // with audio (careful to not get stuck on the same block). Only then do we go
-    // forward parsing all blocks in their entirety.
+    // with audio (careful to not get stuck in a loop). Only then do we go forward
+    // parsing all blocks in their entirety.
 
     while (1) {
         uint32_t bcount = read_next_header (reader, id, &wphdr);
+        int64_t current_pos = reader->get_pos (id);
 
-        if (bcount == (uint32_t) -1) {              // exhausted file is normal exit...
-            reader->set_pos_abs (id, restore_pos);
-            return TRUE;
-        }
+        // if we just got to the same place as last time, we're stuck and need to give up
 
-        // get the current position, and if it's same as last block read, that's bad...
-
-        current_pos = reader->get_pos (id);
-
-        if (current_pos == last_block_pos) {
+        if (current_pos == last_pos) {
             reader->set_pos_abs (id, restore_pos);
             return FALSE;
         }
 
-        last_block_pos = current_pos;
-        bcount = wphdr.ckSize - sizeof (WavpackHeader) + 8;
+        last_pos = current_pos;
+
+        // We enter here if we just read 1 MB without seeing any WavPack block headers.
+        // Since WavPack blocks are < 1 MB, that means we're in a big APE tag, or we got
+        // to the end-of-file.
+
+        if (bcount == (uint32_t) -1) {
+
+            // if we have not seen any blocks at all yet, back up almost 2 MB (or to the
+            // beginning of the file) and try again
+
+            if (!blocks) {
+                if (current_pos > 2000000LL)
+                    reader->set_pos_rel (id, -2000000, SEEK_CUR);
+                else
+                    reader->set_pos_abs (id, 0);
+
+                continue;
+            }
+
+            // if we have seen WavPack blocks, then this means we've done all we can do here
+
+            reader->set_pos_abs (id, restore_pos);
+            return TRUE;
+        }
+
+        blocks++;
 
         // If the block has audio samples, calculate a final index, although this is not
         // final since this may not be the last block with audio. On the other hand, if
@@ -999,6 +1018,8 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
 
         // at this point we have seen at least one block with audio, so we parse the
         // entire block looking for MD5 metadata or (conditionally) trailing wrappers
+
+        bcount = wphdr.ckSize - sizeof (WavpackHeader) + 8;
 
         while (bcount >= 2) {
             unsigned char meta_id, c1, c2;
