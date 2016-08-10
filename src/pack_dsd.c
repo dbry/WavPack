@@ -50,7 +50,6 @@ void pack_dsd_init (WavpackContext *wpc)
 
 static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination);
 static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination);
-void send_general_metadata (WavpackContext *wpc);
 
 int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
 {

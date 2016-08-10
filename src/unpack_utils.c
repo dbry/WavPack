@@ -37,9 +37,9 @@
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples)
 {
     WavpackStream *wps = wpc->streams ? wpc->streams [wpc->current_stream = 0] : NULL;
+    int num_channels = wpc->config.num_channels, file_done = FALSE;
     uint32_t bcount, samples_unpacked = 0, samples_to_unpack;
-    int num_channels = wpc->config.num_channels;
-    int file_done = FALSE;
+    int32_t *bptr = buffer;
 
 #ifndef VER4_ONLY
     if (wpc->stream3)
@@ -147,7 +147,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                 samples_to_unpack *= num_channels;
 
             while (samples_to_unpack--)
-                *buffer++ = 0;
+                *bptr++ = 0;
 
             continue;
         }
@@ -249,7 +249,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                     unpack_samples (wpc, src = temp_buffer, samples_to_unpack);
 
                 samcnt = samples_to_unpack;
-                dst = buffer + offset;
+                dst = bptr + offset;
 
                 // if the block is mono, copy the samples from the single channel into the destination
                 // using num_channels as the stride
@@ -300,7 +300,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
             // if we didn't get all the channels we expected, mute the buffer and flag an error
 
             if (offset != num_channels) {
-                memset (buffer, 0, samples_to_unpack * num_channels * 4);
+                memset (bptr, 0, samples_to_unpack * num_channels * 4);
                 wpc->crc_errors++;
             }
 
@@ -313,14 +313,14 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         // catch the error situation where we have only one channel but run into a stereo block
         // (this avoids overwriting the caller's buffer)
         else if (!(wps->wphdr.flags & MONO_FLAG) && (num_channels == 1 || wpc->reduced_channels == 1)) {
-            memset (buffer, 0, samples_to_unpack * sizeof (*buffer));
+            memset (bptr, 0, samples_to_unpack * sizeof (*bptr));
             wps->sample_index += samples_to_unpack;
             wpc->crc_errors++;
         }
         else if (wps->wphdr.flags & DSD_FLAG)
-            unpack_dsd_samples (wpc, buffer, samples_to_unpack);
+            unpack_dsd_samples (wpc, bptr, samples_to_unpack);
         else
-            unpack_samples (wpc, buffer, samples_to_unpack);
+            unpack_samples (wpc, bptr, samples_to_unpack);
 
         if (file_done) {
             strcpy (wpc->error_message, "can't read all of last block!");
@@ -328,9 +328,9 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         }
 
         if (wpc->reduced_channels)
-            buffer += samples_to_unpack * wpc->reduced_channels;
+            bptr += samples_to_unpack * wpc->reduced_channels;
         else
-            buffer += samples_to_unpack * num_channels;
+            bptr += samples_to_unpack * num_channels;
 
         samples_unpacked += samples_to_unpack;
         samples -= samples_to_unpack;
@@ -358,6 +358,9 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         if (wpc->total_samples != -1 && wps->sample_index == wpc->total_samples)
             break;
     }
+
+    if (wpc->decimation_context)
+        decimate_dsd_run (wpc->decimation_context, buffer, samples_unpacked);
 
     return samples_unpacked;
 }

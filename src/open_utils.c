@@ -158,22 +158,40 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
 
     wpc->config.flags &= ~0xff;
     wpc->config.flags |= wps->wphdr.flags & 0xff;
-    wpc->config.bytes_per_sample = (wps->wphdr.flags & BYTES_STORED) + 1;
-    wpc->config.float_norm_exp = wps->float_norm_exp;
 
-    wpc->config.bits_per_sample = (wpc->config.bytes_per_sample * 8) -
-        ((wps->wphdr.flags & SHIFT_MASK) >> SHIFT_LSB);
+    if (!wpc->config.num_channels) {
+        wpc->config.num_channels = (wps->wphdr.flags & MONO_FLAG) ? 1 : 2;
+        wpc->config.channel_mask = 0x5 - wpc->config.num_channels;
+    }
+
+    if (wps->wphdr.flags & DSD_FLAG) {
+        if (flags & OPEN_DSD_NATIVE) {
+            wpc->config.bytes_per_sample = 1;
+            wpc->config.bits_per_sample = 8;
+        }
+        else if (flags & OPEN_DSD_AS_PCM) {
+            wpc->decimation_context = decimate_dsd_init (wpc->config.num_channels);
+            wpc->config.bytes_per_sample = 3;
+            wpc->config.bits_per_sample = 24;
+        }
+        else {
+            if (error) strcpy (error, "not configured to handle DSD WavPack files!");
+            return WavpackCloseFile (wpc);
+        }
+    }
+    else {
+        wpc->config.bytes_per_sample = (wps->wphdr.flags & BYTES_STORED) + 1;
+        wpc->config.float_norm_exp = wps->float_norm_exp;
+
+        wpc->config.bits_per_sample = (wpc->config.bytes_per_sample * 8) -
+            ((wps->wphdr.flags & SHIFT_MASK) >> SHIFT_LSB);
+    }
 
     if (!wpc->config.sample_rate) {
         if (!wps->wphdr.block_samples || (wps->wphdr.flags & SRATE_MASK) == SRATE_MASK)
             wpc->config.sample_rate = 44100;
         else
             wpc->config.sample_rate = sample_rates [(wps->wphdr.flags & SRATE_MASK) >> SRATE_LSB];
-    }
-
-    if (!wpc->config.num_channels) {
-        wpc->config.num_channels = (wps->wphdr.flags & MONO_FLAG) ? 1 : 2;
-        wpc->config.channel_mask = 0x5 - wpc->config.num_channels;
     }
 
     if ((flags & OPEN_2CH_MAX) && !(wps->wphdr.flags & FINAL_BLOCK))

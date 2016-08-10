@@ -1033,6 +1033,11 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     if (summary > 1 || num_tag_extractions || tag_extract_stdout)
         open_flags |= OPEN_TAGS;
 
+    if (format_specified && decode_format != WP_FORMAT_DFF && decode_format != WP_FORMAT_DSF)
+        open_flags |= OPEN_DSD_AS_PCM;
+    else
+        open_flags |= OPEN_DSD_NATIVE;
+
     wpc = WavpackOpenFileInput (infilename, error, open_flags, 0);
 
     if (!wpc) {

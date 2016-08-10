@@ -297,6 +297,12 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 #define OPEN_EDIT_TAGS  0x40    // allow editing of tags
 #define OPEN_FILE_UTF8  0x80    // assume filenames are UTF-8 encoded, not ANSI (Windows only)
 
+// new for version 5
+
+#define OPEN_DSD_NATIVE 0x100   // open DSD files as bitstreams
+                                // (returned as 8-bit "samples" stored in 32-bit words)
+#define OPEN_DSD_AS_PCM 0x200   // open DSD files as 24-bit PCM (decimated 8x)
+
 int WavpackGetMode (WavpackContext *wpc);
 
 #define MODE_WVC        0x1

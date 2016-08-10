@@ -180,6 +180,10 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
     }
 
     wpc->current_stream = 0;
+
+    if (wpc->decimation_context)
+        decimate_dsd_reset (wpc->decimation_context);
+
     return TRUE;
 }
 

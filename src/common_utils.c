@@ -335,6 +335,9 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
     free_tag (&wpc->m_tag);
 #endif
 
+    if (wpc->decimation_context)
+        decimate_dsd_destroy (wpc->decimation_context);
+
     free (wpc);
 
     return NULL;

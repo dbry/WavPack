@@ -500,6 +500,7 @@ typedef struct {
     // these items were added in 5.0 to support alternate file types (especially CAF & DSD)
     unsigned char file_format, *channel_reordering;
     uint32_t channel_layout, dsd_multiplier;
+    void *decimation_context;
     char file_extension [8];
 
     char error_message [80];
@@ -572,6 +573,7 @@ typedef struct {
 
 void pack_init (WavpackContext *wpc);
 int pack_block (WavpackContext *wpc, int32_t *buffer);
+void send_general_metadata (WavpackContext *wpc);
 void free_metadata (WavpackMetadata *wpmd);
 int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned char *buffer_end);
 double WavpackGetEncodedNoise (WavpackContext *wpc, double *peak);
@@ -588,6 +590,19 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values);
 void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening_allowed);
 void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
 void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
+
+////////////////////////// DSD related (including decimation) //////////////////////////
+// modules: pack_dsd.c unpack_dsd.c
+
+void pack_dsd_init (WavpackContext *wpc);
+int pack_dsd_block (WavpackContext *wpc, int32_t *buffer);
+int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd);
+int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
+
+void *decimate_dsd_init (int num_channels);
+void decimate_dsd_reset (void *decimate_context);
+void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples);
+void decimate_dsd_destroy (void *decimate_context);
 
 ///////////////////////////////// CPU feature detection ////////////////////////////////
 
@@ -770,6 +785,12 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
                                 // w/o regard to header file position info
 #define OPEN_EDIT_TAGS  0x40    // allow editing of tags
 #define OPEN_FILE_UTF8  0x80    // assume filenames are UTF-8 encoded, not ANSI (Windows only)
+
+// new for version 5
+
+#define OPEN_DSD_NATIVE 0x100   // open DSD files as bitstreams
+                                // (returned as 8-bit "samples" stored in 32-bit words)
+#define OPEN_DSD_AS_PCM 0x200   // open DSD files as 24-bit PCM (decimated 8x)
 
 int WavpackGetMode (WavpackContext *wpc);
 

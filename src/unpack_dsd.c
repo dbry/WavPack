@@ -400,3 +400,137 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
 
     return sample_count;
 }
+
+/*------------------------------------------------------------------------------------------------------------------------*/
+
+// 80 term DSD decimation filter
+// < 1 dB down at 20 kHz
+// > 108 dB stopband attenuation
+
+static const int32_t decm_filter [] = {
+    4, 17, 56, 147, 336, 693, 1320, 2359,
+    4003, 6502, 10170, 15392, 22623, 32389, 45275, 61920,
+    82994, 109174, 141119, 179431, 224621, 277068, 336983, 404373,
+    479004, 560384, 647741, 740025, 835917, 933849, 1032042, 1128551,
+    1221329, 1308290, 1387386, 1456680, 1514425, 1559128, 1589610, 1605059,
+    1605059, 1589610, 1559128, 1514425, 1456680, 1387386, 1308290, 1221329,
+    1128551, 1032042, 933849, 835917, 740025, 647741, 560384, 479004,
+    404373, 336983, 277068, 224621, 179431, 141119, 109174, 82994,
+    61920, 45275, 32389, 22623, 15392, 10170, 6502, 4003,
+    2359, 1320, 693, 336, 147, 56, 17, 4,
+};
+
+#define NUM_FILTER_TERMS ((int)(sizeof (decm_filter) / sizeof (decm_filter [0])))
+#define HISTORY_BYTES ((NUM_FILTER_TERMS+7)/8)
+
+typedef struct {
+    unsigned char delay [HISTORY_BYTES];
+} DecimationChannel;
+
+typedef struct {
+    int32_t conv_tables [HISTORY_BYTES] [256];
+    DecimationChannel *chans;
+    int num_channels;
+} DecimationContext;
+
+void *decimate_dsd_init (int num_channels)
+{
+    DecimationContext *context = malloc (sizeof (DecimationContext));
+    double filter_sum = 0, filter_scale;
+    int skipped_terms, chan, byte, i, j;
+
+    if (!context)
+        return context;
+
+    memset (context, 0, sizeof (*context));
+    context->num_channels = num_channels;
+    context->chans = malloc (num_channels * sizeof (DecimationChannel));
+
+    if (!context->chans) {
+        free (context);
+        return NULL;
+    }
+
+    for (i = 0; i < NUM_FILTER_TERMS; ++i)
+        filter_sum += decm_filter [i];
+
+    filter_scale = (1 << 27) / filter_sum;
+    // fprintf (stderr, "convolution, %d terms, %f sum, %f scale\n", NUM_FILTER_TERMS, filter_sum, filter_scale);
+
+    for (skipped_terms = i = 0; i < NUM_FILTER_TERMS; ++i) {
+        int scaled_term = (int) floor (decm_filter [i] * filter_scale + 0.5);
+
+        if (scaled_term) {
+            for (j = 0; j < 256; ++j)
+                if (j & (0x80 >> (i & 0x7)))
+                    context->conv_tables [i >> 3] [j] += scaled_term;
+                else
+                    context->conv_tables [i >> 3] [j] -= scaled_term;
+        }
+        else
+            skipped_terms++;
+    }
+
+    // fprintf (stderr, "%d terms skipped\n", skipped_terms);
+
+    decimate_dsd_reset (context);
+
+    return context;
+}
+
+void decimate_dsd_reset (void *decimate_context)
+{
+    DecimationContext *context = (DecimationContext *) decimate_context;
+    int chan = 0, num_channels, i;
+
+    if (!context)
+        return;
+
+    for (chan = 0; chan < context->num_channels; ++chan)
+        for (i = 0; i < HISTORY_BYTES; ++i)
+            context->chans [chan].delay [i] = 0x55;
+}
+
+void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples)
+{
+    DecimationContext *context = (DecimationContext *) decimate_context;
+    int chan = 0;
+
+    if (!context)
+        return;
+
+    while (num_samples) {
+        DecimationChannel *sp = context->chans + chan;
+        int sum = 0;
+
+        sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
+        sum += context->conv_tables [1] [sp->delay [1] = sp->delay [2]];
+        sum += context->conv_tables [2] [sp->delay [2] = sp->delay [3]];
+        sum += context->conv_tables [3] [sp->delay [3] = sp->delay [4]];
+        sum += context->conv_tables [4] [sp->delay [4] = sp->delay [5]];
+        sum += context->conv_tables [5] [sp->delay [5] = sp->delay [6]];
+        sum += context->conv_tables [6] [sp->delay [6] = sp->delay [7]];
+        sum += context->conv_tables [7] [sp->delay [7] = sp->delay [8]];
+        sum += context->conv_tables [8] [sp->delay [8] = sp->delay [9]];
+        sum += context->conv_tables [9] [sp->delay [9] = *samples];
+        *samples++ = sum >> 4;
+
+        if (++chan == context->num_channels) {
+            num_samples--;
+            chan = 0;
+        }
+    }
+}
+
+void decimate_dsd_destroy (void *decimate_context)
+{
+    DecimationContext *context = (DecimationContext *) decimate_context;
+
+    if (!context)
+        return;
+
+    if (context->chans)
+        free (context->chans);
+
+    free (context);
+}

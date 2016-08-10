@@ -618,11 +618,6 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
         return WAVPACK_SOFT_ERROR;
     }
 
-    if (WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO) {
-        error_line ("can't handle DSD files yet!");
-        return WAVPACK_SOFT_ERROR;
-    }
-
     if (!quiet_mode) {
         fprintf (stderr, "analyzing %s%s,", *infilename == '-' ? "stdin" :
             FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
