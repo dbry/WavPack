@@ -164,13 +164,18 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         wpc->config.channel_mask = 0x5 - wpc->config.num_channels;
     }
 
+    if ((flags & OPEN_2CH_MAX) && !(wps->wphdr.flags & FINAL_BLOCK))
+        wpc->reduced_channels = (wps->wphdr.flags & MONO_FLAG) ? 1 : 2;
+
     if (wps->wphdr.flags & DSD_FLAG) {
         if (flags & OPEN_DSD_NATIVE) {
             wpc->config.bytes_per_sample = 1;
             wpc->config.bits_per_sample = 8;
         }
         else if (flags & OPEN_DSD_AS_PCM) {
-            wpc->decimation_context = decimate_dsd_init (wpc->config.num_channels);
+            wpc->decimation_context = decimate_dsd_init (wpc->reduced_channels ?
+                wpc->reduced_channels : wpc->config.num_channels);
+
             wpc->config.bytes_per_sample = 3;
             wpc->config.bits_per_sample = 24;
         }
@@ -193,9 +198,6 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         else
             wpc->config.sample_rate = sample_rates [(wps->wphdr.flags & SRATE_MASK) >> SRATE_LSB];
     }
-
-    if ((flags & OPEN_2CH_MAX) && !(wps->wphdr.flags & FINAL_BLOCK))
-        wpc->reduced_channels = (wps->wphdr.flags & MONO_FLAG) ? 1 : 2;
 
     return wpc;
 }

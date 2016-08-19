@@ -62,7 +62,6 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags, crc = wps->crc;
-    int bytes_to_copy;
 
     // don't attempt to decode past the end of the block, but watch out for overflow!
 
@@ -73,30 +72,38 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
     if (GET_BLOCK_INDEX (wps->wphdr) > wps->sample_index || wps->wphdr.block_samples < sample_count)
         wps->mute_error = TRUE;
 
+    if (!wps->mute_error) {
+        if (!wps->dsd.mode) {
+            int total_samples = sample_count * ((flags & MONO_DATA) ? 1 : 2);
+            int32_t *bptr = buffer;
+
+            if (wps->dsd.endptr - wps->dsd.byteptr < total_samples)
+                total_samples = wps->dsd.endptr - wps->dsd.byteptr;
+
+            while (total_samples--)
+                wps->crc += (wps->crc << 1) + (*bptr++ = *wps->dsd.byteptr++);
+        }
+        else if (wps->dsd.mode == 1) {
+            if (!decode_fast (wps, buffer, sample_count))
+                wps->mute_error = TRUE;
+        }
+        else if (!decode_high (wps, buffer, sample_count))
+            wps->mute_error = TRUE;
+    }
+
     if (wps->mute_error) {
+        int samples_to_null;
         if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))
-            memset (buffer, 0, sample_count * 4);   // TODO: DSD mute should be 0x55, not zero
+            samples_to_null = sample_count;
         else
-            memset (buffer, 0, sample_count * 8);
+            samples_to_null = sample_count * 2;
+
+        while (samples_to_null--)
+            *buffer++ = 0x55;
 
         wps->sample_index += sample_count;
         return sample_count;
     }
-
-    if (!wps->dsd.mode) {
-        int total_samples = sample_count * ((flags & MONO_DATA) ? 1 : 2);
-        int32_t *bptr = buffer;
-
-        if (wps->dsd.endptr - wps->dsd.byteptr < total_samples)
-            total_samples = wps->dsd.endptr - wps->dsd.byteptr;
-
-        while (total_samples--)
-            wps->crc += (wps->crc << 1) + (*bptr++ = *wps->dsd.byteptr++);
-    }
-    else if (wps->dsd.mode == 1)
-        decode_fast (wps, buffer, sample_count);
-    else
-        decode_high (wps, buffer, sample_count);
 
     if (flags & FALSE_STEREO) {
         int32_t *dptr = buffer + sample_count * 2;
@@ -454,7 +461,7 @@ void *decimate_dsd_init (int num_channels)
     for (i = 0; i < NUM_FILTER_TERMS; ++i)
         filter_sum += decm_filter [i];
 
-    filter_scale = (1 << 27) / filter_sum;
+    filter_scale = ((1 << 23) - 1) / filter_sum * 16.0;
     // fprintf (stderr, "convolution, %d terms, %f sum, %f scale\n", NUM_FILTER_TERMS, filter_sum, filter_scale);
 
     for (skipped_terms = i = 0; i < NUM_FILTER_TERMS; ++i) {

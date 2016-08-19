@@ -125,6 +125,8 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         // If it's not too much data, just fill in with silence here and loop back.
 
         if (wps->sample_index < GET_BLOCK_INDEX (wps->wphdr)) {
+            int32_t zvalue = (wps->wphdr.flags & DSD_FLAG) ? 0x55 : 0;
+
             samples_to_unpack = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) - wps->sample_index);
 
             if (!samples_to_unpack || samples_to_unpack > 262144) {
@@ -141,13 +143,10 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
             samples_unpacked += samples_to_unpack;
             samples -= samples_to_unpack;
 
-            if (wpc->reduced_channels)
-                samples_to_unpack *= wpc->reduced_channels;
-            else
-                samples_to_unpack *= num_channels;
+            samples_to_unpack *= (wpc->reduced_channels ? wpc->reduced_channels : num_channels);
 
             while (samples_to_unpack--)
-                *bptr++ = 0;
+                *bptr++ = zvalue;
 
             continue;
         }
@@ -300,7 +299,16 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
             // if we didn't get all the channels we expected, mute the buffer and flag an error
 
             if (offset != num_channels) {
-                memset (bptr, 0, samples_to_unpack * num_channels * 4);
+                if (wps->wphdr.flags & DSD_FLAG) {
+                    int samples_to_zero = samples_to_unpack * num_channels;
+                    int32_t *zptr = bptr;
+
+                    while (samples_to_zero--)
+                        *zptr++ = 0x55;
+                }
+                else
+                    memset (bptr, 0, samples_to_unpack * num_channels * 4);
+
                 wpc->crc_errors++;
             }
 
@@ -340,6 +348,16 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
         if (wps->sample_index == GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples) {
             if (check_crc_error (wpc)) {
+                int32_t *zptr = bptr, zvalue = (wps->wphdr.flags & DSD_FLAG) ? 0x55 : 0;
+                uint32_t samples_to_zero = wps->wphdr.block_samples;
+
+                if (samples_to_zero > samples_to_unpack)
+                    samples_to_zero = samples_to_unpack;
+
+                samples_to_zero *= (wpc->reduced_channels ? wpc->reduced_channels : num_channels);
+
+                while (samples_to_zero--)
+                    *--zptr = zvalue;
 
                 if (wps->blockbuff && wpc->reader->can_seek (wpc->wv_in)) {
                     int32_t rseek = ((WavpackHeader *) wps->blockbuff)->ckSize / 3;
