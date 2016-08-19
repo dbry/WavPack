@@ -398,6 +398,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\cli\dsdiff.c"
+				>
+			</File>
+			<File
+				RelativePath="..\cli\dsf.c"
+				>
+			</File>
+			<File
 				RelativePath="..\cli\wavpack.c"
 				>
 			</File>

@@ -83,7 +83,6 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
     DFFFileHeader dff_file_header;
     DFFChunkHeader dff_chunk_header;
     uint32_t bcount;
-    int i;
 
     infilesize = DoGetFileSize (infile);
     memcpy (&dff_file_header, fourcc, 4);
@@ -193,7 +192,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                             WavpackBigEndianToNative (&numChannels, "S");
                             cptr += sizeof (numChannels);
 
-                            chansSpecified = (dff_chunk_header.ckDataSize - sizeof (numChannels)) / 4;
+                            chansSpecified = (int)(dff_chunk_header.ckDataSize - sizeof (numChannels)) / 4;
 
                             while (chansSpecified--) {
                                 if (!strncmp (cptr, "SLFT", 4) || !strncmp (cptr, "MLFT", 4))
@@ -320,7 +319,7 @@ int WriteDsdiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples
     if (chan_ids) {
         uint32_t scan_mask = 0x1;
         char *cptr = chan_ids;
-        int ci, uci;
+        int ci, uci = 0;
 
         for (ci = 0; ci < num_channels; ++ci) {
             while (scan_mask && !(scan_mask & chan_mask))
@@ -343,6 +342,7 @@ int WriteDsdiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples
                 cptr [1] = (uci / 100) + '0';
                 cptr [2] = ((uci % 100) / 10) + '0';
                 cptr [3] = (uci % 10) + '0';
+                uci++;
             }
 
             scan_mask <<= 1;

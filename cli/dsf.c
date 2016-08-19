@@ -73,7 +73,6 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
     DSFChunkHeader chunk_header;
 
     uint32_t bcount;
-    int i;
 
     infilesize = DoGetFileSize (infile);
     memcpy (&file_chunk, fourcc, 4);

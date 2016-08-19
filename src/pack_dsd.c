@@ -54,10 +54,9 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
 int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uint32_t flags = wps->wphdr.flags, mult = wpc->dsd_multiplier, data_count, bc;
+    uint32_t flags = wps->wphdr.flags, mult = wpc->dsd_multiplier, data_count;
     uint32_t sample_count = wps->wphdr.block_samples;
     unsigned char *dsd_encoding, dsd_power = 0;
-    WavpackMetadata wpmd;
     int32_t res;
 
     // This code scans stereo data to check whether it can be stored as mono data
@@ -510,7 +509,7 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
     unsigned int high = 0xffffffff, low = 0;
     unsigned char *dp = destination, *ep;
     DSDfilters *sp;
-    int channel, i;
+    int channel;
 
     if (!(flags & MONO_DATA))
         num_samples *= 2;

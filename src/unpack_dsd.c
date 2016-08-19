@@ -28,17 +28,13 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count);
 int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
-    unsigned char dsd_power;
 
     if (wpmd->byte_length < 2)
         return FALSE;
 
     wps->dsd.byteptr = wpmd->data;
     wps->dsd.endptr = wps->dsd.byteptr + wpmd->byte_length;
-
-    dsd_power = *wps->dsd.byteptr++;
-    wpc->dsd_multiplier = 1 << dsd_power;
-
+    wpc->dsd_multiplier = 1 << *wps->dsd.byteptr++;
     wps->dsd.mode = *wps->dsd.byteptr++;
 
     if (!wps->dsd.mode) {
@@ -78,7 +74,7 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
             int32_t *bptr = buffer;
 
             if (wps->dsd.endptr - wps->dsd.byteptr < total_samples)
-                total_samples = wps->dsd.endptr - wps->dsd.byteptr;
+                total_samples = (int)(wps->dsd.endptr - wps->dsd.byteptr);
 
             while (total_samples--)
                 wps->crc += (wps->crc << 1) + (*bptr++ = *wps->dsd.byteptr++);
@@ -130,7 +126,7 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
 
 static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    unsigned char dsd_power, history_bits, max_probability;
+    unsigned char history_bits, max_probability;
     int total_summed_probabilities = 0, i;
 
     if (wps->dsd.byteptr == wps->dsd.endptr)
@@ -172,7 +168,7 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
         if (outptr < outend || (wps->dsd.byteptr < wps->dsd.endptr && *wps->dsd.byteptr++))
             return FALSE;
     }
-    else if (wps->dsd.endptr - wps->dsd.byteptr > sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins) {
+    else if (wps->dsd.endptr - wps->dsd.byteptr > (int) sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins) {
         memcpy (wps->dsd.probabilities, wps->dsd.byteptr, sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins);
         wps->dsd.byteptr += sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins;
     }
@@ -444,7 +440,7 @@ void *decimate_dsd_init (int num_channels)
 {
     DecimationContext *context = malloc (sizeof (DecimationContext));
     double filter_sum = 0, filter_scale;
-    int skipped_terms, chan, byte, i, j;
+    int skipped_terms, i, j;
 
     if (!context)
         return context;
@@ -488,7 +484,7 @@ void *decimate_dsd_init (int num_channels)
 void decimate_dsd_reset (void *decimate_context)
 {
     DecimationContext *context = (DecimationContext *) decimate_context;
-    int chan = 0, num_channels, i;
+    int chan = 0, i;
 
     if (!context)
         return;

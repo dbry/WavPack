@@ -400,6 +400,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\pack_dsd.c"
+				>
+			</File>
+			<File
 				RelativePath=".\pack_x64.asm"
 				>
 				<FileConfiguration
@@ -494,6 +498,10 @@
 			</File>
 			<File
 				RelativePath=".\unpack_utils.c"
+				>
+			</File>
+			<File
+				RelativePath=".\unpack_dsd.c"
 				>
 			</File>
 			<File

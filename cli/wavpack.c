@@ -2125,7 +2125,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
 
     while (1) {
         uint32_t bytes_to_read, bytes_read = 0;
-        unsigned int sample_count;
+        int32_t sample_count;
 
         if ((qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM)) || samples_remaining > input_samples)
             bytes_to_read = (uint32_t) input_samples * bytes_per_sample;
@@ -2272,7 +2272,7 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
 
     while (samples_remaining) {
         uint32_t bytes_to_read, bytes_read = 0;
-        unsigned int sample_count;
+        int32_t sample_count;
 
         if ((qmode & QMODE_DSD_IN_BLOCKS) || samples_remaining > DSD_BLOCKSIZE)
             bytes_to_read = DSD_BLOCKSIZE * num_channels;
@@ -2284,10 +2284,10 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
         if (qmode & QMODE_DSD_IN_BLOCKS) {
             if (bytes_read != bytes_to_read) {
                 error_line ("incomplete DSD block!");
-                sample_count = samples_remaining = 0;
+                samples_remaining = sample_count = 0;
             }
             else if (samples_remaining < DSD_BLOCKSIZE)
-                sample_count = samples_remaining;
+                sample_count = (int32_t) samples_remaining;
             else
                 sample_count = DSD_BLOCKSIZE;
         }
@@ -3026,7 +3026,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     }
 
     while (1) {
-        unsigned int sample_count = WavpackUnpackSamples (infile, sample_buffer, input_samples);
+        int32_t sample_count = WavpackUnpackSamples (infile, sample_buffer, input_samples);
 
         if (!sample_count)
             break;
@@ -3238,7 +3238,7 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     }
 
     while (result == WAVPACK_NO_ERROR) {
-        uint32_t samples_unpacked;
+        int32_t samples_unpacked;
 
         samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, VERIFY_BLOCKSIZE);
         total_unpacked_samples += samples_unpacked;

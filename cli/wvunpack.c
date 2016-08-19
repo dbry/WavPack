@@ -1662,7 +1662,7 @@ static int unpack_dsd_audio (WavpackContext *wpc, FILE *outfile, int qmode, unsi
                 int cc = num_channels;
 
                 while (cc--) {
-                    int si;
+                    uint32_t si;
 
                     for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
                         if (si < samples_unpacked)

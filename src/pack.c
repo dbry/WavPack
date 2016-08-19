@@ -850,7 +850,7 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
 
 void send_general_metadata (WavpackContext *wpc)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream], saved_stream;
+    WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags;
     WavpackMetadata wpmd;
 
