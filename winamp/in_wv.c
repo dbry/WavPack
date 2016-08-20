@@ -21,8 +21,12 @@
 #define fileno _fileno
 
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
+static void *decimation_init (int num_channels, int ratio);
+static int decimation_run (void *context, int32_t *samples, int num_samples);
+static void decimation_reset (void *context);
+static void *decimation_destroy (void *context);
 
-#define PLUGIN_VERSION "2.8.0.2-alpha3"
+#define PLUGIN_VERSION "2.8.0.2-alpha4"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 
@@ -42,11 +46,12 @@ static struct wpcnxt {
     float play_gain;        // playback gain (for replaygain support)
     int soft_clipping;      // soft clipping active for playback
     int output_bits;        // 16, 24, or 32 bits / sample
-    long sample_buffer[576*MAX_NCH*2];  // sample buffer
+    long sample_buffer[576*MAX_NCH*4];  // sample buffer
     float error [MAX_NCH];  // error term for noise shaping
     char lastfn[MAX_PATH];  // filename stored for comparisons only
     wchar_t w_lastfn[MAX_PATH];// w_filename stored for comparisons only
     FILE *wv_id, *wvc_id;   // file pointer when we use reader callbacks
+	void *decimation_cnxt;	// context for 4x decimation (DSD playback)
 } curr, edit, info;
 
 In_Module mod;          // the output module (declared near the bottom of this file)
@@ -425,7 +430,7 @@ int play (char *fn)
     debug_write (error);
 #endif
 
-    open_flags = OPEN_TAGS | OPEN_NORMALIZE;
+    open_flags = OPEN_TAGS | OPEN_NORMALIZE | OPEN_DSD_AS_PCM;
 
     if (config_bits & ALLOW_WVC)
         open_flags |= OPEN_WVC;
@@ -439,7 +444,6 @@ int play (char *fn)
         return -1;
 
     num_chans = WavpackGetReducedChannels (curr.wpc);
-    sample_rate = WavpackGetSampleRate (curr.wpc);
     curr.output_bits = WavpackGetBitsPerSample (curr.wpc) > 16 ? 24 : 16;
 
     if (config_bits & ALWAYS_16BIT)
@@ -460,9 +464,17 @@ int play (char *fn)
     decode_pos_ms = 0;
     seek_needed = -1;
 
+    sample_rate = WavpackGetSampleRate (curr.wpc);
+
+	if (sample_rate >= 256000) {
+		curr.decimation_cnxt = decimation_init (num_chans, 4);
+		sample_rate /= 4;
+	}
+
     maxlatency = mod.outMod->Open (sample_rate, num_chans, curr.output_bits, -1, -1);
 
     if (maxlatency < 0) { // error opening device
+		curr.decimation_cnxt = decimation_destroy (curr.decimation_cnxt);
         curr.wpc = WavpackCloseFile (curr.wpc);
         return -1;
     }
@@ -485,6 +497,7 @@ int play (char *fn)
         (void *) &killDecodeThread, 0, &thread_id);
 
     if (SetThreadPriority (thread_handle, THREAD_PRIORITY_HIGHEST) == 0) {
+		curr.decimation_cnxt = decimation_destroy (curr.decimation_cnxt);
         curr.wpc = WavpackCloseFile (curr.wpc);
         return -1;
     }
@@ -539,6 +552,7 @@ void stop()
     if (curr.wpc)
         curr.wpc = WavpackCloseFile (curr.wpc);
 
+	curr.decimation_cnxt = decimation_destroy (curr.decimation_cnxt);
     mod.outMod->Close ();
     mod.SAVSADeInit ();
 }
@@ -590,7 +604,7 @@ int infoDlg (char *fn, HWND hwnd)
     WavpackContext *wpc;
     int open_flags;
 
-    open_flags = OPEN_TAGS | OPEN_NORMALIZE;
+    open_flags = OPEN_TAGS | OPEN_NORMALIZE | OPEN_DSD_AS_PCM;
 
     if (config_bits & ALLOW_WVC)
         open_flags |= OPEN_WVC;
@@ -605,7 +619,7 @@ int infoDlg (char *fn, HWND hwnd)
 
         generate_format_string (wpc, string, sizeof (string), 1);
 
-        if (WavpackGetMode (wpc) & MODE_VALID_TAG) {
+        if (mode & MODE_VALID_TAG) {
             char value [128];
 
             if (config_bits & (REPLAYGAIN_TRACK | REPLAYGAIN_ALBUM)) {
@@ -719,7 +733,7 @@ void getfileinfo (char *filename, char *title, int *length_in_ms)
         if (title)
             *title = 0;
 
-        open_flags = OPEN_TAGS | OPEN_NORMALIZE;
+        open_flags = OPEN_TAGS | OPEN_NORMALIZE | OPEN_DSD_AS_PCM;
 
         if (config_bits & ALLOW_WVC)
             open_flags |= OPEN_WVC;
@@ -793,6 +807,7 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
                 seek_position = getlength () - 1000; // don't seek to last second
 
             mod.outMod->Flush (decode_pos_ms = seek_position);
+			decimation_reset (curr.decimation_cnxt);
 
             if (WavpackSeekSample64 (curr.wpc, (int64_t)(sample_rate / 1000.0 * seek_position))) {
                 decode_pos_ms = (int)(WavpackGetSampleIndex64 (curr.wpc) * 1000.0 / sample_rate);
@@ -859,7 +874,7 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
         return 0;
 
     memset (cnxt, 0, sizeof (struct wpcnxt));
-    open_flags = OPEN_NORMALIZE | OPEN_WVC;
+    open_flags = OPEN_NORMALIZE | OPEN_WVC | OPEN_DSD_AS_PCM;
 
     if (!(config_bits & ALLOW_MULTICHANNEL) || *nch == 2)
         open_flags |= OPEN_2CH_MAX;
@@ -895,16 +910,18 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
     else
         cnxt->output_bits = *bps;
  
-    if (num_chans > MAX_NCH) {    // don't allow too many channels!
-        WavpackCloseFile (cnxt->wpc);
-        free (cnxt);
-        return 0;
-    }
+	if (sample_rate >= 256000) {
+		cnxt->decimation_cnxt = decimation_init (num_chans, 4);
+		sample_rate /= 4;
+	}
 
     *nch = num_chans;
     *srate = sample_rate;
     *bps = cnxt->output_bits;
     actual_size = WavpackGetNumSamples64 (cnxt->wpc) * (*bps / 8) * (*nch);
+
+	if (cnxt->decimation_cnxt)
+		actual_size /= 4;
 
     if (actual_size < 2147483648)
         *size = (int) actual_size;
@@ -967,6 +984,7 @@ __declspec (dllexport) int winampGetExtendedRead_setTime (intptr_t handle, int m
     struct wpcnxt *cnxt = (struct wpcnxt *) handle;
     int sample_rate = WavpackGetSampleRate (cnxt->wpc);
 
+	decimation_reset (cnxt->decimation_cnxt);
     return WavpackSeekSample64 (cnxt->wpc, (int64_t)(sample_rate / 1000.0 * millisecs));
 }
 
@@ -982,6 +1000,7 @@ __declspec (dllexport) void winampGetExtendedRead_close (intptr_t handle)
 #endif
 
     WavpackCloseFile (cnxt->wpc);
+	cnxt->decimation_cnxt = decimation_destroy (cnxt->decimation_cnxt);
     free (cnxt);
 }
 
@@ -1005,7 +1024,13 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
 {
     int num_chans = WavpackGetReducedChannels (cnxt->wpc), samples, tsamples;
 
-    samples = WavpackUnpackSamples (cnxt->wpc, cnxt->sample_buffer, num_samples);
+	if (cnxt->decimation_cnxt) {
+		samples = WavpackUnpackSamples (cnxt->wpc, cnxt->sample_buffer, num_samples * 4);
+		samples = decimation_run (cnxt->decimation_cnxt, cnxt->sample_buffer, samples);
+	}
+	else
+		samples = WavpackUnpackSamples (cnxt->wpc, cnxt->sample_buffer, num_samples);
+
     tsamples = samples * num_chans;
 
     if (tsamples) {
@@ -1289,7 +1314,7 @@ static void close_context (struct wpcnxt *cxt)
 
 __declspec (dllexport) int winampGetExtendedFileInfo (char *filename, char *metadata, char *ret, int retlen)
 {
-    int open_flags = OPEN_TAGS;
+    int open_flags = OPEN_TAGS | OPEN_DSD_AS_PCM;
     char error [128];
     int retval = 0;
 
@@ -1388,7 +1413,7 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
 {
     char error [128], res [256];
     unsigned short w_res [256];
-    int open_flags = OPEN_TAGS;
+    int open_flags = OPEN_TAGS | OPEN_DSD_AS_PCM;
     int retval = 0;
 
     retlen >>= 1;		// could this be in bytes, not wchars??
@@ -1517,7 +1542,7 @@ int __declspec (dllexport) winampSetExtendedFileInfo (
         if (edit.wpc)
             WavpackCloseFile (edit.wpc);
 
-        edit.wpc = WavpackOpenFileInput (filename, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+        edit.wpc = WavpackOpenFileInput (filename, error, OPEN_TAGS | OPEN_EDIT_TAGS | OPEN_DSD_AS_PCM, 0);
 
         if (!edit.wpc)
             return 0;
@@ -1561,7 +1586,7 @@ int __declspec (dllexport) winampSetExtendedFileInfoW (
         if (!(edit.wv_id = _wfopen (filename, L"r+b")))
             return 0;
 
-        edit.wpc = WavpackOpenFileInputEx64 (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+        edit.wpc = WavpackOpenFileInputEx64 (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS | OPEN_DSD_AS_PCM, 0);
 
         if (!edit.wpc) {
             fclose (edit.wv_id);
@@ -1633,6 +1658,7 @@ static int metadata_we_can_write (const char *metadata)
 
 static void generate_format_string (WavpackContext *wpc, char *string, int maxlen, int wide)
 {
+	int qmode = WavpackGetQualifyMode (wpc);
     int mode = WavpackGetMode (wpc);
 	char str_floats [32] = "floats";
 	char str_ints [32] = "ints";
@@ -1676,8 +1702,8 @@ static void generate_format_string (WavpackContext *wpc, char *string, int maxle
 	}
 
 	if (LoadString (hResources, IDS_SOURCE, fmt, sizeof (fmt))) {
-		_snprintf (string, maxlen, fmt, WavpackGetBitsPerSample (wpc),
-			(WavpackGetMode (wpc) & MODE_FLOAT) ? str_floats : str_ints, WavpackGetSampleRate (wpc));
+		_snprintf (string, maxlen, fmt, (qmode & QMODE_DSD_AUDIO) ? 1 : WavpackGetBitsPerSample (wpc),
+			(mode & MODE_FLOAT) ? str_floats : str_ints, WavpackGetSampleRate (wpc) * ((qmode & QMODE_DSD_AUDIO) ? 8 : 1));
 
 		while (*string && string++ && maxlen--);
 	}
@@ -1702,21 +1728,21 @@ static void generate_format_string (WavpackContext *wpc, char *string, int maxle
 
     modes [0] = 0;
 
-    if (WavpackGetMode (wpc) & MODE_HYBRID) {
+    if (mode & MODE_HYBRID) {
         strcat (modes, str_hybrid);
         strcat (modes, " ");
 	}
 
-    strcat (modes, (WavpackGetMode (wpc) & MODE_LOSSLESS) ? str_lossless : str_lossy);
+    strcat (modes, (mode & MODE_LOSSLESS) ? str_lossless : str_lossy);
 
-    if (WavpackGetMode (wpc) & MODE_FAST)
+    if (mode & MODE_FAST)
         strcat (modes, str_fast);
-    else if (WavpackGetMode (wpc) & MODE_VERY_HIGH)
+    else if (mode & MODE_VERY_HIGH)
         strcat (modes, str_vhigh);
-    else if (WavpackGetMode (wpc) & MODE_HIGH)
+    else if (mode & MODE_HIGH)
         strcat (modes, str_high);
 
-    if (WavpackGetMode (wpc) & MODE_EXTRA)
+    if (mode & MODE_EXTRA)
         strcat (modes, str_extra);
 
     _snprintf (string, maxlen, "%s:%s  %s\n", str_modes, (wide || strlen (modes) < 24) ? "" : "\n", modes);
@@ -1803,7 +1829,7 @@ int WavPack_GetAlbumArt(const wchar_t *filename, const wchar_t *type, void **bit
         }
 
         info.wpc = WavpackOpenFileInputEx64 (&freader, &info.wv_id,
-            info.wvc_id ? &info.wvc_id : NULL, error, OPEN_TAGS, 0);
+            info.wvc_id ? &info.wvc_id : NULL, error, OPEN_TAGS | OPEN_DSD_AS_PCM, 0);
 
         if (!info.wpc) {
             close_context (&info);
@@ -1908,7 +1934,7 @@ int WavPack_SetAlbumArt(const wchar_t *filename, const wchar_t *type, void *bits
             return 1;
 		}
 
-        edit.wpc = WavpackOpenFileInputEx64 (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+        edit.wpc = WavpackOpenFileInputEx64 (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS | OPEN_DSD_AS_PCM, 0);
 
         if (!edit.wpc) {
             fclose (edit.wv_id);
@@ -1961,7 +1987,7 @@ int WavPack_DeleteAlbumArt(const wchar_t *filename, const wchar_t *type)
         if (!(edit.wv_id = _wfopen (filename, L"r+b")))
             return 1;
 
-        edit.wpc = WavpackOpenFileInputEx64 (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
+        edit.wpc = WavpackOpenFileInputEx64 (&freader, &edit.wv_id, NULL, error, OPEN_TAGS | OPEN_EDIT_TAGS | OPEN_DSD_AS_PCM, 0);
 
         if (!edit.wpc) {
             fclose (edit.wv_id);
@@ -2155,3 +2181,113 @@ static UTF8ToAnsi (char *string, int len)
 
     free (temp);
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Decimation code for playing DSD (which comes from the library already decimated 8x) //
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// sinc low-pass filter, cutoff = fs/12, 80 terms
+
+static int32_t filter [] = {
+    50, 464, 968, 711, -1203, -5028, -9818, -13376,
+    -12870, -6021, 7526, 25238, 41688, 49778, 43050, 18447,
+    -21428, -67553, -105876, -120890, -100640, -41752, 47201, 145510,
+    224022, 252377, 208224, 86014, -97312, -301919, -470919, -541796,
+    -461126, -199113, 239795, 813326, 1446343, 2043793, 2509064, 2763659,
+    2763659, 2509064, 2043793, 1446343, 813326, 239795, -199113, -461126,
+    -541796, -470919, -301919, -97312, 86014, 208224, 252377, 224022,
+    145510, 47201, -41752, -100640, -120890, -105876, -67553, -21428,
+    18447, 43050, 49778, 41688, 25238, 7526, -6021, -12870,
+    -13376, -9818, -5028, -1203, 711, 968, 464, 50
+};
+
+#define NUM_TERMS ((int)(sizeof (filter) / sizeof (filter [0])))
+
+typedef struct chan_state {
+    int delay [NUM_TERMS], index, num_channels, ratio;
+} ChanState;
+
+static void *decimation_init (int num_channels, int ratio)
+{
+    ChanState *sp = malloc (sizeof (ChanState) * num_channels);
+    int i;
+
+    if (sp) {
+        memset (sp, 0, sizeof (ChanState) * num_channels);
+
+        for (i = 0; i < num_channels; ++i) {
+            sp [i].num_channels = num_channels;
+            sp [i].index = NUM_TERMS - ratio;
+            sp [i].ratio = ratio;
+        }
+    }
+
+    return sp;
+}
+
+static int decimation_run (void *context, int32_t *samples, int num_samples)
+{
+    int32_t *in_samples = samples, *out_samples = samples;
+    ChanState *sp = (ChanState *) context;
+    int num_channels, ratio, chan;
+
+    if (!sp)
+        return 0;
+
+    num_channels = sp->num_channels;
+    ratio = sp->ratio;
+    chan = 0;
+
+    while (num_samples) {
+        sp = ((ChanState *) context) + chan;
+
+        sp->delay [sp->index++] = *in_samples++;
+
+        if (sp->index == NUM_TERMS) {
+            int64_t sum = 0;
+            int i;
+
+            for (i = 0; i < NUM_TERMS; ++i)
+                sum += (int64_t) filter [i] * sp->delay [i];
+
+            *out_samples++ = (int32_t)(sum >> 24);
+            memmove (sp->delay, sp->delay + ratio, sizeof (sp->delay [0]) * (NUM_TERMS - ratio));
+            sp->index = NUM_TERMS - ratio;
+        }
+
+        if (++chan == num_channels) {
+            num_samples--;
+            chan = 0;
+        }
+    }
+
+    return (int)(out_samples - samples) / num_channels;
+}
+
+static void decimation_reset (void *context)
+{
+    ChanState *sp = (ChanState *) context;
+    int num_channels, ratio, i;
+
+    if (sp) {
+        num_channels = sp->num_channels;
+        ratio = sp->ratio;
+
+        memset (sp, 0, sizeof (ChanState) * num_channels);
+
+        for (i = 0; i < num_channels; ++i) {
+            sp [i].num_channels = num_channels;
+            sp [i].index = NUM_TERMS - ratio;
+            sp [i].ratio = ratio;
+        }
+    }
+}
+
+static void *decimation_destroy (void *context)
+{
+	if (context)
+		free (context);
+
+	return NULL;
+}
+
