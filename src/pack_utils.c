@@ -135,7 +135,10 @@ static const uint32_t stereo_pairings [] = {
 
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples)
 {
-    return WavpackSetConfiguration64 (wpc, config, total_samples == (uint32_t) -1 ? -1 : total_samples);
+    if (total_samples == (uint32_t) -1)
+        return WavpackSetConfiguration64 (wpc, config, -1);
+    else
+        return WavpackSetConfiguration64 (wpc, config, total_samples);
 }
 
 int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples)
