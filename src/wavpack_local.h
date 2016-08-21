@@ -717,7 +717,7 @@ uint32_t bs_close_read (Bitstream *bs);
 #ifdef HAVE___BUILTIN_CLZ
 #define count_bits(av) ((av) ? 32 - __builtin_clz (av) : 0)
 #elif defined (_WIN64)
-static __inline int count_bits (uint32_t av) { long res; return _BitScanReverse (&res, av) ? (int)(res + 1) : 0; }
+static __inline int count_bits (uint32_t av) { unsigned long res; return _BitScanReverse (&res, av) ? (int)(res + 1) : 0; }
 #else
 #define count_bits(av) ( \
  (av) < (1 << 8) ? nbits_table [av] : \
