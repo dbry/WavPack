@@ -424,7 +424,7 @@ int main (int argc, char **argv)
                     error_line ("syntax error in raw PCM specification!");
                     ++error_count;
                 }
-                else if (params [0] < 1 || params [0] > 192000 ||
+                else if (params [0] < 1 || params [0] > 1000000000 ||
                     params [1] < 1 || params [1] > 32 || (fp && params [1] != 32) ||
                     params [2] < 1 || params [2] > 256) {
                         error_line ("argument range error in raw PCM specification!");
