@@ -701,11 +701,18 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
         case ID_DSD_BLOCK:
             return init_dsd_block (wpc, wpmd);
 
-        case ID_RIFF_HEADER: case ID_RIFF_TRAILER:
         case ID_ALT_HEADER: case ID_ALT_TRAILER:
+            if (!(wpc->open_flags & OPEN_ALT_TYPES))
+                return TRUE;
+
+        case ID_RIFF_HEADER: case ID_RIFF_TRAILER:
             return read_wrapper_data (wpc, wpmd);
 
-        case ID_MD5_CHECKSUM: case ID_ALT_MD5_CHECKSUM:
+        case ID_ALT_MD5_CHECKSUM:
+            if (!(wpc->open_flags & OPEN_ALT_TYPES))
+                return TRUE;
+
+        case ID_MD5_CHECKSUM:
             if (wpmd->byte_length == 16) {
                 memcpy (wpc->config.md5_checksum, wpmd->data, 16);
                 wpc->config.flags |= CONFIG_MD5_CHECKSUM;
@@ -960,6 +967,7 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
 {
     int64_t restore_pos, last_pos = -1;
     WavpackStreamReader64 *reader = wpc->reader;
+    int alt_types = wpc->open_flags & OPEN_ALT_TYPES;
     uint32_t blocks = 0, audio_blocks = 0;
     void *id = wpc->wv_in;
     WavpackHeader wphdr;
@@ -1021,7 +1029,7 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
         // this block does not have audio, and we haven't seen one with audio, we have
         // to go back some more.
 
-        if (wphdr.block_samples && (wphdr.flags & FINAL_BLOCK)) {
+        if (wphdr.block_samples) {
             if (final_index)
                 *final_index = GET_BLOCK_INDEX (wphdr) + wphdr.block_samples;
 
@@ -1066,8 +1074,9 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
             }
 
             meta_size = (meta_id & ID_ODD_SIZE) ? meta_bc - 1 : meta_bc;
+            meta_id &= ID_UNIQUE;
 
-            if (get_wrapper && ((meta_id & ID_UNIQUE) == ID_RIFF_TRAILER || (meta_id & ID_UNIQUE) == ID_ALT_TRAILER) && meta_bc) {
+            if (get_wrapper && (meta_id == ID_RIFF_TRAILER || (alt_types && meta_id == ID_ALT_TRAILER)) && meta_bc) {
                 wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + meta_bc);
 
                 if (!wpc->wrapper_data) {
@@ -1082,7 +1091,7 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
                     return FALSE;
                 }
             }
-            else if (meta_id == ID_MD5_CHECKSUM || meta_id == ID_ALT_MD5_CHECKSUM) {
+            else if (meta_id == ID_MD5_CHECKSUM || (alt_types && meta_id == ID_ALT_MD5_CHECKSUM)) {
                 if (meta_bc == 16 && bcount >= 16) {
                     if (reader->read_bytes (id, wpc->config.md5_checksum, 16) == 16)
                         wpc->config.md5_read = TRUE;

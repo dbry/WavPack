@@ -291,7 +291,7 @@ done:
 static int seeking_test (char *filename, uint32_t test_count)
 {
     char error [80];
-    WavpackContext *wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE, 0);
+    WavpackContext *wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
     int64_t min_chunk_size = 256, total_samples, sample_count = 0;
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
@@ -418,7 +418,7 @@ static int seeking_test (char *filename, uint32_t test_count)
 
         if (frandom() < 0.5) {
             WavpackCloseFile (wpc);
-            wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE, 0);
+            wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
 
             if (!wpc) {
                 printf ("seeking_test(): error \"%s\" reopening input file \"%s\"\n", error, filename);

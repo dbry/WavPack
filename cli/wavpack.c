@@ -2404,9 +2404,9 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
 static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     int output_lossless = !(config->flags & CONFIG_HYBRID_FLAG) || (config->flags & CONFIG_CREATE_WVC);
+    int flags = OPEN_WVC | OPEN_TAGS | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
     char *outfilename_temp = NULL, *out2filename_temp = NULL;
     int use_tempfiles = (out2filename != NULL), input_mode;
-    int flags = OPEN_WVC | OPEN_TAGS | OPEN_DSD_NATIVE;
     unsigned char md5_verify [16], md5_display [16];
     WavpackConfig loc_config = *config;
     WavpackContext *infile, *outfile;
@@ -3206,9 +3206,9 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     // use library to open WavPack file
 
 #ifdef _WIN32
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_FILE_UTF8 | OPEN_DSD_NATIVE, 0);
+    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_FILE_UTF8 | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
 #else
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_DSD_NATIVE, 0);
+    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
 #endif
 
     if (!wpc) {
