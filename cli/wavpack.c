@@ -182,7 +182,9 @@ static const char *help =
 "                             sample bit depth (float or signed or unsigned), number\n"
 "                             of channels, and little-endian or big-endian\n"
 "                             (defaulted parameters may be omitted)\n"
-"    --raw-pcm-skip=bytes    skip <bytes> before encoding (presumably a header)\n"
+"    --raw-pcm-skip=begin[,end]\n"
+"                            skip <begin> bytes before encoding (i.e., a header)\n"
+"                             and <end> bytes at the end-of-file (i.e., a trailer)\n"
 "    -sn                     override default noise shaping where n is a float\n"
 "                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
@@ -245,7 +247,8 @@ static struct {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
-    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, raw_pcm_skip_bytes;
+    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits,
+    raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end;
 
 static int num_channels_order;
 static unsigned char channel_order [18];
@@ -380,8 +383,19 @@ int main (int argc, char **argv)
                 allow_huge_tags = 1;
             else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
                 tag_next_arg = 2;
-            else if (!strncmp (long_option, "raw-pcm-skip", 12))        // --raw-pcm-skip
-                raw_pcm_skip_bytes = strtol (long_param, NULL, 10);
+            else if (!strncmp (long_option, "raw-pcm-skip", 12)) {      // --raw-pcm-skip
+                raw_pcm_skip_bytes_begin = strtol (long_param, &long_param, 10);
+
+                if (*long_param == ',')
+                    raw_pcm_skip_bytes_end = strtol (++long_param, &long_param, 10);
+
+                if (*long_param || raw_pcm_skip_bytes_begin < 0 || raw_pcm_skip_bytes_end < 0) {
+                    error_line ("syntax error in raw-pcm-skip specification!");
+                    ++error_count;
+                }
+
+                error_line ("raw_pcm_skip = %d, %d bytes", raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end);
+            }
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
                 int params [] = { 44100, 16, 2 };
                 int pi, fp = 0, be = 0, us = 0, s = 0;
@@ -1472,15 +1486,31 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         if (infilesize) {
             int sample_size = loc_config.bytes_per_sample * loc_config.num_channels;
 
-            infilesize -= raw_pcm_skip_bytes;
+            infilesize -= raw_pcm_skip_bytes_begin + raw_pcm_skip_bytes_end;
             total_samples = infilesize / sample_size;
 
+            if (total_samples <= 0) {
+                error_line ("no raw PCM data to encode!");
+                DoCloseHandle (infile);
+                WavpackCloseFile (wpc);
+                return WAVPACK_SOFT_ERROR;
+            }
+
             if (infilesize % sample_size)
-                error_line ("warning: raw pcm infile length does not divide evenly, %d bytes will be discarded",
-                    infilesize % sample_size);
+                error_line ("warning: raw PCM infile length does not divide evenly, %d bytes will be discarded",
+                    (int)(infilesize % sample_size));
         }
-        else
+        else {
+            if (raw_pcm_skip_bytes_end) {
+                error_line ("can't skip trailer in raw PCM read from stdin!");
+                DoCloseHandle (infile);
+                WavpackCloseFile (wpc);
+                return WAVPACK_SOFT_ERROR;
+            }
+
+            loc_config.qmode |= QMODE_IGNORE_LENGTH;
             total_samples = -1;
+        }
 
         if (!loc_config.channel_mask && !(loc_config.qmode & QMODE_CHANS_UNASSIGNED)) {
             if (loc_config.num_channels <= 2)
@@ -1695,8 +1725,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             return WAVPACK_SOFT_ERROR;
         }
     }
-    else if (raw_pcm_skip_bytes) {          // if raw pcm mode and bytes to skip, do that here
-        int bytes_to_skip = raw_pcm_skip_bytes;
+    else if (raw_pcm_skip_bytes_begin) {          // if raw pcm mode and bytes to skip, do that here
+        int bytes_to_skip = raw_pcm_skip_bytes_begin;
         char dummy [256];
 
         while (bytes_to_skip) {
@@ -1799,12 +1829,12 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     if (result == WAVPACK_NO_ERROR && (loc_config.flags & CONFIG_MD5_CHECKSUM))
         WavpackStoreMD5Sum (wpc, md5_digest);
 
-    // if everything went well (and we're not ignoring length) try to read
-    // anything else that might be appended to the audio data and write that
-    // to the WavPack metadata as "wrapper"
+    // if everything went well, and we're not ignoring length or encoding raw
+    // pcm, try to read anything else that might be appended to the audio data
+    // and write that to the WavPack metadata as "wrapper"
 
     if (result == WAVPACK_NO_ERROR && !(loc_config.qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM))) {
-        unsigned char buff [16];
+        unsigned char buff [256];
 
         while (DoReadFile (infile, buff, sizeof (buff), &bcount) && bcount)
             if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
@@ -1846,11 +1876,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // At this point we're done writing to the output files. However, in some
     // situations we might have to back up and re-write the initial block. Currently
-    // the only case is if we're ignoring length or reading raw pcm data; otherwise
-    // it's an error.
+    // the only case is if we're ignoring length or reading raw pcm data from stdin
+    // (which sets the ignore-length flag); otherwise it's an error.
 
     if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples64 (wpc) != WavpackGetSampleIndex64 (wpc)) {
-        if (loc_config.qmode & (QMODE_RAW_PCM | QMODE_IGNORE_LENGTH)) {
+        if (loc_config.qmode & QMODE_IGNORE_LENGTH) {
             char *block_buff = malloc (wv_file.first_block_size);
 
             if (block_buff && !DoSetFilePositionAbsolute (wv_file.file, 0) &&
@@ -2127,7 +2157,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
         uint32_t bytes_to_read, bytes_read = 0;
         int32_t sample_count;
 
-        if ((qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM)) || samples_remaining > input_samples)
+        if ((qmode & QMODE_IGNORE_LENGTH) || samples_remaining > input_samples)
             bytes_to_read = (uint32_t) input_samples * bytes_per_sample;
         else
             bytes_to_read = (uint32_t) samples_remaining * bytes_per_sample;
