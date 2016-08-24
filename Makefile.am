@@ -1,5 +1,10 @@
 AUTOMAKE_OPTIONS = foreign
-SUBDIRS = src include cli man
+
+if ENABLE_APPS
+  MAYBE_APPS = cli
+endif
+
+SUBDIRS = src include $(MAYBE_APPS) man
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = wavpack.pc

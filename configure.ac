@@ -58,11 +58,17 @@ AC_SYS_LARGEFILE
 # Check if cross-compiling on mingw
 AC_MINGW32
 
+AC_ARG_ENABLE([apps],
+    AS_HELP_STRING([--disable-apps], [build only libwavpack (removes ICONV dependancy)]))
+
+AM_CONDITIONAL([ENABLE_APPS], [test "x$enable_apps" != "xno"])
+
+if test "x$enable_apps" != "xno" ; then
 if test "x$MINGW32" != "xyes" ; then
 # Check for iconv
 AC_ARG_WITH(iconv, [[  --with-iconv[=DIR]      add ICONV support [yes]]])
 if test "$with_iconv" = "no" ; then
-    AC_MSG_ERROR([[Sorry, you can't deactivate iconv.]])
+    AC_MSG_ERROR([[iconv is required for apps, use --disable-apps to build only libwavpack]])
 else
     if test "$with_iconv" != "yes" -a "$with_iconv" != "" ; then
        ICONV_CFLAGS="${CPPFLAGS} -I$with_iconv/include"
@@ -104,6 +110,7 @@ iconv (cd, NULL, NULL, NULL, NULL);],[
 fi
 AC_SUBST(ICONV_LIBS)
 AC_SUBST(ICONV)
+fi
 fi
 
 AC_MSG_CHECKING([if we are building for a Windows host])
