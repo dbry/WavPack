@@ -137,8 +137,13 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         }
 
         if (wpc->wvc_in && wps->wphdr.block_samples && (wps->wphdr.flags & HYBRID_FLAG)) {
-            wpc->file2len = wpc->reader->get_length (wpc->wvc_in);
-            wpc->wvc_flag = TRUE;
+            unsigned char ch;
+
+            if (wpc->reader->read_bytes (wpc->wvc_in, &ch, 1) == 1) {
+                wpc->reader->push_back_byte (wpc->wvc_in, ch);
+                wpc->file2len = wpc->reader->get_length (wpc->wvc_in);
+                wpc->wvc_flag = TRUE;
+            }
         }
 
         if (wpc->wvc_flag && !read_wvc_block (wpc)) {
