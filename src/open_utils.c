@@ -339,7 +339,7 @@ int unpack_init (WavpackContext *wpc)
 
 static int init_wv_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    if (!wpmd->byte_length)
+    if (!wpmd->byte_length || (wpmd->byte_length & 1))
         return FALSE;
 
     bs_open_read (&wps->wvbits, wpmd->data, (unsigned char *) wpmd->data + wpmd->byte_length);
@@ -351,7 +351,7 @@ static int init_wv_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
 
 static int init_wvc_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    if (!wpmd->byte_length)
+    if (!wpmd->byte_length || (wpmd->byte_length & 1))
         return FALSE;
 
     bs_open_read (&wps->wvcbits, wpmd->data, (unsigned char *) wpmd->data + wpmd->byte_length);
@@ -369,7 +369,7 @@ static int init_wvx_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     unsigned char *cp = wpmd->data;
 
-    if (wpmd->byte_length <= 4)
+    if (wpmd->byte_length <= 4 || (wpmd->byte_length & 1))
         return FALSE;
 
     wps->crc_wvx = *cp++;
@@ -758,7 +758,7 @@ static void bs_open_read (Bitstream *bs, void *buffer_start, void *buffer_end)
 
 static void bs_read (Bitstream *bs)
 {
-    bs->ptr = bs->buf - 1;
+    bs->ptr = bs->buf;
     bs->error = 1;
 }
 
