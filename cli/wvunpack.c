@@ -86,7 +86,7 @@ static const char *usage =
 " Formats: Microsoft RIFF:   'wav', force with -w, makes RF64 if > 4 GB\n"
 "          Sony Wave64:      'w64', force with --w64\n"
 "          Apple Core Audio: 'caf', force with --caf-be or --caf-le\n"
-"          Raw PCM:          'raw', force with -r, little-endian\n"
+"          Raw PCM or DSD:   'raw', force with -r, little-endian\n"
 "          Philips DSDIFF:   'dff', force with --dsdiff or --dff\n"
 "          Sony DSF:         'dsf', force with --dsf\n\n"
 " Options: -b  = blindly decode all stream blocks & ignore length info\n"
@@ -995,10 +995,11 @@ static void unreorder_channels (int32_t *data, unsigned char *order, int num_cha
 
 static int unpack_file (char *infilename, char *outfilename, int add_extension)
 {
-    int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE, input_qmode, output_qmode, input_format, output_format;
+    int64_t skip_sample_index = 0, until_samples_total = 0, total_unpacked_samples = 0;
+    int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
+    int input_qmode, output_qmode, input_format, output_format = 0;
     int open_flags = 0, num_channels, wvc_mode;
     uint32_t output_buffer_size = 0, bcount;
-    int64_t skip_sample_index = 0, until_samples_total = 0, total_unpacked_samples = 0;
     unsigned char md5_unpacked [16];
     double dtime, progress = -1.0;
     char *outfilename_temp = NULL;
@@ -1059,11 +1060,17 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     input_qmode = WavpackGetQualifyMode (wpc);
     input_format = WavpackGetFileFormat (wpc);
 
-    if (raw_decode) {
-        output_format = 0;
-        output_qmode = 0;
+    // Based on what output format the user specified on the command-line (if any) and what we can
+    // tell about the file, decide on how we are going to format the output. Note that the last
+    // couple of cases refer to the situation where the file is a format we don't understand,
+    // which can't really happen now, but could happen some time in the future when either a new
+    // format is added or when someone creates a "custom" format and that file meets a standard
+    // decoder.
+
+    if (raw_decode) {                                   // case 1: user specified raw decode
+        output_qmode = (input_qmode & QMODE_DSD_AUDIO) ? QMODE_DSD_MSB_FIRST : 0;
     }
-    else if (format_specified) {
+    else if (format_specified) {                        // case 2: user specfied an output format
         switch (decode_format) {
             case WP_FORMAT_CAF:
                 output_qmode = QMODE_SIGNED_BYTES | (caf_be ? QMODE_BIG_ENDIAN : 0) | (input_qmode & QMODE_REORDERED_CHANS);
@@ -1093,10 +1100,26 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
                 break;
         }
     }
-    else {
-        output_format = input_format;
+    else if (input_format < NUM_FILE_FORMATS) {         // case 3: user specified nothing, and this is a format we know about
+        output_format = input_format;                   //   (obviously this is the most common situation)
         output_qmode = input_qmode;
     }
+    else if (!WavpackGetWrapperBytes (wpc) ||           // case 4: unknown format and no wrapper present or extracting section
+        skip.value_is_valid || until.value_is_valid) {  //   so we must override to a known format & extension
+
+        if (input_qmode & QMODE_DSD_AUDIO) {
+            output_format = WP_FORMAT_DFF;
+            output_qmode = QMODE_DSD_MSB_FIRST;
+        }
+        else {
+            output_format = WP_FORMAT_WAV;
+            output_qmode = 0;
+        }
+
+        extension = file_formats [output_format].default_extension;
+    }
+    else                                                // case 5: unknown format, but wrapper is present and we're doing
+        output_qmode = input_qmode;                     //   the whole file, so we don't have to understand the format
 
     if (skip.value_is_valid) {
         if (skip.value_is_time)
@@ -2231,8 +2254,11 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         WavpackSeekTrailingWrapper (wpc);
         trailer_bytes = WavpackGetWrapperBytes (wpc);
 
-        fprintf (dst, "source format:     %s with '%s' extension\n",
-            file_formats [WavpackGetFileFormat (wpc)].format_name, WavpackGetFileExtension (wpc));
+        if (WavpackGetFileFormat (wpc) < NUM_FILE_FORMATS)
+            fprintf (dst, "source format:     %s with '%s' extension\n",
+                file_formats [WavpackGetFileFormat (wpc)].format_name, WavpackGetFileExtension (wpc));
+        else
+            fprintf (dst, "source format:     '%s' file\n", WavpackGetFileExtension (wpc));
 
         if (header_bytes && trailer_bytes) {
             unsigned char *trailer_data = WavpackGetWrapperData (wpc);
