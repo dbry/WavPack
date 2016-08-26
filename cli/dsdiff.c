@@ -153,7 +153,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 error_line ("dsdiff file version = 0x%08x", version);
         }
         else if (!strncmp (dff_chunk_header.ckID, "PROP", 4)) {
-            unsigned char *prop_chunk = malloc ((size_t) dff_chunk_header.ckDataSize);
+            char *prop_chunk = malloc ((size_t) dff_chunk_header.ckDataSize);
 
             if (!DoReadFile (infile, prop_chunk, (uint32_t) dff_chunk_header.ckDataSize, &bcount) ||
                 bcount != dff_chunk_header.ckDataSize) {
@@ -169,7 +169,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             }
 
             if (!strncmp (prop_chunk, "SND ", 4)) {
-                unsigned char *cptr = prop_chunk + 4, *eptr = prop_chunk + dff_chunk_header.ckDataSize;
+                char *cptr = prop_chunk + 4, *eptr = prop_chunk + dff_chunk_header.ckDataSize;
                 uint16_t numChannels, chansSpecified, chanMask = 0;
                 uint32_t sampleRate;
 

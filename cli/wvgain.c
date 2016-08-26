@@ -29,7 +29,6 @@
 #include <sys/stat.h>
 #include <sys/param.h>
 #include <locale.h>
-#include <iconv.h>
 #if defined (__GNUC__)
 #include <unistd.h>
 #include <glob.h>

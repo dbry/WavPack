@@ -59,7 +59,7 @@ AC_SYS_LARGEFILE
 AC_MINGW32
 
 AC_ARG_ENABLE([apps],
-    AS_HELP_STRING([--disable-apps], [build only libwavpack (removes ICONV dependancy)]))
+    AS_HELP_STRING([--disable-apps], [build only libwavpack (removes ICONV dependency)]))
 
 AM_CONDITIONAL([ENABLE_APPS], [test "x$enable_apps" != "xno"])
 

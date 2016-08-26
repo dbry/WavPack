@@ -241,7 +241,7 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
         if (index >= wps->dsd.summed_probabilities [wps->dsd.p0] [255])
             return 0;
 
-        if (*output++ = code = wps->dsd.value_lookup [wps->dsd.p0] [index])
+        if ((*output++ = code = wps->dsd.value_lookup [wps->dsd.p0] [index]))
             wps->dsd.low += wps->dsd.summed_probabilities [wps->dsd.p0] [code-1] * mult;
 
         wps->dsd.high = wps->dsd.low + wps->dsd.probabilities [wps->dsd.p0] [code] * mult - 1;
