@@ -27,6 +27,7 @@
 // Version 2.12 - May 10, 2015 (library ver 4.75.0)
 // Version 2.13 - Sept 29, 2015 (library ver 4.75.2)
 // Version 2.14 - Mar 28, 2016 (library ver 4.80.0)
+// Version 2.15a - Aug 26, 2016 (library ver 5.0.0-alpha4, DSD read with 8x decimation)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -537,7 +538,7 @@ HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
 
     CLEAR (*in);
 
-    wpc = in->wpc = WavpackOpenFileInput (lpszFilename, error, OPEN_WVC | OPEN_WRAPPER | OPEN_NORMALIZE, 15);
+    wpc = in->wpc = WavpackOpenFileInput (lpszFilename, error, OPEN_WVC | OPEN_WRAPPER | OPEN_NORMALIZE | OPEN_DSD_AS_PCM, 15);
 
     if (!wpc) {
         free (in);
@@ -921,7 +922,7 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
 
                 case IDABOUT:
                     MessageBox (hDlg,
-                        "WavPack Filter Version 2.14\n"
+                        "WavPack Filter Version 2.15a\n"
                         "Copyright (c) 2016 David Bryant  ", "About WavPack Filter", MB_OK);
                     break;
             }
