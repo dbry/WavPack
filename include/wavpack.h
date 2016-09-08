@@ -338,6 +338,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
 int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample);
 WavpackContext *WavpackCloseFile (WavpackContext *wpc);
 uint32_t WavpackGetSampleRate (WavpackContext *wpc);
+uint32_t WavpackGetNativeSampleRate (WavpackContext *wpc);
 int WavpackGetBitsPerSample (WavpackContext *wpc);
 int WavpackGetBytesPerSample (WavpackContext *wpc);
 int WavpackGetNumChannels (WavpackContext *wpc);

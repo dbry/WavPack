@@ -2134,7 +2134,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     }
 
     if ((WavpackGetMode (wpc) >> 16) & QMODE_DSD_AUDIO)
-        fprintf (dst, "source:            1-bit DSD at %u Hz\n", WavpackGetSampleRate (wpc) * 8);
+        fprintf (dst, "source:            1-bit DSD at %u Hz\n", WavpackGetNativeSampleRate (wpc));
     else
         fprintf (dst, "source:            %d-bit %s at %u Hz\n", WavpackGetBitsPerSample (wpc),
             (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints",

@@ -374,6 +374,15 @@ uint32_t WavpackGetSampleRate (WavpackContext *wpc)
     return wpc ? (wpc->dsd_multiplier ? wpc->config.sample_rate * wpc->dsd_multiplier : wpc->config.sample_rate) : 44100;
 }
 
+// Returns the native sample rate of the specified WavPack file
+// (provides the native rate for DSD files rather than the "byte" rate that's used for
+//   seeking, duration, etc. and would generally be used just for user facing reports)
+
+uint32_t WavpackGetNativeSampleRate (WavpackContext *wpc)
+{
+    return wpc ? (wpc->dsd_multiplier ? wpc->config.sample_rate * wpc->dsd_multiplier * 8 : wpc->config.sample_rate) : 44100;
+}
+
 // Returns the number of channels of the specified WavPack file. Note that
 // this is the actual number of channels contained in the file even if the
 // OPEN_2CH_MAX flag was specified when the file was opened.

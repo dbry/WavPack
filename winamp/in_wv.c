@@ -1703,7 +1703,7 @@ static void generate_format_string (WavpackContext *wpc, char *string, int maxle
 
 	if (LoadString (hResources, IDS_SOURCE, fmt, sizeof (fmt))) {
 		_snprintf (string, maxlen, fmt, (qmode & QMODE_DSD_AUDIO) ? 1 : WavpackGetBitsPerSample (wpc),
-			(mode & MODE_FLOAT) ? str_floats : str_ints, WavpackGetSampleRate (wpc) * ((qmode & QMODE_DSD_AUDIO) ? 8 : 1));
+			(mode & MODE_FLOAT) ? str_floats : str_ints, WavpackGetNativeSampleRate (wpc));
 
 		while (*string && string++ && maxlen--);
 	}
