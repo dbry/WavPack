@@ -444,6 +444,13 @@ int main (int argc, char **argv)
                         error_line ("argument range error in raw PCM specification!");
                         ++error_count;
                 }
+                else if (params [1] == 1) {
+                    config.sample_rate = params [0] / 8;
+                    config.bits_per_sample = params [1] * 8;
+                    config.bytes_per_sample = 1;
+                    config.num_channels = params [2];
+                    config.qmode |= QMODE_DSD_MSB_FIRST | QMODE_RAW_PCM;
+                }
                 else {
                     config.sample_rate = params [0];
                     config.bits_per_sample = params [1];
@@ -1683,6 +1690,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         fflush (stderr);
     }
 
+    // for now, raw 1-bit PCM is only DSDIFF format
+
+    if (loc_config.qmode & QMODE_RAW_PCM)
+        WavpackSetFileInformation (wpc, "dff", WP_FORMAT_DFF);
+
     // if not in "raw" mode, process RIFF form header and set configuration
 
     if (!(loc_config.qmode & QMODE_RAW_PCM)) {
@@ -2329,22 +2341,17 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
         // if we have reordering to do because the user used the --channel-order option to define
         // an order that does not match the Microsoft order, then we do that BEFORE the MD5 because
         // this reordering is permanent (i.e., we will not unreorder on decode) and we want the
-        // MD5 to match the new order (TODO: DOES NOT WORK IN BLOCKED DSD CASE!)
+        // MD5 to match the new order
 
-        // if (new_order && !(qmode & QMODE_REORDERED_CHANS))
-        //     reorder_channels (input_buffer, new_order, num_channels,
-        //         sample_count, 1);
+        if (new_order && !(qmode & QMODE_REORDERED_CHANS)) {
+            if (qmode & QMODE_DSD_IN_BLOCKS)
+                reorder_channels (input_buffer, new_order, num_channels, 1, DSD_BLOCKSIZE);
+            else
+                reorder_channels (input_buffer, new_order, num_channels, sample_count, 1);
+        }
 
         if (md5_digest_source)
             MD5Update (&md5_context, input_buffer, bytes_read);
-
-        // if we have reordering to do because this is a CAF channel layout that is not in Microsoft
-        // order, then we do the reordering AFTER the MD5 because we will be unreordering them at
-        // decode time, and so we want the MD5 to match the orginal order (TODO: DOES NOT WORK IN BLOCKED DSD CASE!)
-
-        // if (new_order && (qmode & QMODE_REORDERED_CHANS))
-        //     reorder_channels (input_buffer, new_order, num_channels,
-        //         sample_count, 1);
 
         if (!sample_count)
             break;
