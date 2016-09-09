@@ -67,7 +67,6 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
     }
 #endif
 
-#ifndef VER4_ONLY
     if (wpc->reader->read_bytes (wpc->wv_in, &first_byte, 1) != 1) {
         if (error) strcpy (error, "can't read all of WavPack file!");
         return WavpackCloseFile (wpc);
@@ -75,9 +74,14 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
 
     wpc->reader->push_back_byte (wpc->wv_in, first_byte);
 
-    if (first_byte == 'R')
+    if (first_byte == 'R') {
+#ifdef ENABLE_LEGACY
         return open_file3 (wpc, error);
+#else
+        if (error) strcpy (error, "this legacy WavPack file is deprecated, use version 4.80.0 to transcode");
+        return WavpackCloseFile (wpc);
 #endif
+    }
 
     wpc->streams = malloc ((wpc->num_streams = 1) * sizeof (wpc->streams [0]));
     if (!wpc->streams) {
@@ -173,6 +177,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         wpc->reduced_channels = (wps->wphdr.flags & MONO_FLAG) ? 1 : 2;
 
     if (wps->wphdr.flags & DSD_FLAG) {
+#ifdef ENABLE_DSD
         if (flags & OPEN_DSD_NATIVE) {
             wpc->config.bytes_per_sample = 1;
             wpc->config.bits_per_sample = 8;
@@ -188,6 +193,10 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             if (error) strcpy (error, "not configured to handle DSD WavPack files!");
             return WavpackCloseFile (wpc);
         }
+#else
+        if (error) strcpy (error, "not configured to handle DSD WavPack files!");
+        return WavpackCloseFile (wpc);
+#endif
     }
     else {
         wpc->config.bytes_per_sample = (wps->wphdr.flags & BYTES_STORED) + 1;
@@ -214,7 +223,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
 int WavpackGetVersion (WavpackContext *wpc)
 {
     if (wpc) {
-#ifndef VER4_ONLY
+#ifdef ENABLE_LEGACY
         if (wpc->stream3)
             return get_version3 (wpc);
 #endif
@@ -704,7 +713,12 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
             return init_wvx_bitstream (wps, wpmd);
 
         case ID_DSD_BLOCK:
+#ifdef ENABLE_DSD
             return init_dsd_block (wpc, wpmd);
+#else
+            strcpy (wpc->error_message, "not configured to handle DSD WavPack files!");
+            return FALSE;
+#endif
 
         case ID_ALT_HEADER: case ID_ALT_TRAILER:
             if (!(wpc->open_flags & OPEN_ALT_TYPES))

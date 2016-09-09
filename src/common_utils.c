@@ -164,7 +164,7 @@ uint32_t WavpackGetSampleIndex (WavpackContext *wpc)
 int64_t WavpackGetSampleIndex64 (WavpackContext *wpc)
 {
     if (wpc) {
-#ifndef VER4_ONLY
+#ifdef ENABLE_LEGACY
         if (wpc->stream3)
             return get_sample_index3 (wpc);
         else if (wpc->streams && wpc->streams [0])
@@ -315,7 +315,7 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
         free (wpc->streams);
     }
 
-#ifndef VER4_ONLY
+#ifdef ENABLE_LEGACY
     if (wpc->stream3)
         free_stream3 (wpc);
 #endif
@@ -335,8 +335,10 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
     free_tag (&wpc->m_tag);
 #endif
 
+#ifdef ENABLE_DSD
     if (wpc->decimation_context)
         decimate_dsd_destroy (wpc->decimation_context);
+#endif
 
     free (wpc);
 
@@ -477,6 +479,7 @@ void free_streams (WavpackContext *wpc)
             wpc->streams [si]->dc.shaping_data = NULL;
         }
 
+#ifdef ENABLE_DSD
         if (wpc->streams [si]->dsd.probabilities) {
             free (wpc->streams [si]->dsd.probabilities);
             wpc->streams [si]->dsd.probabilities = NULL;
@@ -502,6 +505,7 @@ void free_streams (WavpackContext *wpc)
             free (wpc->streams [si]->dsd.ptable);
             wpc->streams [si]->dsd.ptable = NULL;
         }
+#endif
 
         if (si) {
             wpc->num_streams--;

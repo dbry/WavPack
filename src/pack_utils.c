@@ -149,6 +149,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     int i;
 
     if ((config->qmode & QMODE_DSD_AUDIO) && config->bytes_per_sample == 1 && config->bits_per_sample == 8) {
+#if ENABLE_DSD
         wpc->dsd_multiplier = 1;
         flags = DSD_FLAG;
 
@@ -166,6 +167,10 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         // with DSD, very few PCM options work (or make sense), so only allow those that do
         config->flags &= (CONFIG_HIGH_FLAG | CONFIG_MD5_CHECKSUM | CONFIG_PAIR_UNDEF_CHANS);
         config->float_norm_exp = config->xmode = 0;
+#else
+        strcpy (wpc->error_message, "libwavpack not configured for DSD!");
+        return FALSE;
+#endif
     }
     else
         flags = config->bytes_per_sample - 1;
@@ -414,9 +419,11 @@ int WavpackPackInit (WavpackContext *wpc)
 
         wps->sample_buffer = malloc (wpc->max_samples * (wps->wphdr.flags & MONO_FLAG ? 4 : 8));
 
+#if ENABLE_DSD
         if (wps->wphdr.flags & DSD_FLAG)
             pack_dsd_init (wpc);
         else
+#endif
             pack_init (wpc);
     }
 
@@ -803,9 +810,11 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         wps->blockbuff = outbuff;
         wps->blockend = outend;
 
+#if ENABLE_DSD
         if (flags & DSD_FLAG)
             result = pack_dsd_block (wpc, wps->sample_buffer);
         else
+#endif
             result = pack_block (wpc, wps->sample_buffer);
 
         wps->blockbuff = wps->block2buff = NULL;

@@ -10,6 +10,8 @@
 
 // This module actually handles the uncompression of the DSD audio data.
 
+#ifdef ENABLE_DSD
+
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -537,3 +539,5 @@ void decimate_dsd_destroy (void *decimate_context)
 
     free (context);
 }
+
+#endif      // ENABLE_DSD

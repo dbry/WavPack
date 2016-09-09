@@ -16,6 +16,8 @@
 // unpacking; the actual opening of the file (and obtaining information
 // from it) is handled in the unpack3_open.c module.
 
+#ifdef ENABLE_LEGACY
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -1696,4 +1698,6 @@ static unsigned char *bs_unused_data (Bitstream3 *bs)
 
     return bs->ptr;
 }
+
+#endif  // ENABLE_LEGACY
 

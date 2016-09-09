@@ -16,6 +16,8 @@
 // provides the functionality of opening the files and obtaining information
 // from them; the actual audio decoding is located in the unpack3.c module.
 
+#ifdef ENABLE_LEGACY
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -283,3 +285,5 @@ void free_stream3 (WavpackContext *wpc)
         free (wps);
     }
 }
+
+#endif  // ENABLE_LEGACY

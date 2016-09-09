@@ -41,7 +41,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
     uint32_t bcount, samples_unpacked = 0, samples_to_unpack;
     int32_t *bptr = buffer;
 
-#ifndef VER4_ONLY
+#ifdef ENABLE_LEGACY
     if (wpc->stream3)
         return unpack_samples3 (wpc, buffer, samples);
 #endif
@@ -242,9 +242,11 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                 // unpack the correct number of samples (either mono or stereo) into the temp buffer
 
+#ifdef ENABLE_DSD
                 if (wps->wphdr.flags & DSD_FLAG)
                     unpack_dsd_samples (wpc, src = temp_buffer, samples_to_unpack);
                 else
+#endif
                     unpack_samples (wpc, src = temp_buffer, samples_to_unpack);
 
                 samcnt = samples_to_unpack;
@@ -325,8 +327,10 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
             wps->sample_index += samples_to_unpack;
             wpc->crc_errors++;
         }
+#ifdef ENABLE_DSD
         else if (wps->wphdr.flags & DSD_FLAG)
             unpack_dsd_samples (wpc, bptr, samples_to_unpack);
+#endif
         else
             unpack_samples (wpc, bptr, samples_to_unpack);
 
@@ -377,8 +381,10 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
             break;
     }
 
+#ifdef ENABLE_DSD
     if (wpc->decimation_context)
         decimate_dsd_run (wpc->decimation_context, buffer, samples_unpacked);
+#endif
 
     return samples_unpacked;
 }

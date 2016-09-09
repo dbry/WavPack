@@ -46,7 +46,7 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
         (wpc->wvc_flag && !wpc->reader->can_seek (wpc->wvc_in)))
             return FALSE;
 
-#ifndef VER4_ONLY
+#ifdef ENABLE_LEGACY
     if (wpc->stream3)
         return seek_sample3 (wpc, (uint32_t) sample);
 #endif
@@ -171,9 +171,11 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
         buffer = malloc (samples_to_skip * 8);
 
         for (wpc->current_stream = 0; wpc->current_stream < wpc->num_streams; wpc->current_stream++)
+#ifdef ENABLE_DSD
             if (wpc->streams [wpc->current_stream]->wphdr.flags & DSD_FLAG)
                 unpack_dsd_samples (wpc, buffer, samples_to_skip);
             else
+#endif
                 unpack_samples (wpc, buffer, samples_to_skip);
 
         free (buffer);
@@ -181,8 +183,10 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
 
     wpc->current_stream = 0;
 
+#ifdef ENABLE_DSD
     if (wpc->decimation_context)
         decimate_dsd_reset (wpc->decimation_context);
+#endif
 
     return TRUE;
 }

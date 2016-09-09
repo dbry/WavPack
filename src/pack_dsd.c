@@ -10,6 +10,8 @@
 
 // This module actually handles the compression of the DSD audio data.
 
+#ifdef ENABLE_DSD
+
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -628,3 +630,5 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
     else
         return -1;
 }
+
+#endif      // ENABLE_DSD
