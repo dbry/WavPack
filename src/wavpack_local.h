@@ -383,7 +383,7 @@ struct words_data {
 };
 
 typedef struct {
-    int32_t filter1, filter2, filter3, filter4, filter5, filter6, factor;
+    int32_t filter1, filter2, filter3, filter4, filter5, filter6, factor, byte;
 } DSDfilters;
 
 typedef struct {
