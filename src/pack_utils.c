@@ -149,7 +149,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     int i;
 
     if ((config->qmode & QMODE_DSD_AUDIO) && config->bytes_per_sample == 1 && config->bits_per_sample == 8) {
-#if ENABLE_DSD
+#ifdef ENABLE_DSD
         wpc->dsd_multiplier = 1;
         flags = DSD_FLAG;
 
@@ -419,7 +419,7 @@ int WavpackPackInit (WavpackContext *wpc)
 
         wps->sample_buffer = malloc (wpc->max_samples * (wps->wphdr.flags & MONO_FLAG ? 4 : 8));
 
-#if ENABLE_DSD
+#ifdef ENABLE_DSD
         if (wps->wphdr.flags & DSD_FLAG)
             pack_dsd_init (wpc);
         else
@@ -779,6 +779,8 @@ static int create_riff_header (WavpackContext *wpc, int64_t total_samples, void 
     return (int)(outptr - (char *) outbuffer);
 }
 
+static int block_add_checksum (unsigned char *buffer_start, unsigned char *buffer_end, int bytes);
+
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 {
     uint32_t max_blocksize, bcount;
@@ -810,12 +812,19 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         wps->blockbuff = outbuff;
         wps->blockend = outend;
 
-#if ENABLE_DSD
+#ifdef ENABLE_DSD
         if (flags & DSD_FLAG)
             result = pack_dsd_block (wpc, wps->sample_buffer);
         else
 #endif
             result = pack_block (wpc, wps->sample_buffer);
+
+        if (result) {
+            result = block_add_checksum (outbuff, outend, (flags & HYBRID_FLAG) ? 2 : 4);
+
+            if (result && out2buff)
+                result = block_add_checksum (out2buff, out2end, 2);
+        }
 
         wps->blockbuff = wps->block2buff = NULL;
 
@@ -874,6 +883,8 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 // of samples (or -1). It is the responsibility of the application to read and
 // rewrite the block. An example of this can be found in the Audition filter.
 
+static void block_update_checksum (unsigned char *buffer_start);
+
 void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
 {
     uint32_t wrapper_size;
@@ -888,6 +899,7 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
             memcpy (WavpackGetWrapperLocation (first_block, NULL), riff_header, wrapper_size);
     }
 
+    block_update_checksum (first_block);
     WavpackNativeToLittleEndian (first_block, WavpackHeaderFormat);
 }
 
@@ -1131,5 +1143,142 @@ void free_metadata (WavpackMetadata *wpmd)
     if (wpmd->data) {
         free (wpmd->data);
         wpmd->data = NULL;
+    }
+}
+
+// These two functions add or update the block checksums that were introduced in WavPack 5.0.
+// The presence of the checksum is indicated by a flag in the wavpack header (HAS_CHECKSUM)
+// and the actual metadata item should be the last one in the block, and can be either 2 or 4
+// bytes. Of course, older versions of the decoder will simply ignore both of these.
+
+static int block_add_checksum (unsigned char *buffer_start, unsigned char *buffer_end, int bytes)
+{
+    WavpackHeader *wphdr = (WavpackHeader *) buffer_start;
+#ifdef BITSTREAM_SHORTS
+    uint16_t *csptr = (uint16_t*) buffer_start;
+#else
+    unsigned char *csptr = buffer_start;
+#endif
+    int bcount = wphdr->ckSize + 8, wcount;
+    uint32_t csum = (uint32_t) -1;
+
+    if (bytes != 2 && bytes != 4)
+        return FALSE;
+
+    if (bcount < sizeof (WavpackHeader) || (bcount & 1) || buffer_start + bcount + 2 + bytes > buffer_end)
+        return FALSE;
+
+    wphdr->flags |= HAS_CHECKSUM;
+    wphdr->ckSize += 2 + bytes;
+    wcount = bcount >> 1;
+
+#ifdef BITSTREAM_SHORTS
+    while (wcount--)
+        csum = (csum * 3) + *csptr++;
+#else
+    WavpackNativeToLittleEndian ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
+
+    while (wcount--) {
+        csum = (csum * 3) + csptr [0] + (csptr [1] << 8);
+        csptr += 2;
+    }
+
+    WavpackLittleEndianToNative ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
+#endif
+
+    buffer_start += bcount;
+    *buffer_start++ = ID_BLOCK_CHECKSUM;
+    *buffer_start++ = bytes >> 1;
+
+    if (bytes == 4) {
+        *buffer_start++ = csum;
+        *buffer_start++ = csum >> 8;
+        *buffer_start++ = csum >> 16;
+        *buffer_start++ = csum >> 24;
+    }
+    else {
+        csum ^= csum >> 16;
+        *buffer_start++ = csum;
+        *buffer_start++ = csum >> 8;
+    }
+
+    return TRUE;
+}
+
+static void block_update_checksum (unsigned char *buffer_start)
+{
+    WavpackHeader *wphdr = (WavpackHeader *) buffer_start;
+    unsigned char *dp, meta_id, c1, c2;
+    uint32_t bcount, meta_bc;
+
+    if (!(wphdr->flags & HAS_CHECKSUM))
+        return;
+
+    bcount = wphdr->ckSize - sizeof (WavpackHeader) + 8;
+    dp = (unsigned char *)(wphdr + 1);
+
+    while (bcount >= 2) {
+        meta_id = *dp++;
+        c1 = *dp++;
+
+        meta_bc = c1 << 1;
+        bcount -= 2;
+
+        if (meta_id & ID_LARGE) {
+            if (bcount < 2)
+                return;
+
+            c1 = *dp++;
+            c2 = *dp++;
+            meta_bc += ((uint32_t) c1 << 9) + ((uint32_t) c2 << 17);
+            bcount -= 2;
+        }
+
+        if (bcount < meta_bc)
+            return;
+
+        if ((meta_id & ID_UNIQUE) == ID_BLOCK_CHECKSUM) {
+#ifdef BITSTREAM_SHORTS
+            uint16_t *csptr = (uint16_t*) buffer_start;
+#else
+            unsigned char *csptr = buffer_start;
+#endif
+            int wcount = (dp - 2 - buffer_start) >> 1;
+            uint32_t csum = (uint32_t) -1;
+
+            if ((meta_id & ID_ODD_SIZE) || meta_bc < 2 || meta_bc > 4)
+                return;
+
+#ifdef BITSTREAM_SHORTS
+            while (wcount--)
+                csum = (csum * 3) + *csptr++;
+#else
+            WavpackNativeToLittleEndian ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
+
+            while (wcount--) {
+                csum = (csum * 3) + csptr [0] + (csptr [1] << 8);
+                csptr += 2;
+            }
+
+            WavpackLittleEndianToNative ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
+#endif
+
+            if (meta_bc == 4) {
+                *dp++ = csum;
+                *dp++ = csum >> 8;
+                *dp++ = csum >> 16;
+                *dp++ = csum >> 24;
+                return;
+            }
+            else {
+                csum ^= csum >> 16;
+                *dp++ = csum;
+                *dp++ = csum >> 8;
+                return;
+            }
+        }
+
+        bcount -= meta_bc;
+        dp += meta_bc;
     }
 }

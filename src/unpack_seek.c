@@ -82,6 +82,12 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
                 return FALSE;
         }
 
+        if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // render corrupt blocks harmless
+            wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+            wps->wphdr.block_samples = 0;
+            memcpy (wps->blockbuff, &wps->wphdr, 32);
+        }
+
         wps->init_done = FALSE;
 
         if (wpc->wvc_flag) {
@@ -96,6 +102,12 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
                 wps->wphdr.ckSize - 24) {
                     free_streams (wpc);
                     return FALSE;
+            }
+
+            if (!WavpackVerifySingleBlock (wps->block2buff)) {      // render corrupt blocks harmless
+                wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+                wps->wphdr.block_samples = 0;
+                memcpy (wps->block2buff, &wps->wphdr, 32);
             }
         }
 
@@ -132,6 +144,12 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
                 wps->wphdr.ckSize - 24) {
                     free_streams (wpc);
                     return FALSE;
+            }
+
+            if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // render corrupt blocks harmless
+                wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+                wps->wphdr.block_samples = 0;
+                memcpy (wps->blockbuff, &wps->wphdr, 32);
             }
 
             wps->init_done = FALSE;

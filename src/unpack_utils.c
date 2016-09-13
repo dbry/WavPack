@@ -91,6 +91,12 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                         break;
                 }
 
+                if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // render corrupt blocks harmless
+                    wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+                    wps->wphdr.block_samples = 0;
+                    memcpy (wps->blockbuff, &wps->wphdr, 32);
+                }
+
                 wps->init_done = FALSE;     // we have not yet called unpack_init() for this block
 
                 // if this block has audio, but not the sample index we were expecting, flag an error
@@ -223,6 +229,12 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                             wpc->streams [0]->wphdr.ckSize = 24;
                             file_done = TRUE;
                             break;
+                    }
+
+                    if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // render corrupt blocks harmless
+                        wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+                        wps->wphdr.block_samples = 0;
+                        memcpy (wps->blockbuff, &wps->wphdr, 32);
                     }
 
                     // if this block has audio, and we're in hybrid lossless mode, read the matching wvc block

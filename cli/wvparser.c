@@ -84,15 +84,16 @@ typedef struct {
 #define SRATE_MASK	(0xfL << SRATE_LSB)
 
 #define FALSE_STEREO    0x40000000      // block is stereo, but data is mono
-
-#define IGNORED_FLAGS   0x18000000      // reserved, but ignore if encountered
 #define NEW_SHAPING     0x20000000      // use IIR filter for negative shaping
-#define DSD_FLAG        0x80000000      // block is DSD encoded (introduced in
-                                        //  WavPack 5.0)
-
-#define UNKNOWN_FLAGS   0x00000000      // we no longer have any of these spares
 
 #define MONO_DATA (MONO_FLAG | FALSE_STEREO)
+
+// Introduced in WavPack 5.0:
+#define HAS_CHECKSUM    0x10000000      // block contains a trailing checksum
+#define DSD_FLAG        0x80000000      // block is encoded DSD (1-bit PCM)
+
+#define IGNORED_FLAGS   0x08000000      // reserved, but ignore if encountered
+#define UNKNOWN_FLAGS   0x00000000      // we no longer have any of these spares
 
 #define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
 #define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
@@ -119,7 +120,7 @@ static const char *metadata_names [] = {
     "DUMMY", "ENCODER_INFO", "DECORR_TERMS", "DECORR_WEIGHTS", "DECORR_SAMPLES", "ENTROPY_VARS", "HYBRID_PROFILE", "SHAPING_WEIGHTS",
     "FLOAT_INFO", "INT32_INFO", "WV_BITSTREAM", "WVC_BITSTREAM", "WVX_BITSTREAM", "CHANNEL_INFO", "DSD_BLOCK", "UNASSIGNED",
     "UNASSIGNED", "RIFF_HEADER", "RIFF_TRAILER", "ALT_HEADER", "ALT_TRAILER", "CONFIG_BLOCK", "MD5_CHECKSUM", "SAMPLE_RATE",
-    "ALT_EXTENSION", "ALT_MD5_CHECKSUM", "NEW_CONFIG", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED"
+    "ALT_EXTENSION", "ALT_MD5_CHECKSUM", "NEW_CONFIG", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "BLOCK_CHECKSUM"
 };
 
 static int32_t read_bytes (void *buff, int32_t bcount);
@@ -198,6 +199,7 @@ int main ()
                 if (wphdr.flags & HYBRID_BITRATE) strcat (flags_list, "HYBRID-BITRATE ");
                 if (wphdr.flags & FALSE_STEREO) strcat (flags_list, "FALSE-STEREO ");
                 if (wphdr.flags & NEW_SHAPING) strcat (flags_list, "NEW-SHAPING ");
+                if (wphdr.flags & HAS_CHECKSUM) strcat (flags_list, "CHECKSUM ");
                 if (wphdr.flags & (IGNORED_FLAGS | UNKNOWN_FLAGS)) strcat (flags_list, "UNKNOWN-FLAGS ");
                 if (wphdr.flags & FINAL_BLOCK) strcat (flags_list, "FINAL");
             }

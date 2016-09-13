@@ -120,6 +120,12 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             return WavpackCloseFile (wpc);
         }
 
+        if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // if block does not verify, render it harmless
+            wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+            wps->wphdr.block_samples = 0;
+            memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
+        }
+
         wps->init_done = FALSE;
 
         if (wps->wphdr.block_samples && !(flags & OPEN_STREAMING)) {
@@ -949,7 +955,7 @@ int read_wvc_block (WavpackContext *wpc)
             memcpy (wps->block2buff, &wphdr, 32);
 
             if (wpc->reader->read_bytes (wpc->wvc_in, wps->block2buff + 32, wphdr.ckSize - 24) !=
-                wphdr.ckSize - 24 || (wphdr.flags & UNKNOWN_FLAGS)) {
+                wphdr.ckSize - 24 || !WavpackVerifySingleBlock (wps->block2buff)) {
                     free (wps->block2buff);
                     wps->block2buff = NULL;
                     wps->wvc_skip = TRUE;
@@ -1128,4 +1134,90 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
             bcount -= meta_bc;
         }
     }
+}
+
+// Quickly verify the referenced block. It is assumed that the WavPack header has been converted
+// to native endian format. If a block checksum is performed, that is done in little-endian
+// (file) format. It is also assumed that the caller has made sure that the block length
+// indicated in the header is correct (we won't overflow the buffer). If a checksum is present,
+// then it is checked, otherwise we just check that all the metadata blocks are formatted
+// correctly (without looking at their contents). Returns FALSE for bad block.
+
+int WavpackVerifySingleBlock (unsigned char *buffer)
+{
+    WavpackHeader *wphdr = (WavpackHeader *) buffer;
+    uint32_t checksum_passed = 0, bcount, meta_bc;
+    unsigned char *dp, meta_id, c1, c2;
+
+    if (strncmp (wphdr->ckID, "wvpk", 4) || wphdr->ckSize + 8 < sizeof (WavpackHeader))
+        return FALSE;
+
+    bcount = wphdr->ckSize - sizeof (WavpackHeader) + 8;
+    dp = (unsigned char *)(wphdr + 1);
+
+    while (bcount >= 2) {
+        meta_id = *dp++;
+        c1 = *dp++;
+
+        meta_bc = c1 << 1;
+        bcount -= 2;
+
+        if (meta_id & ID_LARGE) {
+            if (bcount < 2)
+                return FALSE;
+
+            c1 = *dp++;
+            c2 = *dp++;
+            meta_bc += ((uint32_t) c1 << 9) + ((uint32_t) c2 << 17);
+            bcount -= 2;
+        }
+
+        if (bcount < meta_bc)
+            return FALSE;
+
+        if ((meta_id & ID_UNIQUE) == ID_BLOCK_CHECKSUM) {
+#ifdef BITSTREAM_SHORTS
+            uint16_t *csptr = (uint16_t*) buffer;
+#else
+            unsigned char *csptr = buffer;
+#endif
+            int wcount = (dp - 2 - buffer) >> 1;
+            uint32_t csum = (uint32_t) -1;
+
+            if ((meta_id & ID_ODD_SIZE) || meta_bc < 2 || meta_bc > 4)
+                return FALSE;
+
+#ifdef BITSTREAM_SHORTS
+            while (wcount--)
+                csum = (csum * 3) + *csptr++;
+#else
+            WavpackNativeToLittleEndian ((WavpackHeader *) buffer, WavpackHeaderFormat);
+
+            while (wcount--) {
+                csum = (csum * 3) + csptr [0] + (csptr [1] << 8);
+                csptr += 2;
+            }
+
+            WavpackLittleEndianToNative ((WavpackHeader *) buffer, WavpackHeaderFormat);
+#endif
+
+            if (meta_bc == 4) {
+                if (*dp++ != (csum & 0xff) || *dp++ != ((csum >> 8) & 0xff) || *dp++ != ((csum >> 16) & 0xff) || *dp++ != ((csum >> 24) & 0xff))
+                    return FALSE;
+            }
+            else {
+                csum ^= csum >> 16;
+
+                if (*dp++ != (csum & 0xff) || *dp++ != ((csum >> 8) & 0xff))
+                    return FALSE;
+            }
+
+            checksum_passed++;
+        }
+
+        bcount -= meta_bc;
+        dp += meta_bc;
+    }
+
+    return (bcount == 0) && (!(wphdr->flags & HAS_CHECKSUM) || checksum_passed);
 }

@@ -197,15 +197,16 @@ typedef struct {
 #define SRATE_MASK      (0xfL << SRATE_LSB)
 
 #define FALSE_STEREO    0x40000000      // block is stereo, but data is mono
-
-#define IGNORED_FLAGS   0x18000000      // reserved, but ignore if encountered
 #define NEW_SHAPING     0x20000000      // use IIR filter for negative shaping
-#define DSD_FLAG        0x80000000      // block is DSD encoded (introduced in
-                                        //  WavPack 5.0)
-
-#define UNKNOWN_FLAGS   0x00000000      // we no longer have any of these spares
 
 #define MONO_DATA (MONO_FLAG | FALSE_STEREO)
+
+// Introduced in WavPack 5.0:
+#define HAS_CHECKSUM    0x10000000      // block contains a trailing checksum
+#define DSD_FLAG        0x80000000      // block is encoded DSD (1-bit PCM)
+
+#define IGNORED_FLAGS   0x08000000      // reserved, but ignore if encountered
+#define UNKNOWN_FLAGS   0x00000000      // we no longer have any of these spares
 
 #define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
 #define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
@@ -253,6 +254,7 @@ typedef struct {
 #define ID_ALT_EXTENSION        (ID_OPTIONAL_DATA | 0x8)
 #define ID_ALT_MD5_CHECKSUM     (ID_OPTIONAL_DATA | 0x9)
 #define ID_NEW_CONFIG_BLOCK     (ID_OPTIONAL_DATA | 0xa)
+#define ID_BLOCK_CHECKSUM       (ID_OPTIONAL_DATA | 0xf)
 
 ///////////////////////// WavPack Configuration ///////////////////////////////
 
