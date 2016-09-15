@@ -377,28 +377,37 @@ int WavpackPackInit (WavpackContext *wpc)
     if (wpc->metabytes > 16384)             // 16384 bytes still leaves plenty of room for audio
         write_metadata_block (wpc);         //  in this block (otherwise write a special one)
 
-    if (wpc->config.flags & CONFIG_HIGH_FLAG)
-        wpc->block_samples = wpc->config.sample_rate;
-    else if (!(wpc->config.sample_rate % 2))
-        wpc->block_samples = wpc->config.sample_rate / 2;
-    else
-        wpc->block_samples = wpc->config.sample_rate;
+    // The default block size is a compromise. Longer blocks provide better encoding efficiency,
+    // but longer blocks adversely affect memory requirements and seeking performance. For WavPack
+    // version 5.0, the default block sizes have been reduced by half from the previous version,
+    // but the difference in encoding efficiency will generally be less than 0.1 percent.
 
     if (wpc->dsd_multiplier) {
+        wpc->block_samples = (wpc->config.sample_rate % 7) ? 48000 : 44100;
+
         if (wpc->config.flags & CONFIG_HIGH_FLAG)
-            wpc->block_samples = 22050;
-        else
-            wpc->block_samples = 44100;
+            wpc->block_samples /= 2;
 
         if (wpc->config.num_channels == 1)
             wpc->block_samples *= 2;
+
+        while (wpc->block_samples > 12000 && wpc->block_samples * wpc->config.num_channels > 300000)
+            wpc->block_samples /= 2;
     }
+    else {
+        int divisor = (wpc->config.flags & CONFIG_HIGH_FLAG) ? 2 : 4;
 
-    while (wpc->block_samples * wpc->config.num_channels > 150000)
-        wpc->block_samples /= 2;
+        while (wpc->config.sample_rate % divisor)
+            divisor--;
 
-    while (wpc->block_samples * wpc->config.num_channels < 40000)
-        wpc->block_samples *= 2;
+        wpc->block_samples = wpc->config.sample_rate / divisor;
+
+        while (wpc->block_samples > 12000 && wpc->block_samples * wpc->config.num_channels > 75000)
+            wpc->block_samples /= 2;
+
+        while (wpc->block_samples * wpc->config.num_channels < 20000)
+            wpc->block_samples *= 2;
+    }
 
     if (wpc->config.block_samples) {
         if ((wpc->config.flags & CONFIG_MERGE_BLOCKS) &&

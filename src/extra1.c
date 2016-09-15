@@ -20,11 +20,11 @@
 // This flag causes this module to take into account the size of the header
 // (which grows with more decorrelation passes) when making decisions about
 // adding additional passes (as opposed to just considering the resulting
-// magnitude of the residuals). With small blocks this seems to work correctly,
-// but with longer blocks it seems to actually hurt compression (for reasons I
-// cannot explain), so it's disabled by default
+// magnitude of the residuals). With really long blocks it seems to actually
+// hurt compression (for reasons I cannot explain), but with short blocks it
+// works okay, so we're enabling it for now.
 
-//#define USE_OVERHEAD
+#define USE_OVERHEAD
 
 // If the log2 value of any sample in a buffer being scanned exceeds this value,
 // we abandon that configuration. This prevents us from going down paths that
