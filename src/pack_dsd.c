@@ -561,35 +561,31 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
         sp->factor = (sp->factor << 16) >> 16;
     }
 
-    sp = wps->dsd.filters + (channel = 0);
+    sp = wps->dsd.filters;
 
     while (dp < ep && num_samples--) {
-        int bitcount = 8 << stereo;
+        int bitcount = 8;
 
         crc += (crc << 1) + (sp->byte = *buffer++ & 0xff);
+        sp [0].value = sp [0].filter1 - sp [0].filter5 + ((sp [0].filter6 * sp [0].factor) >> 2);
 
-        if (stereo)
-            crc += (crc << 1) + (wps->dsd.filters [1].byte = *buffer++ & 0xff);
+        if (stereo) {
+            crc += (crc << 1) + (sp [1].byte = *buffer++ & 0xff);
+            sp [1].value = sp [1].filter1 - sp [1].filter5 + ((sp [1].filter6 * sp [1].factor) >> 2);
+        }
 
         while (bitcount--) {
-            int32_t value = sp->filter1 - sp->filter5 + ((sp->filter6 * sp->factor) >> 2);
-            int32_t *pp = wps->dsd.ptable + ((value >> (PRECISION - PRECISION_USE)) & PTABLE_MASK);
+            int32_t *pp = wps->dsd.ptable + ((sp [0].value >> (PRECISION - PRECISION_USE)) & PTABLE_MASK);
 
-            value += sp->filter6 << 3;
-
-            if (sp->byte & 0x80) {
+            if (sp [0].byte & 0x80) {
                 high = low + ((high - low) >> 8) * (*pp >> 16);
                 *pp += (UP - *pp) >> DECAY;
-                sp->filter1 += (VALUE_ONE - sp->filter1) >> 6;
-                sp->filter2 += (VALUE_ONE - sp->filter2) >> 4;
-                sp->factor -= ((value >> 31) | 1) & ((value ^ (value - (sp->filter6 << 4))) >> 31);
+                sp [0].filter0 = -1;
             }
             else {
                 low += 1 + ((high - low) >> 8) * (*pp >> 16);
                 *pp += (DOWN - *pp) >> DECAY;
-                sp->filter1 += -sp->filter1 >> 6;
-                sp->filter2 += -sp->filter2 >> 4;
-                sp->factor += ((value >> 31) | 1) & ((value ^ (value - (sp->filter6 << 4))) >> 31);
+                sp [0].filter0 = 0;
             }
 
             while (DSD_BYTE_READY (high, low)) {
@@ -598,18 +594,57 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
                 low <<= 8;
             }
 
-            sp->filter3 += (sp->filter2 - sp->filter3) >> 4;
-            sp->filter4 += (sp->filter3 - sp->filter4) >> 4;
-            sp->filter5 += value = (sp->filter4 - sp->filter5) >> 4;
-            sp->filter6 += (value - sp->filter6) >> 3;
-            sp->byte <<= 1;
-            sp = wps->dsd.filters + (channel ^= stereo);
+            sp [0].value += sp [0].filter6 << 3;
+            sp [0].factor += (((sp [0].value ^ sp [0].filter0) >> 31) | 1) & ((sp [0].value ^ (sp [0].value - (sp [0].filter6 << 4))) >> 31);
+            sp [0].filter1 += ((sp [0].filter0 & VALUE_ONE) - sp [0].filter1) >> 6;
+            sp [0].filter2 += ((sp [0].filter0 & VALUE_ONE) - sp [0].filter2) >> 4;
+            sp [0].filter3 += (sp [0].filter2 - sp [0].filter3) >> 4;
+            sp [0].filter4 += (sp [0].filter3 - sp [0].filter4) >> 4;
+            sp [0].value = (sp [0].filter4 - sp [0].filter5) >> 4;
+            sp [0].filter5 += sp [0].value;
+            sp [0].filter6 += (sp [0].value - sp [0].filter6) >> 3;
+            sp [0].value = sp [0].filter1 - sp [0].filter5 + ((sp [0].filter6 * sp [0].factor) >> 2);
+            sp [0].byte <<= 1;
+
+            if (!stereo)
+                continue;
+
+            pp = wps->dsd.ptable + ((sp [1].value >> (PRECISION - PRECISION_USE)) & PTABLE_MASK);
+
+            if (sp [1].byte & 0x80) {
+                high = low + ((high - low) >> 8) * (*pp >> 16);
+                *pp += (UP - *pp) >> DECAY;
+                sp [1].filter0 = -1;
+            }
+            else {
+                low += 1 + ((high - low) >> 8) * (*pp >> 16);
+                *pp += (DOWN - *pp) >> DECAY;
+                sp [1].filter0 = 0;
+            }
+
+            while (DSD_BYTE_READY (high, low)) {
+                *dp++ = high >> 24;
+                high = (high << 8) | 0xff;
+                low <<= 8;
+            }
+
+            sp [1].value += sp [1].filter6 << 3;
+            sp [1].factor += (((sp [1].value ^ sp [1].filter0) >> 31) | 1) & ((sp [1].value ^ (sp [1].value - (sp [1].filter6 << 4))) >> 31);
+            sp [1].filter1 += ((sp [1].filter0 & VALUE_ONE) - sp [1].filter1) >> 6;
+            sp [1].filter2 += ((sp [1].filter0 & VALUE_ONE) - sp [1].filter2) >> 4;
+            sp [1].filter3 += (sp [1].filter2 - sp [1].filter3) >> 4;
+            sp [1].filter4 += (sp [1].filter3 - sp [1].filter4) >> 4;
+            sp [1].value = (sp [1].filter4 - sp [1].filter5) >> 4;
+            sp [1].filter5 += sp [1].value;
+            sp [1].filter6 += (sp [1].value - sp [1].filter6) >> 3;
+            sp [1].value = sp [1].filter1 - sp [1].filter5 + ((sp [1].filter6 * sp [1].factor) >> 2);
+            sp [1].byte <<= 1;
         }
 
-        sp->factor -= (sp->factor + 512) >> 10;
+        sp [0].factor -= (sp->factor + 512) >> 10;
 
         if (stereo)
-            wps->dsd.filters [1].factor -= (wps->dsd.filters [1].factor + 512) >> 10;
+            sp [1].factor -= (sp [1].factor + 512) >> 10;
     }
 
     ((WavpackHeader *) wps->blockbuff)->crc = crc;
