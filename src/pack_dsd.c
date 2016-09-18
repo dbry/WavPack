@@ -582,18 +582,14 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
                 *pp += (UP - *pp) >> DECAY;
                 sp->filter1 += (VALUE_ONE - sp->filter1) >> 6;
                 sp->filter2 += (VALUE_ONE - sp->filter2) >> 4;
-
-                if ((value ^ (value - (sp->filter6 << 4))) < 0)
-                    sp->factor -= (value >> 31) | 1;
+                sp->factor -= ((value >> 31) | 1) & ((value ^ (value - (sp->filter6 << 4))) >> 31);
             }
             else {
                 low += 1 + ((high - low) >> 8) * (*pp >> 16);
                 *pp += (DOWN - *pp) >> DECAY;
                 sp->filter1 += -sp->filter1 >> 6;
                 sp->filter2 += -sp->filter2 >> 4;
-
-                if ((value ^ (value - (sp->filter6 << 4))) < 0)
-                    sp->factor += (value >> 31) | 1;
+                sp->factor += ((value >> 31) | 1) & ((value ^ (value - (sp->filter6 << 4))) >> 31);
             }
 
             while (DSD_BYTE_READY (high, low)) {

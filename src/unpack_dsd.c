@@ -365,9 +365,7 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
                 *pp += (UP - *pp) >> DECAY;
                 sp->filter1 += (VALUE_ONE - sp->filter1) >> 6;
                 sp->filter2 += (VALUE_ONE - sp->filter2) >> 4;
-
-                if ((value ^ (value - (sp->filter6 << 4))) < 0)
-                    sp->factor -= (value >> 31) | 1;
+                sp->factor -= ((value >> 31) | 1) & ((value ^ (value - (sp->filter6 << 4))) >> 31);
             }
             else {
                 wps->dsd.low = split + 1;
@@ -375,9 +373,7 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
                 *pp += (DOWN - *pp) >> DECAY;
                 sp->filter1 += -sp->filter1 >> 6;
                 sp->filter2 += -sp->filter2 >> 4;
-
-                if ((value ^ (value - (sp->filter6 << 4))) < 0)
-                    sp->factor += (value >> 31) | 1;
+                sp->factor += ((value >> 31) | 1) & ((value ^ (value - (sp->filter6 << 4))) >> 31);
             }
 
             while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low) && wps->dsd.byteptr < wps->dsd.endptr) {
