@@ -261,7 +261,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
         }
         else {          // just copy unknown chunks to output file
 
-            int bytes_to_copy = (uint32_t) dff_chunk_header.ckDataSize;
+            int bytes_to_copy = (int)(((dff_chunk_header.ckDataSize) + 1) & ~1LL);
             char *buff = malloc (bytes_to_copy);
 
             if (debug_logging_mode)
@@ -356,7 +356,7 @@ int WriteDsdiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples
 
     data_size = total_samples * num_channels;
     prop_chunk_size = sizeof (prop_header) + sizeof (fs_chunk) + sizeof (chan_header) + chan_ids_size + sizeof (cmpr_header) + cmpr_name_size;
-    file_size = sizeof (file_header) + sizeof (ver_chunk) + prop_chunk_size + sizeof (data_header) + data_size;
+    file_size = sizeof (file_header) + sizeof (ver_chunk) + prop_chunk_size + sizeof (data_header) + ((data_size + 1) & ~1LL);
 
     memcpy (file_header.ckID, "FRM8", 4);
     file_header.ckDataSize = file_size - 12;

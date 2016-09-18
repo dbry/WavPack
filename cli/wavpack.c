@@ -230,13 +230,14 @@ static struct {
     unsigned char id;
     char *fourcc, *default_extension;
     int (* ParseHeader) (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+    int chunk_alignment;
 } file_formats [] = {
-    { WP_FORMAT_WAV,  "RIFF", "wav", ParseRiffHeaderConfig },
-    { WP_FORMAT_WAV,  "RF64", "wav", ParseRiffHeaderConfig },
-    { WP_FORMAT_W64,  "riff", "w64", ParseWave64HeaderConfig },
-    { WP_FORMAT_CAF,  "caff", "caf", ParseCaffHeaderConfig },
-    { WP_FORMAT_DFF,  "FRM8", "dff", ParseDsdiffHeaderConfig },
-    { WP_FORMAT_DSF,  "DSD ", "dsf", ParseDsfHeaderConfig }
+    { WP_FORMAT_WAV,  "RIFF", "wav", ParseRiffHeaderConfig,   2 },
+    { WP_FORMAT_WAV,  "RF64", "wav", ParseRiffHeaderConfig,   2 },
+    { WP_FORMAT_W64,  "riff", "w64", ParseWave64HeaderConfig, 8 },
+    { WP_FORMAT_CAF,  "caff", "caf", ParseCaffHeaderConfig,   1 },
+    { WP_FORMAT_DFF,  "FRM8", "dff", ParseDsdiffHeaderConfig, 2 },
+    { WP_FORMAT_DSF,  "DSD ", "dsf", ParseDsfHeaderConfig,    1 }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
@@ -1448,7 +1449,7 @@ static FILE *wild_fopen (char *filename, const char *mode)
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     char *outfilename_temp = NULL, *out2filename_temp = NULL, dummy;
-    int use_tempfiles = (out2filename != NULL);
+    int use_tempfiles = (out2filename != NULL), chunk_alignment = 1;
     uint32_t bcount;
     WavpackConfig loc_config = *config;
     unsigned char *new_channel_order = NULL;
@@ -1725,6 +1726,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     return WAVPACK_SOFT_ERROR;
                 }
 
+                chunk_alignment = file_formats [i].chunk_alignment;
                 break;
             }
 
@@ -1842,11 +1844,27 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         WavpackStoreMD5Sum (wpc, md5_digest);
 
     // if everything went well, and we're not ignoring length or encoding raw
-    // pcm, try to read anything else that might be appended to the audio data
-    // and write that to the WavPack metadata as "wrapper"
+    // pcm, read past any required data chunk padding and then try to read anything
+    // else that might be appended to the audio data and write that to the WavPack
+    // metadata as "wrapper"
 
     if (result == WAVPACK_NO_ERROR && !(loc_config.qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM))) {
         unsigned char buff [256];
+
+        // if this file format has chunk alignment padding, read past that here
+
+        if (chunk_alignment != 1) {
+            int64_t data_chunk_bytes = WavpackGetNumSamples64 (wpc) * WavpackGetNumChannels (wpc) * WavpackGetBytesPerSample (wpc);
+            int bytes_over = (int)(data_chunk_bytes % chunk_alignment);
+            int padding_bytes = bytes_over ? chunk_alignment - bytes_over : 0;
+
+            while (padding_bytes--) {
+                if (!DoReadFile (infile, buff, 1, &bcount) || bcount != 1)
+                    error_line ("warning: input file missing required padding byte!");
+                else if (buff [0])
+                    error_line ("warning: input file has non-zero padding byte!");
+            }
+        }
 
         while (DoReadFile (infile, buff, sizeof (buff), &bcount) && bcount)
             if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&

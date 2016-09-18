@@ -154,12 +154,13 @@ int WriteDsfHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, i
 static struct {
     char *default_extension, *format_name;
     int (* WriteHeader) (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
+    int chunk_alignment;
 } file_formats [] = {
-    { "wav", "Microsoft RIFF",   WriteRiffHeader },
-    { "w64", "Sony Wave64",      WriteWave64Header },
-    { "caf", "Apple Core Audio", WriteCaffHeader },
-    { "dff", "Philips DSDIFF",   WriteDsdiffHeader },
-    { "dsf", "Sony DSF",         WriteDsfHeader }
+    { "wav", "Microsoft RIFF",   WriteRiffHeader,   2 },
+    { "w64", "Sony Wave64",      WriteWave64Header, 8 },
+    { "caf", "Apple Core Audio", WriteCaffHeader,   1 },
+    { "dff", "Philips DSDIFF",   WriteDsdiffHeader, 2 },
+    { "dsf", "Sony DSF",         WriteDsfHeader,    1 }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
@@ -998,7 +999,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     int64_t skip_sample_index = 0, until_samples_total = 0, total_unpacked_samples = 0;
     int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
     int input_qmode, output_qmode, input_format, output_format = 0;
-    int open_flags = 0, num_channels, wvc_mode;
+    int open_flags = 0, padding_bytes = 0, num_channels, wvc_mode;
     uint32_t output_buffer_size = 0, bcount;
     unsigned char md5_unpacked [16];
     double dtime, progress = -1.0;
@@ -1282,6 +1283,24 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     else
         result = unpack_audio (wpc, outfile, output_qmode, calc_md5 ? md5_unpacked : NULL, &total_unpacked_samples);
 
+    // if the file format has chunk alignment requirements, and our data chunk does not align, write padding bytes here
+
+    if (result == WAVPACK_NO_ERROR && outfile && !raw_decode && file_formats [output_format].chunk_alignment != 1) {
+        int64_t data_chunk_bytes = total_unpacked_samples * num_channels * WavpackGetBytesPerSample (wpc);
+        int alignment = file_formats [output_format].chunk_alignment;
+        int bytes_over = (int)(data_chunk_bytes % alignment);
+        int pcount = bytes_over ? alignment - bytes_over : 0;
+
+        padding_bytes = pcount;
+
+        while (pcount--)
+            if (!DoWriteFile (outfile, "", 1, &bcount) || bcount != 1) {
+                error_line ("can't write .WAV data, disk probably full!");
+                DoTruncateFile (outfile);
+                result = WAVPACK_HARD_ERROR;
+            }
+    }
+
     if (!check_break () && calc_md5) {
         char md5_string1 [] = "00000000000000000000000000000000";
         char md5_string2 [] = "00000000000000000000000000000000";
@@ -1305,21 +1324,29 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         error_line ("unpacked md5:  %s", md5_string2);
     }
 
-    while (!created_riff_header && WavpackGetWrapperBytes (wpc)) {
-        int32_t *temp_buffer;
+    // this is where we append any trailing wrapper, assuming that we did not create the header
+    // and that there is actually one stored that came from the original file
 
-        if (outfile && result == WAVPACK_NO_ERROR &&
-            (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
-            bcount != WavpackGetWrapperBytes (wpc))) {
-                error_line ("can't write .WAV data, disk probably full!");
-                DoTruncateFile (outfile);
-                result = WAVPACK_HARD_ERROR;
+    if (outfile && result == WAVPACK_NO_ERROR && !created_riff_header && WavpackGetWrapperBytes (wpc)) {
+        unsigned char *wrapper_data = WavpackGetWrapperData (wpc);
+        int wrapper_bytes = WavpackGetWrapperBytes (wpc);
+
+        // This is an odd case. Older versions of WavPack would store any data chunk padding bytes as
+        // wrapper, but now we're generating them above based on the chunk size. To correctly handle
+        // the former case, we'll eat an appropriate number of NULL wrapper bytes here.
+
+        while (padding_bytes-- && wrapper_bytes && !*wrapper_data) {
+            wrapper_bytes--;
+            wrapper_data++;
+        }
+
+        if (!DoWriteFile (outfile, wrapper_data, wrapper_bytes, &bcount) || bcount != wrapper_bytes) {
+            error_line ("can't write .WAV data, disk probably full!");
+            DoTruncateFile (outfile);
+            result = WAVPACK_HARD_ERROR;
         }
 
         WavpackFreeWrapper (wpc);
-        temp_buffer = malloc (sizeof (temp_buffer [0] * num_channels));
-        WavpackUnpackSamples (wpc, temp_buffer, 1); // perhaps there's more RIFF info...
-        free (temp_buffer);
     }
 
     if (result == WAVPACK_NO_ERROR && outfile && created_riff_header &&
