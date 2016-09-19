@@ -38,7 +38,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
 int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
 {
     WavpackStream *wps = wpc->streams ? wpc->streams [wpc->current_stream = 0] : NULL;
-    uint32_t bcount, samples_to_skip;
+    uint32_t bcount, samples_to_skip, samples_to_decode = 0;
     int32_t *buffer;
 
     if (wpc->total_samples == -1 || sample >= wpc->total_samples ||
@@ -49,6 +49,19 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
 #ifdef ENABLE_LEGACY
     if (wpc->stream3)
         return seek_sample3 (wpc, (uint32_t) sample);
+#endif
+
+#ifdef ENABLE_DSD
+    if (wpc->decimation_context) {      // the decimation code needs some context to be sample accurate
+        if (sample < 16) {
+            samples_to_decode = (uint32_t) sample;
+            sample = 0;
+        }
+        else {
+            samples_to_decode = 16;
+            sample -= 16;
+        }
+    }
 #endif
 
     if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) || sample < GET_BLOCK_INDEX (wps->wphdr) ||
@@ -204,6 +217,15 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
 #ifdef ENABLE_DSD
     if (wpc->decimation_context)
         decimate_dsd_reset (wpc->decimation_context);
+
+    if (samples_to_decode) {
+        buffer = malloc (samples_to_decode * wpc->config.num_channels * 4);
+
+        if (buffer) {
+            WavpackUnpackSamples (wpc, buffer, samples_to_decode);
+            free (buffer);
+        }
+    }
 #endif
 
     return TRUE;
