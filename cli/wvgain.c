@@ -109,6 +109,9 @@ static int update_file (char *infilename, float track_gain, float track_peak, fl
 static int analyze_file (char *infilename, uint32_t *histogram, float *peak);
 static int show_file_info (char *infilename, FILE *dst);
 static float calc_replaygain (uint32_t *histogram);
+static void *decimation_init (int num_channels, int ratio);
+static int decimation_run (void *context, int32_t *samples, int num_samples);
+static void *decimation_destroy (void *context);
 static void display_progress (double file_progress);
 
 #ifdef _WIN32
@@ -581,8 +584,9 @@ static void float_samples (float *dst, int32_t *src, uint32_t samcnt, float scal
 static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 {
     int result = WAVPACK_NO_ERROR, open_flags = 0, num_channels, wvc_mode;
+    uint32_t sample_rate, window_samples;
     int64_t total_unpacked_samples = 0;
-    uint32_t window_samples;
+    void *decimation_context = NULL;
     double progress = -1.0;
     int32_t *temp_buffer;
     WavpackContext *wpc;
@@ -600,7 +604,7 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
     if (!ignore_wvc)
         open_flags |= OPEN_WVC;
 
-    open_flags |= OPEN_TAGS | OPEN_NORMALIZE;
+    open_flags |= OPEN_TAGS | OPEN_NORMALIZE | OPEN_DSD_AS_PCM;
 
     wpc = WavpackOpenFileInput (infilename, error, open_flags, 0);
 
@@ -623,10 +627,21 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
         fflush (stderr);
     }
 
-    window_samples = WavpackGetSampleRate (wpc) / 20;
-    temp_buffer = malloc (window_samples * 8);
+    sample_rate = WavpackGetSampleRate (wpc);
 
-    if (!filter_init (WavpackGetSampleRate (wpc)))
+    if (sample_rate >= 256000) {
+        decimation_context = decimation_init (num_channels, 4);
+        sample_rate /= 4;
+    }
+
+    window_samples = sample_rate / 20;
+
+    if (decimation_context)
+        temp_buffer = malloc (window_samples * 8 * 4);
+    else
+        temp_buffer = malloc (window_samples * 8);
+
+    if (!filter_init (sample_rate))
         result = WAVPACK_SOFT_ERROR;
 
     while (result == WAVPACK_NO_ERROR) {
@@ -634,8 +649,16 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
         int32_t level;
 
         samples_to_unpack = window_samples;
-        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
-        total_unpacked_samples += samples_unpacked;
+
+        if (decimation_context) {
+            samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack * 4);
+            total_unpacked_samples += samples_unpacked;
+            samples_unpacked = decimation_run (decimation_context, temp_buffer, samples_unpacked);
+        }
+        else {
+            samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack);
+            total_unpacked_samples += samples_unpacked;
+        }
 
         if (samples_unpacked) {
             if (!(WavpackGetMode (wpc) & MODE_FLOAT))
@@ -710,6 +733,9 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
     }
 
     free (temp_buffer);
+
+    if (decimation_context)
+        decimation_destroy (decimation_context);
 
     if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples64 (wpc) != -1 &&
         total_unpacked_samples != WavpackGetNumSamples64 (wpc)) {
@@ -1270,6 +1296,96 @@ static double calc_stereo_rms (float *samples, uint32_t samcnt)
     }
 
     return 10 * log10 (sum / samcnt) + 90.0 - 3.0;
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+// Decimation code for properly handling DSD or PCM sample rates >= 256,000 Hz //
+/////////////////////////////////////////////////////////////////////////////////
+
+// sinc low-pass filter, cutoff = fs/12, 80 terms
+
+static int32_t filter [] = {
+    50, 464, 968, 711, -1203, -5028, -9818, -13376,
+    -12870, -6021, 7526, 25238, 41688, 49778, 43050, 18447,
+    -21428, -67553, -105876, -120890, -100640, -41752, 47201, 145510,
+    224022, 252377, 208224, 86014, -97312, -301919, -470919, -541796,
+    -461126, -199113, 239795, 813326, 1446343, 2043793, 2509064, 2763659,
+    2763659, 2509064, 2043793, 1446343, 813326, 239795, -199113, -461126,
+    -541796, -470919, -301919, -97312, 86014, 208224, 252377, 224022,
+    145510, 47201, -41752, -100640, -120890, -105876, -67553, -21428,
+    18447, 43050, 49778, 41688, 25238, 7526, -6021, -12870,
+    -13376, -9818, -5028, -1203, 711, 968, 464, 50
+};
+
+#define NUM_TERMS ((int)(sizeof (filter) / sizeof (filter [0])))
+
+typedef struct chan_state {
+    int delay [NUM_TERMS], index, num_channels, ratio;
+} ChanState;
+
+static void *decimation_init (int num_channels, int ratio)
+{
+    ChanState *sp = malloc (sizeof (ChanState) * num_channels);
+    int i;
+
+    if (sp) {
+        memset (sp, 0, sizeof (ChanState) * num_channels);
+
+        for (i = 0; i < num_channels; ++i) {
+            sp [i].num_channels = num_channels;
+            sp [i].index = NUM_TERMS - ratio;
+            sp [i].ratio = ratio;
+        }
+    }
+
+    return sp;
+}
+
+static int decimation_run (void *context, int32_t *samples, int num_samples)
+{
+    int32_t *in_samples = samples, *out_samples = samples;
+    ChanState *sp = (ChanState *) context;
+    int num_channels, ratio, chan;
+
+    if (!sp)
+        return 0;
+
+    num_channels = sp->num_channels;
+    ratio = sp->ratio;
+    chan = 0;
+
+    while (num_samples) {
+        sp = ((ChanState *) context) + chan;
+
+        sp->delay [sp->index++] = *in_samples++;
+
+        if (sp->index == NUM_TERMS) {
+            int64_t sum = 0;
+            int i;
+
+            for (i = 0; i < NUM_TERMS; ++i)
+                sum += (int64_t) filter [i] * sp->delay [i];
+
+            *out_samples++ = (int32_t)(sum >> 24);
+            memmove (sp->delay, sp->delay + ratio, sizeof (sp->delay [0]) * (NUM_TERMS - ratio));
+            sp->index = NUM_TERMS - ratio;
+        }
+
+        if (++chan == num_channels) {
+            num_samples--;
+            chan = 0;
+        }
+    }
+
+    return (int)(out_samples - samples) / num_channels;
+}
+
+static void *decimation_destroy (void *context)
+{
+    if (context)
+        free (context);
+
+    return NULL;
 }
 
 #ifdef _WIN32
