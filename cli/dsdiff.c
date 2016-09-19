@@ -242,10 +242,17 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                     }
                 }
 
+                if (chanMask && (config->channel_mask || (config->qmode & QMODE_CHANS_UNASSIGNED))) {
+                    error_line ("this DSDIFF file already has channel order information!");
+                    free (prop_chunk);
+                    return WAVPACK_SOFT_ERROR;
+                }
+                else if (chanMask)
+                    config->channel_mask = chanMask;
+
                 config->bits_per_sample = 8;
                 config->bytes_per_sample = 1;
                 config->num_channels = numChannels;
-                config->channel_mask = chanMask;
                 config->sample_rate = sampleRate / 8;
                 config->qmode |= QMODE_DSD_MSB_FIRST;
             }

@@ -212,7 +212,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 error_line ("this WAV file already has channel order information!");
                 return WAVPACK_SOFT_ERROR;
             }
-            else
+            else if (WaveHeader.ChannelMask)
                 config->channel_mask = WaveHeader.ChannelMask;
 
             if (format == 3)

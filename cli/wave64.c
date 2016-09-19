@@ -179,7 +179,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 error_line ("this W64 file already has channel order information!");
                 return WAVPACK_SOFT_ERROR;
             }
-            else
+            else if (WaveHeader.ChannelMask)
                 config->channel_mask = WaveHeader.ChannelMask;
 
             if (format == 3)

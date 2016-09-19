@@ -101,6 +101,11 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
     }
 #endif
 
+    if (config->channel_mask || (config->qmode & QMODE_CHANS_UNASSIGNED)) {
+        error_line ("this DSF file already has channel order information!");
+        return WAVPACK_SOFT_ERROR;
+    }
+
     if (!DoReadFile (infile, ((char *) &format_chunk), sizeof (DSFFormatChunk), &bcount) ||
         bcount != sizeof (DSFFormatChunk) || strncmp (format_chunk.ckID, "fmt ", 4)) {
             error_line ("%s is not a valid .DSF file!", infilename);
