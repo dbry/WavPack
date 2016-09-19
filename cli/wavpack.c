@@ -792,6 +792,16 @@ int main (int argc, char **argv)
 
     // check for various command-line argument problems
 
+    if (output_spec) {
+        error_line ("no output filename or path specified with -o option!");
+        ++error_count;
+    }
+
+    if (tag_next_arg) {
+        error_line ("no tag specified with %s option!", tag_next_arg == 1 ? "-w" : "--write-binary-tag");
+        ++error_count;
+    }
+
     if (!(~config.flags & (CONFIG_HIGH_FLAG | CONFIG_FAST_FLAG))) {
         error_line ("high and fast modes are mutually exclusive!");
         ++error_count;

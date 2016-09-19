@@ -501,6 +501,11 @@ int main(int argc, char **argv)
 
    // check for various command-line argument problems
 
+    if (output_spec) {
+        error_line ("no output filename or path specified with -o option!");
+        ++error_count;
+    }
+
     if (delete_source && (verify_only || skip.value_is_valid || until.value_is_valid)) {
         error_line ("can't delete in verify mode or when --skip or --until are used!");
         delete_source = 0;
