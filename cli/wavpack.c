@@ -1704,7 +1704,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // for now, raw 1-bit PCM is only DSDIFF format
 
     if (loc_config.qmode & QMODE_RAW_PCM)
-        WavpackSetFileInformation (wpc, "dff", WP_FORMAT_DFF);
+        if (loc_config.qmode & QMODE_DSD_AUDIO)
+            WavpackSetFileInformation (wpc, "dff", WP_FORMAT_DFF);
 
     // if not in "raw" mode, process RIFF form header and set configuration
 
