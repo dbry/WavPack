@@ -336,6 +336,19 @@ static void write_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
 
+// Allocate room for and copy the multichannel identities into the specified
+// metadata structure. Data is an array of unsigned characters representing
+// any channels in the file that DO NOT match one the 18 Microsoft standard
+// channels (and are represented in the channel mask). A value of 0 is not
+// allowed and 0xff means an unknown or undefined channel identity.
+
+static void write_channel_identities_info (WavpackContext *wpc, WavpackMetadata *wpmd)
+{
+    wpmd->byte_length = strlen (wpc->channel_identities);
+    wpmd->data = strdup (wpc->channel_identities);
+    wpmd->id = ID_CHANNEL_IDENTITIES;
+}
+
 // Allocate room for and copy the configuration information into the specified
 // metadata structure. Currently, we just store the upper 3 bytes of
 // config.flags and only in the first block of audio data. Note that this is
@@ -866,6 +879,12 @@ void send_general_metadata (WavpackContext *wpc)
             write_channel_info (wpc, &wpmd);
             copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
             free_metadata (&wpmd);
+
+            if (wpc->channel_identities) {
+                write_channel_identities_info (wpc, &wpmd);
+                copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+                free_metadata (&wpmd);
+            }
     }
 
     if ((flags & INITIAL_BLOCK) && !wps->sample_index) {

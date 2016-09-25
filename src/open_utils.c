@@ -485,6 +485,23 @@ static int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
     return TRUE;
 }
 
+// Read multichannel identity information from metadata. Data is an array of
+// unsigned characters representing any channels in the file that DO NOT
+// match one the 18 Microsoft standard channels (and are represented in the
+// channel mask). A value of 0 is not allowed and 0xff means an unknown or
+// undefined channel identity.
+
+static int read_channel_identities (WavpackContext *wpc, WavpackMetadata *wpmd)
+{
+    if (!wpc->channel_identities) {
+        wpc->channel_identities = malloc (wpmd->byte_length + 1);
+        memcpy (wpc->channel_identities, wpmd->data, wpmd->byte_length);
+        wpc->channel_identities [wpmd->byte_length] = 0;
+    }
+
+    return TRUE;
+}
+
 // Read configuration information from metadata.
 
 static int read_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
@@ -699,6 +716,9 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
 
         case ID_CHANNEL_INFO:
             return read_channel_info (wpc, wpmd);
+
+        case ID_CHANNEL_IDENTITIES:
+            return read_channel_identities (wpc, wpmd);
 
         case ID_CONFIG_BLOCK:
             return read_config_info (wpc, wpmd);

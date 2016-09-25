@@ -351,6 +351,7 @@ int WavpackGetChannelMask (WavpackContext *wpc);
 int WavpackGetReducedChannels (WavpackContext *wpc);
 int WavpackGetFloatNormExp (WavpackContext *wpc);
 int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
+void WavpackGetChannelIdentities (WavpackContext *wpc, unsigned char *identities);
 uint32_t WavpackGetChannelLayout (WavpackContext *wpc, unsigned char *reorder);
 uint32_t WavpackGetWrapperBytes (WavpackContext *wpc);
 unsigned char *WavpackGetWrapperData (WavpackContext *wpc);
@@ -385,6 +386,7 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
 int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples);
 int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder);
+int WavpackSetChannelIdentities (WavpackContext *wpc, const unsigned char *identities);
 int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
 int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 int WavpackPackInit (WavpackContext *wpc);

@@ -333,6 +333,11 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
 // then the appropriate qmode bit must be set to ensure that any MD5 sum is stored with a new
 // ID so that old decoders don't try to verify it (and to let the decoder know that a reorder
 // might be required).
+//
+// Note: This function should only be used to encode Core Audio files in such a way that a
+// verbatim archive can be created. Applications can just call WavpackSetChannelIdentities()
+// if there are non-Microsoft channels to specify, or neither of these functions if only
+// Microsoft channels are present.
 
 int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder)
 {
@@ -361,6 +366,67 @@ int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const uns
             for (i = 0; i < nchans; ++i)
                 wpc->channel_reordering [i] = reorder [i] - min_index;
     }
+
+    return TRUE;
+}
+
+// This function allows setting the identities of any channels that are NOT standard
+// Microsoft channels and are therefore not represented in the channel mask. WavPack
+// files require that all the Microsoft channels come first (and in Microsoft order)
+// and these are followed by any other channels (which can be in any order).
+//
+// The identities are provided in a NULL-terminated string (0x00 is not an allowed
+// channel ID). The Microsoft channels may be provided as well (and will be checked)
+// but it is really only neccessary to provide the "unknown" channels. Any truly
+// unknown channels are indicated with a 0xFF. A return value of FALSE indicates
+// something is wrong with the string.
+//
+// The channel IDs so far reserved are listed here:
+//
+// 0:           not allowed / terminator
+// 1 - 18:      Microsoft standard channels
+// 30, 31:      Stereo mix from RF64 (not really recommended, but RF64 specifies this)
+// 33 - 44:     Core Audio channels (see Core Audio specification)
+// 200 - 207:   Core Audio channels (see Core Audio specification)
+// 221 - 224:   Core Audio channels 301 - 305 (offset by 80)
+// 255:         Present but unknown or unused channel
+//
+// All other channel IDs are reserved, but some will be filled in with VST3 and
+// Adobe Amio values soon.
+
+int WavpackSetChannelIdentities (WavpackContext *wpc, const unsigned char *identities)
+{
+    const unsigned char *sptr = identities;
+    int lastchan = 0;
+
+    if (wpc->channel_identities) {      // free any existing string (should not really happen)
+        free (wpc->channel_identities);
+        wpc->channel_identities = NULL;
+    }
+
+    if (!identities)                    // specifying NULL is okay (but not really required)
+        return TRUE;
+
+    if (strlen (identities) > wpc->config.num_channels) // can't be more than num channels!
+        return FALSE;
+
+    // skip past channels that are specified in the channel mask (no reason to store those)
+
+    while (*sptr)
+        if (*sptr <= 32 && *sptr > lastchan && (wpc->config.channel_mask & (1 << *sptr)))
+            lastchan = *sptr++;
+        else
+            break;
+
+    identities = sptr;
+
+    // now scan the string for an actually defined channel (and don't store if there aren't any)
+
+    while (*sptr)
+        if (*sptr++ != 0xff) {
+            wpc->channel_identities = strdup (identities);
+            break;
+        }
 
     return TRUE;
 }

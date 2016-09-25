@@ -254,6 +254,7 @@ typedef struct {
 #define ID_ALT_EXTENSION        (ID_OPTIONAL_DATA | 0x8)
 #define ID_ALT_MD5_CHECKSUM     (ID_OPTIONAL_DATA | 0x9)
 #define ID_NEW_CONFIG_BLOCK     (ID_OPTIONAL_DATA | 0xa)
+#define ID_CHANNEL_IDENTITIES   (ID_OPTIONAL_DATA | 0xb)
 #define ID_BLOCK_CHECKSUM       (ID_OPTIONAL_DATA | 0xf)
 
 ///////////////////////// WavPack Configuration ///////////////////////////////
@@ -500,7 +501,7 @@ typedef struct {
     void *stream3;
 
     // these items were added in 5.0 to support alternate file types (especially CAF & DSD)
-    unsigned char file_format, *channel_reordering;
+    unsigned char file_format, *channel_reordering, *channel_identities;
     uint32_t channel_layout, dsd_multiplier;
     void *decimation_context;
     char file_extension [8];

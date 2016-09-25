@@ -292,6 +292,13 @@ double WavpackGetInstantBitrate (WavpackContext *wpc)
 // then that much space must be allocated. Note that all the reordering is actually done
 // outside of this library, and that if reordering is done then the appropriate qmode bit
 // will be set.
+//
+// Note: Normally this function would not be used by an application unless it specifically
+// wanted to restore a non-standard channel order (to check an MD5, for example) or obtain
+// the Core Audio channel layout ID. For simple file decoding for playback, the channel_mask
+// should provide all the information required unless there are non-Microsoft channels
+// involved, in which case WavpackGetChannelIdentities() will provide the identities of
+// the other channels (if they are known).
 
 uint32_t WavpackGetChannelLayout (WavpackContext *wpc, unsigned char *reorder)
 {
@@ -299,6 +306,42 @@ uint32_t WavpackGetChannelLayout (WavpackContext *wpc, unsigned char *reorder)
         memcpy (reorder, wpc->channel_reordering, wpc->channel_layout & 0xff);
 
     return wpc->channel_layout;
+}
+
+// This function provides the identities of ALL the channels in the file, including the
+// standard Microsoft channels (which come first, in order, and are numbered 1-18) and also
+// any non-Microsoft channels (which can be in any order and have values from 33-254). The
+// value 0x00 is not allowed (but the string is NOT NULL terminated) and 0xFF indicates an
+// "unknown" or "unnassigned" channel. The caller must supply enough space for the number
+// of channels indicated by WavpackGetNumChannels().
+//
+// Note that this function returns the actual order of the channels in the Wavpack file
+// (i.e., the order returned by WavpackUnpackSamples()). If the file includes a "reordering"
+// string because the source file was not in Microsoft order that is NOT taken into account
+// here and really only needs to be considered if doing an MD5 verification or if it's
+// required to restore the original order/file (like wvunpack does).
+
+void WavpackGetChannelIdentities (WavpackContext *wpc, unsigned char *identities)
+{
+    int num_channels = wpc->config.num_channels, index = 1;
+    uint32_t channel_mask = wpc->config.channel_mask;
+    unsigned char *src = wpc->channel_identities;
+
+    while (num_channels--) {
+        if (channel_mask) {
+            while (!(channel_mask & 1)) {
+                channel_mask >>= 1;
+                index++;
+            }
+
+            *identities++ = index++;
+            channel_mask >>= 1;
+        }
+        else if (src && *src)
+            *identities++ = *src++;
+        else
+            *identities++ = 0xff;
+    }
 }
 
 // Close the specified WavPack file and release all resources used by it.
