@@ -1201,7 +1201,7 @@ int WavpackVerifySingleBlock (unsigned char *buffer)
 #else
             unsigned char *csptr = buffer;
 #endif
-            int wcount = (dp - 2 - buffer) >> 1;
+            int wcount = (int)(dp - 2 - buffer) >> 1;
             uint32_t csum = (uint32_t) -1;
 
             if ((meta_id & ID_ODD_SIZE) || meta_bc < 2 || meta_bc > 4)

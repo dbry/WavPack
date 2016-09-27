@@ -28,6 +28,7 @@
 // Version 2.13 - Sept 29, 2015 (library ver 4.75.2)
 // Version 2.14 - Mar 28, 2016 (library ver 4.80.0)
 // Version 2.15a - Aug 26, 2016 (library ver 5.0.0-alpha4, DSD read with 8x decimation)
+// Version 2.15b - Sept 27, 2016 (library ver 5.0.0-alpha5, new "high" DSD)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -922,7 +923,7 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
 
                 case IDABOUT:
                     MessageBox (hDlg,
-                        "WavPack Filter Version 2.15a\n"
+                        "WavPack Filter Version 2.15b\n"
                         "Copyright (c) 2016 David Bryant  ", "About WavPack Filter", MB_OK);
                     break;
             }

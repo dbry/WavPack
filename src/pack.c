@@ -344,7 +344,7 @@ static void write_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 
 static void write_channel_identities_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
-    wpmd->byte_length = strlen (wpc->channel_identities);
+    wpmd->byte_length = (int) strlen (wpc->channel_identities);
     wpmd->data = strdup (wpc->channel_identities);
     wpmd->id = ID_CHANNEL_IDENTITIES;
 }

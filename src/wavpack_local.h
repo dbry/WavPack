@@ -12,6 +12,7 @@
 #define WAVPACK_LOCAL_H
 
 #if defined(_WIN32)
+#define strdup(x) _strdup(x)
 #define FASTCALL __fastcall
 #else
 #define FASTCALL
@@ -821,6 +822,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
 int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample);
 int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 
+int WavpackVerifySingleBlock (unsigned char *buffer);
 uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr);
 int read_wvc_block (WavpackContext *wpc);
 

@@ -280,7 +280,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     if (chan_ids) {
         int lastchan = 0;
 
-        if (strlen (chan_ids) > num_chans) {          // can't be more than num channels!
+        if ((int) strlen (chan_ids) > num_chans) {          // can't be more than num channels!
             strcpy (wpc->error_message, "chan_ids longer than num channels!");
             return FALSE;
         }
@@ -1336,7 +1336,7 @@ static void block_update_checksum (unsigned char *buffer_start)
 #else
             unsigned char *csptr = buffer_start;
 #endif
-            int wcount = (dp - 2 - buffer_start) >> 1;
+            int wcount = (int)(dp - 2 - buffer_start) >> 1;
             uint32_t csum = (uint32_t) -1;
 
             if ((meta_id & ID_ODD_SIZE) || meta_bc < 2 || meta_bc > 4)
