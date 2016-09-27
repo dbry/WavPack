@@ -854,7 +854,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
     }
 
-    WavpackSetConfiguration64 (out_wpc, &wpconfig, -1);
+    WavpackSetConfiguration64 (out_wpc, &wpconfig, -1, NULL);
     WavpackPackInit (out_wpc);
 
     while (seconds < num_seconds) {

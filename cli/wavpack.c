@@ -1539,7 +1539,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 loc_config.channel_mask = 0x3ffff;
         }
 
-        if (!WavpackSetConfiguration64 (wpc, &loc_config, total_samples)) {
+        if (!WavpackSetConfiguration64 (wpc, &loc_config, total_samples, NULL)) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             DoCloseHandle (infile);
             WavpackCloseFile (wpc);
@@ -2478,6 +2478,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     WavpackContext *infile, *outfile;
     write_id wv_file, wvc_file;
     int64_t total_samples = 0;
+    unsigned char *chan_ids;
     char error [80];
     double dtime;
     int result;
@@ -2687,6 +2688,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     loc_config.num_channels = WavpackGetNumChannels (infile);
     loc_config.sample_rate = WavpackGetSampleRate (infile);
     loc_config.qmode |= WavpackGetQualifyMode (infile);
+    chan_ids = malloc (loc_config.num_channels + 1);
+    WavpackGetChannelIdentities (infile, chan_ids);
 
     if (input_mode & MODE_FLOAT)
         loc_config.float_norm_exp = WavpackGetFloatNormExp (infile);
@@ -2694,7 +2697,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     if (input_mode & MODE_MD5)
         loc_config.flags |= CONFIG_MD5_CHECKSUM;
 
-    if (!WavpackSetConfiguration64 (outfile, &loc_config, total_samples)) {
+    if (!WavpackSetConfiguration64 (outfile, &loc_config, total_samples, chan_ids)) {
         error_line ("%s", WavpackGetErrorMessage (outfile));
         WavpackCloseFile (infile);
         DoCloseHandle (wv_file.file);
@@ -2702,6 +2705,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         WavpackCloseFile (outfile);
         return WAVPACK_SOFT_ERROR;
     }
+
+    free (chan_ids);
 
     if (loc_config.qmode & QMODE_REORDERED_CHANS) {
         uint32_t layout = WavpackGetChannelLayout (infile, NULL);

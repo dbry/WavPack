@@ -120,28 +120,62 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 // a RIFF header has been included then it should be updated as well or the
 // WavPack file will not be directly unpackable to a valid wav file (although
 // it will still be usable by itself). A return of FALSE indicates an error.
+//
+// The enhanced version of this function now allows setting the identities of
+// any channels that are NOT standard Microsoft channels and are therefore not
+// represented in the channel mask. WavPack files require that all the Microsoft
+// channels come first (and in Microsoft order) and these are followed by any
+// other channels (which can be in any order).
+//
+// The identities are provided in a NULL-terminated string (0x00 is not an allowed
+// channel ID). The Microsoft channels may be provided as well (and will be checked)
+// but it is really only neccessary to provide the "unknown" channels. Any truly
+// unknown channels are indicated with a 0xFF.
+//
+// The channel IDs so far reserved are listed here:
+//
+// 0:           not allowed / terminator
+// 1 - 18:      Microsoft standard channels
+// 30, 31:      Stereo mix from RF64 (not really recommended, but RF64 specifies this)
+// 33 - 44:     Core Audio channels (see Core Audio specification)
+// 200 - 207:   Core Audio channels (see Core Audio specification)
+// 221 - 224:   Core Audio channels 301 - 305 (offset by 80)
+// 255:         Present but unknown or unused channel
+//
+// All other channel IDs are reserved, but some will be filled in with VST3 and
+// Adobe Amio values soon.
 
-static const uint32_t stereo_pairings [] = {
-    (1 << 0) | (1 << 1),        // FL, FR
-    (1 << 4) | (1 << 5),        // BL, BR
-    (1 << 6) | (1 << 7),        // FLC, FRC
-    (1 << 9) | (1 << 10),       // SL, SR
-    (1 << 12) | (1 << 14),      // TFL, TFR
-    (1 << 15) | (1 << 17),      // TBL, TBR
-    (1 << 29) | (1 << 30)       // stereo mix L,R (RF64)
+// Table of channels that will automatically "pair" into a single stereo stream
+
+static const struct { unsigned char lc, rc; } stereo_pairs [] = {
+    { 1, 2 },       // FL, FR
+    { 5, 6 },       // BL, BR
+    { 7, 8 },       // FLC, FRC
+    { 10, 11 },     // SL, SR
+    { 13, 15 },     // TFL, TFR
+    { 16, 18 },     // TBL, TBR
+    { 30, 31 },     // stereo mix L,R (RF64)
+    { 33, 34 },     // Rls, Rrs
+    { 35, 36 },     // Lw, Rw
+    { 38, 39 },     // Lt, Rt
+    { 200, 201 },   // Amb_W, Amb_X
+    { 202, 203 },   // Amb_Y, Amb_Z
+    { 204, 205 },   // MS_Mid, MS_Side
+    { 206, 207 },   // XY_X, XY_Y
+    { 221, 222 },   // Hph_L, Hph_R
 };
 
-#define NUM_STEREO_PAIRINGS (sizeof (stereo_pairings) / sizeof (stereo_pairings [0]))
+#define NUM_STEREO_PAIRS (sizeof (stereo_pairs) / sizeof (stereo_pairs [0]))
 
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples)
 {
     if (total_samples == (uint32_t) -1)
-        return WavpackSetConfiguration64 (wpc, config, -1);
+        return WavpackSetConfiguration64 (wpc, config, -1, NULL);
     else
-        return WavpackSetConfiguration64 (wpc, config, total_samples);
+        return WavpackSetConfiguration64 (wpc, config, total_samples, NULL);
 }
 
-int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples)
+int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids)
 {
     uint32_t flags, bps = 0, shift = 0;
     uint32_t chan_mask = config->channel_mask;
@@ -240,48 +274,93 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
             wpc->wvc_flag = TRUE;
     }
 
+    // if a channel-identities string was specified, process that here, otherwise all channels
+    // not present in the channel mask are considered "unassigned"
+
+    if (chan_ids) {
+        int lastchan = 0;
+
+        if (strlen (chan_ids) > num_chans) {          // can't be more than num channels!
+            strcpy (wpc->error_message, "chan_ids longer than num channels!");
+            return FALSE;
+        }
+
+        // skip past channels that are specified in the channel mask (no reason to store those)
+        // TODO: there's a lot more checking we could do here
+
+        while (*chan_ids)
+            if (*chan_ids <= 32 && *chan_ids > lastchan && (chan_mask & (1 << (*chan_ids-1))))
+                lastchan = *chan_ids++;
+            else
+                break;
+
+        // now scan the string for an actually defined channel (and don't store if there aren't any)
+
+        for (i = 0; chan_ids [i]; i++)
+            if (chan_ids [i] != 0xff) {
+                wpc->channel_identities = strdup (chan_ids);
+                break;
+            }
+    }
+
+    // This loop goes through all the channels and creates the Wavpack "streams" for them to go in.
+    // A stream can hold either one or two channels, so we have several rules to determine how many
+    // channels will go in each stream.
+
     for (wpc->current_stream = 0; num_chans; wpc->current_stream++) {
         WavpackStream *wps = malloc (sizeof (WavpackStream));
-        uint32_t stereo_mask = 0, mono_mask = 0;
-        int pos, chans = 0;
+        unsigned char left_chan_id = 0, right_chan_id = 0;
+        int pos, chans = 1;
 
+        // allocate the stream and initialize the pointer to it
         wpc->streams = realloc (wpc->streams, (wpc->current_stream + 1) * sizeof (wpc->streams [0]));
         wpc->streams [wpc->current_stream] = wps;
         CLEAR (*wps);
 
-        for (pos = 0; pos < 32; ++pos)
-            if (chan_mask & (1 << pos)) {
-                if (mono_mask) {
-                    stereo_mask = mono_mask | (1 << pos);
-                    break;
-                }
-                else
-                    mono_mask = 1 << pos;
-            }
-
-        if (num_chans > 1 && stereo_mask) {
-            for (i = 0; i < NUM_STEREO_PAIRINGS; ++i)
-                if (stereo_mask == stereo_pairings [i]) {
-                    chan_mask &= ~stereo_mask;
-                    chans = 2;
-                    break;
+        // if there are any bits [still] set in the channel_mask, get the next one or two IDs from there
+        if (chan_mask)
+            for (pos = 0; pos < 32; ++pos)
+                if (chan_mask & (1 << pos)) {
+                    if (left_chan_id) {
+                        right_chan_id = pos + 1;
+                        break;
+                    }
+                    else {
+                        chan_mask &= ~(1 << pos);
+                        left_chan_id = pos + 1;
+                    }
                 }
 
-            if (i == NUM_STEREO_PAIRINGS) {
-                chan_mask &= ~mono_mask;
-                chans = 1;
-            }
-        }
-        else if (mono_mask) {
-            chan_mask &= ~mono_mask;
-            chans = 1;
-        }
-
-        if (!chans) {
-            if (config->flags & CONFIG_PAIR_UNDEF_CHANS)
-                chans = num_chans > 1 ? 2 : 1;
+        // next check for any channels identified in the channel-identities string
+        while (!right_chan_id && chan_ids && *chan_ids)
+            if (left_chan_id)
+                right_chan_id = *chan_ids;
             else
-                chans = 1;
+                left_chan_id = *chan_ids++;
+
+        // assume anything we did not get is "unassigned"
+        if (!left_chan_id)
+            left_chan_id = right_chan_id = 0xff;
+        else if (!right_chan_id)
+            right_chan_id = 0xff;
+
+        // if we have 2 channels, this is where we decide if we can combine them into one stream:
+        // 1. they are "unassigned" and we've been told to combine unassigned pairs, or
+        // 2. they appear together in the valid "pairings" list
+        if (num_chans >= 2) {
+            if ((config->flags & CONFIG_PAIR_UNDEF_CHANS) && left_chan_id == 0xff && right_chan_id == 0xff)
+                chans = 2;
+            else
+                for (i = 0; i < NUM_STEREO_PAIRS; ++i)
+                    if (left_chan_id == stereo_pairs [i].lc && right_chan_id == stereo_pairs [i].rc) {
+                        if (right_chan_id <= 32 && (chan_mask & (1 << (right_chan_id-1))))
+                            chan_mask &= ~(1 << (right_chan_id-1));
+                        else if (chan_ids && *chan_ids == right_chan_id)
+                            chan_ids++;
+
+                        chans = 2;
+                        break;
+                    }
         }
 
         num_chans -= chans;
@@ -366,67 +445,6 @@ int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const uns
             for (i = 0; i < nchans; ++i)
                 wpc->channel_reordering [i] = reorder [i] - min_index;
     }
-
-    return TRUE;
-}
-
-// This function allows setting the identities of any channels that are NOT standard
-// Microsoft channels and are therefore not represented in the channel mask. WavPack
-// files require that all the Microsoft channels come first (and in Microsoft order)
-// and these are followed by any other channels (which can be in any order).
-//
-// The identities are provided in a NULL-terminated string (0x00 is not an allowed
-// channel ID). The Microsoft channels may be provided as well (and will be checked)
-// but it is really only neccessary to provide the "unknown" channels. Any truly
-// unknown channels are indicated with a 0xFF. A return value of FALSE indicates
-// something is wrong with the string.
-//
-// The channel IDs so far reserved are listed here:
-//
-// 0:           not allowed / terminator
-// 1 - 18:      Microsoft standard channels
-// 30, 31:      Stereo mix from RF64 (not really recommended, but RF64 specifies this)
-// 33 - 44:     Core Audio channels (see Core Audio specification)
-// 200 - 207:   Core Audio channels (see Core Audio specification)
-// 221 - 224:   Core Audio channels 301 - 305 (offset by 80)
-// 255:         Present but unknown or unused channel
-//
-// All other channel IDs are reserved, but some will be filled in with VST3 and
-// Adobe Amio values soon.
-
-int WavpackSetChannelIdentities (WavpackContext *wpc, const unsigned char *identities)
-{
-    const unsigned char *sptr = identities;
-    int lastchan = 0;
-
-    if (wpc->channel_identities) {      // free any existing string (should not really happen)
-        free (wpc->channel_identities);
-        wpc->channel_identities = NULL;
-    }
-
-    if (!identities)                    // specifying NULL is okay (but not really required)
-        return TRUE;
-
-    if (strlen (identities) > wpc->config.num_channels) // can't be more than num channels!
-        return FALSE;
-
-    // skip past channels that are specified in the channel mask (no reason to store those)
-
-    while (*sptr)
-        if (*sptr <= 32 && *sptr > lastchan && (wpc->config.channel_mask & (1 << *sptr)))
-            lastchan = *sptr++;
-        else
-            break;
-
-    identities = sptr;
-
-    // now scan the string for an actually defined channel (and don't store if there aren't any)
-
-    while (*sptr)
-        if (*sptr++ != 0xff) {
-            wpc->channel_identities = strdup (identities);
-            break;
-        }
 
     return TRUE;
 }

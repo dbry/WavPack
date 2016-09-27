@@ -311,9 +311,9 @@ uint32_t WavpackGetChannelLayout (WavpackContext *wpc, unsigned char *reorder)
 // This function provides the identities of ALL the channels in the file, including the
 // standard Microsoft channels (which come first, in order, and are numbered 1-18) and also
 // any non-Microsoft channels (which can be in any order and have values from 33-254). The
-// value 0x00 is not allowed (but the string is NOT NULL terminated) and 0xFF indicates an
-// "unknown" or "unnassigned" channel. The caller must supply enough space for the number
-// of channels indicated by WavpackGetNumChannels().
+// value 0x00 is invalid and 0xFF indicates an "unknown" or "unnassigned" channel. The
+// string is NULL terminated so the caller must supply enough space for the number
+// of channels indicated by WavpackGetNumChannels(), plus one.
 //
 // Note that this function returns the actual order of the channels in the Wavpack file
 // (i.e., the order returned by WavpackUnpackSamples()). If the file includes a "reordering"
@@ -342,6 +342,8 @@ void WavpackGetChannelIdentities (WavpackContext *wpc, unsigned char *identities
         else
             *identities++ = 0xff;
     }
+
+    *identities = 0;
 }
 
 // Close the specified WavPack file and release all resources used by it.

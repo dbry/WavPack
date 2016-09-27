@@ -261,7 +261,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
         }
     }
 
-    if (!WavpackSetConfiguration64 (wpc, config, total_samples)) {
+    if (!WavpackSetConfiguration64 (wpc, config, total_samples, NULL)) {
         error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }

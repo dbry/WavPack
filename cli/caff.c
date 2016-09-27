@@ -519,10 +519,13 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
     if (!chan_chunk && !config->channel_mask && config->num_channels <= 2 && !(config->qmode & QMODE_CHANS_UNASSIGNED))
         config->channel_mask = 0x5 - config->num_channels;
 
-    if (!WavpackSetConfiguration64 (wpc, config, total_samples)) {
+    if (!WavpackSetConfiguration64 (wpc, config, total_samples, channel_identities)) {
         error_line ("%s", WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }
+
+    if (channel_identities)
+        free (channel_identities);
 
     if (channel_layout || channel_reorder) {
         if (!WavpackSetChannelLayout (wpc, channel_layout, channel_reorder)) {
@@ -532,15 +535,6 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
 
         if (channel_reorder)
             free (channel_reorder);
-    }
-
-    if (channel_identities) {
-        if (!WavpackSetChannelIdentities (wpc, channel_identities)) {
-            error_line ("problem with setting channel identities (should not happen)");
-            return WAVPACK_SOFT_ERROR;
-        }
-
-        free (channel_identities);
     }
 
     return WAVPACK_NO_ERROR;
@@ -561,7 +555,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     int bits_per_sample = WavpackGetBitsPerSample (wpc);
     int float_norm_exp = WavpackGetFloatNormExp (wpc);
     uint32_t channel_layout_tag = WavpackGetChannelLayout (wpc, NULL);
-    unsigned char *channel_identities = malloc (num_channels);
+    unsigned char *channel_identities = malloc (num_channels + 1);
     int num_identified_chans, i;
 
     if (float_norm_exp && float_norm_exp != 127) {

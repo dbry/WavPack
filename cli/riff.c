@@ -305,7 +305,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         }
     }
 
-    if (!WavpackSetConfiguration64 (wpc, config, total_samples)) {
+    if (!WavpackSetConfiguration64 (wpc, config, total_samples, NULL)) {
         error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }

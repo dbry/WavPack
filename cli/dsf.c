@@ -177,7 +177,7 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
     else
         config->qmode |= QMODE_DSD_MSB_FIRST | QMODE_DSD_IN_BLOCKS;
 
-    if (!WavpackSetConfiguration64 (wpc, config, (total_samples + 7) / 8)) {
+    if (!WavpackSetConfiguration64 (wpc, config, (total_samples + 7) / 8, NULL)) {
         error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }
