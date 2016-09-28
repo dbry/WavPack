@@ -280,7 +280,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     if (chan_ids) {
         int lastchan = 0;
 
-        if ((int) strlen (chan_ids) > num_chans) {          // can't be more than num channels!
+        if ((int) strlen ((char *) chan_ids) > num_chans) {          // can't be more than num channels!
             strcpy (wpc->error_message, "chan_ids longer than num channels!");
             return FALSE;
         }
@@ -298,7 +298,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
 
         for (i = 0; chan_ids [i]; i++)
             if (chan_ids [i] != 0xff) {
-                wpc->channel_identities = strdup (chan_ids);
+                wpc->channel_identities = (unsigned char *) strdup ((char *) chan_ids);
                 break;
             }
     }

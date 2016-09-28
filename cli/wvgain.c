@@ -414,9 +414,9 @@ int main(int argc, char **argv)
                 WavpackContext *wpc;
                 char error [80];
 #ifdef _WIN32
-                wpc = WavpackOpenFileInput (matches [file_index], error, OPEN_TAGS | OPEN_FILE_UTF8, 0);
+                wpc = WavpackOpenFileInput (matches [file_index], error, OPEN_TAGS | OPEN_FILE_UTF8 | OPEN_DSD_AS_PCM, 0);
 #else
-                wpc = WavpackOpenFileInput (matches [file_index], error, OPEN_TAGS, 0);
+                wpc = WavpackOpenFileInput (matches [file_index], error, OPEN_TAGS | OPEN_DSD_AS_PCM, 0);
 #endif
                 if (wpc) {
                     int alreadyHasTag = WavpackGetTagItem (wpc, album_mode ? "replaygain_album_gain" : "replaygain_track_gain", NULL, 0);
@@ -764,9 +764,9 @@ static int update_file (char *infilename, float track_gain, float track_peak, fl
     // use library to open WavPack file
 
 #ifdef _WIN32
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_EDIT_TAGS | OPEN_FILE_UTF8, 0);
+    wpc = WavpackOpenFileInput (infilename, error, OPEN_EDIT_TAGS | OPEN_FILE_UTF8 | OPEN_DSD_AS_PCM, 0);
 #else
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_EDIT_TAGS, 0);
+    wpc = WavpackOpenFileInput (infilename, error, OPEN_EDIT_TAGS | OPEN_DSD_AS_PCM, 0);
 #endif
 
     if (!wpc) {
@@ -869,9 +869,9 @@ static int show_file_info (char *infilename, FILE *dst)
     // use library to open WavPack file
 
 #ifdef _WIN32
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_TAGS | OPEN_FILE_UTF8, 0);
+    wpc = WavpackOpenFileInput (infilename, error, OPEN_TAGS | OPEN_FILE_UTF8 | OPEN_DSD_AS_PCM, 0);
 #else
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_TAGS, 0);
+    wpc = WavpackOpenFileInput (infilename, error, OPEN_TAGS | OPEN_DSD_AS_PCM, 0);
 #endif
 
     if (!wpc) {
