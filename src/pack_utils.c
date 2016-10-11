@@ -138,12 +138,13 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 // 1 - 18:      Microsoft standard channels
 // 30, 31:      Stereo mix from RF64 (not really recommended, but RF64 specifies this)
 // 33 - 44:     Core Audio channels (see Core Audio specification)
+// 127 - 128:   Amio LeftHeight, Amio RightHeight
+// 138 - 142:   Amio BottomFrontLeft/Center/Right, Amio ProximityLeft/Right
 // 200 - 207:   Core Audio channels (see Core Audio specification)
 // 221 - 224:   Core Audio channels 301 - 305 (offset by 80)
 // 255:         Present but unknown or unused channel
 //
-// All other channel IDs are reserved, but some will be filled in with VST3 and
-// Adobe Amio values soon.
+// All other channel IDs are reserved. Ask if something you need is missing.
 
 // Table of channels that will automatically "pair" into a single stereo stream
 
@@ -158,6 +159,9 @@ static const struct { unsigned char lc, rc; } stereo_pairs [] = {
     { 33, 34 },     // Rls, Rrs
     { 35, 36 },     // Lw, Rw
     { 38, 39 },     // Lt, Rt
+    { 127, 128 },   // Lh, Rh
+    { 138, 140 },   // Bfl, Bfr
+    { 141, 142 },   // Pl, Pr
     { 200, 201 },   // Amb_W, Amb_X
     { 202, 203 },   // Amb_Y, Amb_Z
     { 204, 205 },   // MS_Mid, MS_Side
@@ -278,7 +282,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     // not present in the channel mask are considered "unassigned"
 
     if (chan_ids) {
-        int lastchan = 0;
+        int lastchan = 0, mask_copy = chan_mask;
 
         if ((int) strlen ((char *) chan_ids) > num_chans) {          // can't be more than num channels!
             strcpy (wpc->error_message, "chan_ids longer than num channels!");
@@ -286,11 +290,12 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         }
 
         // skip past channels that are specified in the channel mask (no reason to store those)
-        // TODO: there's a lot more checking we could do here
 
         while (*chan_ids)
-            if (*chan_ids <= 32 && *chan_ids > lastchan && (chan_mask & (1 << (*chan_ids-1))))
+            if (*chan_ids <= 32 && *chan_ids > lastchan && (mask_copy & (1 << (*chan_ids-1)))) {
+                mask_copy &= ~(1 << (*chan_ids-1));
                 lastchan = *chan_ids++;
+            }
             else
                 break;
 
