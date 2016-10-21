@@ -148,7 +148,7 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 
 // Table of channels that will automatically "pair" into a single stereo stream
 
-static const struct { unsigned char lc, rc; } stereo_pairs [] = {
+static const struct { unsigned char a, b; } stereo_pairs [] = {
     { 1, 2 },       // FL, FR
     { 5, 6 },       // BL, BR
     { 7, 8 },       // FLC, FRC
@@ -357,15 +357,16 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
                 chans = 2;
             else
                 for (i = 0; i < NUM_STEREO_PAIRS; ++i)
-                    if (left_chan_id == stereo_pairs [i].lc && right_chan_id == stereo_pairs [i].rc) {
-                        if (right_chan_id <= 32 && (chan_mask & (1 << (right_chan_id-1))))
-                            chan_mask &= ~(1 << (right_chan_id-1));
-                        else if (chan_ids && *chan_ids == right_chan_id)
-                            chan_ids++;
+                    if ((left_chan_id == stereo_pairs [i].a && right_chan_id == stereo_pairs [i].b) ||
+                        (left_chan_id == stereo_pairs [i].b && right_chan_id == stereo_pairs [i].a)) {
+							if (right_chan_id <= 32 && (chan_mask & (1 << (right_chan_id-1))))
+								chan_mask &= ~(1 << (right_chan_id-1));
+							else if (chan_ids && *chan_ids == right_chan_id)
+								chan_ids++;
 
-                        chans = 2;
-                        break;
-                    }
+							chans = 2;
+							break;
+						}
         }
 
         num_chans -= chans;
