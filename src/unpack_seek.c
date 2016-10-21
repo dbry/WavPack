@@ -85,7 +85,6 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
         wpc->reader->set_pos_abs (wpc->wv_in, wpc->filepos);
         wpc->reader->read_bytes (wpc->wv_in, &wps->wphdr, sizeof (WavpackHeader));
         WavpackLittleEndianToNative (&wps->wphdr, WavpackHeaderFormat);
-        SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
         wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
         memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
@@ -101,13 +100,14 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
             memcpy (wps->blockbuff, &wps->wphdr, 32);
         }
 
+        SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
+        memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
         wps->init_done = FALSE;
 
         if (wpc->wvc_flag) {
             wpc->reader->set_pos_abs (wpc->wvc_in, wpc->file2pos);
             wpc->reader->read_bytes (wpc->wvc_in, &wps->wphdr, sizeof (WavpackHeader));
             WavpackLittleEndianToNative (&wps->wphdr, WavpackHeaderFormat);
-            SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
             wps->block2buff = malloc (wps->wphdr.ckSize + 8);
             memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
 
@@ -122,6 +122,9 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
                 wps->wphdr.block_samples = 0;
                 memcpy (wps->block2buff, &wps->wphdr, 32);
             }
+
+            SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
+            memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
         }
 
         if (!wps->init_done && !unpack_init (wpc)) {

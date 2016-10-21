@@ -120,10 +120,12 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             return WavpackCloseFile (wpc);
         }
 
-        if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // if block does not verify, render it harmless
-            wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+        if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // if block does not verify, flag error, free buffer, and continue
             wps->wphdr.block_samples = 0;
-            memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
+            free (wps->blockbuff);
+            wps->blockbuff = NULL;
+            wpc->crc_errors++;
+            continue;
         }
 
         wps->init_done = FALSE;
@@ -945,6 +947,7 @@ int read_wvc_block (WavpackContext *wpc)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
     int64_t bcount, file2pos;
+    WavpackHeader orig_wphdr;
     WavpackHeader wphdr;
     int compare_result;
 
@@ -957,6 +960,8 @@ int read_wvc_block (WavpackContext *wpc)
             wpc->crc_errors++;
             return FALSE;
         }
+
+        memcpy (&orig_wphdr, &wphdr, 32);       // save original header for verify step
 
         if (wpc->open_flags & OPEN_STREAMING)
             SET_BLOCK_INDEX (wphdr, wps->sample_index = 0);
@@ -972,10 +977,9 @@ int read_wvc_block (WavpackContext *wpc)
             wps->block2buff = malloc (wphdr.ckSize + 8);
 	    if (!wps->block2buff)
 	        return FALSE;
-            memcpy (wps->block2buff, &wphdr, 32);
 
             if (wpc->reader->read_bytes (wpc->wvc_in, wps->block2buff + 32, wphdr.ckSize - 24) !=
-                wphdr.ckSize - 24 || !WavpackVerifySingleBlock (wps->block2buff)) {
+                wphdr.ckSize - 24) {
                     free (wps->block2buff);
                     wps->block2buff = NULL;
                     wps->wvc_skip = TRUE;
@@ -983,7 +987,18 @@ int read_wvc_block (WavpackContext *wpc)
                     return FALSE;
             }
 
+            memcpy (wps->block2buff, &orig_wphdr, 32);
+
+            if (!WavpackVerifySingleBlock (wps->block2buff)) {  // don't use corrupt blocks
+                free (wps->block2buff);
+                wps->block2buff = NULL;
+                wps->wvc_skip = TRUE;
+                wpc->crc_errors++;
+                return TRUE;
+            }
+
             wps->wvc_skip = FALSE;
+            memcpy (wps->block2buff, &wphdr, 32);
             memcpy (&wps->wphdr, &wphdr, 32);
             return TRUE;
         }

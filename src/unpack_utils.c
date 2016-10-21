@@ -69,11 +69,6 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                 wpc->filepos = nexthdrpos + bcount;
 
-                if (wpc->open_flags & OPEN_STREAMING)
-                    SET_BLOCK_INDEX (wps->wphdr, wps->sample_index = 0);
-                else
-                    SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
-
                 // allocate the memory for the entire raw block and read it in
 
                 wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
@@ -97,6 +92,14 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                     memcpy (wps->blockbuff, &wps->wphdr, 32);
                 }
 
+                // potentially adjusting block_index must be done AFTER verifying block
+
+                if (wpc->open_flags & OPEN_STREAMING)
+                    SET_BLOCK_INDEX (wps->wphdr, wps->sample_index = 0);
+                else
+                    SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
+
+                memcpy (wps->blockbuff, &wps->wphdr, 32);
                 wps->init_done = FALSE;     // we have not yet called unpack_init() for this block
 
                 // if this block has audio, but not the sample index we were expecting, flag an error
@@ -211,11 +214,6 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                         break;
                     }
 
-                    if (wpc->open_flags & OPEN_STREAMING)
-                        SET_BLOCK_INDEX (wps->wphdr, wps->sample_index = 0);
-                    else
-                        SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
-
                     wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
 
                     if (!wps->blockbuff)
@@ -236,6 +234,15 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                         wps->wphdr.block_samples = 0;
                         memcpy (wps->blockbuff, &wps->wphdr, 32);
                     }
+
+                    // potentially adjusting block_index must be done AFTER verifying block
+
+                    if (wpc->open_flags & OPEN_STREAMING)
+                        SET_BLOCK_INDEX (wps->wphdr, wps->sample_index = 0);
+                    else
+                        SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
+
+                    memcpy (wps->blockbuff, &wps->wphdr, 32);
 
                     // if this block has audio, and we're in hybrid lossless mode, read the matching wvc block
 
