@@ -470,9 +470,6 @@ void PASCAL CloseFilterOutput (HANDLE hOutput)
             fseek (out->wv_file.file, 0, SEEK_SET);
             fread (block_buff, out->wv_file.first_block_size, 1, out->wv_file.file);
 
-            if (WavpackGetSampleIndex (wpc) != WavpackGetNumSamples (wpc))
-                WavpackUpdateNumSamples (wpc, block_buff);
-
             if (WavpackGetWrapperLocation (block_buff, NULL)) {
                 RiffChunkHeader *riffhdr = WavpackGetWrapperLocation (block_buff, NULL);
                 ChunkHeader *fmthdr = (ChunkHeader *) (riffhdr + 1);
@@ -487,6 +484,10 @@ void PASCAL CloseFilterOutput (HANDLE hOutput)
                 if (!strncmp (datahdr->ckID, "data", 4))
                     datahdr->ckSize = datasize;
             }
+
+            // this must be done last (and unconditionally) to ensure block checksum is updated correctly
+
+            WavpackUpdateNumSamples (wpc, block_buff);
 
             fseek (out->wv_file.file, 0, SEEK_SET);
             fwrite (block_buff, out->wv_file.first_block_size, 1, out->wv_file.file);
