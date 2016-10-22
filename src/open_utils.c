@@ -130,8 +130,10 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
 
         wps->init_done = FALSE;
 
-        if (wps->wphdr.block_samples && !(flags & OPEN_STREAMING)) {
-            if (GET_BLOCK_INDEX (wps->wphdr) || GET_TOTAL_SAMPLES (wps->wphdr) == -1) {
+        if (wps->wphdr.block_samples) {
+            if (flags & OPEN_STREAMING)
+                SET_BLOCK_INDEX (wps->wphdr, 0);
+            else if (GET_BLOCK_INDEX (wps->wphdr) || GET_TOTAL_SAMPLES (wps->wphdr) == -1) {
                 wpc->initial_index = GET_BLOCK_INDEX (wps->wphdr);
                 SET_BLOCK_INDEX (wps->wphdr, 0);
 
@@ -929,7 +931,7 @@ static int match_wvc_header (WavpackHeader *wv_hdr, WavpackHeader *wvc_hdr)
             return (wvci - wvi < 0) ? 1 : -1;
         }
 
-    if (GET_BLOCK_INDEX (*wvc_hdr) > GET_BLOCK_INDEX (*wv_hdr))
+    if (((GET_BLOCK_INDEX (*wvc_hdr) - GET_BLOCK_INDEX (*wv_hdr)) << 24) < 0)
         return 1;
     else
         return -1;
