@@ -86,7 +86,8 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                         break;
                 }
 
-                if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // render corrupt blocks harmless
+                // render corrupt blocks harmless
+                if (!WavpackVerifySingleBlock (wps->blockbuff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
                     wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
                     wps->wphdr.block_samples = 0;
                     memcpy (wps->blockbuff, &wps->wphdr, 32);
@@ -229,7 +230,8 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                             break;
                     }
 
-                    if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // render corrupt blocks harmless
+                    // render corrupt blocks harmless
+                    if (!WavpackVerifySingleBlock (wps->blockbuff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
                         wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
                         wps->wphdr.block_samples = 0;
                         memcpy (wps->blockbuff, &wps->wphdr, 32);

@@ -1032,7 +1032,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             open_flags |= OPEN_WRAPPER;
 
     if (blind_decode)
-        open_flags |= OPEN_STREAMING;
+        open_flags |= OPEN_STREAMING | OPEN_NO_CHECKSUM;
 
     if (!ignore_wvc)
         open_flags |= OPEN_WVC;

@@ -120,7 +120,8 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             return WavpackCloseFile (wpc);
         }
 
-        if (!WavpackVerifySingleBlock (wps->blockbuff)) {       // if block does not verify, flag error, free buffer, and continue
+        // if block does not verify, flag error, free buffer, and continue
+        if (!WavpackVerifySingleBlock (wps->blockbuff, !(flags & OPEN_NO_CHECKSUM))) {
             wps->wphdr.block_samples = 0;
             free (wps->blockbuff);
             wps->blockbuff = NULL;
@@ -991,7 +992,8 @@ int read_wvc_block (WavpackContext *wpc)
 
             memcpy (wps->block2buff, &orig_wphdr, 32);
 
-            if (!WavpackVerifySingleBlock (wps->block2buff)) {  // don't use corrupt blocks
+            // don't use corrupt blocks
+            if (!WavpackVerifySingleBlock (wps->block2buff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
                 free (wps->block2buff);
                 wps->block2buff = NULL;
                 wps->wvc_skip = TRUE;
@@ -1180,7 +1182,7 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
 // then it is checked, otherwise we just check that all the metadata blocks are formatted
 // correctly (without looking at their contents). Returns FALSE for bad block.
 
-int WavpackVerifySingleBlock (unsigned char *buffer)
+int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum)
 {
     WavpackHeader *wphdr = (WavpackHeader *) buffer;
     uint32_t checksum_passed = 0, bcount, meta_bc;
@@ -1212,7 +1214,7 @@ int WavpackVerifySingleBlock (unsigned char *buffer)
         if (bcount < meta_bc)
             return FALSE;
 
-        if ((meta_id & ID_UNIQUE) == ID_BLOCK_CHECKSUM) {
+        if (verify_checksum && (meta_id & ID_UNIQUE) == ID_BLOCK_CHECKSUM) {
 #ifdef BITSTREAM_SHORTS
             uint16_t *csptr = (uint16_t*) buffer;
 #else
@@ -1256,5 +1258,5 @@ int WavpackVerifySingleBlock (unsigned char *buffer)
         dp += meta_bc;
     }
 
-    return (bcount == 0) && (!(wphdr->flags & HAS_CHECKSUM) || checksum_passed);
+    return (bcount == 0) && (!verify_checksum || !(wphdr->flags & HAS_CHECKSUM) || checksum_passed);
 }

@@ -797,6 +797,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 #define OPEN_DSD_AS_PCM 0x200   // open DSD files as 24-bit PCM (decimated 8x)
 #define OPEN_ALT_TYPES  0x400   // application is aware of alternate file types & qmode
                                 // (just affects retrieving wrappers & MD5 checksums)
+#define OPEN_NO_CHECKSUM 0x800  // don't verify block checksums before decoding
 
 int WavpackGetMode (WavpackContext *wpc);
 
@@ -822,7 +823,7 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
 int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample);
 int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 
-int WavpackVerifySingleBlock (unsigned char *buffer);
+int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum);
 uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr);
 int read_wvc_block (WavpackContext *wpc);
 
