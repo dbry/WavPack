@@ -28,7 +28,7 @@
 // Version 2.13 - Sept 29, 2015 (library ver 4.75.2)
 // Version 2.14 - Mar 28, 2016 (library ver 4.80.0)
 // Version 2.15a - Aug 26, 2016 (library ver 5.0.0-alpha4, DSD read with 8x decimation)
-// Version 2.15b - Sept 27, 2016 (library ver 5.0.0-alpha5, new "high" DSD)
+// Version 2.15b - Sept 27, 2016 (library ver 5.0.0-alpha5, new "high" DSD, broken!)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -526,6 +526,7 @@ typedef struct {
     WavpackContext *wpc;
     uint32_t special_bytes;
     char *special_data;
+    int legacy_warned;
 } WavpackInput;
 
 HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
@@ -586,6 +587,15 @@ DWORD PASCAL FilterGetFileSize (HANDLE hInput)
 DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
 {
     WavpackInput *in = hInput;
+
+    if (!in->legacy_warned && WavpackGetVersion (in->wpc) < 4) {
+        in->legacy_warned++;
+        MessageBox (NULL,
+            "This legacy file is deprecated and its use is not recommended.\n"
+            "Future versions of this plugin may not read this file. Use this\n"
+            "plugin or the WavPack 4.80 command-line program to\n"
+            "transcode files of this vintage to a more recent version.", "WavPack Legacy Notification", MB_OK);
+    }
 
     if (in && in->wpc) {
         WavpackContext *wpc = in->wpc;
@@ -797,7 +807,7 @@ DWORD PASCAL FilterGetOptions (HWND hWnd, HINSTANCE hInst, long lSamprate, WORD 
 
 static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    char str [80];
+    char str [160];
     int i;
 
     switch (message) {
@@ -923,9 +933,9 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
                     return TRUE;
 
                 case IDABOUT:
-                    MessageBox (hDlg,
-                        "WavPack Filter Version 2.15b\n"
-                        "Copyright (c) 2016 David Bryant  ", "About WavPack Filter", MB_OK);
+					sprintf (str, "Cool Edit / Audition Filter Version 3.0\n" "WavPack Library Version %s\n"
+                        "Copyright (c) 2016 David Bryant", WavpackGetLibraryVersionString());
+                    MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
             }
 
