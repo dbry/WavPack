@@ -384,6 +384,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\open_raw.c"
+				>
+			</File>
+			<File
 				RelativePath=".\pack.c"
 				>
 			</File>

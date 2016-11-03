@@ -9,6 +9,7 @@ libwavpack_la_SOURCES = \
 	open_utils.c \
 	open_filename.c \
 	open_legacy.c \
+	open_raw.c \
 	pack.c \
 	pack_dns.c \
 	pack_floats.c \

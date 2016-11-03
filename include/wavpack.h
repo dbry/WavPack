@@ -287,6 +287,11 @@ extern "C" {
 
 #define MAX_WAVPACK_SAMPLES ((1LL << 40) - 257)
 
+WavpackContext *WavpackOpenRawDecoder (
+    void *main_data, int32_t main_size,
+    void *corr_data, int32_t corr_size,
+    int16_t version, char *error, int flags, int norm_offset);
+
 WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
@@ -336,6 +341,7 @@ unsigned char WavpackGetFileFormat (WavpackContext *wpc);
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
 uint32_t WavpackGetNumSamples (WavpackContext *wpc);
 int64_t WavpackGetNumSamples64 (WavpackContext *wpc);
+uint32_t WavpackGetNumSamplesInFrame (WavpackContext *wpc);
 uint32_t WavpackGetSampleIndex (WavpackContext *wpc);
 int64_t WavpackGetSampleIndex64 (WavpackContext *wpc);
 int WavpackGetNumErrors (WavpackContext *wpc);
