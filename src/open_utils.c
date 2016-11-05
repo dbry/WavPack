@@ -777,6 +777,15 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
                 wpc->file_extension [wpmd->byte_length] = 0;
             }
 
+            return TRUE;
+
+        // we don't actually verify the checksum here (it's done right after the
+        // block is read), but it's a good indicator of version 5 files
+
+        case ID_BLOCK_CHECKSUM:
+            wpc->version_five = 1;
+            return TRUE;
+
         default:
             return (wpmd->id & ID_OPTIONAL_DATA) ? TRUE : FALSE;
     }
