@@ -232,6 +232,8 @@ may be used):
     Genre
     Comment
     Cuesheet (note: may include replay gain info as remarks)
+    Encoder (note: can be automatically generated)
+    Settings (note: can be automatically generated)
     Replaygain_Track_Gain
     Replaygain_Track_Peak
     Replaygain_Album_Gain

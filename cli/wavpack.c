@@ -193,6 +193,8 @@ static const char *help =
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 "    -v                      verify output file integrity after write (no pipes)\n"
 "    --version               write the version to stdout\n"
+"    -w encoder              write actual \"encoder\" information to APEv2 tag\n"
+"    -w settings             write actual \"settings\" information to APEv2 tag\n"
 "    -w \"Field=Value\"        write specified text metadata to APEv2 tag\n"
 "    -w \"Field=@file.ext\"    write specified text metadata from file to APEv2\n"
 "                             tag, normally used for embedded cuesheets and logs\n"
@@ -280,6 +282,7 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
 static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
 static int repack_audio (WavpackContext *wpc, WavpackContext *infile, unsigned char *md5_digest_source);
 static int verify_audio (char *infilename, unsigned char *md5_digest_source);
+static void make_settings_string (char *settings, WavpackConfig *config);
 static void display_progress (double file_progress);
 static void TextToUTF8 (void *string, int len);
 
@@ -723,7 +726,26 @@ int main (int argc, char **argv)
                         ++error_count;
                 }
         else if (tag_next_arg) {
-            char *cp = strchr (*argv, '=');
+            char *cp;
+
+            // check for and allow "encoder" or "settings" without a value and create
+            // an appropriate value for them (otherwise missing value is an error)
+
+            if (!stricmp (*argv, "encoder")) {
+                char *tag_arg = malloc (80);
+                sprintf (tag_arg, "%s=WavPack %s", *argv, PACKAGE_VERSION);
+                *argv = tag_arg;
+            }
+            else if (!stricmp (*argv, "settings")) {
+                char settings [256], *tag_arg;
+
+                make_settings_string (settings, &config);
+                tag_arg = malloc (strlen (settings) + 16);
+                sprintf (tag_arg, "%s=%s", *argv, settings);
+                *argv = tag_arg;
+            }
+
+            cp = strchr (*argv, '=');
 
             if (cp && cp > *argv) {
                 int i = num_tag_items;
@@ -2812,9 +2834,26 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             item_len = WavpackGetTagItemIndexed (infile, i, NULL, 0);
             item = malloc (item_len + 1);
             WavpackGetTagItemIndexed (infile, i, item, item_len + 1);
-            value_len = WavpackGetTagItem (infile, item, NULL, 0);
-            value = malloc (value_len * 2 + 1);
-            WavpackGetTagItem (infile, item, value, value_len + 1);
+
+            // don't copy the values from the "encoder" or "settings" items because
+            // these should be based on the current encoder and user settings
+
+            if (!stricmp (item, "encoder")) {
+                value = malloc (80);
+                sprintf (value, "WavPack %s", PACKAGE_VERSION);
+                value_len = strlen (value);
+            }
+            else if (!stricmp (item, "settings")) {
+                value = malloc (256);
+                make_settings_string (value, &loc_config);
+                value_len = strlen (value);
+            }
+            else {
+                value_len = WavpackGetTagItem (infile, item, NULL, 0);
+                value = malloc (value_len + 1);
+                WavpackGetTagItem (infile, item, value, value_len + 1);
+            }
+
             res = WavpackAppendTagItem (outfile, item, value, value_len);
             free (value);
             free (item);
@@ -3442,6 +3481,71 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 
     WavpackCloseFile (wpc);
     return result;
+}
+
+// Create a string from the specified configuration that can be used for the "settings"
+// tag. Note that the module globals allow_huge_tags and quantize_bits are also accessed.
+// Room for 256 characters should be plenty.
+
+static void make_settings_string (char *settings, WavpackConfig *config)
+{
+    strcpy (settings, "-");
+
+    // basic settings
+
+    if (config->flags & CONFIG_FAST_FLAG)
+        strcat (settings, "f");
+    else if (config->flags & CONFIG_VERY_HIGH_FLAG)
+        strcat (settings, "hh");
+    else if (config->flags & CONFIG_HIGH_FLAG)
+        strcat (settings, "h");
+
+    if (config->flags & CONFIG_HYBRID_FLAG) {
+        sprintf (settings + strlen (settings), "b%g", config->bitrate);
+
+        if (config->flags & CONFIG_OPTIMIZE_WVC)
+            strcat (settings, "cc");
+        else if (config->flags & CONFIG_CREATE_WVC)
+            strcat (settings, "c");
+    }
+
+    if (config->flags & CONFIG_EXTRA_MODE)
+        sprintf (settings + strlen (settings), "x%d", config->xmode ? config->xmode : 1);
+
+    // override settings
+
+    if (config->flags & CONFIG_JOINT_OVERRIDE) {
+        if (config->flags & CONFIG_JOINT_STEREO)
+            strcat (settings, "j1");
+        else
+            strcat (settings, "j0");
+    }
+
+    if (config->flags & CONFIG_SHAPE_OVERRIDE)
+        sprintf (settings + strlen (settings), "s%g", config->shaping_weight);
+
+    // long options
+
+    if (quantize_bits)
+        sprintf (settings + strlen (settings), " --pre-quantize=%d", quantize_bits);
+
+    if (config->block_samples)
+        sprintf (settings + strlen (settings), " --blocksize=%d", config->block_samples);
+
+    if (config->flags & CONFIG_DYNAMIC_SHAPING)
+        strcat (settings, " --use-dns");
+
+    if (config->flags & CONFIG_CROSS_DECORR)
+        strcat (settings, " --cross-decorr");
+
+    if (config->flags & CONFIG_MERGE_BLOCKS)
+        strcat (settings, " --merge-blocks");
+
+    if (config->flags & CONFIG_PAIR_UNDEF_CHANS)
+        strcat (settings, " --pair-unassigned-chans");
+
+    if (allow_huge_tags)
+        strcat (settings, " --allow-huge-tags");
 }
 
 // Code to load samples. Destination is an array of int32_t data (which is what WavPack uses
