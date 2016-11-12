@@ -202,6 +202,12 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
                 }
             }
 
+        // most options that don't apply to DSD we can simply ignore for now, but NOT hybrid mode!
+        if (config->flags & CONFIG_HYBRID_FLAG) {
+            strcpy (wpc->error_message, "hybrid mode not available for DSD!");
+            return FALSE;
+        }
+
         // with DSD, very few PCM options work (or make sense), so only allow those that do
         config->flags &= (CONFIG_HIGH_FLAG | CONFIG_MD5_CHECKSUM | CONFIG_PAIR_UNDEF_CHANS);
         config->float_norm_exp = config->xmode = 0;
