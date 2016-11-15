@@ -21,16 +21,16 @@
       <holder>Sebastian Dröge</holder>
     </copyright>
     <copyright>
-      <year>2015</year>
+      <year>2016</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2015-05-10</date>
+    <date>2016-11-13</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvunpack</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">4.75.0</refmiscinfo>
+    <refmiscinfo class="version">5.0.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
@@ -54,13 +54,52 @@
   <refsect1>
     <title>DESCRIPTION</title>
     <para>
-      <command>wvunpack</command> decodes WavPack files back to their uncompressed wav or raw form using the options provided.
-      Unless overridden with the <option>-o</option> switch, the resulting filename will be <filename>source-name.wav</filename>
-      (or <filename>source-name.raw</filename> when <option>-r</option> used). Multiple WavPack input files may be specified
+      <command>wvunpack</command> decodes WavPack files back to their original uncompressed form using the options provided.
+      Unless overridden with the <option>-o</option> switch, the output filename will be identical to the source filename but
+      with the original file extension replacing WavPack's <quote>.wv</quote> extension. It is also possible to output raw
+      audio without headers (see <option>--raw</option> option). Multiple WavPack input files may be specified
       resulting in multiple output files, and in that case <option>-o</option> may be used to specify an alternate target directory.
-      <filename>Stdin</filename> and <filename>stdout</filename> may be specified with <quote>-</quote>. WavPack files
-      are generally created with the <command>wavpack</command> program.
+      <filename>Stdin</filename> and <filename>stdout</filename> may be specified with <quote>-</quote>. It is also possible to
+      export to one of the alternate file formats listed below, but in that case the information in the original headers and
+      trailers will be lost (even if the alternate format is the same as the source format). WavPack files are generally created
+      with the <command>wavpack</command> program.
     </para>
+    <refsect2>
+      <title>OUTPUT FILE FORMATS</title>
+        <itemizedlist mark='bullet'>
+        <listitem>
+        <para>
+          Microsoft RIFF, extension <quote>.wav</quote>, force with <option>-w</option> or <option>--wav</option>,
+        creates <acronym>RF64</acronym> if > 4 GB
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          Sony Wave64, extension <quote>.w64</quote>, force with <option>--w64</option>
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          Apple Core Audio, extension <quote>.caf</quote>, force with <option>--caf-be</option> or <option>--caf-le</option>
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          Raw <acronym>PCM</acronym> or <acronym>DSD</acronym>, extension <quote>.raw</quote>, force with <option>-r</option> or <option>--raw</option>
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          Philips <acronym>DSDIFF</acronym>, extension <quote>.dff</quote>, force with <option>--dsdiff</option> or <option>--dff</option>
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          Sony <acronym>DSD</acronym> Stream, extension <quote>.dsf</quote>, force with <option>--dsf</option>
+        </para>
+        </listitem>
+        </itemizedlist>
+    </refsect2>
   </refsect1>
   <refsect1>
     <title>OPTIONS</title>
@@ -85,8 +124,22 @@
           </para> </listitem>
         </varlistentry>
         <varlistentry>
+          <term> <option>--caf-be</option> </term>
+          <term> <option>--caf-le</option> </term>
+          <listitem> <para>force output to big-endian or little-endian Core Audio, extension <quote>.caf</quote></para> </listitem>
+        </varlistentry>
+        <varlistentry>
           <term> <option>-d</option> </term>
           <listitem> <para>delete source file if successful (use with caution!)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--dff</option> </term>
+          <term> <option>--dsdiff</option> </term>
+          <listitem> <para>force output to Philips <acronym>DSDIFF</acronym>, <acronym>DSD</acronym> audio source only, extension <quote>.dff</quote></para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--dsf</option> </term>
+          <listitem> <para>force output to Sony <acronym>DSF</acronym>, <acronym>DSD</acronym> audio source only, extension <quote>.dsf</quote></para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-f</option> </term>
@@ -127,8 +180,9 @@
         </varlistentry>
         <varlistentry>
           <term> <option>-r</option> </term>
+          <term> <option>--raw</option> </term>
           <listitem> <para>
-            force raw audio decode by skipping RIFF headers &amp; trailers, results in <filename>source-name.raw</filename>
+            force raw <acronym>PCM</acronym> or <acronym>DSD</acronym> audio decode by skipping headers &amp; trailers, results in <filename>source-name.raw</filename>
           </para> </listitem>
         </varlistentry>
         <varlistentry>
@@ -145,10 +199,10 @@
         </varlistentry>
         <varlistentry>
           <term> <option>
-            --skip=[<replaceable>sample</replaceable>|<replaceable>hh</replaceable>:<replaceable>mm</replaceable>:<replaceable>ss.ss</replaceable>]
+            --skip=[-][<replaceable>sample</replaceable>|<replaceable>hh</replaceable>:<replaceable>mm</replaceable>:<replaceable>ss.ss</replaceable>]
           </option> </term>
           <listitem> <para>
-            start decoding at specified sample or time index
+            start decoding at specified sample or time index, specifying a <option>-</option> causes sample/time to be relative to <acronym>EOF</acronym>
           </para> </listitem>
         </varlistentry>
         <varlistentry>
@@ -174,7 +228,12 @@
         </varlistentry>
         <varlistentry>
           <term> <option>-w</option> </term>
-          <listitem> <para>regenerate fresh wav header (ingore RIFF data stored in WavPack file)</para> </listitem>
+          <term> <option>--wav</option> </term>
+          <listitem> <para>force output to Microsoft RIFF/RF64, extension <quote>.wav</quote></para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--w64</option> </term>
+          <listitem> <para>force output to Sony Wave64, extension <quote>.w64</quote></para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-x <quote><replaceable>Field</replaceable></quote></option> </term>

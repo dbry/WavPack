@@ -24,18 +24,18 @@
       <year>2016</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2016-03-28</date>
+    <date>2016-11-13</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wavpack</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">4.80.0</refmiscinfo>
+    <refmiscinfo class="version">5.0.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
     <refname>wavpack</refname>
-    <refpurpose>encode wav files to wavpack</refpurpose>
+    <refpurpose>encode audio files to wavpack</refpurpose>
   </refnamediv>
   <refsynopsisdiv>
     <cmdsynopsis>
@@ -55,14 +55,51 @@
     <title>DESCRIPTION</title>
     <para>
       <command>wavpack</command> encodes the specified source file(s) into WavPack files using the options provided. The source
-      files may be uncompressed WAV files, existing WavPack files, or raw <acronym>PCM</acronym> data. The resulting filename will
+      files may be any of the file format types listed below, and the audio data may be either uncompressed <acronym>PCM</acronym>
+      or <acronym>DSD</acronym> (depending on the format). Raw audio may also be specified (see <option>--raw-pcm</option>).
+      The output filename will
       be <filename>source-name.wv</filename> unless overridden with the <option>-o</option> switch. Multiple input files may be
       specified resulting in multiple WavPack files, and in that case <option>-o</option> may be used to specify an alternate
       target directory. <filename>Stdin</filename> and <filename>stdout</filename> may be specified with <quote>-</quote>. In the
       case of transcoding from existing WavPack files, all tags are copied (and may be modified with additional args) and unless
-      an alternate name or directory is specified, the source files are safely overwritten. To decode WavPack files back to wav or
-      raw <acronym>PCM</acronym> use the <command>wvunpack</command> program.
+      an alternate name or directory is specified, the source files are safely overwritten. To decode WavPack files back to their
+      original format (or raw audio) use the <command>wvunpack</command> program.
     </para>
+    <refsect2>
+      <title>INPUT FILE FORMATS</title>
+        <itemizedlist mark='bullet'>
+        <listitem>
+        <para>
+          Microsoft RIFF, extension <quote>.wav</quote>, includes <acronym>BWF</acronym> and <acronym>RF64</acronym> varients
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          WavPack, extension <quote>.wv</quote>, trancode operation, tags copied
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          Apple Core Audio, extension <quote>.caf</quote>
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          Sony Wave64, extension <quote>.w64</quote>
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          Philips <acronym>DSDIFF</acronym>, extension <quote>.dff</quote>
+        </para>
+        </listitem>
+        <listitem>
+        <para>
+          Sony <acronym>DSD</acronym> Stream, extension <quote>.dsf</quote>
+        </para>
+        </listitem>
+        </itemizedlist>
+    </refsect2>
   </refsect1>
   <refsect1>
     <title>OPTIONS</title>
@@ -83,7 +120,7 @@
           <term> <option>-b<replaceable>n</replaceable></option> </term>
           <listitem> <para>
             enable hybrid compression, <replaceable>n</replaceable> = 2.0 to 23.9 bits/sample, or
-            <replaceable>n</replaceable> = 24-9600 kbits/second (kbps)
+            <replaceable>n</replaceable> = 24-9600 kbits/second (kbps), not available with DSD audio
           </para> </listitem>
         </varlistentry>
         <varlistentry>
@@ -106,6 +143,10 @@
             specify <quote>...</quote> to indicate that channels are not assigned to specific speakers, or terminate list with <quote>...</quote>
             to indicate that any channels beyond those specified are unassigned
         </para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--cross-decorr</option> </term>
+          <listitem> <para>use cross-channel correlation in lossy mode (on by default in lossless mode and with <option>-cc</option> option)</para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-d</option> </term>
@@ -160,15 +201,6 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term> <option>--optimize-mono</option> </term>
-          <listitem> <para>optimization for stereo files that are really mono (result may be incompatible with very old decoders)</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term> <option>-p</option> </term>
-          <listitem> <para>practical float storage (also 32-bit ints, no longer technically lossless)</para> </listitem>
-        </varlistentry>
-        <varlistentry>
           <term> <option>--pair-unassigned-chans</option> </term>
           <listitem> <para>encode unassigned channels into stereo pairs</para> </listitem>
         </varlistentry>
@@ -188,16 +220,24 @@
         </varlistentry>
         <varlistentry>
           <term> <option>-r</option> </term>
-          <listitem> <para>generate a new RIFF WAV header (any extra RIFF info in original file will be discarded)</para> </listitem>
+          <listitem> <para>remove file headers (file-appropriate headers will be regenerated during unpacking)</para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>--raw-pcm</option> </term>
-          <listitem> <para>intput data is raw pcm (44,100 Hz, 16-bit, 2-channels)</para> </listitem>
+          <listitem> <para>input data is raw pcm (44,100 Hz, 16-bit, 2-channels)</para> </listitem>
         </varlistentry>
         <varlistentry>
-          <term> <option>--raw-pcm=<replaceable>sr</replaceable>,<replaceable>bits</replaceable>,<replaceable>chans</replaceable></option> </term>
+          <term> <option>--raw-pcm=<replaceable>sr</replaceable>,<replaceable>bits</replaceable>[f|s|u],<replaceable>chans</replaceable>,[le|be]</option> </term>
           <listitem> <para>
-            intput data is raw pcm with specified sample-rate, bit-depth, and number of channels (specify 32f for 32-bit floating point data)
+            input data is raw pcm with specified sample-rate, bit-depth (float,unsigned,signed), number of channels, and endianness
+            (defaulted parameters may be omitted, specify <replaceable>bits</replaceable>=1 for <acronym>DSD</acronym>)
+          </para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--raw-pcm-skip=<replaceable>begin</replaceable>[,<replaceable>end</replaceable>]</option> </term>
+          <listitem> <para>
+            skip <replaceable>begin</replaceable> bytes before encoding raw <acronym>PCM</acronym> (header) and skip <replaceable>end</replaceable>
+            bytes at the <acronym>EOF</acronym> (trailer)
           </para> </listitem>
         </varlistentry>
         <varlistentry>
@@ -222,6 +262,14 @@
         <varlistentry>
           <term> <option>--version</option> </term>
           <listitem> <para>write program version to <filename>stdout</filename></para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-w Encoder</option> </term>
+          <listitem> <para>write actual encoder metadata to APEv2 tag (e.g., <quote>Encoder=WavPack 5.0.0</quote>)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-w Settings</option> </term>
+          <listitem> <para>write actual user settings metadata to APEv2 tag (e.g., <quote>Settings=-hb384cx3</quote>)</para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-w <quote><replaceable>Field</replaceable>=<replaceable>Value</replaceable></quote></option> </term>
