@@ -83,10 +83,10 @@ static const char *usage =
 "          be overridden to one of the supported formats listed below (which\n"
 "          also causes the original headers to be discarded).\n\n"
 #endif
-" Formats: Microsoft RIFF:   'wav', force with -w, makes RF64 if > 4 GB\n"
+" Formats: Microsoft RIFF:   'wav', force with -w or --wav, makes RF64 if > 4 GB\n"
 "          Sony Wave64:      'w64', force with --w64\n"
 "          Apple Core Audio: 'caf', force with --caf-be or --caf-le\n"
-"          Raw PCM or DSD:   'raw', force with -r, little-endian\n"
+"          Raw PCM or DSD:   'raw', force with -r or --raw, little-endian\n"
 "          Philips DSDIFF:   'dff', force with --dsdiff or --dff\n"
 "          Sony DSF:         'dsf', force with --dsf\n\n"
 " Options: -b  = blindly decode all stream blocks & ignore length info\n"
@@ -94,12 +94,12 @@ static const char *usage =
 "               (note: equivalent to -x \"cuesheet\")\n"
 "          -cc = extract cuesheet file (.cue) in addition to audio file\n"
 "               (note: equivalent to -xx \"cuesheet=%a.cue\")\n"
-"          --caf-be = force extraction to big-endian Core Audio (extension .caf)\n"
-"          --caf-le = force extraction to little-endian Core Audio (extension .caf)\n"
+"          --caf-be = force output to big-endian Core Audio (extension .caf)\n"
+"          --caf-le = force output to little-endian Core Audio (extension .caf)\n"
 "          -d  = delete source file if successful (use with caution!)\n"
-"          --dff = force extraction to Philips DSDIFF (DSD only, extension .dff)\n"
-"          --dsf = force extraction to Sony DSF (DSD only, extension .dsf)\n"
-"          --dsdiff = see --dff\n"
+"          --dff or --dsdiff = force output to Philips DSDIFF\n"
+"                (DSD audio only, extension .dff)\n"
+"          --dsf = force output to Sony DSF (DSD audio only, extension .dsf)\n"
 "          -f[n]  = file info to stdout in machine-parsable format\n"
 "                (optional \"n\" = 1-10 for specific item, otherwise all)\n"
 "          --help = this help display\n"
@@ -117,7 +117,7 @@ static const char *usage =
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
 "          -q  = quiet (keep console output to a minimum)\n"
-"          -r  = force raw audio decode (results in .raw extension)\n"
+"          -r or --raw  = force raw audio decode (results in .raw extension)\n"
 "          -s  = display summary information only to stdout (no audio decode)\n"
 "          -ss = display super summary (including tags) to stdout (no decode)\n"
 "          --skip=[-][sample|hh:mm:ss.ss] = start decoding at specified sample/time\n"
@@ -128,9 +128,8 @@ static const char *usage =
 "               specifying a '-' causes sample/time to be relative to end of file)\n"
 "          -v  = verify source data only (no output file created)\n"
 "          --version = write the version to stdout\n"
-"          -w  = force extraction to Microsoft RIFF/RF64 (extension .wav)\n"
-"                 ignoring any RIFF data in original file\n"
-"          --w64 = force extraction to Sony Wave64 format (extension .w64)\n"
+"          -w or --wav  = force output to Microsoft RIFF/RF64 (extension .wav)\n"
+"          --w64 = force output to Sony Wave64 format (extension .w64)\n"
 "          -x \"Field\" = extract specified tag field only to stdout (no audio decode)\n"
 "          -xx \"Field[=file]\" = extract specified tag field to file, optional\n"
 "              filename specification can inlude following replacement codes:\n"
@@ -312,6 +311,12 @@ int main(int argc, char **argv)
                 decode_format = WP_FORMAT_W64;
                 format_specified = 1;
             }
+            else if (!strcmp (long_option, "wav")) {                    // --wav
+                decode_format = WP_FORMAT_WAV;
+                format_specified = 1;
+            }
+            else if (!strcmp (long_option, "raw"))                      // --raw
+                raw_decode = 1;
             else {
                 error_line ("unknown option: %s !", long_option);
                 ++error_count;
