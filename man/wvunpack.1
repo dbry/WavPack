@@ -2,12 +2,12 @@
 .\"     Title: wvunpack
 .\"    Author: Sebastian Dröge <slomo@debian.org>
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2015-05-10
+.\"      Date: 2016-11-13
 .\"    Manual: WavPack Executable Programs
-.\"    Source: WavPack 4.75.0
+.\"    Source: WavPack 5.0.0
 .\"  Language: English
 .\"
-.TH "WVUNPACK" "1" "2015\-05\-10" "WavPack 4\&.75\&.0" "WavPack Executable Programs"
+.TH "WVUNPACK" "1" "2016\-11\-13" "WavPack 5\&.0\&.0" "WavPack Executable Programs"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -35,24 +35,117 @@ wvunpack \- decodes wavpack encoded files
 .SH "DESCRIPTION"
 .PP
 \fBwvunpack\fR
-decodes WavPack files back to their uncompressed wav or raw form using the options provided\&. Unless overridden with the
+decodes WavPack files back to their original uncompressed form using the options provided\&. Unless overridden with the
 \fB\-o\fR
-switch, the resulting filename will be
-source\-name\&.wav
-(or
-source\-name\&.raw
-when
-\fB\-r\fR
-used)\&. Multiple WavPack input files may be specified resulting in multiple output files, and in that case
+switch, the output filename will be identical to the source filename but with the original file extension replacing WavPack\*(Aqs
+\(lq\&.wv\(rq
+extension\&. It is also possible to output raw audio without headers (see
+\fB\-\-raw\fR
+option)\&. Multiple WavPack input files may be specified resulting in multiple output files, and in that case
 \fB\-o\fR
 may be used to specify an alternate target directory\&.
 Stdin
 and
 stdout
 may be specified with
-\(lq\-\(rq\&. WavPack files are generally created with the
+\(lq\-\(rq\&. It is also possible to export to one of the alternate file formats listed below, but in that case the information in the original headers and trailers will be lost (even if the alternate format is the same as the source format)\&. WavPack files are generally created with the
 \fBwavpack\fR
 program\&.
+.SS "OUTPUT FILE FORMATS"
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Microsoft RIFF, extension
+\(lq\&.wav\(rq, force with
+\fB\-w\fR
+or
+\fB\-\-wav\fR, creates
+RF64
+if > 4 GB
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Sony Wave64, extension
+\(lq\&.w64\(rq, force with
+\fB\-\-w64\fR
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Apple Core Audio, extension
+\(lq\&.caf\(rq, force with
+\fB\-\-caf\-be\fR
+or
+\fB\-\-caf\-le\fR
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Raw
+PCM
+or
+DSD, extension
+\(lq\&.raw\(rq, force with
+\fB\-r\fR
+or
+\fB\-\-raw\fR
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Philips
+DSDIFF, extension
+\(lq\&.dff\(rq, force with
+\fB\-\-dsdiff\fR
+or
+\fB\-\-dff\fR
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Sony
+DSD
+Stream, extension
+\(lq\&.dsf\(rq, force with
+\fB\-\-dsf\fR
+.RE
 .SH "OPTIONS"
 .PP
 .PP
@@ -77,9 +170,33 @@ file in same directory as decoded audio file (equivalent to
 \fB\-xx \fR\fB\(lqcuesheet=%a\&.cue\(rq\fR)
 .RE
 .PP
+\fB\-\-caf\-be\fR, \fB\-\-caf\-le\fR
+.RS 4
+force output to big\-endian or little\-endian Core Audio, extension
+\(lq\&.caf\(rq
+.RE
+.PP
 \fB\-d\fR
 .RS 4
 delete source file if successful (use with caution!)
+.RE
+.PP
+\fB\-\-dff\fR, \fB\-\-dsdiff\fR
+.RS 4
+force output to Philips
+DSDIFF,
+DSD
+audio source only, extension
+\(lq\&.dff\(rq
+.RE
+.PP
+\fB\-\-dsf\fR
+.RS 4
+force output to Sony
+DSF,
+DSD
+audio source only, extension
+\(lq\&.dsf\(rq
 .RE
 .PP
 \fB\-f\fR
@@ -130,9 +247,13 @@ specify output filename (only if single source file) or target directory (must e
 quiet (keep console output to a minimum)
 .RE
 .PP
-\fB\-r\fR
+\fB\-r\fR, \fB\-\-raw\fR
 .RS 4
-force raw audio decode by skipping RIFF headers & trailers, results in
+force raw
+PCM
+or
+DSD
+audio decode by skipping headers & trailers, results in
 source\-name\&.raw
 .RE
 .PP
@@ -148,9 +269,12 @@ do not decode audio but simply display summary and tag information about WavPack
 stdout
 .RE
 .PP
-\fB \-\-skip=[\fR\fB\fIsample\fR\fR\fB|\fR\fB\fIhh\fR\fR\fB:\fR\fB\fImm\fR\fR\fB:\fR\fB\fIss\&.ss\fR\fR\fB] \fR
+\fB \-\-skip=[\-][\fR\fB\fIsample\fR\fR\fB|\fR\fB\fIhh\fR\fR\fB:\fR\fB\fImm\fR\fR\fB:\fR\fB\fIss\&.ss\fR\fR\fB] \fR
 .RS 4
-start decoding at specified sample or time index
+start decoding at specified sample or time index, specifying a
+\fB\-\fR
+causes sample/time to be relative to
+EOF
 .RE
 .PP
 \fB\-t\fR
@@ -181,9 +305,16 @@ write program version to
 stdout
 .RE
 .PP
-\fB\-w\fR
+\fB\-w\fR, \fB\-\-wav\fR
 .RS 4
-regenerate fresh wav header (ingore RIFF data stored in WavPack file)
+force output to Microsoft RIFF/RF64, extension
+\(lq\&.wav\(rq
+.RE
+.PP
+\fB\-\-w64\fR
+.RS 4
+force output to Sony Wave64, extension
+\(lq\&.w64\(rq
 .RE
 .PP
 \fB\-x \fR\fB\(lq\fIField\fR\(rq\fR
@@ -243,5 +374,5 @@ Updates
 .br
 Copyright \(co 2005 Sebastian Dröge
 .br
-Copyright \(co 2015 David Bryant
+Copyright \(co 2016 David Bryant
 .br

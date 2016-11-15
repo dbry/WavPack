@@ -2,12 +2,12 @@
 .\"     Title: wavpack
 .\"    Author: Sebastian Dröge <slomo@debian.org>
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016-03-28
+.\"      Date: 2016-11-13
 .\"    Manual: WavPack Executable Programs
-.\"    Source: WavPack 4.80.0
+.\"    Source: WavPack 5.0.0
 .\"  Language: English
 .\"
-.TH "WAVPACK" "1" "2016\-03\-28" "WavPack 4\&.80\&.0" "WavPack Executable Programs"
+.TH "WAVPACK" "1" "2016\-11\-13" "WavPack 5\&.0\&.0" "WavPack Executable Programs"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,16 +28,19 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-wavpack \- encode wav files to wavpack
+wavpack \- encode audio files to wavpack
 .SH "SYNOPSIS"
 .HP \w'\fBwavpack\fR\ 'u
 \fBwavpack\fR [\fB\fI\-options\fR\fR] \fB\fIINFILE\fR\fR... [\fB\-o\ \fR\fB\fIOUTFILE\fR\fR]
 .SH "DESCRIPTION"
 .PP
 \fBwavpack\fR
-encodes the specified source file(s) into WavPack files using the options provided\&. The source files may be uncompressed WAV files, existing WavPack files, or raw
+encodes the specified source file(s) into WavPack files using the options provided\&. The source files may be any of the file format types listed below, and the audio data may be either uncompressed
 PCM
-data\&. The resulting filename will be
+or
+DSD
+(depending on the format)\&. Raw audio may also be specified (see
+\fB\-\-raw\-pcm\fR)\&. The output filename will be
 source\-name\&.wv
 unless overridden with the
 \fB\-o\fR
@@ -48,11 +51,89 @@ Stdin
 and
 stdout
 may be specified with
-\(lq\-\(rq\&. In the case of transcoding from existing WavPack files, all tags are copied (and may be modified with additional args) and unless an alternate name or directory is specified, the source files are safely overwritten\&. To decode WavPack files back to wav or raw
-PCM
-use the
+\(lq\-\(rq\&. In the case of transcoding from existing WavPack files, all tags are copied (and may be modified with additional args) and unless an alternate name or directory is specified, the source files are safely overwritten\&. To decode WavPack files back to their original format (or raw audio) use the
 \fBwvunpack\fR
 program\&.
+.SS "INPUT FILE FORMATS"
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Microsoft RIFF, extension
+\(lq\&.wav\(rq, includes
+BWF
+and
+RF64
+varients
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+WavPack, extension
+\(lq\&.wv\(rq, trancode operation, tags copied
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Apple Core Audio, extension
+\(lq\&.caf\(rq
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Sony Wave64, extension
+\(lq\&.w64\(rq
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Philips
+DSDIFF, extension
+\(lq\&.dff\(rq
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Sony
+DSD
+Stream, extension
+\(lq\&.dsf\(rq
+.RE
 .SH "OPTIONS"
 .PP
 .PP
@@ -72,7 +153,7 @@ enable hybrid compression,
 \fIn\fR
 = 2\&.0 to 23\&.9 bits/sample, or
 \fIn\fR
-= 24\-9600 kbits/second (kbps)
+= 24\-9600 kbits/second (kbps), not available with DSD audio
 .RE
 .PP
 \fB\-\-blocksize=\fR\fB\fIn\fR\fR
@@ -98,6 +179,13 @@ specify (comma separated) channel order if not Microsoft standard (which is FL,F
 to indicate that channels are not assigned to specific speakers, or terminate list with
 \(lq\&.\&.\&.\(rq
 to indicate that any channels beyond those specified are unassigned
+.RE
+.PP
+\fB\-\-cross\-decorr\fR
+.RS 4
+use cross\-channel correlation in lossy mode (on by default in lossless mode and with
+\fB\-cc\fR
+option)
 .RE
 .PP
 \fB\-d\fR
@@ -162,16 +250,6 @@ don\*(Aqt recode passed tags from local encoding to UTF\-8, assume they are in U
 specify output filename (only if single source file) or target directory (must exist)
 .RE
 .PP
-\fB\-\-optimize\-mono\fR
-.RS 4
-optimization for stereo files that are really mono (result may be incompatible with very old decoders)
-.RE
-.PP
-\fB\-p\fR
-.RS 4
-practical float storage (also 32\-bit ints, no longer technically lossless)
-.RE
-.PP
 \fB\-\-pair\-unassigned\-chans\fR
 .RS 4
 encode unassigned channels into stereo pairs
@@ -193,17 +271,32 @@ quiet (keep console output to a minimum)
 .PP
 \fB\-r\fR
 .RS 4
-generate a new RIFF WAV header (any extra RIFF info in original file will be discarded)
+remove file headers (file\-appropriate headers will be regenerated during unpacking)
 .RE
 .PP
 \fB\-\-raw\-pcm\fR
 .RS 4
-intput data is raw pcm (44,100 Hz, 16\-bit, 2\-channels)
+input data is raw pcm (44,100 Hz, 16\-bit, 2\-channels)
 .RE
 .PP
-\fB\-\-raw\-pcm=\fR\fB\fIsr\fR\fR\fB,\fR\fB\fIbits\fR\fR\fB,\fR\fB\fIchans\fR\fR
+\fB\-\-raw\-pcm=\fR\fB\fIsr\fR\fR\fB,\fR\fB\fIbits\fR\fR\fB[f|s|u],\fR\fB\fIchans\fR\fR\fB,[le|be]\fR
 .RS 4
-intput data is raw pcm with specified sample\-rate, bit\-depth, and number of channels (specify 32f for 32\-bit floating point data)
+input data is raw pcm with specified sample\-rate, bit\-depth (float,unsigned,signed), number of channels, and endianness (defaulted parameters may be omitted, specify
+\fIbits\fR=1 for
+DSD)
+.RE
+.PP
+\fB\-\-raw\-pcm\-skip=\fR\fB\fIbegin\fR\fR\fB[,\fR\fB\fIend\fR\fR\fB]\fR
+.RS 4
+skip
+\fIbegin\fR
+bytes before encoding raw
+PCM
+(header) and skip
+\fIend\fR
+bytes at the
+EOF
+(trailer)
 .RE
 .PP
 \fB\-s\fR\fB\fIn\fR\fR
@@ -230,6 +323,18 @@ verify output file integrity after write (not for piped output)
 .RS 4
 write program version to
 stdout
+.RE
+.PP
+\fB\-w Encoder\fR
+.RS 4
+write actual encoder metadata to APEv2 tag (e\&.g\&.,
+\(lqEncoder=WavPack 5\&.0\&.0\(rq)
+.RE
+.PP
+\fB\-w Settings\fR
+.RS 4
+write actual user settings metadata to APEv2 tag (e\&.g\&.,
+\(lqSettings=\-hb384cx3\(rq)
 .RE
 .PP
 \fB\-w \fR\fB\(lq\fIField\fR=\fIValue\fR\(rq\fR
