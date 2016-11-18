@@ -904,10 +904,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
 
 	WavpackPackSamples (out_wpc, (int32_t *) destin, ENCODE_SAMPLES);
-
-        if (wpconfig.bytes_per_sample != 4)
-            store_samples (destin, (int32_t *) destin, 0, wpconfig.bytes_per_sample, ENCODE_SAMPLES * num_chans);
-
+        store_samples (destin, (int32_t *) destin, 0, wpconfig.bytes_per_sample, ENCODE_SAMPLES * num_chans);
         MD5Update (&md5_context, (unsigned char *) destin, wpconfig.bytes_per_sample * ENCODE_SAMPLES * num_chans);
 
         sequencing_angle += 2.0 * M_PI / SAMPLE_RATE / speed * ENCODE_SAMPLES;
