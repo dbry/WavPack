@@ -146,7 +146,7 @@
         </varlistentry>
         <varlistentry>
           <term> <option>--cross-decorr</option> </term>
-          <listitem> <para>use cross-channel correlation in lossy mode (on by default in lossless mode and with <option>-cc</option> option)</para> </listitem>
+          <listitem> <para>use cross-channel correlation in hybrid mode (on by default in lossless mode and with <option>-cc</option> option)</para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-d</option> </term>

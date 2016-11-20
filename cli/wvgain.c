@@ -83,8 +83,8 @@ static const char *usage =
 "          -n  = new files only (skip files with track info, or album\n"
 "                 info if album mode specified)\n"
 "          -q  = quiet (keep console output to a minimum)\n"
-"          -v  = write the version to stdout\n"
 "          -s  = show stored values only (no analysis)\n"
+"          -v  = write the version to stdout\n"
 #if defined (_WIN32)
 "          -z  = don't set console title to indicate progress\n\n"
 #else

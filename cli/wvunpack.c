@@ -2170,7 +2170,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         fprintf (dst, "file size:         %lld bytes\n", (long long) WavpackGetFileSize64 (wpc));
     }
 
-    if ((WavpackGetMode (wpc) >> 16) & QMODE_DSD_AUDIO)
+    if (WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO)
         fprintf (dst, "source:            1-bit DSD at %u Hz\n", WavpackGetNativeSampleRate (wpc));
     else
         fprintf (dst, "source:            %d-bit %s at %u Hz\n", WavpackGetBitsPerSample (wpc),
@@ -2464,11 +2464,11 @@ static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
 
     switch (item_id) {
         case 1:
-            sprintf (str + strlen (str), "%d", WavpackGetSampleRate (wpc));
+            sprintf (str + strlen (str), "%d", WavpackGetNativeSampleRate (wpc));
             break;
 
         case 2:
-            sprintf (str + strlen (str), "%d", WavpackGetBitsPerSample (wpc));
+            sprintf (str + strlen (str), "%d", (WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO) ? 1 : WavpackGetBitsPerSample (wpc));
             break;
 
         case 3:
@@ -2485,7 +2485,8 @@ static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
 
         case 6:
             if (WavpackGetNumSamples64 (wpc) != -1)
-                sprintf (str + strlen (str), "%lld", (long long int) WavpackGetNumSamples64 (wpc));
+                sprintf (str + strlen (str), "%lld",
+                    (long long int) WavpackGetNumSamples64 (wpc) * (WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO ? 8 : 1));
 
             break;
 

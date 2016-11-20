@@ -81,12 +81,12 @@
           <listitem> <para>new files only (skip files with track info, or album info if album mode specified)</para> </listitem>
         </varlistentry>
         <varlistentry>
-          <term> <option>-s</option> </term>
-          <listitem> <para>show stored values only (no analysis)</para> </listitem>
-        </varlistentry>
-        <varlistentry>
           <term> <option>-q</option> </term>
           <listitem> <para>quiet (keep console output to a minimum)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-s</option> </term>
+          <listitem> <para>show stored values only (no analysis)</para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-v</option> </term>

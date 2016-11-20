@@ -135,7 +135,7 @@ static const char *help =
 "                             assigned to specific speakers, or terminate list\n"
 "                             with '...' to indicate that any channels beyond\n"
 "                             those specified are unassigned\n"
-"    --cross-decorr          use cross-channel correlation in lossy mode (on by\n"
+"    --cross-decorr          use cross-channel correlation in hybrid mode (on by\n"
 "                             default in lossless mode and with -cc option)\n"
 "    -d                      delete source file if successful (use with caution!)\n"
 "    -f                      fast mode (faster encode and decode, but some\n"
