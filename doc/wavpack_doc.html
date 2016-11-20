@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 4.80</div>
+				<div class="pageHeader">Using WavPack Version 5.0.0</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -123,24 +123,23 @@ a:hover {
 			<br/>
 			<div class="box" id="Intro">
 				<div class="boxContent">
-					WavPack consists of two complementary executable programs, WavPack and WvUnpack. These 
-					programs allow you to compress (and restore) audio files in the Microsoft .wav format. 
-					The audio files must be uncompressed PCM (not ADPCM, for example), but other than that 
-					there are few restrictions. The files may be any resolution from 8 to 32 bits; they may be 
-					mono, stereo, or multichannel; they may even be IEEE floating point data. The programs 
-					are full 32-bit executables and therefore must only be used under Windows (for real DOS 
-					applications it is possible to use the old WavPack 3.4 instead). An additional utility
+					WavPack consists of two complementary command-line programs, WavPack and WvUnpack. These
+					programs allow you to compress (and restore) audio files in several formats including the
+     Microsoft .wav format. The audio files must be uncompressed PCM (not ADPCM, for example),
+     but other than that there are few restrictions. The files may be any resolution from 8 to
+     32 bits; they may be mono, stereo, or multichannel; they may even be IEEE floating point
+     data or 1-bit DSD audio (in those formats that support DSD). An additional utility
      called WvGain is used to apply ReplayGain information to WavPack files. The programs are
-     initiated from the MS-DOS command line prompt with the following syntax:
+     initiated from the command line with the following syntax:
 				<p>
 					<b>Usage:</b>
 					<br/>
-					<b><tt>WAVPACK [-options] infile[.wav]|infile.wv|- [outfile[.wv]|outpath|-]</tt></b>
+					<b><tt>&nbsp&nbsp&nbsp&nbsp&nbspWAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]</tt></b>
 					<br/>
-					<b><tt>WVUNPACK [-options] infile[.wv]|- [outfile[.wav]|outpath|-]</tt></b>
+					<b><tt>&nbsp&nbsp&nbsp&nbsp&nbspWVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]</tt></b>
 					<br/>
-     <b><tt>WVGAIN [-options] infile[.wv] [...]</tt></b>
-					</p>
+     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspWVGAIN [-options] infile[.wv] [...]</tt></b>
+				</p>
 				<p>
 					The filename extensions will be defaulted if not provided and the input filename may 
 					contain wildcards for doing batch operations. Specifying the output filename is 
@@ -155,8 +154,9 @@ a:hover {
 				</p>
 				<p>
      The input files for WavPack may be either Microsoft .wav files (as mentioned above), or
-     they may be existing WavPack files, or they may be raw PCM files (specified with the
-     --raw-pcm option). In the case of transcoding from existing WavPack files, all tags are
+     any of the other formats listed below, including existing WavPack files.
+     They may also be raw PCM files (specified with the --raw-pcm option).
+     In the case of transcoding from existing WavPack files, all tags are
      copied (and may be modified with the tag specification options) and unless an alternate output
      name or directory is specified, the source files will be overwritten (safely). Used with the
      filename wildcards, this can be used to easily transcode an entire directory of WavPack
@@ -166,6 +166,21 @@ a:hover {
      correction file, the source correction file will <i>not</i> be automatically deleted even if
      the source WavPack file is being overwritten. Adding the -d option will accomplish this,
      however.
+				</p>
+				<p>
+					<b>File Formats:</b>
+					<br/>
+					<b><tt>&nbsp&nbsp&nbsp&nbsp&nbspMicrosoft Waveform Audio, extension ".wav", PCM audio</tt></b>
+					<br/>
+					<b><tt>&nbsp&nbsp&nbsp&nbsp&nbspWavPack Compressed Audio, extension ".wv", PCM audio</tt></b>
+					<br/>
+     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspApple Core Audio Format, "extension ".caf", PCM or DSD audio</tt></b>
+					<br/>
+     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspSony Wave64 Audio Format, extension ".w64", PCM audio</tt></b>
+					<br/>
+     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspPhilips DSDIFF Format, "extension ".dff", 1-bit DSD audio</tt></b>
+					<br/>
+     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspSony DSD Stream Format, "extension ".dsf", 1-bit DSD audio</tt></b>
 				</p>
 				<p>
 					Both programs will warn before overwriting any file (unless the -y switch is 
@@ -182,10 +197,10 @@ a:hover {
      were processed.
 				</p>
 				<p>
-					The compressed file format (.wv) contains all original header information and the 
-					compressed audio data for one .wav file. The file can be used by WvUnpack to restore 
+					The compressed file format (.wv) contains the filename extension, all the original header information, and the 
+					compressed audio data for one audio file. The file can be used by WvUnpack to restore 
 					the original file, or the .wv file can be played directly by a player that supports 
-					WavPack files natively like Foobar2000 or VUPlayer, or a player that can play WavPack
+					WavPack files natively like Foobar2000 or JRiver Media Center, or a player that can play WavPack
      files using a plugin like Winamp, dBpowerAMP, or Apollo. Also, there are plugins
      available to read and write WavPack files with Adobe Audition (and CoolEdit) and Nero
      Burning ROM.
@@ -211,10 +226,10 @@ a:hover {
 				<div class="boxHeader">Linux</div>
 				<div class="boxContent">
 					<p>This documentation was written specifically for the Windows command-line version of
-      WavPack, however the version for Linux (and Unix) is essentially the same. There are
-      some Windows-specific commands missing from the Linux version like the -e switch to
-      create a Windows executable and the -l switch to run at low priority. The "debug" mode
-      described above does not create a log file, but it does provide the extra information.
+      WavPack, however the version for Linux (and OS X) is essentially the same. There are
+      some Windows-specific commands missing from the Linux version like the -l switch to run
+      at low priority or --pause to pause before exiting. The "debug" mode described above
+      does not create a log file, but it does provide the extra information.
      </p>
      <p>
       The most significant change is in the specification of the output filename or directory,
@@ -281,6 +296,10 @@ a:hover {
 					data because the hybrid algorithm might not be application appropriate (and
 					floating-point "exception" values like infinities or NaNs will not be properly encoded).
 					Use only the pure lossless mode with non-audio floating-point data.
+				</p>
+				<p>
+					The hybrid mode is <b>not</b> usable with DSD audio files; those are always lossless
+     and attempting hybrid compression with them will generate an error.
 				</p>
 
 				<p>
@@ -368,6 +387,16 @@ a:hover {
     </p>
 
 				<p>
+					<b><tt>--cross-decorr = use cross-channel correlation in hybrid mode</tt></b>
+				</p>
+				<p>
+					Cross-channel correlation is exploited in lossless mode, but it not used by default in hybrid mode
+     because it can increase noise slightly and increases CPU requirements during hybrid lossless
+     decoding. This switch is provided to force this mode without affecting noise shaping
+     (which <b>-cc</b> does to maximize hybrid lossless compression).
+				</p>
+
+				<p>
 					<b><tt>-d = delete source file if successful (use with caution!)</tt></b>
 				</p>
 				<p>
@@ -375,44 +404,12 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-e = create self-extracting executable (needs wvselfx.exe)</tt></b>
-				</p>
-				<p>
-					WavPack can be used to create self-extracting archives (Windows only) with a .exe 
-					extension. In this way it is possible to distribute compressed audio without having 
-					the recipient install any other programs (or have any dlls) to unpack the archives. 
-					When the .exe file is run (directly or by double-clicking) it extracts the original 
-					.wav file into the same directory. If it can't (because the file exists or it is 
-					run on a read-only device) then it displays a standard Windows "Extract to" dialog 
-					box and allows the user to specify the destination. The self-extracting feature can 
-					be used with WavPack's hybrid modes as well as pure lossless. If a .wvc file (with 
-					the correct name) is present in the same directory as the executable, then a lossless 
-					extraction is automatically performed. It is possible to turn the .exe file back 
-					into a valid WavPack by simply changing the extension back to .wv (although the 
-					extra 33k unpacking header will still be there).
-				</p>
-				<p>
-     As of version 4.40, the self-extraction module will also check for a CUESHEET
-     field in the APEv2 tag and if it is present then the text in the CUESHEET field
-     will be extracted into an appropriately named .cue file. Note that the cuesheet
-     is not automatically modified to point to the correct .wav file; this must be
-     handled either when the cuesheet is embedded or (if the .exe file is renamed) by
-     the user after extraction.
-				</p>
-				<p>
-					To convert an existing WavPack 4.x file into a self-extracting executable use the 
-					DOS copy command to prepend the self-extracting stub (wvselfx.exe) to the .wv file:
-				</p>
-					<blockquote>
-						<tt>C:\music_files>copy /b wvselfx.exe+music.wv music.exe</tt>
-					</blockquote>
-
-				<p>
 					<b><tt>-f = fast mode (fast, but some compromise in compression ratio)</tt></b>
 				</p>
 				<p>
 					The "fast" mode should be used when compression (or decompression) speed is more 
-					important than compression ratio (or, in lossy mode, audio quality).
+					important than compression ratio (or, in lossy mode, audio quality). This option
+     has no effect on DSD audio.
 				</p>
 
 				<p>
@@ -431,7 +428,8 @@ a:hover {
 					The "very high" mode should be used when compression ratio (or, in lossy mode, audio 
 					quality) is much more important than compression (or decompression) speed. This option 
 					slows both by about a factor of about 2, and is <b>not recommended for use on
-     portable devices</b> because of the high CPU load required for decoding.
+     portable devices</b> because of the high CPU load required for decoding. This option
+     simply actives the <b>high</b> mode for DSD audio files.
 				</p>
 
 				<p>
@@ -523,33 +521,10 @@ a:hover {
     </p>
     <p>
      The text fields of APEv2 tags are encoded in the UTF-8 varient of Unicode, so when
-     tag information is passed in on the command-line (which is normally multibyte encoded in
-     WavPack's case) they are converted to UTF-8 before being stored. If your system is
-     already passing the strings in UTF-8, use this option to prevent double conversion.
+     tag information is passed in on the command-line they are converted to UTF-8 before
+     being stored. If your system is already passing the strings in UTF-8, use this option
+     to prevent double conversion.
     </p>
-
-    <p>
-     <b><tt>--optimize-mono = optimization for stereo files that are really mono</tt></b>
-    </p>
-    <p>
-     Use this option on stereo files that may actually be mono (i.e. old recordings) to
-     increase the compression ratio by up to 6%. Note that on stereo recordings that are
-     <i>almost</i> mono (as many supposedly mono recordings are) this will not improve
-     compression. This option does not significantly slow encoding, however the resulting
-     files are not compatible with older WavPack decoders (before version 4.3).
-    </p>
-
-				<p>
-					<b><tt>-p = practical float storage (also 32-bit ints, not lossless)</tt></b>
-				</p>
-				<p>
-					This option reduces the storage of some floating-point data files by up to about 
-					10% by eliminating some information that has virtually no effect on the audio data. 
-					While this does technically make the compression lossy, it retains all the 
-					advantages of floating point data (>600 dB of dynamic range, no clipping, and 25 
-					bits of resolution). This also affects large integer compression by limiting the 
-					resolution to 24 bits.
-				</p>
 
 				<p>
 					<b><tt>--pair-unassigned-chans = encode unassigned channels into stereo pairs</tt></b>
@@ -597,6 +572,10 @@ a:hover {
      well as a transcoding operation (with a WavPack source file), although it <i>will</i>
      modify the MD5 checksum stored in the file (which WavPack's lossy mode does not do).
 				</p>
+				<p>
+					The pre-quantize option is <b>not</b> usable with DSD audio files because they are
+     already only 1 bit deep, but an error will not be generated (the option is ignored).
+				</p>
 
 				<p>
 					<b><tt>-q = quiet (keep console output to a minimum)</tt></b>
@@ -605,22 +584,22 @@ a:hover {
 					Self explanatory.
 				</p>
 				<p>
-					<b><tt>-r = generate new RIFF wav header (removing extra chunk info)</tt></b>
+					<b><tt>-r = remove any extra chunk info from audio file</tt></b>
 				</p>
 				<p>
-				 WavPack normally saves all the RIFF header information contained in the wav file
+				 WavPack normally saves all the header information contained in the audio file
 				 (including any chunks after the audio data). This is done so that WvUnpack.exe can
-				 restore the original wav files exactly. The -r option causes WavPack to discard the
-				 header contained in the source file (and any extra chunks) and generate a fresh wav
-				 header. Obviously the source wav header is still used to determine the format and
-				 size of the file (i.e. this is not a "raw" mode). Note that for multichannel files
-				 a WAVEFORMATEXTENSIBLE header is generated whether the source file had one or not.
-				 Also note that this option cannot be used with certain floating-point wav files
-				 generated by CoolEdit or Audition because they are not properly normalized.
+				 restore the original audio file exactly. The -r option causes WavPack to discard the
+				 header contained in the source file (and any extra chunks). Obviously the source
+     header is still used to determine the format and size of the file (i.e. this is not
+     a "raw" mode). When the file is restored with WvUnpack, a generic header will be
+     generated appropriate for the format. Note that this option cannot be used with
+     certain floating-point wav files generated by CoolEdit or Audition because they
+     are not properly normalized.
 				</p>
 
 				<p>
-					<b><tt>--raw-pcm = input data is raw pcm (44100 Hz, 16-bit, 2-ch)</tt></b>
+					<b><tt>--raw-pcm = input data is raw pcm (44100 Hz, 16-bit signed, 2-ch, little-endian)</tt></b>
 				</p>
 				<p>
      Specifies that the source file (or stdin) contains raw PCM data with no header.
@@ -634,20 +613,24 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>--raw-pcm=sr,bps,ch = input data is raw pcm with specified format</tt></b>
+					<b><tt>--raw-pcm=sr,bps[f|s|u],ch,[le|be] = input data is raw pcm with specified format</tt></b>
 				</p>
 				<p>
      Specifies that the source file (or stdin) contains raw PCM data with no header
      and the specified sampling rate, bit-depth, and number of channels. Parameters
-     matching the default (44100,16,2) can be omitted. The valid range of bit-depths
-     is from 1 to 32, with 32f specifying 32-bit floating point data. The number of channels
-     may be from 1 to 256. Note that the data must still match the format of WAV file
-     audio (i.e., little endian and signed, except for 8-bit data which is unsigned).
+     matching the default (44100,16,2,le) can be omitted. The valid range of bit-depths
+     is from 1 to 32. The default data format can be overridden with "f" for floating-point
+     audio (32-bit only) or "s" or "u" for signed/unsigned integers. The number of channels
+     may be from 1 to 256.
     </p>
+    <p>
+     To compress DSD audio, specify bps=1. Note that DSD audio must be in Philips DSDIFF
+     format (i.e., channels interleaved by byte and MSB first temporally). Therefore, standard
+     SACD stereo audio would be <b>--raw-pcm=2822400,1,2</b>.
 				<p>
-     Note that WavPack files created in this
-     way will still normally decode to WAV files (with headers) when unpacked. To avoid
-     this, use the "-r" option with the WvUnpack program to force raw unpacking.
+     Note that WavPack files created in this way will still normally decode to WAV files (with
+     headers) when unpacked (or DFF files for DSD audio). To avoid this, use the "-r" option
+     with the WvUnpack program to force raw unpacking.
 				</p>
 
 				<p>
@@ -708,7 +691,29 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-w "Field=Value" = write specified metadata to APEv2 tag</tt></b>
+					<b><tt>-w Encoder = write actual encoder metadata to APEv2 tag</tt></b>
+				</p>
+				<p>
+     Write a metadata item to the APEv2 tag for the actual encoder being used
+     (e.g., "Encoder=WavPack 5.0.0"). It's also possible to specify a value to override
+     the default. Note that when transcoding WavPack files this metadata item is
+     <b>not</b> simply copied from source to destination, but is recreated with the
+     appropriate value.
+				</p>
+
+				<p>
+					<b><tt>-w Settings = write actual encoder settings metadata to APEv2 tag</tt></b>
+				</p>
+				<p>
+     Write a metadata item to the APEv2 tag for the actual encoder settings being used
+     (e.g., "Settings=-hb384cx3"). It's also possible to specify a value to override
+     the default. Note that when transcoding WavPack files this metadata item is
+     <b>not</b> simply copied from source to destination, but is recreated with the
+     appropriate value.
+				</p>
+
+				<p>
+					<b><tt>-w "Field=[@]Value" = write specified metadata to APEv2 tag</tt></b>
 				</p>
 				<p>
 					Write specified information to APEv2 tag appended to WavPack file(s). May be used
@@ -756,6 +761,9 @@ a:hover {
      speed. The highest levels (n = 4-6) are extremely slow but can provide significant
      improvement in special situations (i.e. synthesized sounds).
 				</p>
+    <p>
+     This option is not applicable to DSD audio and is simply ignored.
+    </p>
 
 				<p>
 					<b><tt>-y = yes to all warnings (use with caution!)</tt></b>
@@ -812,6 +820,17 @@ a:hover {
      the user after extraction. This option has no effect if there's no cuesheet and
      is equivalent to "-xx cuesheet=%a.cue".
 				</p>
+
+				<p>
+     <b><tt>--caf-be or --caf-le = force ouput to Apple Core Audio format</tt></b>
+				</p>
+				<p>
+     Output an Apple Core Audio file (either big- or little-endian) regardless of the input
+     file format. All extra information in the original file's header and trailer will be
+     lost and a "fresh" Core Audio header will be generated. Note that DSD audio files will
+     be decimated 8X and output as 24-bit PCM.
+				</p>
+
 				<p>
 					<b><tt>-d = delete source file if successful (use with caution!)</tt></b>
 				</p>
@@ -820,7 +839,27 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-f = dump summary file information only to stdout in machine-parsable format (no decode)</tt></b>
+     <b><tt>--dff or --dsdiff = force ouput to Philips DSDIFF format</tt></b>
+				</p>
+				<p>
+     Output a Philips DSDIFF file (extension .dff) audio file regardless of the input
+     file format. All extra information in the original file's header and trailer will be
+     lost and a "fresh" DSDIFF header will be generated. Note that only DSD audio files can
+     be exported as DSDIFF files (WvUnpack does not contain a DSD encoder).
+				</p>
+
+				<p>
+     <b><tt>--dsf = force ouput to Sony DSD format</tt></b>
+				</p>
+				<p>
+     Output a Sony DSD Stream File (extension .dsf) regardless of the input
+     file format. All extra information in the original file's header and trailer will be
+     lost and a "fresh" DSF header will be generated. Note that only DSD audio files can
+     be exported as DSF files (WvUnpack does not contain a DSD encoder).
+				</p>
+
+				<p>
+					<b><tt>-f[n] = dump summary file information only to stdout in machine-parsable format (no decode)</tt></b>
 				</p>
 				<p>
 					This command would normally be used by another application to obtain information about
@@ -840,6 +879,9 @@ a:hover {
      &nbsp;&nbsp;9. encoding mode (in hex because it's a bitfield, always prefixed with "0x") <br/>
      &nbsp;&nbsp;10. filename (if available)<br/>
 				</p>
+    <p>
+     The optional parameter can be used to output a single item from the 10 available.
+    </p>
 
 				<p>
 					<b><tt>--help = this help display</tt></b>
@@ -904,14 +946,15 @@ a:hover {
 					Self explanatory.
 				</p>
 				<p>
-					<b><tt>-r = force raw audio decode (results in .raw extension)</tt></b>
+					<b><tt>-r or --raw = force raw audio decode (results in .raw extension)</tt></b>
 				</p>
 				<p>
-					This option causes WvUnpack to strip off the standard wav file header (and any 
+					This option causes WvUnpack to strip off any file header (and any 
 					trailer) and only output the uncompressed audio data. If a file is created then it 
-					will be given the .raw extension instead of the standard .wav extension. Note that
+					will be given the .raw extension instead of the extension on the original file. Note that
      the raw data still conforms to standard WAV audio data (i.e., little-endian and signed,
-     except for 8-bit data which is unsigned).
+     except for 8-bit data which is unsigned). DSD audio data is output in Philips DSDIFF
+     format (i.e., channels interleaved by bytes, MSB first temporally).
 				</p>
 				<p>
 					<b><tt>-s = display summary information only to stdout (no decode)</tt></b>
@@ -933,11 +976,12 @@ a:hover {
 				</p>
 
 				<p>
-     <b><tt>--skip=[sample|hh:mm:ss.ss] = start decoding at specified sample/time</tt></b>
+     <b><tt>--skip=[-][sample|hh:mm:ss.ss] = start decoding at specified sample/time</tt></b>
 				</p>
 				<p>
      Specifies an alternate start position for decoding, as either an integer sample index
-     or as a time in hours, minutes, and seconds (with fraction). The WavPack file must be seekable
+     or as a time in hours, minutes, and seconds (with fraction). A minus ('-') sign indicates
+     that the time or sample index is relative to the end of the file. The WavPack file must be seekable
      (i.e. not a pipe). This option can be used with the --until option to decode a
      specific region of a track.
 				</p>
@@ -980,15 +1024,25 @@ a:hover {
 				</p>
 
 				<p>
-     <b><tt>-w  = regenerate .wav header (ignore RIFF data in file)</tt></b>
+     <b><tt>-w or --wav = force ouput to Microsoft WAV format</tt></b>
 				</p>
 				<p>
-					WavPack files normally have a copy of the RIFF headers (and trailers) that were
-     contained in the original .wav file, and these are normally restored when the files
-     are unpacked. Beginning with version 4.40, these headers are automatically
-     regenerated at decode time if a WavPack file is missing them. This option allows
-     the .wav header to be regenerated even if the WavPack file contains a valid header.
+     Output a Microsoft WAV file regardless of the input file format. All extra information in
+     the original file's header and trailer will be lost and a "fresh" WAV header will be
+     generated. For multichannel files, a WAVEFORMATEXTENSIBLE header is written, and for files
+     over 4 GB, an RF64 file will be written (still with .wav extension).
+     Note that DSD audio files will be decimated 8X and output as 24-bit PCM.
 				</p>
+
+				<p>
+     <b><tt>--w64 = force ouput to Sony Wave64 format</tt></b>
+				</p>
+				<p>
+     Output a Sony Wave64 file regardless of the input file format. All extra information in
+     the original file's header and trailer will be lost and a "fresh" Wave64 header will be
+     generated. Note that DSD audio files will be decimated 8X and output as 24-bit PCM.
+				</p>
+
 				<p>
      <b><tt>-x "Field" = extract specified tag field only to stdout (no audio decode)</tt></b>
 				</p>
