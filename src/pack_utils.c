@@ -171,8 +171,16 @@ static const struct { unsigned char a, b; } stereo_pairs [] = {
 
 #define NUM_STEREO_PAIRS (sizeof (stereo_pairs) / sizeof (stereo_pairs [0]))
 
+// Legacy version of this function for compatibility with existing applications. Note that this version
+// also generates older streams to be compatible with all decoders back to 4.0, but of course cannot be
+// used with > 2^32 samples or non-Microsoft channels. The older stream version only differs in that it
+// does not support the "mono optimization" feature where stereo blocks containing identical audio data
+// in both channels are encoded in mono for better efficiency.
+
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples)
 {
+    config->flags |= CONFIG_COMPATIBLE_WRITE;       // write earlier version streams
+
     if (total_samples == (uint32_t) -1)
         return WavpackSetConfiguration64 (wpc, config, -1, NULL);
     else
@@ -185,6 +193,8 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     uint32_t chan_mask = config->channel_mask;
     int num_chans = config->num_channels;
     int i;
+
+    wpc->stream_version = (config->flags & CONFIG_COMPATIBLE_WRITE) ? CUR_STREAM_VERS : MAX_STREAM_VERS;
 
     if ((config->qmode & QMODE_DSD_AUDIO) && config->bytes_per_sample == 1 && config->bits_per_sample == 8) {
 #ifdef ENABLE_DSD
@@ -426,9 +436,9 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
 // might be required).
 //
 // Note: This function should only be used to encode Core Audio files in such a way that a
-// verbatim archive can be created. Applications can just call WavpackSetChannelIdentities()
-// if there are non-Microsoft channels to specify, or neither of these functions if only
-// Microsoft channels are present.
+// verbatim archive can be created. Applications can just include the chan_ids parameter in
+// the call to WavpackSetConfiguration64() if there are non-Microsoft channels to specify,
+// or do nothing special if only Microsoft channels are present (the vast majority of cases).
 
 int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder)
 {

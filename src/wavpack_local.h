@@ -211,7 +211,8 @@ typedef struct {
 
 #define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
 #define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
-#define CUR_STREAM_VERS     0x410       // stream version we are writing now
+                                        // (only stream version to support mono optimization)
+#define CUR_STREAM_VERS     0x407       // universally compatible stream version
 
 
 //////////////////////////// WavPack Metadata /////////////////////////////////
@@ -293,6 +294,7 @@ typedef struct {
 #define CONFIG_CREATE_EXE       0x40000 // create executable
 #define CONFIG_CREATE_WVC       0x80000 // create correction file
 #define CONFIG_OPTIMIZE_WVC     0x100000 // maximize bybrid compression
+#define CONFIG_COMPATIBLE_WRITE 0x400000 // write files for decoders < 4.3
 #define CONFIG_CALC_NOISE       0x800000 // calc noise in hybrid mode
 #define CONFIG_LOSSY_MODE       0x1000000 // obsolete (for information)
 #define CONFIG_EXTRA_MODE       0x2000000 // extra processing mode
