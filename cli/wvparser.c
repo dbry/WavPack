@@ -126,7 +126,9 @@ static const char *metadata_names [] = {
 static int32_t read_bytes (void *buff, int32_t bcount);
 static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr);
 static void little_endian_to_native (void *data, char *format);
+static void native_to_little_endian (void *data, char *format);
 static void parse_wavpack_block (unsigned char *block_data);
+static int verify_wavpack_block (unsigned char *buffer);
 
 static const char *sign_on = "\n"
 " WVPARSER  WavPack Audio File Parser Test Filter  Version 1.00\n"
@@ -322,6 +324,89 @@ static void parse_wavpack_block (unsigned char *block_data)
 
     if (blockptr != block_data + wphdr->ckSize + 8)
         printf ("error: garbage at end of WavPack block\n");
+
+    if (!verify_wavpack_block (block_data))
+        printf ("error: checksum failure on WavPack block\n");
+}
+
+// Quickly verify the referenced block. It is assumed that the WavPack header has been converted
+// to native endian format. If a block checksum is performed, that is done in little-endian
+// (file) format. It is also assumed that the caller has made sure that the block length
+// indicated in the header is correct (we won't overflow the buffer). If a checksum is present,
+// then it is checked, otherwise we just check that all the metadata blocks are formatted
+// correctly (without looking at their contents). Returns FALSE for bad block.
+
+#define ID_BLOCK_CHECKSUM       (ID_OPTIONAL_DATA | 0xf)
+
+static int verify_wavpack_block (unsigned char *buffer)
+{
+    WavpackHeader *wphdr = (WavpackHeader *) buffer;
+    uint32_t checksum_passed = 0, bcount, meta_bc;
+    unsigned char *dp, meta_id, c1, c2;
+
+    if (strncmp (wphdr->ckID, "wvpk", 4) || wphdr->ckSize + 8 < sizeof (WavpackHeader))
+        return 0;
+
+    bcount = wphdr->ckSize - sizeof (WavpackHeader) + 8;
+    dp = (unsigned char *)(wphdr + 1);
+
+    while (bcount >= 2) {
+        meta_id = *dp++;
+        c1 = *dp++;
+
+        meta_bc = c1 << 1;
+        bcount -= 2;
+
+        if (meta_id & ID_LARGE) {
+            if (bcount < 2)
+                return 0;
+
+            c1 = *dp++;
+            c2 = *dp++;
+            meta_bc += ((uint32_t) c1 << 9) + ((uint32_t) c2 << 17);
+            bcount -= 2;
+        }
+
+        if (bcount < meta_bc)
+            return 0;
+
+        if ((meta_id & ID_UNIQUE) == ID_BLOCK_CHECKSUM) {
+            unsigned char *csptr = buffer;
+
+            int wcount = (int)(dp - 2 - buffer) >> 1;
+            uint32_t csum = (uint32_t) -1;
+
+            if ((meta_id & ID_ODD_SIZE) || meta_bc < 2 || meta_bc > 4)
+                return 0;
+
+            native_to_little_endian ((WavpackHeader *) buffer, WavpackHeaderFormat);
+
+            while (wcount--) {
+                csum = (csum * 3) + csptr [0] + (csptr [1] << 8);
+                csptr += 2;
+            }
+
+            little_endian_to_native ((WavpackHeader *) buffer, WavpackHeaderFormat);
+
+            if (meta_bc == 4) {
+                if (*dp++ != (csum & 0xff) || *dp++ != ((csum >> 8) & 0xff) || *dp++ != ((csum >> 16) & 0xff) || *dp++ != ((csum >> 24) & 0xff))
+                    return 0;
+            }
+            else {
+                csum ^= csum >> 16;
+
+                if (*dp++ != (csum & 0xff) || *dp++ != ((csum >> 8) & 0xff))
+                    return 0;
+            }
+
+            checksum_passed++;
+        }
+
+        bcount -= meta_bc;
+        dp += meta_bc;
+    }
+
+    return (bcount == 0) && (!(wphdr->flags & HAS_CHECKSUM) || checksum_passed);
 }
 
 static int32_t read_bytes (void *buff, int32_t bcount)
@@ -401,5 +486,37 @@ static void little_endian_to_native (void *data, char *format)
 	}
 
 	format++;
+    }
+}
+
+static void native_to_little_endian (void *data, char *format)
+{
+    unsigned char *cp = (unsigned char *) data;
+    int32_t temp;
+
+    while (*format) {
+        switch (*format) {
+            case 'L':
+                temp = * (int32_t *) cp;
+                *cp++ = (unsigned char) temp;
+                *cp++ = (unsigned char) (temp >> 8);
+                *cp++ = (unsigned char) (temp >> 16);
+                *cp++ = (unsigned char) (temp >> 24);
+                break;
+
+            case 'S':
+                temp = * (int16_t *) cp;
+                *cp++ = (unsigned char) temp;
+                *cp++ = (unsigned char) (temp >> 8);
+                break;
+
+            default:
+                if (isdigit (*format))
+                    cp += *format - '0';
+
+                break;
+        }
+
+        format++;
     }
 }
