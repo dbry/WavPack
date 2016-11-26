@@ -151,16 +151,16 @@ int main ()
 	bcount = read_next_header (read_bytes, &wphdr);
 
 	if (bcount == (uint32_t) -1) {
-	    printf ("end of file\n\n");
+	    printf ("\nend of file\n\n");
 	    break;
 	}
 
 	if (bcount)
-	    printf ("unknown data skipped, %d bytes\n", bcount);
+	    printf ("\nunknown data skipped, %d bytes\n", bcount);
 
         if (((wphdr.flags & SRATE_MASK) >> SRATE_LSB) == 15) {
             if (sample_rate != 44100)
-                printf ("warning: unknown sample rate...using 44100 default\n");
+                printf ("\nwarning: unknown sample rate...using 44100 default\n");
             sample_rate = 44100;
         }
         else
@@ -168,12 +168,12 @@ int main ()
 
         // basic summary of the block
 
-        if (wphdr.flags & INITIAL_BLOCK)
+        if ((wphdr.flags & INITIAL_BLOCK) || !wphdr.block_samples)
             printf ("\n");
 
 	if (wphdr.block_samples) {
-	    printf ("%s audio block, %d samples in %d bytes, time = %.2f-%.2f\n",
-                (wphdr.flags & MONO_FLAG) ? "mono" : "stereo", wphdr.block_samples, wphdr.ckSize + 8,
+	    printf ("%s audio block, version 0x%03x, %d samples in %d bytes, time = %.2f-%.2f\n",
+                (wphdr.flags & MONO_FLAG) ? "mono" : "stereo", wphdr.version, wphdr.block_samples, wphdr.ckSize + 8,
                 (double) wphdr.block_index / sample_rate, (double) (wphdr.block_index + wphdr.block_samples - 1) / sample_rate);
 
             // now show information from the "flags" field of the header
@@ -209,7 +209,7 @@ int main ()
             printf ("flags: %s\n", flags_list);
         }
         else
-            printf ("non-audio block of %d bytes\n", wphdr.ckSize + 8);
+            printf ("non-audio block of %d bytes, version 0x%03x\n", wphdr.ckSize + 8, wphdr.version);
 
 	// read and parse the actual block data (which is entirely composed of "meta" blocks)
 
