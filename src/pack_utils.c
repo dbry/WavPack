@@ -38,6 +38,7 @@ WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id,
         return NULL;
 
     CLEAR (*wpc);
+    wpc->total_samples = -1;
     wpc->stream_version = CUR_STREAM_VERS;
     wpc->blockout = blockout;
     wpc->wv_out = wv_id;
@@ -375,14 +376,14 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
                 for (i = 0; i < NUM_STEREO_PAIRS; ++i)
                     if ((left_chan_id == stereo_pairs [i].a && right_chan_id == stereo_pairs [i].b) ||
                         (left_chan_id == stereo_pairs [i].b && right_chan_id == stereo_pairs [i].a)) {
-							if (right_chan_id <= 32 && (chan_mask & (1 << (right_chan_id-1))))
-								chan_mask &= ~(1 << (right_chan_id-1));
-							else if (chan_ids && *chan_ids == right_chan_id)
-								chan_ids++;
+                            if (right_chan_id <= 32 && (chan_mask & (1 << (right_chan_id-1))))
+                                chan_mask &= ~(1 << (right_chan_id-1));
+                            else if (chan_ids && *chan_ids == right_chan_id)
+                                chan_ids++;
 
-							chans = 2;
-							break;
-						}
+                            chans = 2;
+                            break;
+                        }
         }
 
         num_chans -= chans;
@@ -898,14 +899,30 @@ static int block_add_checksum (unsigned char *buffer_start, unsigned char *buffe
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 {
-    uint32_t max_blocksize, bcount;
+    uint32_t max_blocksize, max_chans = 1, bcount;
     unsigned char *outbuff, *outend, *out2buff, *out2end;
-    int result = TRUE;
+    int result = TRUE, i;
+
+    // for calculating output (block) buffer size, first see if any streams are stereo
+
+    for (i = 0; i < wpc->num_streams; i++)
+        if (!(wpc->streams [i]->wphdr.flags & MONO_FLAG)) {
+            max_chans = 2;
+            break;
+        }
+
+    // then calculate maximum size based on bytes / sample
+
+    max_blocksize = block_samples * max_chans * ((wpc->streams [0]->wphdr.flags & BYTES_STORED) + 1);
+
+    // add margin based on how much "negative" compression is possible with pathological audio
 
     if ((wpc->config.flags & CONFIG_FLOAT_DATA) && !(wpc->config.flags & CONFIG_SKIP_WVX))
-        max_blocksize = block_samples * 16 + 4096;
+        max_blocksize += max_blocksize;         // 100% margin for lossless float data
     else
-        max_blocksize = block_samples * 10 + 4096;
+        max_blocksize += max_blocksize >> 2;    // otherwise 25% margin for everything else
+
+    max_blocksize += wpc->metabytes + 1024;     // finally, add metadata & another 1K margin
 
     out2buff = (wpc->wvc_flag) ? malloc (max_blocksize) : NULL;
     out2end = out2buff + max_blocksize;
@@ -1217,7 +1234,8 @@ static int write_metadata_block (WavpackContext *wpc)
             wpmdp++;
         }
 
-        wphdr = (WavpackHeader *) (block_buff = malloc (block_size));
+        // allocate 6 extra bytes for 4-byte checksum (which we add last)
+        wphdr = (WavpackHeader *) (block_buff = malloc (block_size + 6));
 
         CLEAR (*wphdr);
         memcpy (wphdr->ckID, "wvpk", 4);
@@ -1239,6 +1257,7 @@ static int write_metadata_block (WavpackContext *wpc)
 
         free (wpc->metadata);
         wpc->metadata = NULL;
+        block_add_checksum (block_buff, block_buff + (block_size += 6), 4);     // add 4-byte checksum
         WavpackNativeToLittleEndian ((WavpackHeader *) block_buff, WavpackHeaderFormat);
 
         if (!wpc->blockout (wpc->wv_out, block_buff, block_size)) {

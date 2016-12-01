@@ -134,22 +134,26 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         if (wps->wphdr.block_samples) {
             if (flags & OPEN_STREAMING)
                 SET_BLOCK_INDEX (wps->wphdr, 0);
-            else if (GET_BLOCK_INDEX (wps->wphdr) || GET_TOTAL_SAMPLES (wps->wphdr) == -1) {
-                wpc->initial_index = GET_BLOCK_INDEX (wps->wphdr);
-                SET_BLOCK_INDEX (wps->wphdr, 0);
+            else if (wpc->total_samples == -1) {
+                if (GET_BLOCK_INDEX (wps->wphdr) || GET_TOTAL_SAMPLES (wps->wphdr) == -1) {
+                    wpc->initial_index = GET_BLOCK_INDEX (wps->wphdr);
+                    SET_BLOCK_INDEX (wps->wphdr, 0);
 
-                if (wpc->reader->can_seek (wpc->wv_in)) {
-                    int64_t final_index = -1;
+                    if (wpc->reader->can_seek (wpc->wv_in)) {
+                        int64_t final_index = -1;
 
-                    seek_eof_information (wpc, &final_index, FALSE);
+                        seek_eof_information (wpc, &final_index, FALSE);
 
-                    if (final_index != -1)
-                        wpc->total_samples = final_index - wpc->initial_index;
+                        if (final_index != -1)
+                            wpc->total_samples = final_index - wpc->initial_index;
+                    }
                 }
+                else
+                    wpc->total_samples = GET_TOTAL_SAMPLES (wps->wphdr);
             }
-            else
-                wpc->total_samples = GET_TOTAL_SAMPLES (wps->wphdr);
         }
+        else if (wpc->total_samples == -1 && !GET_BLOCK_INDEX (wps->wphdr) && GET_TOTAL_SAMPLES (wps->wphdr))
+            wpc->total_samples = GET_TOTAL_SAMPLES (wps->wphdr);
 
         if (wpc->wvc_in && wps->wphdr.block_samples && (wps->wphdr.flags & HYBRID_FLAG)) {
             unsigned char ch;

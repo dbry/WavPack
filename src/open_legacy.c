@@ -76,33 +76,27 @@ static int trans_close_stream (void *id)
     return 0;
 }
 
-//  int32_t (*read_bytes)(void *id, void *data, int32_t bcount);
-//  int32_t (*write_bytes)(void *id, void *data, int32_t bcount);
-//  int64_t (*get_pos)(void *id);                               // new signature for large files
-//  int (*set_pos_abs)(void *id, int64_t pos);                  // new signature for large files
-//  int (*set_pos_rel)(void *id, int64_t delta, int mode);      // new signature for large files
-//  int (*push_back_byte)(void *id, int c);
-//  int64_t (*get_length)(void *id);                            // new signature for large files
-//  int (*can_seek)(void *id);
-//  int (*truncate_here)(void *id);                             // new function to truncate file at current position
-//  int (*close)(void *id);                                     // new function to close file
-
 static WavpackStreamReader64 trans_reader = {
     trans_read_bytes, trans_write_bytes, trans_get_pos, trans_set_pos_abs, trans_set_pos_rel,
     trans_push_back_byte, trans_get_length, trans_can_seek, NULL, trans_close_stream
 };
 
-// This function is identical to WavpackOpenFileInput() except that instead
-// of providing a filename to open, the caller provides a pointer to a set of
-// reader callbacks and instances of up to two streams. The first of these
-// streams is required and contains the regular WavPack data stream; the second
-// contains the "correction" file if desired. Unlike the standard open
-// function which handles the correction file transparently, in this case it
-// is the responsibility of the caller to be aware of correction files.
+// This function is identical to WavpackOpenFileInput64() except that instead
+// of providing the new 64-bit reader callbacks, the old reader callbacks are
+// utilized and a translation layer is employed. It is provided as a compatibility
+// function for existing applications. To ensure that streaming applications using
+// this function continue to work, the OPEN_NO_CHECKSUM flag is forced on when
+// the OPEN_STREAMING flag is set.
 
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
     WavpackReaderTranslator *trans_wv = NULL, *trans_wvc = NULL;
+
+    // this prevents existing streaming applications from failing if they try to pass
+    // in blocks that have been modified from the original (e.g., Matroska blocks)
+
+    if (flags & OPEN_STREAMING)
+        flags |= OPEN_NO_CHECKSUM;
 
     if (wv_id) {
         trans_wv = malloc (sizeof (WavpackReaderTranslator));
