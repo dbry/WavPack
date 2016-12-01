@@ -544,19 +544,23 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
     for (channel = 0; channel <= stereo; ++channel) {
         sp = wps->dsd.filters + channel;
 
-        *dp++ = (sp->filter1 + (VALUE_ONE >> 9)) >> (PRECISION - 8);
-        *dp++ = (sp->filter2 + (VALUE_ONE >> 9)) >> (PRECISION - 8);
-        *dp++ = (sp->filter3 + (VALUE_ONE >> 9)) >> (PRECISION - 8);
-        *dp++ = (sp->filter4 + (VALUE_ONE >> 9)) >> (PRECISION - 8);
-        *dp++ = (sp->filter5 + (VALUE_ONE >> 9)) >> (PRECISION - 8);
+        *dp = sp->filter1 >> (PRECISION - 8);
+        sp->filter1 = *dp++ << (PRECISION - 8);
+
+        *dp = sp->filter2 >> (PRECISION - 8);
+        sp->filter2 = *dp++ << (PRECISION - 8);
+
+        *dp = sp->filter3 >> (PRECISION - 8);
+        sp->filter3 = *dp++ << (PRECISION - 8);
+
+        *dp = sp->filter4 >> (PRECISION - 8);
+        sp->filter4 = *dp++ << (PRECISION - 8);
+
+        *dp = sp->filter5 >> (PRECISION - 8);
+        sp->filter5 = *dp++ << (PRECISION - 8);
+
         *dp++ = sp->factor;
         *dp++ = sp->factor >> 8;
-
-        sp->filter1 = ((sp->filter1 + (VALUE_ONE >> 9)) >> (PRECISION - 8)) << (PRECISION - 8);
-        sp->filter2 = ((sp->filter2 + (VALUE_ONE >> 9)) >> (PRECISION - 8)) << (PRECISION - 8);
-        sp->filter3 = ((sp->filter3 + (VALUE_ONE >> 9)) >> (PRECISION - 8)) << (PRECISION - 8);
-        sp->filter4 = ((sp->filter4 + (VALUE_ONE >> 9)) >> (PRECISION - 8)) << (PRECISION - 8);
-        sp->filter5 = ((sp->filter5 + (VALUE_ONE >> 9)) >> (PRECISION - 8)) << (PRECISION - 8);
         sp->filter6 = 0;
         sp->factor = (sp->factor << 16) >> 16;
     }
