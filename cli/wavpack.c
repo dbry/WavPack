@@ -65,9 +65,7 @@
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2016 David Bryant.  All Rights Reserved.\n\n"
-" *** This is an experimental alpha version and should be used for ***\n"
-" *** testing only. Please do not use it for important archiving!! ***\n\n";
+" Copyright (c) 1998 - 2016 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WAVPACK using libwavpack version %s, expected %s (see README)\n\n";
@@ -80,9 +78,9 @@ static const char *usage =
 " Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
 "             (default is lossless; multiple input files allowed)\n\n"
 #endif
-" Formats: .wav (default, bwf/rf64 okay), .wv (transcode),\n"
-"          .w64 (Sony Wave64), .caf (Core Audio Format),\n"
-"          .dff (Philips DSDIFF), .dsf (Sony DSD stream)\n\n"
+" Formats: .wav (default, bwf/rf64 okay)  .wv (transcode, with tags)\n"
+"          .w64 (Sony Wave64)             .caf (Core Audio Format)\n"
+"          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n\n"
 " Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
 "                                           n = 24-9600 kbits/second (kbps)\n"
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
