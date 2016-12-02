@@ -26,7 +26,7 @@ static int decimation_run (void *context, int32_t *samples, int num_samples);
 static void decimation_reset (void *context);
 static void *decimation_destroy (void *context);
 
-#define PLUGIN_VERSION "2.8.0.2-alpha5"
+#define PLUGIN_VERSION "2.8.0.2"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 

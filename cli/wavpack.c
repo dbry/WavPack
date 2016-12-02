@@ -2839,12 +2839,12 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             if (!stricmp (item, "encoder")) {
                 value = malloc (80);
                 sprintf (value, "WavPack %s", PACKAGE_VERSION);
-                value_len = strlen (value);
+                value_len = (int) strlen (value);
             }
             else if (!stricmp (item, "settings")) {
                 value = malloc (256);
                 make_settings_string (value, &loc_config);
-                value_len = strlen (value);
+                value_len = (int) strlen (value);
             }
             else {
                 value_len = WavpackGetTagItem (infile, item, NULL, 0);

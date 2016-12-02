@@ -29,6 +29,7 @@
 // Version 2.14 - Mar 28, 2016 (library ver 4.80.0)
 // Version 2.15a - Aug 26, 2016 (library ver 5.0.0-alpha4, DSD read with 8x decimation)
 // Version 2.15b - Sept 27, 2016 (library ver 5.0.0-alpha5, new "high" DSD, broken!)
+// Version 3.0 - Dec 1, 2016 (library ver 5.0.0)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -68,7 +69,7 @@
 
 short PASCAL QueryCoolFilter (COOLQUERY *lpcq)
 {
-    strcpy (lpcq->szName, "WavPack4");
+    strcpy (lpcq->szName, "WavPack");
     strcpy (lpcq->szCopyright, "WavPack Hybrid Audio Compression");
     strcpy (lpcq->szExt, "WV");
 
@@ -451,7 +452,7 @@ void PASCAL CloseFilterOutput (HANDLE hOutput)
         WavpackFlushSamples (wpc);
 
         if (out->wv_file.error || out->wvc_file.error) {
-            MessageBox (NULL, "Error writing file, disk probably full!", "WavPack4", MB_OK);
+            MessageBox (NULL, "Error writing file, disk probably full!", "WavPack", MB_OK);
             WavpackCloseFile (wpc);
 
             if (out->wvc_file.file)
@@ -660,7 +661,7 @@ void PASCAL CloseFilterInput (HANDLE hInput)
         if (WavpackGetNumErrors (in->wpc)) {
             char message [80];
             sprintf (message, "CRC errors detected in %d block(s)!", WavpackGetNumErrors (in->wpc));
-            MessageBox (NULL, message, "WavPack4", MB_OK);
+            MessageBox (NULL, message, "WavPack", MB_OK);
         }
 
         if (in->wpc)
