@@ -15,8 +15,8 @@
 ; !include "Sections.nsh"
 
 ; common defines for a generic DrO installer :o)
-!define VERSION "2.8.0.1"
-!define ALT_VER "2_8_0_1"
+!define VERSION "2.8.0.2"
+!define ALT_VER "2_8_0_2"
 !define PLUG "WavPack Plugin for Winamp"
 !define PLUG_ALT "WavPack_Plugin_for_Winamp"
 !define PLUG_FILE "in_wv"
@@ -133,7 +133,8 @@ FunctionEnd
 ; Before we start, make sure user wants to install this version
 Function .onInit
   MessageBox MB_YESNO '\
-    This WavPack plugin for Winamp will work fine with both recent and many older versions of Winamp.\
+    This WavPack plugin for Winamp will work fine with both recent and many older versions of Winamp. \
+    It is based on WavPack version 5 and supports large files and DSD audio.\
     $\n$\nHowever, for the best results with the most recent version of Winamp, the more modern WavPack \
     plugin (2.8.1) that comes with the free "Winamp Essentials Pack" is recommended.\
     $\n$\nDo you still want to install this plugin?' IDYES NoAbort
