@@ -560,20 +560,10 @@ typedef struct {
     if (source && result) (source ^ result) < 0 ? (weight -= delta) : (weight += delta);
 #endif
 
-#define update_weight_d2(weight, delta, source, result) \
-    if (source && result) weight -= (((source ^ result) >> 29) & 4) - 2;
-
 #define update_weight_clip(weight, delta, source, result) \
     if (source && result) { \
         const int32_t s = (source ^ result) >> 31; \
         if ((weight = (weight ^ s) + (delta - s)) > 1024) weight = 1024; \
-        weight = (weight ^ s) - s; \
-    }
-
-#define update_weight_clip_d2(weight, delta, source, result) \
-    if (source && result) { \
-        const int32_t s = (source ^ result) >> 31; \
-        if ((weight = (weight ^ s) + (2 - s)) > 1024) weight = 1024; \
         weight = (weight ^ s) - s; \
     }
 

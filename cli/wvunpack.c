@@ -1008,16 +1008,16 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 {
     int64_t skip_sample_index = 0, until_samples_total = 0, total_unpacked_samples = 0;
     int result = WAVPACK_NO_ERROR, md5_diff = FALSE, created_riff_header = FALSE;
-    int input_qmode, output_qmode, input_format, output_format = 0;
+    int input_qmode, output_qmode = 0, input_format, output_format = 0;
     int open_flags = 0, padding_bytes = 0, num_channels, wvc_mode;
-    uint32_t output_buffer_size = 0, bcount;
     unsigned char md5_unpacked [16];
-    double dtime, progress = -1.0;
     char *outfilename_temp = NULL;
     char *extension = NULL;
     WavpackContext *wpc;
+    uint32_t bcount;
     char error [80];
     FILE *outfile;
+    double dtime;
 
 #if defined(_WIN32)
     struct __timeb64 time1, time2;
@@ -2317,7 +2317,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
             fprintf (dst, "file wrapper:      %d byte trailer only\n",
                 trailer_bytes);
         else
-            fprintf (dst, "file wrapper:      none (raw audio)\n");
+            fprintf (dst, "file wrapper:      none stored\n");
     }
 
     if (WavpackGetMode (wpc) & MODE_VALID_TAG) {

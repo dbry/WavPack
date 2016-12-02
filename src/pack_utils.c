@@ -1257,7 +1257,8 @@ static int write_metadata_block (WavpackContext *wpc)
 
         free (wpc->metadata);
         wpc->metadata = NULL;
-        block_add_checksum (block_buff, block_buff + (block_size += 6), 4);     // add 4-byte checksum
+        // add a 4-byte checksum here (increases block size by 6)
+        block_add_checksum ((unsigned char *) block_buff, (unsigned char *) block_buff + (block_size += 6), 4);
         WavpackNativeToLittleEndian ((WavpackHeader *) block_buff, WavpackHeaderFormat);
 
         if (!wpc->blockout (wpc->wv_out, block_buff, block_size)) {

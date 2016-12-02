@@ -141,7 +141,7 @@ WavpackContext *WavpackOpenRawDecoder (
     // and recreate the missing headers
 
     if (strncmp (main_data, "wvpk", 4)) {
-        uint32_t multiple_blocks = 0, block_size, block_samples, wphdr_flags, crc;
+        uint32_t multiple_blocks = 0, block_size, block_samples = 0, wphdr_flags, crc;
         uint32_t main_bytes = main_size, corr_bytes = corr_size;
         unsigned char *mcp = main_data;
         unsigned char *ccp = corr_data;

@@ -59,7 +59,7 @@ int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
 int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uint32_t flags = wps->wphdr.flags, crc = wps->crc;
+    uint32_t flags = wps->wphdr.flags;
 
     // don't attempt to decode past the end of the block, but watch out for overflow!
 

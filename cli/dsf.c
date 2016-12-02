@@ -187,7 +187,7 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
 
 int WriteDsfHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode)
 {
-    uint32_t chan_mask = WavpackGetChannelMask (wpc), chan_type;
+    uint32_t chan_mask = WavpackGetChannelMask (wpc), chan_type = 0;
     int num_channels = WavpackGetNumChannels (wpc);
     int64_t file_size, total_blocks, data_size;
     DSFFileChunk file_chunk;

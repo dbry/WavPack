@@ -354,7 +354,7 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
     // required for all three decode tables will be 2K bytes per history bin.
 
     while (total_summed_probabilities > history_bins * 1280) {
-        int max_sum = 0, sum_values = 0, largest_bin;
+        int max_sum = 0, sum_values = 0, largest_bin = 0;
 
         for (p0 = 0; p0 < history_bins; ++p0)
             if (summed_probabilities [p0] [255] > max_sum) {
