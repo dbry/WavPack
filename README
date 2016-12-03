@@ -30,6 +30,7 @@ C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\VCProjectDefaults
 To build everything on Linux, type:
 
 1. ./configure [--disable-asm] [--enable-man] [--enable-rpath] [--enable-tests]
+               [--disable-apps] [--disable-dsd] [--enable-legacy]
 2. make
 3. make install (optionally, to install into /usr/local/bin)
 
@@ -51,23 +52,29 @@ language optimizations are working correctly on various platforms. It is
 built with the configure option --enable-tests and requires Pthreads (it
 worked out-of-the-box on all the platforms I tried it on). There are lots of
 options, but the default test suite (consisting of 192 tests) is executed
-with "wvtest --default". On Windows a third-party Pthreads library is
-required, so I am not including this in the build for now.
+with "wvtest --default". There is also a seeking test. On Windows a third-
+party Pthreads library is required, so I am not including this in the build
+for now.
 
 Notes:
 
-1. There are three documentation files contained in the distribution:
+1. There are four documentation files contained in the distribution:
 
-   doc/wavpack_doc.html   contains user-targeted documentation for the
+   doc/wavpack_doc.html:  contains user-targeted documentation for the
                           command-line programs
 
-   doc/library_use.txt    contains a detailed description of the API provided
-                          by WavPack library appropriate for read and writing
-                          WavPack files and manipulating APEv2 tags
+   doc/WavPack5PortingGuide.pdf:  this document is targeted at developers who
+                          are migrating to WavPack 5, and it provides a short
+                          description of the major improvements and how to
+                          utilize them
 
-   doc/file_format.txt    contains a description of the WavPack file format,
-                          including details needed for parsing WavPack blocks
-                          and interpreting the block header and flags
+   doc/WavPack5LibraryDoc.pdf:  contains a detailed description of the API
+                          provided by WavPack library appropriate for read
+                          and writing WavPack files and manipulating APEv2 tags
+
+   doc/WavPack5FileFormat.pdf:  contains a description of the WavPack file
+                          format, including details needed for parsing WavPack
+                          blocks and interpreting the block header and flags
 
    There is also a description of the WavPack algorithms in the forth edition
    of David Salomon's book "Data Compression: The Complete Reference". The
@@ -93,13 +100,17 @@ Notes:
    there are additional macros that may be used to further reduce the size of
    the binary. Note that these must be defined for all modules:
 
-   VER4_ONLY       to only handle WavPack files from version 4.0 onward
-                    (this is highly recommended for most applications
-                     because pre-4.0 WavPack files are very old)
    NO_SEEKING      to not allow seeking to a specific sample index
                     (for applications that always read entire files)
+
    NO_TAGS         to not read specified fields from ID3v1 and APEv2 tags and
                     not create or edit APEv2 tags
+
+   ENABLE_LEGACY   include support for Wavpack files from before version 4.0
+                    (this was eliminated by default with WavPack 5)
+
+   ENABLE_DSD      include support for DSD audio (new for WavPack 5 and the
+                    default, but obviously not universally required)
 
 4. There are alternate versions of this library available specifically designed
    for "resource limited" CPUs or hardware encoding and decoding. There is the

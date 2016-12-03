@@ -1,3 +1,36 @@
+                      --------------------------------
+                      Release 5.0.0 - December 1, 2016
+                      --------------------------------
+
+ WavPack Library Source Code - 5.0.0
+ wavpack.exe (command-line encoder) - 5.0.0
+ wvunpack.exe (command-line decoder) - 5.0.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.0.0
+ ----------------------------------------------------
+  added: multiple input formats, including RF64, Wave64,and CAF
+  added: DSD audio support in Philips DSDIFF and Sony DSF files
+  fixed: seeking in > 2GB WavPack files (new stream reader)
+  fixed: accept > 4GB source audio files (all formats)
+  improved: increase maximum samples from 2^32 to 2^40
+  added: "raw" mode decoder for streaming applications
+  added: block checksums for robustness to corruption
+  fixed: many small fixes and improvements
+  added: all new pdf documentation
+
+ AmioWavpack.amio (Adobe Audition Plugins) - 2.0
+ -----------------------------------------------
+  improved: all new dialog for WavPack settings
+  fixed: handle unlimited audio file size
+  fixed: save all Amio channel identities
+  added: save/restore APEv2 tags
+
+ in_wv.dll (winamp plugin) - 2.8.0.2
+ CoreWavPack DirectShow Filters - 1.5.0.0
+ cool_wv4.flt (Cool Edit / Audition filter) - 3.0
+ ------------------------------------------------
+  updated: see 5.0.0 library changes
+
+
                       -------------------------------
                       Release 4.80.0 - March 28, 2016
                       -------------------------------
