@@ -54,6 +54,7 @@ AC_SUBST(LIBM)
 
 # Check for large files support
 AC_SYS_LARGEFILE
+AC_FUNC_FSEEKO
 
 # Check if cross-compiling on mingw
 AC_MINGW32

@@ -54,6 +54,11 @@
 static FILE *fopen_utf8 (const char *filename_utf8, const char *mode_utf8);
 #endif
 
+#ifdef HAVE_FSEEKO
+#define fseek fseeko
+#define ftell ftello
+#endif
+
 static int32_t read_bytes (void *id, void *data, int32_t bcount)
 {
     return (int32_t) fread (data, 1, bcount, (FILE*) id);
