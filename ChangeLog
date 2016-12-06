@@ -1,5 +1,5 @@
                       --------------------------------
-                      Release 5.0.0 - December 5, 2016
+                      Release 5.0.0 - December 6, 2016
                       --------------------------------
 
  WavPack Library Source Code - 5.0.0
@@ -7,13 +7,15 @@
  wvunpack.exe (command-line decoder) - 5.0.0
  wvgain.exe (command-line ReplayGain scanner) - 5.0.0
  ----------------------------------------------------
-  added: multiple input formats, including RF64, Wave64,and CAF
-  added: DSD audio support in Philips DSDIFF and Sony DSF files
+  added: multiple input formats, including RF64, Wave64, and CAF
+  added: lossless DSD audio in Philips DSDIFF and Sony DSF files
   fixed: seeking in > 2GB WavPack files (new stream reader)
   fixed: accept > 4GB source audio files (all formats)
   improved: increase maximum samples from 2^32 to 2^40
-  added: "raw" mode decoder for streaming applications
   added: block checksums for robustness to corruption
+  added: support for non-standard channel identities
+  removed: support for legacy WavPack files (< 4.0)
+  added: block decoder for streaming applications
   fixed: many small fixes and improvements
   added: all new pdf documentation
 
