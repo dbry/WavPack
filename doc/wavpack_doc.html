@@ -134,11 +134,11 @@ a:hover {
 				<p>
 					<b>Usage:</b>
 					<br/>
-					<b><tt>&nbsp&nbsp&nbsp&nbsp&nbspWAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]</tt></b>
+					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]</tt></b>
 					<br/>
-					<b><tt>&nbsp&nbsp&nbsp&nbsp&nbspWVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]</tt></b>
+					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]</tt></b>
 					<br/>
-     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspWVGAIN [-options] infile[.wv] [...]</tt></b>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WVGAIN [-options] infile[.wv] [...]</tt></b>
 				</p>
 				<p>
 					The filename extensions will be defaulted if not provided and the input filename may 
@@ -170,17 +170,17 @@ a:hover {
 				<p>
 					<b>File Formats:</b>
 					<br/>
-					<b><tt>&nbsp&nbsp&nbsp&nbsp&nbspMicrosoft Waveform Audio, extension ".wav", PCM audio</tt></b>
+					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Microsoft Waveform Audio, extension ".wav", PCM audio</tt></b>
 					<br/>
-					<b><tt>&nbsp&nbsp&nbsp&nbsp&nbspWavPack Compressed Audio, extension ".wv", PCM audio</tt></b>
+					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WavPack Compressed Audio, extension ".wv", PCM audio</tt></b>
 					<br/>
-     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspApple Core Audio Format, "extension ".caf", PCM or DSD audio</tt></b>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apple Core Audio Format, "extension ".caf", PCM or DSD audio</tt></b>
 					<br/>
-     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspSony Wave64 Audio Format, extension ".w64", PCM audio</tt></b>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sony Wave64 Audio Format, extension ".w64", PCM audio</tt></b>
 					<br/>
-     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspPhilips DSDIFF Format, "extension ".dff", 1-bit DSD audio</tt></b>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Philips DSDIFF Format, "extension ".dff", 1-bit DSD audio</tt></b>
 					<br/>
-     <b><tt>&nbsp&nbsp&nbsp&nbsp&nbspSony DSD Stream Format, "extension ".dsf", 1-bit DSD audio</tt></b>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sony DSD Stream Format, "extension ".dsf", 1-bit DSD audio</tt></b>
 				</p>
 				<p>
 					Both programs will warn before overwriting any file (unless the -y switch is 
@@ -627,6 +627,7 @@ a:hover {
      To compress DSD audio, specify bps=1. Note that DSD audio must be in Philips DSDIFF
      format (i.e., channels interleaved by byte and MSB first temporally). Therefore, standard
      SACD stereo audio would be <b>--raw-pcm=2822400,1,2</b>.
+    </p>
 				<p>
      Note that WavPack files created in this way will still normally decode to WAV files (with
      headers) when unpacked (or DFF files for DSD audio). To avoid this, use the "-r" option
