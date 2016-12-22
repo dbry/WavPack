@@ -288,6 +288,10 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
 
     low &= 0x7fffffff;
     high &= 0x7fffffff;
+
+    if (low > high)         // make sure high and low make sense
+        high = low;
+
     mid = (high + low + 1) >> 1;
 
     if (!c->error_limit)

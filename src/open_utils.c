@@ -560,7 +560,7 @@ static int read_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 
     // if there's any data, the first two bytes are file_format and qmode flags
 
-    if (bytecnt) {
+    if (bytecnt >= 2) {
         wpc->file_format = *byteptr++;
         wpc->config.qmode = (wpc->config.qmode & ~0xff) | *byteptr++;
         bytecnt -= 2;
@@ -593,6 +593,10 @@ static int read_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
                         for (i = 0; i < nchans; ++i)
                             if (bytecnt) {
                                 wpc->channel_reordering [i] = *byteptr++;
+
+                                if (wpc->channel_reordering [i] >= nchans)  // make sure index is in range
+                                    wpc->channel_reordering [i] = 0;
+
                                 bytecnt--;
                             }
                             else
