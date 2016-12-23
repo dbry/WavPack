@@ -319,7 +319,7 @@ int WriteWave64Header (FILE *outfile, WavpackContext *wpc, int64_t total_samples
         wavhdr.GUID [13] = 0x71;
     }
 
-    total_file_bytes = sizeof (filehdr) + sizeof (fmthdr) + wavhdrsize + sizeof (datahdr) + ((total_data_bytes + 7) & ~7LL);
+    total_file_bytes = sizeof (filehdr) + sizeof (fmthdr) + wavhdrsize + sizeof (datahdr) + ((total_data_bytes + 7) & ~(int64_t)7);
 
     memcpy (filehdr.ckID, riff_guid, sizeof (riff_guid));
     memcpy (filehdr.formType, wave_guid, sizeof (wave_guid));

@@ -1268,7 +1268,7 @@ static int can_seek (void *id)
     FILE *file = id ? *(FILE**)id : NULL;
     struct stat statbuf;
 
-    return file && !fstat (fileno (file), &statbuf) && (statbuf.st_mode & S_IFREG);
+    return file && !fstat (fileno (file), &statbuf) && S_ISREG(statbuf.st_mode);
 }
 
 static int32_t write_bytes (void *id, void *data, int32_t bcount)

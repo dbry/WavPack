@@ -164,7 +164,7 @@ typedef struct {
     if (tmp < 0)                                \
         (hdr).total_samples = (uint32_t) -1;    \
     else {                                      \
-        tmp += (tmp / 0xffffffffLL);            \
+        tmp += (tmp / (int64_t) 0xffffffff);    \
         (hdr).total_samples = (uint32_t) tmp;   \
         (hdr).total_samples_u8 =                \
             (unsigned char) (tmp >> 32);        \

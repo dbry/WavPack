@@ -125,7 +125,7 @@ static int64_t get_length (void *id)
     FILE *file = id;
     struct stat statbuf;
 
-    if (!file || fstat (fileno (file), &statbuf) || !(statbuf.st_mode & S_IFREG))
+    if (!file || fstat (fileno (file), &statbuf) || !S_ISREG(statbuf.st_mode))
         return 0;
 
     return statbuf.st_size;
@@ -138,7 +138,7 @@ static int can_seek (void *id)
     FILE *file = id;
     struct stat statbuf;
 
-    return file && !fstat (fileno (file), &statbuf) && (statbuf.st_mode & S_IFREG);
+    return file && !fstat (fileno (file), &statbuf) && S_ISREG(statbuf.st_mode);
 }
 
 static int32_t write_bytes (void *id, void *data, int32_t bcount)

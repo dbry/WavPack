@@ -378,7 +378,7 @@ int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
     strncpy (riffhdr.ckID, do_rf64 ? "RF64" : "RIFF", sizeof (riffhdr.ckID));
     strncpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
-    total_riff_bytes = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + ((total_data_bytes + 1) & ~1LL);
+    total_riff_bytes = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + ((total_data_bytes + 1) & ~(int64_t)1);
     if (do_rf64) total_riff_bytes += sizeof (ds64hdr) + sizeof (ds64_chunk);
     if (write_junk) total_riff_bytes += sizeof (junkchunk);
     strncpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));

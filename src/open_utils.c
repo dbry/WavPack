@@ -1057,7 +1057,7 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
 
     // start 1MB from the end-of-file, or from the start if the file is not that big
 
-    if (reader->get_length (id) > 1048576LL)
+    if (reader->get_length (id) > (int64_t) 1048576)
         reader->set_pos_rel (id, -1048576, SEEK_END);
     else
         reader->set_pos_abs (id, 0);
@@ -1089,7 +1089,7 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
             // beginning of the file) and try again
 
             if (!blocks) {
-                if (current_pos > 2000000LL)
+                if (current_pos > (int64_t) 2000000)
                     reader->set_pos_rel (id, -2000000, SEEK_CUR);
                 else
                     reader->set_pos_abs (id, 0);
@@ -1117,7 +1117,7 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
             audio_blocks++;
         }
         else if (!audio_blocks) {
-            if (current_pos > 1048576LL)
+            if (current_pos > (int64_t) 1048576)
                 reader->set_pos_rel (id, -1048576, SEEK_CUR);
             else
                 reader->set_pos_abs (id, 0);
