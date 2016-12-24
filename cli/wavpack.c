@@ -248,7 +248,7 @@ static struct {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
-    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits,
+    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, quantize_round,
     raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end;
 
 static int num_channels_order;
@@ -542,6 +542,14 @@ int main (int argc, char **argv)
                 else {
                     config.channel_mask = mask;
                     num_channels_order = chan;
+                }
+            }
+            else if (!strncmp (long_option, "pre-quantize-round", 18)) {    // --pre-quantize-round=
+                quantize_round = quantize_bits = strtol(long_param, NULL, 10);
+
+                if (quantize_bits < 4 || quantize_bits > 32) {
+                    error_line ("invalid quantize bits!");
+                    ++error_count;
                 }
             }
             else if (!strncmp (long_option, "pre-quantize", 12)) {          // --pre-quantize=
@@ -2258,6 +2266,15 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
             if (quantize_bit_mask) {
                 unsigned int x,l = sample_count * WavpackGetNumChannels (wpc);
                 if (0 == (WavpackGetMode(wpc) & MODE_FLOAT)) {
+                    if (quantize_round) {
+                        int32_t offset = (quantize_bit_mask >> 1) ^ quantize_bit_mask;
+                        int shift = 32 - WavpackGetBytesPerSample (wpc) * 8;
+
+                        for (x = 0; x < l; x ++)
+                            if (sample_buffer[x] < 0 || ((sample_buffer[x] + offset) << shift) > 0)
+                                sample_buffer[x] += offset;
+                    }
+
                     for (x = 0; x < l; x ++) sample_buffer[x] &= quantize_bit_mask;
                 }
                 else {
@@ -3142,6 +3159,15 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
         if (quantize_bit_mask) {
             unsigned int x,l = sample_count * num_channels;
             if (0 == (WavpackGetMode(infile) & MODE_FLOAT)) {
+                if (quantize_round) {
+                    int32_t offset = (quantize_bit_mask >> 1) ^ quantize_bit_mask;
+                    int shift = 32 - bps * 8;
+
+                    for (x = 0; x < l; x ++)
+                        if (sample_buffer[x] < 0 || ((sample_buffer[x] + offset) << shift) > 0)
+                            sample_buffer[x] += offset;
+                }
+
                 for (x = 0; x < l; x ++) sample_buffer[x] &= quantize_bit_mask;
             }
             else {
