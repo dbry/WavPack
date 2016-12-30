@@ -981,6 +981,14 @@ int main (int argc, char **argv)
 #endif
                 TextToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
 
+            // if a UTF8 BOM gets through to here, delete it now (redundant in APEv2 tags)
+
+            if (tag_items [i].vsize >= 3 && (unsigned char) tag_items [i].value [0] == 0xEF &&
+                (unsigned char) tag_items [i].value [1] == 0xBB && (unsigned char) tag_items [i].value [2] == 0xBF) {
+                    memmove (tag_items [i].value, tag_items [i].value + 3, tag_items [i].vsize -= 3);
+                    tag_items [i].value [tag_items [i].vsize] = 0;
+            }
+
             tag_items [i].vsize = (int) strlen (tag_items [i].value);
         }
 
@@ -3992,7 +4000,15 @@ static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len)
 
 static void TextToUTF8 (void *string, int len)
 {
-    if (* (wchar_t *) string == 0xFEFF) {
+    unsigned char *inp = string;
+
+    // simple case: test for UTF8 BOM and if so, simply delete the BOM
+
+    if (len > 3 && inp [0] == 0xEF && inp [1] == 0xBB && inp [2] == 0xBF) {
+        memmove (inp, inp + 3, len - 3);
+        inp [len - 3] = 0;
+    }
+    else if (* (wchar_t *) string == 0xFEFF) {
         wchar_t *temp = _wcsdup (string);
 
         WideCharToUTF8 (temp + 1, (unsigned char *) string, len);
@@ -4020,6 +4036,15 @@ static void TextToUTF8 (void *string, int len)
     int err = 0;
     char *old_locale;
     iconv_t converter;
+
+    // simple case: test for UTF8 BOM and if so, simply delete the BOM and return
+
+    if (len > 3 && (unsigned char) inp [0] == 0xEF && (unsigned char) inp [1] == 0xBB &&
+        (unsigned char) inp [2] == 0xBF) {
+            memmove (inp, inp + 3, len - 3);
+            inp [len - 3] = 0;
+            return;
+    }
 
     memset(temp, 0, len);
     old_locale = setlocale (LC_CTYPE, "");
