@@ -2737,7 +2737,15 @@ static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len)
 
 static void TextToUTF8 (void *string, int len)
 {
-    if (* (wchar_t *) string == 0xFEFF) {
+    unsigned char *inp = string;
+
+    // simple case: test for UTF8 BOM and if so, simply delete the BOM
+
+    if (len > 3 && inp [0] == 0xEF && inp [1] == 0xBB && inp [2] == 0xBF) {
+        memmove (inp, inp + 3, len - 3);
+        inp [len - 3] = 0;
+    }
+    else if (* (wchar_t *) string == 0xFEFF) {
         wchar_t *temp = _wcsdup (string);
 
         WideCharToUTF8 (temp + 1, (unsigned char *) string, len);
