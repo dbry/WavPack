@@ -62,7 +62,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
         return -1;
     }
 
-    if (id3_header [3] != 3 || id3_header [4] == 0xFF | (id3_header [5] & 0x1F)) {
+    if (id3_header [3] != 3 || id3_header [4] == 0xFF || (id3_header [5] & 0x1F)) {
         strcpy (error, "not valid ID3v2.3");
         return -1;
     }
@@ -96,7 +96,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
 
     while (1) {
         unsigned char frame_header [10], *frame_body;
-        int frame_size, frame_flags, i;
+        int frame_size, i;
 
         if (tag_size < sizeof (frame_header))
             break;
@@ -197,7 +197,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
         }
         else if (!strncmp (frame_header, "APIC", 4)) {
             if (frame_body [0] == 0) {
-                char *mime_type, *description, *binary_data, *extension, *item = NULL;
+                char *mime_type, *description, *extension, *item = NULL;
                 unsigned char *frame_ptr = frame_body + 1;
                 int frame_bytes = frame_size - 1;
                 unsigned char picture_type;
@@ -256,7 +256,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
                 }
 
                 if (wpc && item) {
-                    int binary_tag_size = strlen (item) + strlen (extension) + 1 + frame_bytes;
+                    int binary_tag_size = (int) strlen (item) + (int) strlen (extension) + 1 + frame_bytes;
                     unsigned char *binary_tag_image = malloc (binary_tag_size);
 
                     strcpy (binary_tag_image, item);

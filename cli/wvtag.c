@@ -1278,14 +1278,13 @@ static int calculate_tag_size (WavpackContext *wpc)
         int num_binary_items = WavpackGetNumBinaryTagItems (wpc);
         int num_items = WavpackGetNumTagItems (wpc), i;
         int ape_tag_size = 32 * 2;
+        int item_len, value_len;
+        char *item;
 
         if (num_items + num_binary_items == 0)
             return 0;
 
         for (i = 0; i < num_items; ++i) {
-            int item_len, value_len, j;
-            char *item, *value;
-
             item_len = WavpackGetTagItemIndexed (wpc, i, NULL, 0);
             item = malloc (item_len + 1);
             WavpackGetTagItemIndexed (wpc, i, item, item_len + 1);
@@ -1295,9 +1294,6 @@ static int calculate_tag_size (WavpackContext *wpc)
         }
 
         for (i = 0; i < num_binary_items; ++i) {
-            int item_len, value_len;
-            char *item, fname [256];
-
             item_len = WavpackGetBinaryTagItemIndexed (wpc, i, NULL, 0);
             item = malloc (item_len + 1);
             WavpackGetBinaryTagItemIndexed (wpc, i, item, item_len + 1);
