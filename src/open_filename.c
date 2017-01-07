@@ -52,6 +52,9 @@
 #ifdef _WIN32
 #define fileno _fileno
 static FILE *fopen_utf8 (const char *filename_utf8, const char *mode_utf8);
+#if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
 #endif
 
 #ifdef HAVE_FSEEKO
