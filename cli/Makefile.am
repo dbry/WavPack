@@ -1,4 +1,4 @@
-bin_PROGRAMS = wavpack wvunpack wvgain
+bin_PROGRAMS = wavpack wvunpack wvgain wvtag
 
 wavpack_SOURCES = wavpack.c riff.c wave64.c caff.c dsdiff.c dsf.c utils.c md5.c
 if WINDOWS_HOST
@@ -29,6 +29,16 @@ if ENABLE_RPATH
 wvgain_LDFLAGS = -rpath $(libdir)
 endif
 wvgain_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
+
+wvtag_SOURCES = wvtag.c utils.c import_id3.c
+if WINDOWS_HOST
+wvtag_SOURCES += win32_unicode_support.c
+endif
+wvtag_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
+if ENABLE_RPATH
+wvtag_LDFLAGS = -rpath $(libdir)
+endif
+wvtag_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
 
 if ENABLE_TESTS
 bin_PROGRAMS += wvtest
