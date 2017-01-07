@@ -3559,7 +3559,8 @@ static void make_settings_string (char *settings, WavpackConfig *config)
     // long options
 
     if (quantize_bits)
-        sprintf (settings + strlen (settings), " --pre-quantize=%d", quantize_bits);
+        sprintf (settings + strlen (settings), " --pre-quantize%s=%d",
+            quantize_round ? "-round" : "", quantize_bits);
 
     if (config->block_samples)
         sprintf (settings + strlen (settings), " --blocksize=%d", config->block_samples);
