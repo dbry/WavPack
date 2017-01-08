@@ -190,7 +190,7 @@ int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_
 
 int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids)
 {
-    uint32_t flags, bps = 0, shift = 0;
+    uint32_t flags, bps = 0;
     uint32_t chan_mask = config->channel_mask;
     int num_chans = config->num_channels;
     int i;
@@ -248,7 +248,6 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
             break;
 
     flags |= i << SRATE_LSB;
-    flags |= shift << SHIFT_LSB;
 
     // all of this stuff only applies to PCM
 
@@ -259,7 +258,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
             flags |= FLOAT_DATA;
         }
         else
-            shift = (config->bytes_per_sample * 8) - config->bits_per_sample;
+            flags |= ((config->bytes_per_sample * 8) - config->bits_per_sample) << SHIFT_LSB;
 
         if (config->flags & CONFIG_HYBRID_FLAG) {
             flags |= HYBRID_FLAG | HYBRID_BITRATE | HYBRID_BALANCE;
