@@ -467,6 +467,13 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     int32_t sample_count = wps->wphdr.block_samples, *orig_data = NULL;
     int dynamic_shaping_done = FALSE;
 
+    // This is done first because this code can potentially change the size of the block about to
+    // be encoded. This can happen because the dynamic noise shaping algorithm wants to send a
+    // shorter block because the desired noise-shaping profile is changing quickly. It can also
+    // be that the --merge-blocks feature wants to create a longer block because it combines areas
+    // with equal redundancy. These are not applicable for anything besides the first stream of
+    // the file and they are not applicable with float data or >24-bit data.
+
     if (!wpc->current_stream && !(flags & FLOAT_DATA) && (flags & MAG_MASK) >> MAG_LSB < 24) {
         if ((wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !wpc->config.block_samples) {
             dynamic_noise_shaping (wpc, buffer, TRUE);
@@ -523,6 +530,9 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         }
     }
 
+    // This is where we handle any fixed shift which occurs when the integer size does not evenly fit
+    // in bytes (like 12-bit or 20-bit) and is the same for the entire file (not based on scanning)
+
     if (flags & SHIFT_MASK) {
         int shift = (flags & SHIFT_MASK) >> SHIFT_LSB;
         int mag = (flags & MAG_MASK) >> MAG_LSB;
@@ -546,12 +556,23 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         wps->wphdr.flags = flags;
     }
 
-    if ((flags & FLOAT_DATA) || (flags & MAG_MASK) >> MAG_LSB >= 24) {
+    // The regular WavPack decorrelation and entropy encoding can handle up to 24-bit integer data. If
+    // we have float data or integers larger than 24-bit, then we have to potentially do extra processing.
+    // For lossy encoding, we can simply convert this data in-place to 24-bit data and encode and sent
+    // that, along with some metadata about how to restore the original format (even if the restoration
+    // is not exact). However, for lossless operation we must make a copy of the original data that will
+    // be used to create a "extension stream" that will allow verbatim restoration of the original data.
+    // In the hybrid mode that extension goes in the correction file, otherwise it goes in the mail file.
+
+    if ((flags & FLOAT_DATA) || (flags & MAG_MASK) >> MAG_LSB >= 24) {      // if float data or >24-bit integers...
+
+        // if lossless we have to copy the data to use later...
+
         if ((!(flags & HYBRID_FLAG) || wpc->wvc_flag) && !(wpc->config.flags & CONFIG_SKIP_WVX)) {
             orig_data = malloc (sizeof (f32) * ((flags & MONO_DATA) ? sample_count : sample_count * 2));
             memcpy (orig_data, buffer, sizeof (f32) * ((flags & MONO_DATA) ? sample_count : sample_count * 2));
 
-            if (flags & FLOAT_DATA) {
+            if (flags & FLOAT_DATA) {                                       // if lossless float data come here
                 wps->float_norm_exp = wpc->config.float_norm_exp;
 
                 if (!scan_float_data (wps, (f32 *) buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2)) {
@@ -559,14 +580,14 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
                     orig_data = NULL;
                 }
             }
-            else {
+            else {                                                          // otherwise lossless > 24-bit integers
                 if (!scan_int32_data (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2)) {
                     free (orig_data);
                     orig_data = NULL;
                 }
             }
         }
-        else {
+        else {                                                              // otherwise, we're lossy, so no copy
             if (flags & FLOAT_DATA) {
                 wps->float_norm_exp = wpc->config.float_norm_exp;
 
@@ -577,19 +598,29 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
                 wpc->lossy_blocks = TRUE;
         }
 
+        // if there's any chance of magnitude change, clear the noise-shaping error term
+        // and also reset the entropy encoder (which this does)
+
+        wps->dc.error [0] = wps->dc.error [1] = 0;
         wps->num_terms = 0;
     }
+    // if 24-bit integers or less we do a "quick" scan which just scans for redundancy and does NOT set the flag's "magnitude" value
     else {
         scan_int32_quick (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2);
 
-        if (wps->shift != wps->int32_zeros + wps->int32_ones + wps->int32_dups) {
+        if (wps->shift != wps->int32_zeros + wps->int32_ones + wps->int32_dups) {   // detect a change in any redundancy shifting here
             wps->shift = wps->int32_zeros + wps->int32_ones + wps->int32_dups;
-            wps->num_terms = 0;
+            wps->dc.error [0] = wps->dc.error [1] = 0;                              // on a change, clear the noise-shaping error term and
+            wps->num_terms = 0;                                                     // also reset the entropy encoder (which this does)
         }
     }
 
-    if ((wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !dynamic_shaping_done)
+    if ((wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !dynamic_shaping_done)      // calculate dynamic noise profile
         dynamic_noise_shaping (wpc, buffer, FALSE);
+
+    // In some cases we need to start the decorrelation and entropy encoding from scratch. This
+    // could be because we switched from stereo to mono encoding or because the magnitude of
+    // the data changed, or just because this is the first block.
 
     if (!wps->num_passes && !wps->num_terms) {
         wps->num_passes = 1;
@@ -602,6 +633,8 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         wps->num_passes = 0;
     }
 
+    // actually pack the block here and return on an error (which pretty much can only be a block buffer overrun)
+
     if (!pack_samples (wpc, buffer)) {
         wps->wphdr.flags = sflags;
 
@@ -613,6 +646,8 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     else
         wps->wphdr.flags = sflags;
 
+    // potentially move any unused dynamic noise shaping profile data to use next time
+
     if (wps->dc.shaping_data) {
         if (wps->dc.shaping_samples != sample_count)
             memmove (wps->dc.shaping_data, wps->dc.shaping_data + sample_count,
@@ -620,6 +655,10 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
 
         wps->dc.shaping_samples -= sample_count;
     }
+
+    // finally, if we're doing lossless float data or lossless >24-bit integers, this is where we take the
+    // original data that we saved earlier and create the "extension" stream containing the information
+    // required to refine the "lossy" 24-bit data into the lossless original
 
     if (orig_data) {
         uint32_t data_count;

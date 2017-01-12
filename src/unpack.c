@@ -148,6 +148,11 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 
             crc = crc * 3 + bptr [0];
         }
+#ifndef LOSSY_MUTE
+        else
+            for (bptr = buffer; bptr < eptr; ++bptr)
+                crc = crc * 3 + bptr [0];
+#endif
     }
 
     /////////////// handle lossless or hybrid lossy stereo data ///////////////
