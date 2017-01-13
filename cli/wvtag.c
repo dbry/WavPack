@@ -156,7 +156,7 @@ static int num_tag_extractions;
 static int pause_mode;
 #endif
 
-int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error);    // import_id3.c
+int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used); // import_id3.c
 
 /////////////////////////// local function declarations ///////////////////////
 
@@ -831,30 +831,28 @@ static int process_file (char *infilename)
         // this is where we import from an ID3v2 tag that appears as the trailing wrapper of DSF files
 
         if (import_id3) {
-            int trailer_bytes, res;
             char error [80];
 
-            WavpackFreeWrapper (wpc);
+            WavpackFreeWrapper (wpc);               // free the header, then seek for the trailer
             WavpackSeekTrailingWrapper (wpc);
-            trailer_bytes = WavpackGetWrapperBytes (wpc);
 
-            if (trailer_bytes > 10) {
-                res = ImportID3v2 (NULL, WavpackGetWrapperData (wpc), trailer_bytes, error);
+            if (WavpackGetWrapperBytes (wpc) > 10) {
 
-                if (res == 0) {
-                    res = ImportID3v2 (wpc, WavpackGetWrapperData (wpc), trailer_bytes, error);
+                // first we do the "dry run", and if that shows applicable items (and no error), do real pass
 
-                    if (res > 0) {
-                        if (!quiet_mode)
-                            error_line ("successfully imported %d items from ID3v2 tag", res);
+                int res = ImportID3v2 (NULL, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), error, NULL);
 
-                        write_tag = 1;
-                    }
-                    else if (res == 0)
-                        error_line ("ID3v2 import: no applicable items found");
-                    else
-                        error_line ("ID3v2 import: %s", error);
+                if (res > 0)
+                    res = ImportID3v2 (wpc, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), error, NULL);
+
+                if (res > 0) {
+                    if (!quiet_mode)
+                        error_line ("successfully imported %d items from ID3v2 tag", res);
+
+                    write_tag = 1;
                 }
+                else if (res == 0)
+                    error_line ("ID3v2 import: no applicable items found");
                 else
                     error_line ("ID3v2 import: %s", error);
             }

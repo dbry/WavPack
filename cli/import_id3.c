@@ -37,16 +37,20 @@ static struct {
 static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len);
 static void Latin1ToUTF8 (void *string, int len);
 
-// Import specified ID3v2.3 tag. The WavPack context accepts the tags, and can be NULL
-// for doing a dry-run through the tag. If errors occur then a description will be
+// Import specified ID3v2.3 tag. The WavPack context accepts the tag items, and can be
+// NULL for doing a dry-run through the tag. If errors occur then a description will be
 // written to "error" (which must be 80 characters) and -1 will be returned. If no
-// errors occur then the number of tags successfully written will be returned, or
-// zero in the case of NULL WavPack context (or no applicable tags).
+// errors occur then the number of tag items successfully written will be returned, or
+// zero in the case of no applicable tags. An optional integer pointer can be provided
+// to accept the total number of bytes consumed by the tag (name and value).
 
-int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error)
+int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used)
 {
     int tag_size_from_header, items_imported = 0, done_cover = 0;
     unsigned char id3_header [10];
+
+    if (bytes_used)
+        *bytes_used = 0;
 
     if (tag_size < sizeof (id3_header)) {
         strcpy (error, "can't read tag header");
@@ -179,17 +183,18 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
                 return -1;
             }
 
-            if (wpc && utf8_string) {
-                int i;
+            // if we got a text string, look through the table and find an equivalent APEv2 tag item
 
+            if (utf8_string) {
                 for (i = 0; i < NUM_TEXT_TAG_ITEMS; ++i)
                     if (!strncmp (frame_header, text_tag_table [i].id3_item, 4)) {
-                        if (WavpackAppendTagItem (wpc, text_tag_table [i].ape_item, utf8_string, (int) strlen (utf8_string)))
-                            items_imported++;
-                        else {
+                        if (wpc && !WavpackAppendTagItem (wpc, text_tag_table [i].ape_item, utf8_string, (int) strlen (utf8_string))) {
                             strcpy (error, WavpackGetErrorMessage (wpc));
                             return -1;
                         }
+
+                        items_imported++;
+                        if (bytes_used) *bytes_used += (int) (strlen (utf8_string) + strlen (text_tag_table [i].ape_item) + 1);
                     }
 
                 free (utf8_string);
@@ -255,7 +260,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
                     done_cover = 1;
                 }
 
-                if (wpc && item) {
+                if (item) {
                     int binary_tag_size = (int) strlen (item) + (int) strlen (extension) + 1 + frame_bytes;
                     unsigned char *binary_tag_image = malloc (binary_tag_size);
 
@@ -263,13 +268,13 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
                     strcat (binary_tag_image, extension);
                     memcpy (binary_tag_image + binary_tag_size - frame_bytes, frame_ptr, frame_bytes);
 
-                    if (WavpackAppendBinaryTagItem (wpc, item, binary_tag_image, binary_tag_size))
-                        items_imported++;
-                    else {
+                    if (wpc && !WavpackAppendBinaryTagItem (wpc, item, binary_tag_image, binary_tag_size)) {
                         strcpy (error, WavpackGetErrorMessage (wpc));
                         return -1;
                     }
 
+                    items_imported++;
+                    if (bytes_used) *bytes_used += (int) strlen (item) + 1 + binary_tag_size;
                     free (binary_tag_image);
                 }
             }
