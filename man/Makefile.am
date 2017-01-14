@@ -1,4 +1,4 @@
-man_MANS = wavpack.1 wvgain.1 wvunpack.1
+man_MANS = wavpack.1 wvgain.1 wvunpack.1 wvtag.1
 
 if ENABLE_MAN
 %.1: %.xml

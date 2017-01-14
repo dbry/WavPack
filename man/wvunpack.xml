@@ -21,16 +21,16 @@
       <holder>Sebastian Dröge</holder>
     </copyright>
     <copyright>
-      <year>2016</year>
+      <year>2017</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2016-11-13</date>
+    <date>2017-01-13</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvunpack</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">5.0.0</refmiscinfo>
+    <refmiscinfo class="version">5.1.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
@@ -269,6 +269,9 @@
       <manvolnum>1</manvolnum>
     </citerefentry>, <citerefentry>
       <refentrytitle>wvgain</refentrytitle>
+      <manvolnum>1</manvolnum>
+    </citerefentry>, <citerefentry>
+      <refentrytitle>wvtag</refentrytitle>
       <manvolnum>1</manvolnum>
     </citerefentry></para>
     <para>

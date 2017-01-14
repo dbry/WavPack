@@ -2,12 +2,12 @@
 .\"     Title: wavpack
 .\"    Author: Sebastian Dröge <slomo@debian.org>
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2016-11-13
+.\"      Date: 2017-01-13
 .\"    Manual: WavPack Executable Programs
-.\"    Source: WavPack 5.0.0
+.\"    Source: WavPack 5.1.0
 .\"  Language: English
 .\"
-.TH "WAVPACK" "1" "2016\-11\-13" "WavPack 5\&.0\&.0" "WavPack Executable Programs"
+.TH "WAVPACK" "1" "2017\-01\-13" "WavPack 5\&.1\&.0" "WavPack Executable Programs"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -218,6 +218,15 @@ display extended help
 ignore length in wav header (no pipe output allowed)
 .RE
 .PP
+\fB\-\-import\-id3\fR
+.RS 4
+import applicable tag items from ID3v2\&.3 tag present in DSF files into APEv2 tag (if there are > 1 MB cover images present add
+\fB\-\-allow\-huge\-tags\fR
+to include them, and
+\fB\-r\fR
+if you do not want large images appearing twice in the WavPack file, although this will remove the entire ID3 tag wrapper)
+.RE
+.PP
 \fB\-j\fR\fB\fIn\fR\fR
 .RS 4
 joint\-stereo override (0 = left/right, 1 = mid/side)
@@ -373,7 +382,8 @@ don\*(Aqt set (n = 0 or omitted) or set (n = 1) console title to indicate progre
 .SH "SEE ALSO"
 .PP
 \fBwvunpack\fR(1),
-\fBwvgain\fR(1)
+\fBwvgain\fR(1),
+\fBwvtag\fR(1)
 .PP
 Please visit www\&.wavpack\&.com for more information
 .SH "COPYRIGHT"
@@ -399,5 +409,5 @@ Updates
 .br
 Copyright \(co 2005 Sebastian Dröge
 .br
-Copyright \(co 2016 David Bryant
+Copyright \(co 2017 David Bryant
 .br
