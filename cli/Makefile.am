@@ -1,6 +1,6 @@
 bin_PROGRAMS = wavpack wvunpack wvgain wvtag
 
-wavpack_SOURCES = wavpack.c riff.c wave64.c caff.c dsdiff.c dsf.c utils.c md5.c
+wavpack_SOURCES = wavpack.c riff.c wave64.c caff.c dsdiff.c dsf.c utils.c md5.c import_id3.c
 if WINDOWS_HOST
 wavpack_SOURCES += win32_unicode_support.c
 endif

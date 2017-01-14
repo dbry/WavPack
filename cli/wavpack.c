@@ -144,6 +144,7 @@ static const char *help =
 "                             and NOT recommended for portable hardware use)\n"
 "    --help                  this extended help display\n"
 "    -i                      ignore length in file header (no pipe output allowed)\n"
+"    --import-id3            import ID3v2 tags from the trailer of DSF files only\n"
 "    -jn                     joint-stereo override (0 = left/right, 1 = mid/side)\n"
 #if defined (_WIN32) || defined (__OS2__)
 "    -l                      run at lower priority for smoother multitasking\n"
@@ -248,7 +249,7 @@ static struct {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
-    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, quantize_round,
+    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, quantize_round, import_id3,
     raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end;
 
 static int num_channels_order;
@@ -379,6 +380,8 @@ int main (int argc, char **argv)
                 config.flags |= CONFIG_MERGE_BLOCKS;
             else if (!strcmp (long_option, "pair-unassigned-chans"))    // --pair-unassigned-chans
                 config.flags |= CONFIG_PAIR_UNDEF_CHANS;
+            else if (!strcmp (long_option, "import-id3"))               // --import-id3
+                import_id3 = 1;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
             else if (!strcmp (long_option, "allow-huge-tags"))          // --allow-huge-tags
@@ -1492,10 +1495,13 @@ static FILE *wild_fopen (char *filename, const char *mode)
 // file would go there. The files are opened and closed in this function
 // and the "config" structure specifies the mode of compression.
 
+int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used); // import_id3.c
+
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     char *outfilename_temp = NULL, *out2filename_temp = NULL, dummy;
     int use_tempfiles = (out2filename != NULL), chunk_alignment = 1;
+    int imported_tag_items = 0;
     uint32_t bcount;
     WavpackConfig loc_config = *config;
     unsigned char *new_channel_order = NULL;
@@ -1896,7 +1902,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // metadata as "wrapper"
 
     if (result == WAVPACK_NO_ERROR && !(loc_config.qmode & (QMODE_IGNORE_LENGTH | QMODE_RAW_PCM))) {
-        unsigned char buff [256];
+        int wrapper_size = 0, buffer_size;
+        unsigned char *buffer;
 
         // if this file format has chunk alignment padding, read past that here
 
@@ -1904,22 +1911,70 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             int64_t data_chunk_bytes = WavpackGetNumSamples64 (wpc) * WavpackGetNumChannels (wpc) * WavpackGetBytesPerSample (wpc);
             int bytes_over = (int)(data_chunk_bytes % chunk_alignment);
             int padding_bytes = bytes_over ? chunk_alignment - bytes_over : 0;
+            unsigned char pad_byte;
 
             while (padding_bytes--) {
-                if (!DoReadFile (infile, buff, 1, &bcount) || bcount != 1)
+                if (!DoReadFile (infile, &pad_byte, 1, &bcount) || bcount != 1)
                     error_line ("warning: input file missing required padding byte!");
-                else if (buff [0])
+                else if (pad_byte)
                     error_line ("warning: input file has non-zero padding byte!");
             }
         }
 
-        while (DoReadFile (infile, buff, sizeof (buff), &bcount) && bcount)
-            if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, buff, bcount)) {
-                    error_line ("%s", WavpackGetErrorMessage (wpc));
-                    result = WAVPACK_HARD_ERROR;
-                    break;
+        // now read everything remaining in the file into a new buffer
+
+        buffer = malloc (buffer_size = 65536);
+
+        while (DoReadFile (infile, buffer + wrapper_size, buffer_size - wrapper_size, &bcount) && bcount)
+            if ((wrapper_size += bcount) == buffer_size)
+                buffer = realloc (buffer, buffer_size += 65536);
+
+        // if we got something and are storing wrapper, write it to the outfile file
+
+        if (wrapper_size && !(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && !WavpackAddWrapper (wpc, buffer, wrapper_size)) {
+            error_line ("%s", WavpackGetErrorMessage (wpc));
+            result = WAVPACK_HARD_ERROR;
+        }
+
+        // if we're supposed to try to import ID3 tags, check for and do that now
+        // (but only error on a bad tag, not just a missing one or one with no applicable items)
+
+        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10 && !strncmp (buffer, "ID3", 3)) {
+            int32_t bytes_used, id3_res;
+            char error [80];
+
+            // first we do a "dry run" pass through the ID3 tag, and only if that passes do we try to write the tag items
+
+            id3_res = ImportID3v2 (NULL, buffer, wrapper_size, error, &bytes_used);
+
+            if (!allow_huge_tags && bytes_used > 1048576) {
+                error_line ("imported tag items exceed 1 MB, use --allow-huge-tags to override");
+                result = WAVPACK_SOFT_ERROR;
             }
+            else if (bytes_used > 1048576 * 16) {
+                error_line ("imported tag items exceed 16 MB");
+                result = WAVPACK_SOFT_ERROR;
+            }
+            else {
+                if (id3_res > 0)
+                    id3_res = ImportID3v2 (wpc, buffer, wrapper_size, error, NULL);
+
+                if (id3_res > 0) {
+                    if (!quiet_mode)
+                        error_line ("successfully imported %d items from ID3v2 tag", id3_res);
+
+                    imported_tag_items = id3_res;
+                }
+                else if (id3_res == 0)
+                    error_line ("ID3v2 import: no applicable items found");
+                else {
+                    error_line ("ID3v2 import: %s", error);
+                    result = WAVPACK_SOFT_ERROR;
+                }
+            }
+        }
+
+        free (buffer);
     }
 
     DoCloseHandle (infile);     // we're now done with input file, so close
@@ -1934,7 +1989,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // if still no errors, check to see if we need to create & write a tag
     // (which is NOT stored in regular WavPack blocks)
 
-    if (result == WAVPACK_NO_ERROR && num_tag_items) {
+    if (result == WAVPACK_NO_ERROR && (num_tag_items || imported_tag_items)) {
         int i, res = TRUE;
 
         for (i = 0; i < num_tag_items && res; ++i)
@@ -2515,7 +2570,7 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
 static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     int output_lossless = !(config->flags & CONFIG_HYBRID_FLAG) || (config->flags & CONFIG_CREATE_WVC);
-    int flags = OPEN_WVC | OPEN_TAGS | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
+    int flags = OPEN_WVC | OPEN_TAGS | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, imported_tag_items = 0;
     char *outfilename_temp = NULL, *out2filename_temp = NULL;
     int use_tempfiles = (out2filename != NULL), input_mode;
     unsigned char md5_verify [16], md5_display [16];
@@ -2535,7 +2590,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     struct timezone timez;
 #endif
 
-    if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER))
+    if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) || import_id3)
         flags |= OPEN_WRAPPER;
 
 #if defined(_WIN32)
@@ -2715,7 +2770,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // unless we've been specifically told not to, copy RIFF header
 
     if (WavpackGetWrapperBytes (infile)) {
-        if (!WavpackAddWrapper (outfile, WavpackGetWrapperData (infile), WavpackGetWrapperBytes (infile))) {
+        if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && !WavpackAddWrapper (outfile, WavpackGetWrapperData (infile), WavpackGetWrapperBytes (infile))) {
             error_line ("%s", WavpackGetErrorMessage (outfile));
             WavpackCloseFile (infile);
             DoCloseHandle (wv_file.file);
@@ -2821,16 +2876,55 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         }
     }
 
-    // unless we've been specifically told not to, copy RIFF trailer
+    // this is where we deal with a trailer (i.e., trailing wrapper) if there is one
 
     if (result == WAVPACK_NO_ERROR && WavpackGetWrapperBytes (infile)) {
-        if (!WavpackAddWrapper (outfile, WavpackGetWrapperData (infile), WavpackGetWrapperBytes (infile))) {
+        unsigned char *buffer = WavpackGetWrapperData (infile);
+        int wrapper_size = WavpackGetWrapperBytes (infile);
+
+        // unless we've been specifically told not to, copy RIFF trailer to output file
+
+        if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && !WavpackAddWrapper (outfile, buffer, wrapper_size)) {
             error_line ("%s", WavpackGetErrorMessage (outfile));
-            WavpackCloseFile (infile);
-            DoCloseHandle (wv_file.file);
-            DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-            WavpackCloseFile (outfile);
-            return WAVPACK_SOFT_ERROR;
+            result = WAVPACK_SOFT_ERROR;
+        }
+
+        // if we're supposed to try to import ID3 tags, check for and do that now
+        // (but only error on a bad tag, not just a missing one or one with no applicable items)
+
+        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10 && !strncmp (buffer, "ID3", 3)) {
+            int32_t bytes_used, id3_res;
+            char error [80];
+
+            // first we do a "dry run" pass through the ID3 tag, and only if that passes do we try to write the tag items
+
+            id3_res = ImportID3v2 (NULL, buffer, wrapper_size, error, &bytes_used);
+
+            if (!allow_huge_tags && bytes_used > 1048576) {
+                error_line ("imported tag items exceed 1 MB, use --allow-huge-tags to override");
+                result = WAVPACK_SOFT_ERROR;
+            }
+            else if (bytes_used > 1048576 * 16) {
+                error_line ("imported tag items exceed 16 MB");
+                result = WAVPACK_SOFT_ERROR;
+            }
+            else {
+                if (id3_res > 0)
+                    id3_res = ImportID3v2 (outfile, buffer, wrapper_size, error, NULL);
+
+                if (id3_res > 0) {
+                    if (!quiet_mode)
+                        error_line ("successfully imported %d items from ID3v2 tag", id3_res);
+
+                    imported_tag_items = id3_res;
+                }
+                else if (id3_res == 0)
+                    error_line ("ID3v2 import: no applicable items found");
+                else {
+                    error_line ("ID3v2 import: %s", error);
+                    result = WAVPACK_SOFT_ERROR;
+                }
+            }
         }
 
         WavpackFreeWrapper (infile);
@@ -2846,7 +2940,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // if still no errors, check to see if we need to create & write a tag
     // (which is NOT stored in regular WavPack blocks)
 
-    if (result == WAVPACK_NO_ERROR && ((input_mode & MODE_VALID_TAG) || num_tag_items)) {
+    if (result == WAVPACK_NO_ERROR && ((input_mode & MODE_VALID_TAG) || num_tag_items || imported_tag_items)) {
         int num_binary_items = WavpackGetNumBinaryTagItems (infile);
         int num_items = WavpackGetNumTagItems (infile), i;
         int item_len, value_len;
