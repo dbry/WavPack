@@ -72,8 +72,8 @@ static const char *version_warning = "\n"
 static const char *help =
 #if defined (_WIN32)
 " Usage:\n"
-"    WVTAG [-options] file[.wv]\n\n"
-"    Wildcard characters (*,?) may be included in the filename. All options\n"
+"    WVTAG [-options] file[.wv] [...]\n\n"
+"    Wildcard characters (*,?) may be included in the filenames. All options\n"
 "    and operations specified are applied to each file in this order:\n"
 "    clean, import, delete, write, extract, list.\n\n"
 #else
@@ -95,7 +95,8 @@ static const char *help =
 "    -d \"Field\"            delete specified metadata item (text or binary)\n"
 "    -h or --help          this help display\n"
 "    --import-id3          import ID3v2 tags from the trailer of DSF files only\n"
-"    -l or --list          list tags (done last)\n"
+"                           (add --allow-huge-tags option for > 1 MB images)\n"
+"    -l or --list          list all tag items (done last)\n"
 #ifdef _WIN32
 "    --no-utf8-convert     assume tag values read from files are already UTF-8,\n"
 "                           don't attempt to convert from local encoding\n"
@@ -369,23 +370,6 @@ int main (int argc, char **argv)
             tag_items [i].value = "";
             tag_next_arg = 0;
         }
-#if defined (_WIN32)
-        else if (!num_files) {
-            matches = realloc (matches, (num_files + 1) * sizeof (*matches));
-            matches [num_files] = malloc (strlen (*argv) + 10);
-            strcpy (matches [num_files], *argv);
-
-            if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
-                !filespec_ext (matches [num_files]))
-                    strcat (matches [num_files], ".wv");
-
-            num_files++;
-        }
-        else {
-            error_line ("extra unknown argument: %s !", *argv);
-            ++error_count;
-        }
-#else
         else {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
             matches [num_files] = malloc (strlen (*argv) + 10);
@@ -397,7 +381,6 @@ int main (int argc, char **argv)
 
             num_files++;
         }
-#endif
 
     setup_break ();     // set up console and detect ^C and ^Break
 
