@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 5.0.0</div>
+				<div class="pageHeader">Using WavPack Version 5.1.0</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -116,6 +116,7 @@ a:hover {
 				<a href="#wavpack">WavPack options</a> - 
 				<a href="#wvunpack">WvUnpack options</a> - 
 				<a href="#wvgain">WvGain options</a> - 
+				<a href="#wvtag">WvTag options</a> -
 				<a href="#usage">Usage Guide</a> - 
 				<a href="#noncd">Non-CD</a> - 
 				<a href="#plugins">Plugins</a>
@@ -128,9 +129,17 @@ a:hover {
      Microsoft .wav format. The audio files must be uncompressed PCM (not ADPCM, for example),
      but other than that there are few restrictions. The files may be any resolution from 8 to
      32 bits; they may be mono, stereo, or multichannel; they may even be IEEE floating point
-     data or 1-bit DSD audio (in those formats that support DSD). An additional utility
-     called WvGain is used to apply ReplayGain information to WavPack files. The programs are
-     initiated from the command line with the following syntax:
+     data or 1-bit DSD audio (in those formats that support DSD).
+    <p>
+     Two additional utilities are provided to manipulate metadata stored in APEv2 format
+     tags located at the end of WavPack files. The first, WvGain, is used to apply (after
+     loudness analysis) ReplayGain information to WavPack files and the other, WvTag, is a
+     more general utility for appending or removing all kinds of other metadata items from
+     WavPack files (including cover art and cuesheets).
+    </p>
+				<p>
+     The programs are initiated from the command line with the following syntax:
+    </p>
 				<p>
 					<b>Usage:</b>
 					<br/>
@@ -139,6 +148,8 @@ a:hover {
 					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]</tt></b>
 					<br/>
      <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WVGAIN [-options] infile[.wv] [...]</tt></b>
+					<br/>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WVTAG [-options] infile[.wv] [...]</tt></b>
 				</p>
 				<p>
 					The filename extensions will be defaulted if not provided and the input filename may 
@@ -451,6 +462,26 @@ a:hover {
 				</p>
 
 				<p>
+					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF files only</tt></b>
+				</p>
+				<p>
+					Sony's DSF file format specifies that these files may contain an ID3v2 tag at the end. WavPack
+     considers this a trailing "wrapper" and stores it in the WavPack file as such so that the DSF
+     file can be restored verbatim. However, stored this way it is not easily accessible for
+     reading (and it is certainly not writable) because WavPack uses APEv2 (or, sometimes, ID3v1) tags
+     for metadata. This option causes any trailing ID3v2.3 tag in the DSF file to be scanned and all
+     applicable items imported into the APEv2 tag, including cover art.
+    </p>
+				<p>
+     Note that if over 1 MB of image data is present, then the <b>--allow-huge-tags</b> option must
+     be specified. Also, keep in mind that the image data will be duplicated in the APEv2 tag
+     and will therefore be consuming twice as much space as required, so it might make sense to also
+     specify the <b>-r</b> option if very large images are present, although this will obviously make
+     it impossible to restore the original DSF file because the ID3v2 tag will be gone, and of course
+     there might be fields in the original tag that are not copied to the APEv2 tag.
+				</p>
+
+				<p>
 					<b><tt>-jn = joint-stereo override (0 = left/right, 1 = mid/side)</tt></b>
 				</p>
 				<p>
@@ -725,7 +756,7 @@ a:hover {
 					including the CUESHEET field for use with images files + cuesheets and foobar2000.
 				 The filename may contain wildcards if it matches exactly one file. Also, if the
 				 file cannot be found in the current directory then the source and destination
-				 directories (if specifed) are also checked.
+				 directories (if specified) are also checked.
 				</p>
 
 				<p>
@@ -737,7 +768,7 @@ a:hover {
      <b>"Cover Art (Front)"</b>), but could be used for anything desired. A file must be
      specified (the data cannot come from the command-line) and it may contain wildcards
      if it matches exactly one file. Also, if the file cannot be found in the current directory
-     then the source and destination directories (if specifed) are also checked.
+     then the source and destination directories (if specified) are also checked.
 				</p>
 
 				<p>
@@ -1174,6 +1205,176 @@ a:hover {
 				<p>
 					If enabled leaves "WvGain Completed" on the title bar.
 				</p>
+				</div>
+			</div>
+
+			<br/>
+			<div class="box" id="wvtag">
+				<div class="boxHeader">WvTag Options</div>
+				<div class="boxContent">
+
+				<p>
+					<b><tt>--allow-huge-tags = allow tag data up to 16 MB (otherwise it's 1 MB)</tt></b>
+				</p>
+				<p>
+     Normally WavPack allows the APEv2 tags to contain up to 1 MB of data. This limit was
+     implemented to allow for their use on portable devices which may have limited memory or
+     processing resources. However, in some situations it may be desirable to place more
+     data in the tags (for high resolution cover art scans, for example) and this option
+     permits that. Note that these files are not fully WavPack compliant and may not work
+     in all situations or with older versions of WavPack programs and plugins.
+				</p>
+
+				<p>
+     <b><tt>-c  = extract cuesheet only to stdout</tt></b>
+				</p>
+				<p>
+					If the specified WavPack file contains an APEv2 tag, and that tag contains a CUESHEET
+     field, then dump that text to stdout. If no cuesheet is found then an error is generated.
+     This is equivalent to "-x cuesheet".
+				</p>
+				<p>
+     <b><tt>-cc = extract cuesheet file (.cue)</tt></b>
+				</p>
+				<p>
+					If the specified WavPack file contains an APEv2 tag, and that tag contains a CUESHEET
+     field, then that text will be extracted into an appropriately named .cue file
+     located in the same folder as the source file. This option has no effect if there's
+     no cuesheet and is equivalent to "-xx cuesheet=%a.cue".
+				</p>
+
+				<p>
+					<b><tt>--clean or --clear = clean all tag items from APEv2 tag (done first)</tt></b>
+				</p>
+				<p>
+					This option, if specified, is performed first and results in a fresh tag to start with.
+				</p>
+
+				<p>
+					<b><tt>-d "Field" = delete specified metadata item (either text or binary) from APEv2 tag</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
+				<p>
+					<b><tt>-h or --help = display usage information</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
+				<p>
+					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF files only</tt></b>
+				</p>
+				<p>
+					Sony's DSF file format specifies that these files may contain an ID3v2 tag at the end. WavPack
+     considers this a trailing "wrapper" and stores it in the WavPack file as such so that the DSF
+     file can be restored verbatim. However, stored this way it is not easily accessible for
+     reading (and it is certainly not writable) because WavPack uses APEv2 (or, sometimes, ID3v1) tags
+     for metadata. This option causes any trailing ID3v2.3 tag in the DSF file to be scanned and all
+     applicable items imported into the APEv2 tag, including cover art.
+    </p>
+    <p>
+     Note that if over 1 MB of image data is present, then the <b>--allow-huge-tags</b> option must be included
+				</p>
+
+				<p>
+					<b><tt>-l or --list = list all tag items (done last)</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
+    <p>
+     <b><tt>--no-utf8-convert = don't recode passed tags to UTF-8, assume they are UTF-8 already</tt></b>
+    </p>
+    <p>
+     The text fields of APEv2 tags are encoded in the UTF-8 varient of Unicode, so when
+     tag information is passed in on the command-line they are converted to UTF-8 before
+     being stored. If your system is already passing the strings in UTF-8, use this option
+     to prevent double conversion.
+    </p>
+
+				<p>
+					<b><tt>-q = quiet (keep console output to a minimum)</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
+				<p>
+					<b><tt>-v or --version = display program version to stdout</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
+				<p>
+					<b><tt>-w "Field=[@]Value" = write specified metadata to APEv2 tag</tt></b>
+				</p>
+				<p>
+					Write specified information to APEv2 tag appended to WavPack file(s). May be used
+					multiple times for multiple fields. APEv2 tags are the preferred tag format for
+					WavPack files and are read by all the standard WavPack playback plugins. If the
+					specified value begins with a '@', then the value is assumed to be a
+					filename which is used to obtain the item's actual value. This is handy for
+					including the CUESHEET field for use with images files + cuesheets and foobar2000.
+				 The filename may contain wildcards if it matches exactly one file. Also, if the
+				 file cannot be found in the current directory then the source directory (if
+     specified) is also checked.
+				</p>
+
+				<p>
+					<b><tt>--write-binary-tag "Field=@file.ext" = write specified binary metadata to APEv2 tag</tt></b>
+				</p>
+				<p>
+					Write specified binary file to APEv2 tag appended to WavPack file(s). This is most
+     commonly used to embed album cover art into WavPack files (with the field name
+     <b>"Cover Art (Front)"</b>), but could be used for anything desired. A file must be
+     specified (the data cannot come from the command-line) and it may contain wildcards
+     if it matches exactly one file. Also, if the file cannot be found in the current directory
+     then the source directory (if specified) is also checked.
+				</p>
+
+				<p>
+     <b><tt>-x "Field" = extract specified tag field only to stdout (no audio decode)</tt></b>
+				</p>
+				<p>
+					If the specified WavPack file contains a tag, and that tag contains the specified
+     field, then dump that field to stdout. If the tag field is not found then an error is
+     generated. Of course, the data may be redirected to a file or pipe. Only one field may
+     be specified, and -c can be used as a shortcut to extract the CUESHEET field. 
+				</p>
+
+				<p>
+     <b><tt>-xx "field[=file]" = extract specified tag field to file (with audio decode)</tt></b>
+				</p>
+				<p>
+					If the specified WavPack file contains a tag, and that tag contains the specified 
+     field, then that field will be extracted into an appropriately named file
+     located in the same folder as the source file. The name of the file will be
+     the name of the tag field with a .txt extension for text items or, in the case of
+     binary items, the name comes from the tag itself (although the convention is for this
+     to be the tag field name with the extension from the original source file).
+    </p>
+    <p>
+     If the automatically generated name is not acceptable, then a new name can be specified,
+     and this new name specification may contain the following replacement codes:
+				</p>
+				<p>
+					&nbsp;&nbsp;%a = audio output filename<br/>
+					&nbsp;&nbsp;%t = tag field name (note: comes from data for binary tags)<br/>
+					&nbsp;&nbsp;%e = extension from binary tag source file, or 'txt' for text tag<br/>
+				</p>
+
+				<p>
+					<b><tt>-y = yes to overwrite warning (use with caution!)</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
 				</div>
 			</div>
 
