@@ -64,7 +64,7 @@
 
 static const char *sign_on = "\n"
 " WVTAG  WavPack Metadata Tagging Utility  %s Version %s\n"
-" Copyright (c) 1998 - 2017 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2017 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVTAG using libwavpack version %s, expected %s (see README)\n\n";
