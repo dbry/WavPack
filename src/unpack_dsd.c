@@ -440,9 +440,11 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
 
 /*------------------------------------------------------------------------------------------------------------------------*/
 
+#if 0
+
 // 80 term DSD decimation filter
 // < 1 dB down at 20 kHz
-// > 108 dB stopband attenuation
+// > 108 dB stopband attenuation (fs/16)
 
 static const int32_t decm_filter [] = {
     4, 17, 56, 147, 336, 693, 1320, 2359,
@@ -457,7 +459,28 @@ static const int32_t decm_filter [] = {
     2359, 1320, 693, 336, 147, 56, 17, 4,
 };
 
-#define NUM_FILTER_TERMS ((int)(sizeof (decm_filter) / sizeof (decm_filter [0])))
+#define NUM_FILTER_TERMS 80
+
+#else
+
+// 56 term decimation filter
+// < 0.5 dB down at 20 kHz
+// > 100 dB stopband attenuation (fs/12)
+
+static const int32_t decm_filter [] = {
+    4, 17, 56, 147, 336, 692, 1315, 2337,
+    3926, 6281, 9631, 14216, 20275, 28021, 37619, 49155,
+    62616, 77870, 94649, 112551, 131049, 149507, 167220, 183448,
+    197472, 208636, 216402, 220385, 220385, 216402, 208636, 197472,
+    183448, 167220, 149507, 131049, 112551, 94649, 77870, 62616,
+    49155, 37619, 28021, 20275, 14216, 9631, 6281, 3926,
+    2337, 1315, 692, 336, 147, 56, 17, 4,
+};
+
+#define NUM_FILTER_TERMS 56
+
+#endif
+
 #define HISTORY_BYTES ((NUM_FILTER_TERMS+7)/8)
 
 typedef struct {
@@ -540,6 +563,7 @@ void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples
         DecimationChannel *sp = context->chans + chan;
         int sum = 0;
 
+#if (HISTORY_BYTES == 10)
         sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
         sum += context->conv_tables [1] [sp->delay [1] = sp->delay [2]];
         sum += context->conv_tables [2] [sp->delay [2] = sp->delay [3]];
@@ -550,6 +574,23 @@ void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples
         sum += context->conv_tables [7] [sp->delay [7] = sp->delay [8]];
         sum += context->conv_tables [8] [sp->delay [8] = sp->delay [9]];
         sum += context->conv_tables [9] [sp->delay [9] = *samples];
+#elif (HISTORY_BYTES == 7)
+        sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
+        sum += context->conv_tables [1] [sp->delay [1] = sp->delay [2]];
+        sum += context->conv_tables [2] [sp->delay [2] = sp->delay [3]];
+        sum += context->conv_tables [3] [sp->delay [3] = sp->delay [4]];
+        sum += context->conv_tables [4] [sp->delay [4] = sp->delay [5]];
+        sum += context->conv_tables [5] [sp->delay [5] = sp->delay [6]];
+        sum += context->conv_tables [6] [sp->delay [6] = *samples];
+#else
+        int i;
+
+        for (i = 0; i < HISTORY_BYTES-1; ++i)
+            sum += context->conv_tables [i] [sp->delay [i] = sp->delay [i+1]];
+
+        sum += context->conv_tables [i] [sp->delay [i] = *samples];
+#endif
+
         *samples++ = sum >> 4;
 
         if (++chan == context->num_channels) {
