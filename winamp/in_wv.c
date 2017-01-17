@@ -20,6 +20,10 @@
 
 #define fileno _fileno
 
+#if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+
 static float calculate_gain (WavpackContext *wpc, int *pSoftClip);
 static void *decimation_init (int num_channels, int ratio);
 static int decimation_run (void *context, int32_t *samples, int num_samples);
