@@ -38,7 +38,7 @@ wvtag_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 wvtag_LDFLAGS = -rpath $(libdir)
 endif
-wvtag_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM)
+wvtag_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack.la $(LIBM) $(ICONV_LIBS)
 
 if ENABLE_TESTS
 bin_PROGRAMS += wvtest

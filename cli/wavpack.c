@@ -1939,7 +1939,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         // if we're supposed to try to import ID3 tags, check for and do that now
         // (but only error on a bad tag, not just a missing one or one with no applicable items)
 
-        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10 && !strncmp (buffer, "ID3", 3)) {
+        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10 && !strncmp ((char *) buffer, "ID3", 3)) {
             int32_t bytes_used, id3_res;
             char error [80];
 
@@ -1959,18 +1959,12 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 if (id3_res > 0)
                     id3_res = ImportID3v2 (wpc, buffer, wrapper_size, error, NULL);
 
-                if (id3_res > 0) {
-                    if (!quiet_mode)
-                        error_line ("successfully imported %d items from ID3v2 tag", id3_res);
-
-                    imported_tag_items = id3_res;
-                }
-                else if (id3_res == 0)
-                    error_line ("ID3v2 import: no applicable items found");
-                else {
+                if (id3_res < 0) {
                     error_line ("ID3v2 import: %s", error);
                     result = WAVPACK_SOFT_ERROR;
                 }
+                else if (id3_res > 0)
+                    imported_tag_items = id3_res;
             }
         }
 
@@ -2194,6 +2188,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     if (!quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
+
+        if (imported_tag_items)
+            error_line ("successfully imported %d items from ID3v2 tag", imported_tag_items);
 
         if (loc_config.flags & CONFIG_MD5_CHECKSUM) {
             char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
@@ -2892,7 +2889,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         // if we're supposed to try to import ID3 tags, check for and do that now
         // (but only error on a bad tag, not just a missing one or one with no applicable items)
 
-        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10 && !strncmp (buffer, "ID3", 3)) {
+        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10 && !strncmp ((char *) buffer, "ID3", 3)) {
             int32_t bytes_used, id3_res;
             char error [80];
 
@@ -2912,18 +2909,12 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
                 if (id3_res > 0)
                     id3_res = ImportID3v2 (outfile, buffer, wrapper_size, error, NULL);
 
-                if (id3_res > 0) {
-                    if (!quiet_mode)
-                        error_line ("successfully imported %d items from ID3v2 tag", id3_res);
-
-                    imported_tag_items = id3_res;
-                }
-                else if (id3_res == 0)
-                    error_line ("ID3v2 import: no applicable items found");
-                else {
+                if (id3_res < 0) {
                     error_line ("ID3v2 import: %s", error);
                     result = WAVPACK_SOFT_ERROR;
                 }
+                else if (id3_res > 0)
+                    imported_tag_items = id3_res;
             }
         }
 
@@ -3151,6 +3142,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     if (!quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
+
+        if (imported_tag_items)
+            error_line ("successfully imported %d items from ID3v2 tag", imported_tag_items);
 
         if (config->flags & CONFIG_MD5_CHECKSUM) {
             char md5_string [] = "original md5 signature: 00000000000000000000000000000000";

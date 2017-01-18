@@ -61,7 +61,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
     tag_size -= sizeof (id3_header);
     tag_data += sizeof (id3_header);
 
-    if (strncmp (id3_header, "ID3", 3)) {
+    if (strncmp ((char *) id3_header, "ID3", 3)) {
         strcpy (error, "no ID3v2 tag found");
         return -1;
     }
@@ -143,7 +143,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
         tag_size -= frame_size;
         tag_data += frame_size;
 
-        if (frame_header [0] == 'T' && strncmp (frame_header, "TXXX", 4)) {
+        if (frame_header [0] == 'T' && strncmp ((char *) frame_header, "TXXX", 4)) {
             unsigned char *utf8_string = NULL;
 
             if (frame_body [0] == 0) {
@@ -187,20 +187,20 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
 
             if (utf8_string) {
                 for (i = 0; i < NUM_TEXT_TAG_ITEMS; ++i)
-                    if (!strncmp (frame_header, text_tag_table [i].id3_item, 4)) {
-                        if (wpc && !WavpackAppendTagItem (wpc, text_tag_table [i].ape_item, utf8_string, (int) strlen (utf8_string))) {
+                    if (!strncmp ((char *) frame_header, text_tag_table [i].id3_item, 4)) {
+                        if (wpc && !WavpackAppendTagItem (wpc, text_tag_table [i].ape_item, (char *) utf8_string, (int) strlen ((char *) utf8_string))) {
                             strcpy (error, WavpackGetErrorMessage (wpc));
                             return -1;
                         }
 
                         items_imported++;
-                        if (bytes_used) *bytes_used += (int) (strlen (utf8_string) + strlen (text_tag_table [i].ape_item) + 1);
+                        if (bytes_used) *bytes_used += (int) (strlen ((char *) utf8_string) + strlen (text_tag_table [i].ape_item) + 1);
                     }
 
                 free (utf8_string);
             }
         }
-        else if (!strncmp (frame_header, "APIC", 4)) {
+        else if (!strncmp ((char *) frame_header, "APIC", 4)) {
             if (frame_body [0] == 0) {
                 char *mime_type, *description, *extension, *item = NULL;
                 unsigned char *frame_ptr = frame_body + 1;
@@ -262,7 +262,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
 
                 if (item) {
                     int binary_tag_size = (int) strlen (item) + (int) strlen (extension) + 1 + frame_bytes;
-                    unsigned char *binary_tag_image = malloc (binary_tag_size);
+                    char *binary_tag_image = malloc (binary_tag_size);
 
                     strcpy (binary_tag_image, item);
                     strcat (binary_tag_image, extension);
