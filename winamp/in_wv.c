@@ -1,6 +1,6 @@
 /*
 ** .WV input plug-in for WavPack
-** Copyright (c) 2000 - 2016, David Bryant, All Rights Reserved
+** Copyright (c) 2000 - 2017, David Bryant, All Rights Reserved
 */
 
 #include <windows.h>
@@ -30,7 +30,7 @@ static int decimation_run (void *context, int32_t *samples, int num_samples);
 static void decimation_reset (void *context);
 static void *decimation_destroy (void *context);
 
-#define PLUGIN_VERSION "2.8.0.2"
+#define PLUGIN_VERSION "2.8.0.3"
 //#define DEBUG_CONSOLE
 #define UNICODE_METADATA
 
@@ -305,7 +305,7 @@ void about (HWND hwndParent)
 	    !LoadString (hResources, IDS_FORMAT, about_format, sizeof (about_format)))
 			return;
 
-	sprintf (about_string, about_format, PLUGIN_VERSION, 2016);
+	sprintf (about_string, about_format, PLUGIN_VERSION, 2017);
     MessageBox (hwndParent, about_string, about_title, MB_OK);
 }
 
