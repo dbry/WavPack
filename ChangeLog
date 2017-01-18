@@ -1,4 +1,23 @@
                       --------------------------------
+                      Release 5.1.0 - January 17, 2017
+                      --------------------------------
+
+ WavPack Library Source Code - 5.1.0
+ wavpack.exe (command-line encoder) - 5.1.0
+ wvunpack.exe (command-line decoder) - 5.1.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.1.0
+ wvtag.exe (command-line tagging utility) - 5.1.0
+ ----------------------------------------------------
+  added: all new command-line tagging utility (wvtag)
+  fixed: fuzz failures from AFL reported on SourceForge
+  added: option to import ID3v2.3 tags from Sony DSF files
+  improved: DSD decimation filter (less HF rolloff & CPU use)
+  fixed: non-byte audio depths (12-bit, 20-bit) not showing
+  fixed: recognize UTF-8 BOM when reading text files
+  fixed: a few portability issues
+
+
+                      --------------------------------
                       Release 5.0.0 - December 6, 2016
                       --------------------------------
 
