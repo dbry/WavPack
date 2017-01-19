@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2016 David Bryant.                 //
+//                Copyright (c) 1998 - 2017 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -30,6 +30,7 @@
 // Version 2.15a - Aug 26, 2016 (library ver 5.0.0-alpha4, DSD read with 8x decimation)
 // Version 2.15b - Sept 27, 2016 (library ver 5.0.0-alpha5, new "high" DSD, broken!)
 // Version 3.0 - Dec 1, 2016 (library ver 5.0.0)
+// Version 3.1 - Jan 18, 2017 (library ver 5.1.0)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -271,7 +272,7 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
     if (wBitsPerSample == 32)
         config.float_norm_exp = (format == 3) ? 127 : 127 + 15;
 
-    WavpackSetConfiguration (wpc, &config, total_samples);
+    WavpackSetConfiguration64 (wpc, &config, total_samples, NULL);
 
     strncpy (riffhdr.ckID, "RIFF", sizeof (riffhdr.ckID));
     riffhdr.ckSize = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + lSize;
@@ -934,8 +935,8 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
                     return TRUE;
 
                 case IDABOUT:
-					sprintf (str, "Cool Edit / Audition Filter Version 3.0\n" "WavPack Library Version %s\n"
-                        "Copyright (c) 2016 David Bryant", WavpackGetLibraryVersionString());
+					sprintf (str, "Cool Edit / Audition Filter Version 3.1\n" "WavPack Library Version %s\n"
+                        "Copyright (c) 2017 David Bryant", WavpackGetLibraryVersionString());
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
             }
