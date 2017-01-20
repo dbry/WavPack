@@ -11,3 +11,8 @@ os:
 env:
   matrix:
     - WVTEST_ARGS="--default --no-hybrid --no-lossy"
+matrix:
+  exclude:
+    # incompatible clang version 3.4 on linux
+    - os: linux
+      compiler: clang
