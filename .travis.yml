@@ -1,0 +1,10 @@
+language: c
+sudo: false
+script:
+  - ./autogen.sh --enable-tests && make && .libs/wvtest --default
+compiler:
+  - clang
+  - gcc
+os:
+  - linux
+  - osx
