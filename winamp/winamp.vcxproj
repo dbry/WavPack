@@ -94,7 +94,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)in_wv.dll</OutputFile>
+      <OutputFile>$(OutDir)winamp.dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
@@ -118,7 +118,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)in_wv.dll</OutputFile>
+      <OutputFile>$(OutDir)winamp.dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
@@ -145,7 +145,7 @@
       <CompileAs>Default</CompileAs>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)in_wv.dll</OutputFile>
+      <OutputFile>$(OutDir)winamp.dll</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>MSVCRT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -180,7 +180,7 @@
       <CompileAs>Default</CompileAs>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)in_wv.dll</OutputFile>
+      <OutputFile>$(OutDir)winamp.dll</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>MSVCRT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>false</GenerateDebugInformation>
