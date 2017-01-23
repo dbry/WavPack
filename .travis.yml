@@ -11,4 +11,5 @@ os:
   - osx
 env:
   matrix:
-    - WVTEST_ARGS="--default --no-hybrid --no-lossy"
+    - WVTEST_ARGS="--exhaustive --short --no-extras"
+
