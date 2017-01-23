@@ -94,7 +94,7 @@
     <Link>
       <AdditionalOptions>/export:QueryCoolFilter /export:FilterUnderstandsFormat /export:GetSuggestedSampleType /export:OpenFilterInput /export:FilterGetFileSize /export:ReadFilterInput /export:CloseFilterInput /export:FilterOptions /export:FilterOptionsString /export:OpenFilterOutput /export:CloseFilterOutput /export:WriteFilterOutput /export:FilterGetOptions /export:FilterWriteSpecialData /export:FilterGetFirstSpecialData /export:FilterGetNextSpecialData 
  %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)cool_wv4.flt</OutputFile>
+      <OutputFile>$(OutDir)audition.dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
@@ -120,7 +120,7 @@
     <Link>
       <AdditionalOptions>/export:QueryCoolFilter /export:FilterUnderstandsFormat /export:GetSuggestedSampleType /export:OpenFilterInput /export:FilterGetFileSize /export:ReadFilterInput /export:CloseFilterInput /export:FilterOptions /export:FilterOptionsString /export:OpenFilterOutput /export:CloseFilterOutput /export:WriteFilterOutput /export:FilterGetOptions /export:FilterWriteSpecialData /export:FilterGetFirstSpecialData /export:FilterGetNextSpecialData 
  %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)cool_wv4.flt</OutputFile>
+      <OutputFile>$(OutDir)audition.dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
@@ -150,7 +150,7 @@
     <Link>
       <AdditionalOptions>/export:QueryCoolFilter /export:FilterUnderstandsFormat /export:GetSuggestedSampleType /export:OpenFilterInput /export:FilterGetFileSize /export:ReadFilterInput /export:CloseFilterInput /export:FilterOptions /export:FilterOptionsString /export:OpenFilterOutput /export:CloseFilterOutput /export:WriteFilterOutput /export:FilterGetOptions /export:FilterWriteSpecialData /export:FilterGetFirstSpecialData /export:FilterGetNextSpecialData 
  %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)cool_wv4.flt</OutputFile>
+      <OutputFile>$(OutDir)audition.dll</OutputFile>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -185,7 +185,7 @@
     <Link>
       <AdditionalOptions>/export:QueryCoolFilter /export:FilterUnderstandsFormat /export:GetSuggestedSampleType /export:OpenFilterInput /export:FilterGetFileSize /export:ReadFilterInput /export:CloseFilterInput /export:FilterOptions /export:FilterOptionsString /export:OpenFilterOutput /export:CloseFilterOutput /export:WriteFilterOutput /export:FilterGetOptions /export:FilterWriteSpecialData /export:FilterGetFirstSpecialData /export:FilterGetNextSpecialData 
  %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)cool_wv4.flt</OutputFile>
+      <OutputFile>$(OutDir)audition.dll</OutputFile>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
