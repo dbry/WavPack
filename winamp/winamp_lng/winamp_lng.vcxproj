@@ -100,7 +100,7 @@
     </ClCompile>
     <Link>
       <AdditionalOptions>/NOENTRY %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)in_wv.lng</OutputFile>
+      <OutputFile>$(OutDir)winamp_lng.dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
@@ -118,7 +118,7 @@
     </ClCompile>
     <Link>
       <AdditionalOptions>/NOENTRY %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)in_wv.lng</OutputFile>
+      <OutputFile>$(OutDir)winamp_lng.dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -144,7 +144,7 @@
     </ClCompile>
     <Link>
       <AdditionalOptions>/NOENTRY %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)in_wv.lng</OutputFile>
+      <OutputFile>$(OutDir)winamp_lng.dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
@@ -165,7 +165,7 @@
     </ClCompile>
     <Link>
       <AdditionalOptions>/NOENTRY %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)in_wv.lng</OutputFile>
+      <OutputFile>$(OutDir)winamp_lng.dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
