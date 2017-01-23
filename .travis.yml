@@ -1,0 +1,14 @@
+language: c
+sudo: false
+dist: trusty
+script:
+  - ./autogen.sh --enable-tests && make && cli/wvtest $WVTEST_ARGS
+compiler:
+  - clang
+  - gcc
+os:
+  - linux
+  - osx
+env:
+  matrix:
+    - WVTEST_ARGS="--default --no-hybrid --no-lossy"
