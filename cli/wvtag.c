@@ -1344,7 +1344,9 @@ static void dump_UTF8_string (char *string, FILE *dst)
 // resulting string will not fit in the specified buffer size then it is
 // truncated.
 
+#if defined (_WIN32)
 static int UTF8ToWideChar (const unsigned char *pUTF8, wchar_t *pWide);
+#endif
 
 static void UTF8ToAnsi (char *string, int len)
 {

@@ -34,7 +34,7 @@ static struct {
 
 #define NUM_TEXT_TAG_ITEMS (sizeof (text_tag_table) / sizeof (text_tag_table [0]))
 
-static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len);
+static int WideCharToUTF8 (const uint16_t *Wide, unsigned char *pUTF8, int len);
 static void Latin1ToUTF8 (void *string, int len);
 
 // Import specified ID3v2.3 tag. The WavPack context accepts the tag items, and can be
@@ -163,7 +163,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
             }
             else if (frame_body [0] == 1 && frame_size > 2 && frame_body [1] == 0xFF && frame_body [2] == 0xFE) {
                 int nchars = (frame_size - 3) / 2;
-                wchar_t *wide_string = malloc ((nchars + 1) * sizeof (wchar_t));
+                uint16_t *wide_string = malloc ((nchars + 1) * sizeof (uint16_t));
                 unsigned char *fp = frame_body + 3;
 
                 utf8_string = malloc ((nchars + 1) * 3);
@@ -297,9 +297,9 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
 // may be less than the number of characters in the wide string if the buffer
 // length is exceeded.
 
-static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len)
+static int WideCharToUTF8 (const uint16_t *Wide, unsigned char *pUTF8, int len)
 {
-    const wchar_t *pWide = Wide;
+    const uint16_t *pWide = Wide;
     int outndx = 0;
 
     while (*pWide) {
@@ -335,7 +335,7 @@ static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len)
 static void Latin1ToUTF8 (void *string, int len)
 {
     int max_chars = (int) strlen (string);
-    wchar_t *temp = (wchar_t *) malloc ((max_chars + 1) * 2);
+    uint16_t *temp = (uint16_t *) malloc ((max_chars + 1) * sizeof (uint16_t));
 
     MultiByteToWideChar (28591, 0, string, -1, temp, max_chars + 1);
     WideCharToUTF8 (temp, (unsigned char *) string, len);
