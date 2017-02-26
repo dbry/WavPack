@@ -509,6 +509,7 @@ typedef struct {
     void *decimation_context;
     char file_extension [8];
 
+    void (*close_callback)(void *wpc);
     char error_message [80];
 } WavpackContext;
 
@@ -869,6 +870,7 @@ void WavpackNativeToLittleEndian (void *data, char *format);
 void WavpackBigEndianToNative (void *data, char *format);
 void WavpackNativeToBigEndian (void *data, char *format);
 
+void install_close_callback (WavpackContext *wpc, void cb_func (void *wpc));
 void free_streams (WavpackContext *wpc);
 
 /////////////////////////////////// tag utilities ////////////////////////////////////

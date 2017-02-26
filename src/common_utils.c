@@ -346,11 +346,22 @@ void WavpackGetChannelIdentities (WavpackContext *wpc, unsigned char *identities
     *identities = 0;
 }
 
+// For local use only. Install a callback to be executed when WavpackCloseFile() is called,
+// usually used to dump some statistics accumulated during encode or decode.
+
+void install_close_callback (WavpackContext *wpc, void cb_func (void *wpc))
+{
+    wpc->close_callback = cb_func;
+}
+
 // Close the specified WavPack file and release all resources used by it.
 // Returns NULL.
 
 WavpackContext *WavpackCloseFile (WavpackContext *wpc)
 {
+    if (wpc->close_callback)
+        wpc->close_callback (wpc);
+
     if (wpc->streams) {
         free_streams (wpc);
 
