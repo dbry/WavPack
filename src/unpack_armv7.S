@@ -25,9 +25,12 @@
  * from the buffer. It does, however, return the appropriate history samples
  * to the decorr_pass structure before returning.
  *
- * This is written to work on a ARM7TDMI processor. This version of the code
- * checks the magnitude of the decorrelation sample with the SSAT instruction
+ * This should work on all ARM architectures. This version of the code
+ * checks the magnitude of the decorrelation sample with a pair of shifts
  * to avoid possible overflow (and therefore ignores the "long_math" arg).
+ * Previously I used the SSAT instruction for this, but then discovered that
+ * SSAT is not universally available (although on the armv7 I'm testing on
+ * it is slightly faster than the shifts).
  *
  * A mono version follows below. 
  */
@@ -100,8 +103,8 @@ term_17_loop:
         rsb     ip, lr, r8, asl #1      @ decorr value = (2 * prev) - 2nd prev
         mov     lr, r8                  @ previous becomes 2nd previous
         ldr     r2, [r1], #4            @ get sample & update pointer
-        ssat    r8, #21, ip             @ check for saturation and branch
-        cmp     r8, ip                  @  to 64-bit math version if so
+        mov     r8, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r8, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S117
         cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
@@ -124,8 +127,8 @@ S118:   strne   r8, [r1, #-4]           @ if change possible, store sample back
 S325:   rsb     ip, r10, r3, asl #1     @ do same thing for right channel
         mov     r10, r3
         ldr     r2, [r1], #4
-        ssat    r3, #21, ip
-        cmp     r3, ip
+        mov     r3, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r3, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S119
         cmp     ip, #0
         mla     r3, ip, r0, r11
@@ -169,8 +172,8 @@ term_18_loop:
         mov     lr, r8                  @  ((3 * prev) - 2nd prev) >> 1
         add     ip, r8, ip, asr #1
         ldr     r2, [r1], #4            @ get sample & update pointer
-        ssat    r8, #21, ip             @ check for saturation and branch
-        cmp     r8, ip                  @  to 64-bit math version if so
+        mov     r8, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r8, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S121
         cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
@@ -194,8 +197,8 @@ S337:   sub     ip, r3, r10             @ do same thing for right channel
         mov     r10, r3
         add     ip, r3, ip, asr #1
         ldr     r2, [r1], #4
-        ssat    r3, #21, ip
-        cmp     r3, ip
+        mov     r3, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r3, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S123
         cmp     ip, #0
         mla     r3, ip, r0, r11
@@ -248,8 +251,8 @@ term_2_loop:
         mov     ip, lr                  @ get decorrelation value
         mov     lr, r8                  @ previous becomes 2nd previous
         ldr     r2, [r1], #4            @ get sample & update pointer
-        ssat    r8, #21, ip             @ check for saturation and branch
-        cmp     r8, ip                  @  to 64-bit math version if so
+        mov     r8, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r8, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S125
         cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
@@ -272,8 +275,8 @@ S126:   strne   r8, [r1, #-4]           @ if change possible, store sample back
 S225:   mov     ip, r10                 @ do same thing for right channel
         mov     r10, r3
         ldr     r2, [r1], #4
-        ssat    r3, #21, ip
-        cmp     r3, ip
+        mov     r3, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r3, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S127
         cmp     ip, #0
         mla     r3, ip, r0, r11
@@ -315,8 +318,8 @@ S229:   cmp     r7, r1                  @ loop back if more samples to do
 term_default_loop:
         ldr     ip, [r1]                @ get original sample
         ldr     r3, [r1, -r2, asl #3]   @ get decorrelation value based on term
-        ssat    r8, #21, r3             @ check for saturation and branch
-        cmp     r8, r3                  @  to 64-bit math version if so
+        mov     r8, r3, lsl #11         @ check magnitude by shifting left then right
+        cmp     r3, r8, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S135
         cmp     r3, #0
         mla     r8, r3, r4, r11         @ mult decorr value by weight, round,
@@ -338,8 +341,8 @@ S136:   str     r8, [r1], #4            @ store update sample
 
 S350:   ldr     ip, [r1]                @ do the same thing for right channel
         ldr     r3, [r1, -r2, asl #3]
-        ssat    r8, #21, r3
-        cmp     r8, r3
+        mov     r8, r3, lsl #11         @ check magnitude by shifting left then right
+        cmp     r3, r8, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S137
         cmp     r3, #0
         mla     r8, r3, r0, r11
@@ -403,8 +406,8 @@ term_minus_1:
 term_minus_1_loop:
         ldr     ip, [r1]                @ for left channel the decorrelation value
                                         @  is the previous right sample (in r3)
-        ssat    lr, #21, r3             @ check for saturation and branch
-        cmp     lr, r3                  @  to 64-bit math version if so
+        mov     lr, r3, lsl #11         @ check magnitude by shifting left then right
+        cmp     r3, lr, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S142
         cmp     r3, #0
         mla     r2, r3, r4, r11
@@ -430,8 +433,8 @@ S143:   str     lr, [r1], #8
 
 S361:   ldr     r2, [r1, #-4]           @ for right channel the decorrelation value
                                         @  is the just updated right sample (in lr)
-        ssat    r3, #21, lr
-        cmp     r3, lr
+        mov     r3, lr, lsl #11         @ check magnitude by shifting left then right
+        cmp     lr, r3, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S144
         cmp     lr, #0
         mla     r3, lr, r0, r11
@@ -483,8 +486,8 @@ term_minus_2:
 term_minus_2_loop:
         ldr     ip, [r1, #4]            @ for right channel the decorrelation value
                                         @  is the previous left sample (in r3)
-        ssat    lr, #21, r3             @ check for saturation and branch
-        cmp     lr, r3                  @  to 64-bit math version if so
+        mov     lr, r3, lsl #11         @ check magnitude by shifting left then right
+        cmp     r3, lr, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S146
         cmp     r3, #0
         mla     r2, r3, r0, r11
@@ -510,8 +513,8 @@ S147:   strne   lr, [r1, #4]
 
 S380:   ldr     r2, [r1, #0]            @ for left channel the decorrelation value
                                         @  is the just updated left sample (in lr)
-        ssat    r3, #21, lr
-        cmp     r3, lr
+        mov     r3, lr, lsl #11         @ check magnitude by shifting left then right
+        cmp     lr, r3, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S148
         cmp     lr, #0
         mla     r3, lr, r4, r11
@@ -562,8 +565,8 @@ term_minus_3:
 
 term_minus_3_loop:
         ldr     ip, [r1]
-        ssat    r2, #21, r3             @ check for saturation and branch
-        cmp     r2, r3                  @  to 64-bit math version if so
+        mov     r2, r3, lsl #11         @ check magnitude by shifting left then right
+        cmp     r3, r2, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S160
         cmp     r3, #0
         mla     r2, r3, r4, r11
@@ -590,8 +593,8 @@ S161:   str     r2, [r1], #4
 S399:   mov     ip, r8                  @ ip = previous left we use now
         mov     r8, r2                  @ r8 = current left we use next time
         ldr     r2, [r1], #4
-        ssat    r3, #21, ip
-        cmp     r3, ip
+        mov     r3, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r3, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S162
         cmp     ip, #0
         mla     r3, ip, r0, r11
@@ -689,8 +692,8 @@ mono_term_17_loop:
         rsb     ip, lr, r8, asl #1      @ decorr value = (2 * prev) - 2nd prev
         mov     lr, r8                  @ previous becomes 2nd previous
         ldr     r2, [r1], #4            @ get sample & update pointer
-        ssat    r8, #21, ip             @ check for saturation and branch
-        cmp     r8, ip                  @  to 64-bit math version if so
+        mov     r8, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r8, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S717
         cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
@@ -734,8 +737,8 @@ mono_term_18_loop:
         mov     lr, r8                  @  ((3 * prev) - 2nd prev) >> 1
         add     ip, r8, ip, asr #1
         ldr     r2, [r1], #4            @ get sample & update pointer
-        ssat    r8, #21, ip             @ check for saturation and branch
-        cmp     r8, ip                  @  to 64-bit math version if so
+        mov     r8, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r8, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S817
         cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
@@ -786,8 +789,8 @@ mono_term_2_loop:
         mov     ip, lr                  @ get decorrelation value
         mov     lr, r8                  @ previous becomes 2nd previous
         ldr     r2, [r1], #4            @ get sample & update pointer
-        ssat    r8, #21, ip             @ check for saturation and branch
-        cmp     r8, ip                  @  to 64-bit math version if so
+        mov     r8, ip, lsl #11         @ check magnitude by shifting left then right
+        cmp     ip, r8, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S917
         cmp     ip, #0
         mla     r8, ip, r4, r11         @ mult decorr value by weight, round,
@@ -829,8 +832,8 @@ S029:   cmp     r7, r1                  @ loop back if more samples to do
 mono_term_default_loop:
         ldr     ip, [r1]                @ get original sample
         ldr     r3, [r1, -r2, asl #2]   @ get decorrelation value based on term
-        ssat    r8, #21, r3             @ check for saturation and branch
-        cmp     r8, r3                  @  to 64-bit math version if so
+        mov     r8, r3, lsl #11         @ check magnitude by shifting left then right
+        cmp     r3, r8, asr #11         @  and comparing, branch to 64-bit math if different
         bne     S617
         mla     r8, r3, r4, r11         @ mult decorr value by weight, round,
         add     r8, ip, r8, asr #10     @  shift and add to new sample
