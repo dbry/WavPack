@@ -194,29 +194,23 @@ int main (int argc, char **argv)
     char selfname [MAX_PATH];
 
     if (GetModuleFileName (NULL, selfname, sizeof (selfname)) && filespec_name (selfname) &&
-        _strupr (filespec_name (selfname)) && strstr (filespec_name (selfname), "DEBUG")) {
-            char **argv_t = argv;
-            int argc_t = argc;
-
+        _strupr (filespec_name (selfname)) && strstr (filespec_name (selfname), "DEBUG"))
             debug_logging_mode = TRUE;
-
-            while (--argc_t)
-                error_line ("arg %d: %s", argc - argc_t, *++argv_t);
-    }
 
     strcpy (selfname, *argv);
 #else
-    if (filespec_name (*argv))
-        if (strstr (filespec_name (*argv), "ebug") || strstr (filespec_name (*argv), "DEBUG")) {
-            char **argv_t = argv;
-            int argc_t = argc;
-
+    if (filespec_name (*argv) &&
+        strstr (filespec_name (*argv), "ebug") || strstr (filespec_name (*argv), "DEBUG"))
             debug_logging_mode = TRUE;
-
-            while (--argc_t)
-                error_line ("arg %d: %s", argc - argc_t, *++argv_t);
-    }
 #endif
+
+    if (debug_logging_mode) {
+        char **argv_t = argv;
+        int argc_t = argc;
+
+        while (--argc_t)
+            error_line ("arg %d: %s", argc - argc_t, *++argv_t);
+    }
 
     // loop through command-line arguments
 
