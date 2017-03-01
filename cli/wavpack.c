@@ -319,7 +319,7 @@ int main (int argc, char **argv)
     strcpy (selfname, *argv);
 #else
     if (filespec_name (*argv) &&
-        strstr (filespec_name (*argv), "ebug") || strstr (filespec_name (*argv), "DEBUG"))
+        (strstr (filespec_name (*argv), "ebug") || strstr (filespec_name (*argv), "DEBUG")))
             debug_logging_mode = TRUE;
 #endif
 
