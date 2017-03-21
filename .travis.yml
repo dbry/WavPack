@@ -12,3 +12,4 @@ os:
 env:
   matrix:
     - WVTEST_ARGS="--exhaustive --short --no-extras"
+
