@@ -126,8 +126,7 @@ static void write_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
     int tcount = wps->num_terms, i;
     char *byteptr;
 
-    byteptr = wpmd->data = malloc ((tcount * 2) + 1);
-    wpmd->id = ID_DECORR_WEIGHTS;
+    byteptr = wpmd->data = calloc (2, tcount);
 
     for (i = wps->num_terms - 1; i >= 0; --i)
         if (store_weight (dpp [i].weight_A) ||
@@ -136,17 +135,39 @@ static void write_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
 
     tcount = i + 1;
 
-    for (i = 0; i < wps->num_terms; ++i) {
-        if (i < tcount) {
-            dpp [i].weight_A = restore_weight (*byteptr++ = store_weight (dpp [i].weight_A));
+    if (wps->wphdr.flags & MONO_DATA) {
+        if (tcount < wps->num_terms && (tcount & 1))
+            tcount++;
 
-            if (!(wps->wphdr.flags & MONO_DATA))
-                dpp [i].weight_B = restore_weight (*byteptr++ = store_weight (dpp [i].weight_B));
+        for (i = 0; i < wps->num_terms; ++i) {
+            if (i < tcount)
+                dpp [i].weight_A = restore_weight (*byteptr++ = store_weight (dpp [i].weight_A));
+            else
+                dpp [i].weight_A = dpp [i].weight_B = restore_weight (0);
         }
-        else
-            dpp [i].weight_A = dpp [i].weight_B = 0;
+    }
+    else {
+        for (i = 0; i < wps->num_terms; ++i) {
+            if (i < tcount) {
+                dpp [i].weight_A = restore_weight (*byteptr++ = store_weight (dpp [i].weight_A));
+                dpp [i].weight_B = restore_weight (*byteptr++ = store_weight (dpp [i].weight_B));
+            }
+            else
+                dpp [i].weight_A = dpp [i].weight_B = restore_weight (0);
+        }
+
+        tcount *= 2;
     }
 
+    byteptr = wpmd->data;
+
+    for (i = 0; i < tcount; ++i)
+        if (i & 1)
+            byteptr [-1] |= (((char *) wpmd->data) [i] >> 4) & 0xF;
+        else
+            *byteptr++ = ((char *) wpmd->data) [i];
+
+    wpmd->id = ID_DECORR_WEIGHTS;
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
 

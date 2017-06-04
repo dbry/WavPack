@@ -60,18 +60,36 @@ int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
 
 int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    int termcnt = wpmd->byte_length, tcount;
-    char *byteptr = wpmd->data;
+    int termcnt = wpmd->byte_length * 2, i;
+    char *byteptr = wpmd->data, *expanded_data = malloc (termcnt);
     struct decorr_pass *dpp;
 
-    if (!(wps->wphdr.flags & MONO_DATA))
+    for (i = 0; i < termcnt; i++)
+        if (i & 1)
+            expanded_data [i] = *byteptr++ << 4;
+        else
+            expanded_data [i] = *byteptr;
+
+    byteptr = expanded_data;
+
+    if (wps->wphdr.flags & MONO_DATA) {
+        if (termcnt == wps->num_terms + 1)
+            termcnt--;
+    }
+    else
         termcnt /= 2;
 
-    if (termcnt > wps->num_terms)
+    if (termcnt > wps->num_terms) {
+        free (expanded_data);
         return FALSE;
+    }
 
-    for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
-        dpp->weight_A = dpp->weight_B = 0;
+    // first we reset all the terms to "0"
+
+    for (i = wps->num_terms, dpp = wps->decorr_passes; i--; dpp++)
+        dpp->weight_A = dpp->weight_B = restore_weight (0);
+
+    // then we just write to "termcnt" values (*2 for stereo), starting at the end
 
     while (--dpp >= wps->decorr_passes && termcnt--) {
         dpp->weight_A = restore_weight (*byteptr++);
@@ -80,6 +98,7 @@ int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
             dpp->weight_B = restore_weight (*byteptr++);
     }
 
+    free (expanded_data);
     return TRUE;
 }
 

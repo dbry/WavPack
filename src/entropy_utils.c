@@ -351,28 +351,23 @@ int32_t wp_exp2s (int log)
 }
 
 // These two functions convert internal weights (which are normally +/-1024)
-// to and from an 8-bit signed character version for storage in metadata. The
-// weights are clipped here in the case that they are outside that range.
+// to and from a 4-bit signed value version for storage in metadata. The weights
+// are clipped here in the case that they are outside that range. The 4-bit
+// value is returned in the 4 MSBs of a signed character, and the other bits
+// are returned zero on "store" and ignored on "restore".
 
 signed char store_weight (int weight)
 {
-    if (weight > 1024)
-        weight = 1024;
+    if (weight > 1023)
+        weight = 1023;
     else if (weight < -1024)
         weight = -1024;
 
-    if (weight > 0)
-        weight -= (weight + 64) >> 7;
-
-    return (weight + 4) >> 3;
+    return (weight >> 3) & ~0xF;
 }
 
 int restore_weight (signed char weight)
 {
-    int result;
-
-    if ((result = (int) weight << 3) > 0)
-        result += (result + 64) >> 7;
-
-    return result;
+    weight &= ~0xF;
+    return ((int) weight << 3) + 64;
 }
