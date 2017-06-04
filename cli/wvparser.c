@@ -307,9 +307,9 @@ static int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, 
 
 static void parse_wavpack_block (unsigned char *block_data)
 {
-    unsigned char *blockptr = block_data + sizeof (WavpackHeader);
+    unsigned char *blockptr = block_data + sizeof (WavpackHeader), *blockprev = blockptr;
     WavpackHeader *wphdr = (WavpackHeader *) block_data;
-    int metadata_count = 0;
+    int metadata_count = 0, overhead = 32, realdata = 0;
     WavpackMetadata wpmd;
 
     while (read_metadata_buff (&wpmd, block_data, &blockptr)) {
@@ -320,6 +320,13 @@ static void parse_wavpack_block (unsigned char *block_data)
             printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id - 0x10], wpmd.byte_length);
         else
             printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id], wpmd.byte_length);
+
+        if ((wpmd.id & ID_UNIQUE) >= 0xA && (wpmd.id & ID_UNIQUE) <= 0xC)
+            realdata += blockptr - blockprev;
+        else
+            overhead += blockptr - blockprev;
+
+        blockprev = blockptr;
     }
 
     if (blockptr != block_data + wphdr->ckSize + 8)
@@ -327,6 +334,8 @@ static void parse_wavpack_block (unsigned char *block_data)
 
     if (!verify_wavpack_block (block_data))
         printf ("error: checksum failure on WavPack block\n");
+
+    printf ("block overhead = %d / %d (%.2f%%)\n", overhead, overhead + realdata, overhead * 100.0 / (overhead + realdata));
 }
 
 // Quickly verify the referenced block. It is assumed that the WavPack header has been converted
