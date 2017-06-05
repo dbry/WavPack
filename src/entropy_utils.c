@@ -350,6 +350,36 @@ int32_t wp_exp2s (int log)
         return value << (log - 9);
 }
 
+//////////////// 8-bit signed versions /////////////////
+
+signed char wp_log2_schar (int32_t value)
+{
+    if (value < 0)
+        return value >= -16 ? value : 4 - ((wp_log2 (-value) + 32) >> 6);
+    else
+        return value <= 16 ? value : ((wp_log2 (value) + 32) >> 6) - 4;
+}
+
+int32_t wp_exp2_schar (signed char log)
+{
+    if (log < 0)
+        return log >= -16 ? log : wp_exp2s ((log - 4) << 6);
+    else
+        return log <= 16 ? log : wp_exp2s ((log + 4) << 6);
+}
+
+//////////////// 8-bit unsigned versions /////////////////
+
+unsigned char wp_log2_uchar (uint32_t value)
+{
+    return value <= 32 ? value : ((wp_log2 (value) + 16) >> 5) - 16;
+}
+
+uint32_t wp_exp2_uchar (unsigned char log)
+{
+    return log <= 32 ? log : wp_exp2s ((log + 16) << 5);
+}
+
 // These two functions convert internal weights (which are normally +/-1024)
 // to and from a 4-bit signed value version for storage in metadata. The weights
 // are clipped here in the case that they are outside that range. The 4-bit

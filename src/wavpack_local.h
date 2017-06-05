@@ -747,6 +747,11 @@ int wp_log2s (int32_t value);
 int32_t wp_exp2s (int log);
 int FASTCALL wp_log2 (uint32_t avalue);
 
+signed char wp_log2_schar (int32_t value);
+int32_t wp_exp2_schar (signed char log);
+unsigned char wp_log2_uchar (uint32_t value);
+uint32_t wp_exp2_uchar (unsigned char log);
+
 #ifdef OPT_ASM_X86
 #define LOG2BUFFER log2buffer_x86
 #elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))

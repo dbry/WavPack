@@ -112,8 +112,8 @@ int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
 
 int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    unsigned char *byteptr = wpmd->data;
-    unsigned char *endptr = byteptr + wpmd->byte_length;
+    signed char *byteptr = wpmd->data;
+    signed char *endptr = byteptr + wpmd->byte_length;
     struct decorr_pass *dpp;
     int tcount;
 
@@ -122,56 +122,37 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
         CLEAR (dpp->samples_B);
     }
 
-    if (wps->wphdr.version == 0x402 && (wps->wphdr.flags & HYBRID_FLAG)) {
-        if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
-            return FALSE;
-
-        wps->dc.error [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
-        byteptr += 2;
-
-        if (!(wps->wphdr.flags & MONO_DATA)) {
-            wps->dc.error [1] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
-            byteptr += 2;
-        }
-    }
-
     while (dpp-- > wps->decorr_passes && byteptr < endptr)
         if (dpp->term > MAX_TERM) {
-            if (byteptr + (wps->wphdr.flags & MONO_DATA ? 4 : 8) > endptr)
+            if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
                 return FALSE;
 
-            dpp->samples_A [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
-            dpp->samples_A [1] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
-            byteptr += 4;
+            dpp->samples_A [0] = wp_exp2_schar (*byteptr++);
+            dpp->samples_A [1] = wp_exp2_schar (*byteptr++);
 
             if (!(wps->wphdr.flags & MONO_DATA)) {
-                dpp->samples_B [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
-                dpp->samples_B [1] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
-                byteptr += 4;
+                dpp->samples_B [0] = wp_exp2_schar (*byteptr++);
+                dpp->samples_B [1] = wp_exp2_schar (*byteptr++);
             }
         }
         else if (dpp->term < 0) {
-            if (byteptr + 4 > endptr)
+            if (byteptr + 2 > endptr)
                 return FALSE;
 
-            dpp->samples_A [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
-            dpp->samples_B [0] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
-            byteptr += 4;
+            dpp->samples_A [0] = wp_exp2_schar (*byteptr++);
+            dpp->samples_B [0] = wp_exp2_schar (*byteptr++);
         }
         else {
             int m = 0, cnt = dpp->term;
 
             while (cnt--) {
-                if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+                if (byteptr + (wps->wphdr.flags & MONO_DATA ? 1 : 2) > endptr)
                     return FALSE;
 
-                dpp->samples_A [m] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
-                byteptr += 2;
+                dpp->samples_A [m] = wp_exp2_schar (*byteptr++);
 
-                if (!(wps->wphdr.flags & MONO_DATA)) {
-                    dpp->samples_B [m] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
-                    byteptr += 2;
-                }
+                if (!(wps->wphdr.flags & MONO_DATA))
+                    dpp->samples_B [m] = wp_exp2_schar (*byteptr++);
 
                 m++;
             }

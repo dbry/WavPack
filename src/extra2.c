@@ -88,8 +88,8 @@ static void decorr_stereo_pass (int32_t *in_samples, int32_t *out_samples, int32
     dpp->weight_B = restore_weight (store_weight (dpp->weight_B));
 
     for (i = 0; i < 8; ++i) {
-        dpp->samples_A [i] = wp_exp2s (wp_log2s (dpp->samples_A [i]));
-        dpp->samples_B [i] = wp_exp2s (wp_log2s (dpp->samples_B [i]));
+        dpp->samples_A [i] = wp_exp2_schar (wp_log2_schar (dpp->samples_A [i]));
+        dpp->samples_B [i] = wp_exp2_schar (wp_log2_schar (dpp->samples_B [i]));
     }
 
     switch (dpp->term) {

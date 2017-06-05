@@ -184,9 +184,9 @@ static void write_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
 
 static void write_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    int tcount = wps->num_terms, wcount = 1, temp;
+    int tcount = wps->num_terms, wcount = 1;
     struct decorr_pass *dpp;
-    unsigned char *byteptr;
+    signed char *byteptr;
 
     byteptr = wpmd->data = malloc (256);
     wpmd->id = ID_DECORR_SAMPLES;
@@ -194,43 +194,26 @@ static void write_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
     for (dpp = wps->decorr_passes; tcount--; ++dpp)
         if (wcount) {
             if (dpp->term > MAX_TERM) {
-                dpp->samples_A [0] = wp_exp2s (temp = wp_log2s (dpp->samples_A [0]));
-                *byteptr++ = temp;
-                *byteptr++ = temp >> 8;
-                dpp->samples_A [1] = wp_exp2s (temp = wp_log2s (dpp->samples_A [1]));
-                *byteptr++ = temp;
-                *byteptr++ = temp >> 8;
+                dpp->samples_A [0] = wp_exp2_schar (*byteptr++ = wp_log2_schar (dpp->samples_A [0]));
+                dpp->samples_A [1] = wp_exp2_schar (*byteptr++ = wp_log2_schar (dpp->samples_A [1]));
 
                 if (!(wps->wphdr.flags & MONO_DATA)) {
-                    dpp->samples_B [0] = wp_exp2s (temp = wp_log2s (dpp->samples_B [0]));
-                    *byteptr++ = temp;
-                    *byteptr++ = temp >> 8;
-                    dpp->samples_B [1] = wp_exp2s (temp = wp_log2s (dpp->samples_B [1]));
-                    *byteptr++ = temp;
-                    *byteptr++ = temp >> 8;
+                    dpp->samples_B [0] = wp_exp2_schar (*byteptr++ = wp_log2_schar (dpp->samples_B [0]));
+                    dpp->samples_B [1] = wp_exp2_schar (*byteptr++ = wp_log2_schar (dpp->samples_B [1]));
                 }
             }
             else if (dpp->term < 0) {
-                dpp->samples_A [0] = wp_exp2s (temp = wp_log2s (dpp->samples_A [0]));
-                *byteptr++ = temp;
-                *byteptr++ = temp >> 8;
-                dpp->samples_B [0] = wp_exp2s (temp = wp_log2s (dpp->samples_B [0]));
-                *byteptr++ = temp;
-                *byteptr++ = temp >> 8;
+                dpp->samples_A [0] = wp_exp2_schar (*byteptr++ = wp_log2_schar (dpp->samples_A [0]));
+                dpp->samples_B [0] = wp_exp2_schar (*byteptr++ = wp_log2_schar (dpp->samples_B [0]));
             }
             else {
                 int m = 0, cnt = dpp->term;
 
                 while (cnt--) {
-                    dpp->samples_A [m] = wp_exp2s (temp = wp_log2s (dpp->samples_A [m]));
-                    *byteptr++ = temp;
-                    *byteptr++ = temp >> 8;
+                    dpp->samples_A [m] = wp_exp2_schar (*byteptr++ = wp_log2_schar (dpp->samples_A [m]));
 
-                    if (!(wps->wphdr.flags & MONO_DATA)) {
-                        dpp->samples_B [m] = wp_exp2s (temp = wp_log2s (dpp->samples_B [m]));
-                        *byteptr++ = temp;
-                        *byteptr++ = temp >> 8;
-                    }
+                    if (!(wps->wphdr.flags & MONO_DATA))
+                        dpp->samples_B [m] = wp_exp2_schar (*byteptr++ = wp_log2_schar (dpp->samples_B [m]));
 
                     m++;
                 }
@@ -243,7 +226,7 @@ static void write_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
             CLEAR (dpp->samples_B);
         }
 
-    wpmd->byte_length = (int32_t)(byteptr - (unsigned char *) wpmd->data);
+    wpmd->byte_length = (int32_t)(byteptr - (signed char *) wpmd->data);
 }
 
 // Allocate room for and copy the noise shaping info into the specified
