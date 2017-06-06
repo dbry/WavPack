@@ -112,17 +112,17 @@ int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     unsigned char *byteptr = wpmd->data;
 
-    if (wpmd->byte_length != ((wps->wphdr.flags & MONO_DATA) ? 6 : 12))
+    if (wpmd->byte_length != ((wps->wphdr.flags & MONO_DATA) ? 3 : 6))
         return FALSE;
 
-    wps->w.c [0].median [0] = wp_exp2s (byteptr [0] + (byteptr [1] << 8));
-    wps->w.c [0].median [1] = wp_exp2s (byteptr [2] + (byteptr [3] << 8));
-    wps->w.c [0].median [2] = wp_exp2s (byteptr [4] + (byteptr [5] << 8));
+    wps->w.c [0].median [0] = wp_exp2_uchar (*byteptr++);
+    wps->w.c [0].median [1] = wp_exp2_uchar (*byteptr++);
+    wps->w.c [0].median [2] = wp_exp2_uchar (*byteptr++);
 
     if (!(wps->wphdr.flags & MONO_DATA)) {
-        wps->w.c [1].median [0] = wp_exp2s (byteptr [6] + (byteptr [7] << 8));
-        wps->w.c [1].median [1] = wp_exp2s (byteptr [8] + (byteptr [9] << 8));
-        wps->w.c [1].median [2] = wp_exp2s (byteptr [10] + (byteptr [11] << 8));
+        wps->w.c [1].median [0] = wp_exp2_uchar (*byteptr++);
+        wps->w.c [1].median [1] = wp_exp2_uchar (*byteptr++);
+        wps->w.c [1].median [2] = wp_exp2_uchar (*byteptr++);
     }
 
     return TRUE;

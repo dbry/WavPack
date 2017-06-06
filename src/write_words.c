@@ -99,25 +99,18 @@ static void word_set_bitrate (WavpackStream *wps)
 void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     unsigned char *byteptr;
-    int temp;
 
-    byteptr = wpmd->data = malloc (12);
+    byteptr = wpmd->data = malloc (6);
     wpmd->id = ID_ENTROPY_VARS;
 
-    *byteptr++ = temp = wp_log2 (wps->w.c [0].median [0]);
-    *byteptr++ = temp >> 8;
-    *byteptr++ = temp = wp_log2 (wps->w.c [0].median [1]);
-    *byteptr++ = temp >> 8;
-    *byteptr++ = temp = wp_log2 (wps->w.c [0].median [2]);
-    *byteptr++ = temp >> 8;
+    *byteptr++ = wp_log2_uchar (wps->w.c [0].median [0]);
+    *byteptr++ = wp_log2_uchar (wps->w.c [0].median [1]);
+    *byteptr++ = wp_log2_uchar (wps->w.c [0].median [2]);
 
     if (!(wps->wphdr.flags & MONO_DATA)) {
-        *byteptr++ = temp = wp_log2 (wps->w.c [1].median [0]);
-        *byteptr++ = temp >> 8;
-        *byteptr++ = temp = wp_log2 (wps->w.c [1].median [1]);
-        *byteptr++ = temp >> 8;
-        *byteptr++ = temp = wp_log2 (wps->w.c [1].median [2]);
-        *byteptr++ = temp >> 8;
+        *byteptr++ = wp_log2_uchar (wps->w.c [1].median [0]);
+        *byteptr++ = wp_log2_uchar (wps->w.c [1].median [1]);
+        *byteptr++ = wp_log2_uchar (wps->w.c [1].median [2]);
     }
 
     wpmd->byte_length = (int32_t)(byteptr - (unsigned char *) wpmd->data);
