@@ -766,6 +766,8 @@ uint32_t LOG2BUFFER (int32_t *samples, uint32_t num_samples, int limit);
 
 signed char store_weight (int weight);
 int restore_weight (signed char weight);
+signed char store_weight_nybble (int weight);
+int restore_weight_nybble (signed char weight);
 
 #define WORD_EOF ((int32_t)(1L << 31))
 

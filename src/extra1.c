@@ -76,7 +76,7 @@ static void decorr_mono_pass (int32_t *in_samples, int32_t *out_samples, uint32_
     else
         dir = 1;
 
-    dpp->weight_A = restore_weight (store_weight (dpp->weight_A));
+    dpp->weight_A = restore_weight_nybble (store_weight_nybble (dpp->weight_A));
 
     for (i = 0; i < 8; ++i)
         dpp->samples_A [i] = wp_exp2_schar (wp_log2_schar (dpp->samples_A [i]));

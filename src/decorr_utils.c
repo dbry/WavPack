@@ -140,15 +140,15 @@ int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
     // first we reset all the terms to "0"
 
     for (i = wps->num_terms, dpp = wps->decorr_passes; i--; dpp++)
-        dpp->weight_A = dpp->weight_B = restore_weight (0);
+        dpp->weight_A = dpp->weight_B = restore_weight_nybble (0);
 
     // then we just write to "termcnt" values (*2 for stereo), starting at the end
 
     while (--dpp >= wps->decorr_passes && termcnt--) {
-        dpp->weight_A = restore_weight (*byteptr++);
+        dpp->weight_A = restore_weight_nybble (*byteptr++);
 
         if (!(wps->wphdr.flags & MONO_DATA))
-            dpp->weight_B = restore_weight (*byteptr++);
+            dpp->weight_B = restore_weight_nybble (*byteptr++);
     }
 
     free (expanded_data);

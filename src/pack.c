@@ -172,8 +172,8 @@ static void write_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
     byteptr = wpmd->data = calloc (2, tcount);
 
     for (i = wps->num_terms - 1; i >= 0; --i)
-        if (store_weight (dpp [i].weight_A) ||
-            (!(wps->wphdr.flags & MONO_DATA) && store_weight (dpp [i].weight_B)))
+        if (store_weight_nybble (dpp [i].weight_A) ||
+            (!(wps->wphdr.flags & MONO_DATA) && store_weight_nybble (dpp [i].weight_B)))
                 break;
 
     tcount = i + 1;
@@ -184,19 +184,19 @@ static void write_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
 
         for (i = 0; i < wps->num_terms; ++i) {
             if (i < tcount)
-                dpp [i].weight_A = restore_weight (*byteptr++ = store_weight (dpp [i].weight_A));
+                dpp [i].weight_A = restore_weight_nybble (*byteptr++ = store_weight_nybble (dpp [i].weight_A));
             else
-                dpp [i].weight_A = dpp [i].weight_B = restore_weight (0);
+                dpp [i].weight_A = dpp [i].weight_B = restore_weight_nybble (0);
         }
     }
     else {
         for (i = 0; i < wps->num_terms; ++i) {
             if (i < tcount) {
-                dpp [i].weight_A = restore_weight (*byteptr++ = store_weight (dpp [i].weight_A));
-                dpp [i].weight_B = restore_weight (*byteptr++ = store_weight (dpp [i].weight_B));
+                dpp [i].weight_A = restore_weight_nybble (*byteptr++ = store_weight_nybble (dpp [i].weight_A));
+                dpp [i].weight_B = restore_weight_nybble (*byteptr++ = store_weight_nybble (dpp [i].weight_B));
             }
             else
-                dpp [i].weight_A = dpp [i].weight_B = restore_weight (0);
+                dpp [i].weight_A = dpp [i].weight_B = restore_weight_nybble (0);
         }
 
         tcount *= 2;

@@ -388,16 +388,34 @@ uint32_t wp_exp2_uchar (unsigned char log)
 
 signed char store_weight (int weight)
 {
-    if (weight > 1023)
-        weight = 1023;
+    if (weight > 1024)
+        weight = 1024;
     else if (weight < -1024)
         weight = -1024;
 
-    return (weight >> 3) & ~0xF;
+    if (weight > 0)
+        weight -= (weight + 64) >> 7;
+
+    return (weight + 4) >> 3;
 }
 
 int restore_weight (signed char weight)
 {
+    int result;
+
+    if ((result = (int) weight << 3) > 0)
+        result += (result + 64) >> 7;
+
+    return result;
+}
+
+signed char store_weight_nybble (int weight)
+{
+    return store_weight (weight) & 0xF0;
+}
+
+int restore_weight_nybble (signed char weight)
+{
     weight &= ~0xF;
-    return ((int) weight << 3) + 64;
+    return restore_weight (weight + 7);
 }
