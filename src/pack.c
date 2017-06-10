@@ -100,17 +100,60 @@ void pack_init (WavpackContext *wpc)
 // array into the specified metadata structure. Both the actual term id and
 // the delta are packed into single characters.
 
+static int decorr_terms_match (WavpackStream *wps, const WavpackDecorrSpec *spec)
+{
+    int i, neg_term_replace = 0;
+
+    if (wps->wphdr.flags & MONO_DATA)
+        neg_term_replace = 1;
+    else if (!(wps->wphdr.flags & CROSS_DECORR))
+        neg_term_replace = -3;
+
+    for (i = 0; i < wps->num_terms; ++i)
+        if (wps->decorr_passes [i].term != ((neg_term_replace && spec->terms [i] < 0) ? neg_term_replace : spec->terms [i]) ||
+            wps->decorr_passes [i].delta != spec->delta)
+                return FALSE;
+
+    return TRUE;
+}
+
 static void write_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    int tcount = wps->num_terms;
+    int tcount = wps->num_terms, i;
     struct decorr_pass *dpp;
     char *byteptr;
 
     byteptr = wpmd->data = malloc (tcount + 1);
     wpmd->id = ID_DECORR_TERMS;
 
-    for (dpp = wps->decorr_passes; tcount--; ++dpp)
-        *byteptr++ = ((dpp->term + 5) & 0x1f) | ((dpp->delta << 5) & 0xe0);
+    if (!tcount) {
+        *byteptr++ = 0x80;
+        wpmd->byte_length = 1;
+        return;
+    }
+
+    for (i = 0; i < wps->num_decorrs; ++i)
+        if (decorr_terms_match (wps, wps->decorr_specs + i))
+            break;
+
+    if (i < wps->num_decorrs) {
+        if (wps->decorr_specs == fast_specs)
+            *byteptr++ = tcount;
+        else if (wps->decorr_specs == default_specs)
+            *byteptr++ = tcount | 0x20;
+        else if (wps->decorr_specs == high_specs)
+            *byteptr++ = tcount | 0x40;
+        else if (wps->decorr_specs == very_high_specs)
+            *byteptr++ = tcount | 0x60;
+
+        *byteptr++ = i;
+    }
+    else {
+        *byteptr++ = tcount | 0x80;
+
+        for (dpp = wps->decorr_passes; tcount--; ++dpp)
+            *byteptr++ = ((dpp->term + 5) & 0x1f) | ((dpp->delta << 5) & 0xe0);
+    }
 
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }

@@ -19,6 +19,7 @@
 #include <string.h>
 
 #include "wavpack_local.h"
+#include "decorr_tables.h"      // contains data, only include from this module!
 
 ///////////////////////////// executable code ////////////////////////////////
 
@@ -31,22 +32,74 @@
 
 int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    int termcnt = wpmd->byte_length;
-    unsigned char *byteptr = wpmd->data;
+    signed char *byteptr = wpmd->data;
+    signed char *endptr = byteptr + wpmd->byte_length;
     struct decorr_pass *dpp;
+    int termcnt;
 
-    if (termcnt > MAX_NTERMS)
+    if (wpmd->byte_length < 1 || wpmd->byte_length > MAX_NTERMS + 1)
         return FALSE;
 
-    wps->num_terms = termcnt;
+    termcnt = wps->num_terms = *byteptr & 0x1f;
 
-    for (dpp = wps->decorr_passes + termcnt - 1; termcnt--; dpp--) {
-        dpp->term = (int)(*byteptr & 0x1f) - 5;
-        dpp->delta = (*byteptr++ >> 5) & 0x7;
+     if (termcnt > MAX_NTERMS)
+        return FALSE;
 
-        if (!dpp->term || dpp->term < -3 || (dpp->term > MAX_TERM && dpp->term < 17) || dpp->term > 18 ||
-            ((wps->wphdr.flags & MONO_DATA) && dpp->term < 0))
+    if (*byteptr & 0x80) {
+        for (dpp = wps->decorr_passes + termcnt - 1; termcnt--; dpp--) {
+            dpp->term = (int)(*++byteptr & 0x1f) - 5;
+            dpp->delta = (*byteptr >> 5) & 0x7;
+
+            if (!dpp->term || dpp->term < -3 || (dpp->term > MAX_TERM && dpp->term < 17) || dpp->term > 18 ||
+                ((wps->wphdr.flags & MONO_DATA) && dpp->term < 0))
+                    return FALSE;
+        }
+    }
+    else {
+        int neg_term_replace = 0, table_index = (unsigned char)(byteptr [1]);
+        const signed char *spec_terms;
+        const WavpackDecorrSpec *spec;
+
+        if (wps->wphdr.flags & MONO_DATA)
+            neg_term_replace = 1;
+        else if (!(wps->wphdr.flags & CROSS_DECORR))
+            neg_term_replace = -3;
+
+        if ((*byteptr & 0x60) == 0x00) {
+            if (table_index >= NUM_FAST_SPECS)
                 return FALSE;
+
+            spec = fast_specs + table_index;
+        }
+        else if ((*byteptr & 0x60) == 0x20) {
+            if (table_index >= NUM_DEFAULT_SPECS)
+                return FALSE;
+
+            spec = default_specs + table_index;
+        }
+        else if ((*byteptr & 0x60) == 0x40) {
+            if (table_index >= NUM_HIGH_SPECS)
+                return FALSE;
+
+            spec = high_specs + table_index;
+        }
+        else {
+            if (table_index >= NUM_VERY_HIGH_SPECS)
+                return FALSE;
+
+            spec = very_high_specs + table_index;
+        }
+
+        spec_terms = spec->terms;
+
+        for (dpp = wps->decorr_passes + termcnt - 1; termcnt--; dpp--, spec_terms++) {
+            dpp->term = (neg_term_replace && *spec_terms < 0) ? neg_term_replace : *spec_terms;
+            dpp->delta = spec->delta;
+
+            if (!dpp->term || dpp->term < -3 || (dpp->term > MAX_TERM && dpp->term < 17) || dpp->term > 18 ||
+                ((wps->wphdr.flags & MONO_DATA) && dpp->term < 0))
+                    return FALSE;
+        }
     }
 
     return TRUE;
