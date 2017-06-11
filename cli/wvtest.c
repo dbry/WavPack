@@ -854,6 +854,8 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
     }
 
+    wpconfig.block_samples = 588;   // 1/75 sec at 44.1 kHz (for exercising short blocks)
+
     WavpackSetConfiguration64 (out_wpc, &wpconfig, -1, NULL);
     WavpackPackInit (out_wpc);
 
