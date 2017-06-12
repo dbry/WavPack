@@ -712,6 +712,9 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
         case ID_DECORR_SAMPLES:
             return read_decorr_samples (wps, wpmd);
 
+        case ID_DECORR_COMBINED:
+            return read_decorr_combined (wps, wpmd);
+
         case ID_ENTROPY_VARS:
             return read_entropy_vars (wps, wpmd);
 

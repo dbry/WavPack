@@ -100,6 +100,135 @@ void pack_init (WavpackContext *wpc)
 // array into the specified metadata structure. Both the actual term id and
 // the delta are packed into single characters.
 
+static void write_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    int tcount = wps->num_terms;
+    struct decorr_pass *dpp;
+    char *byteptr;
+
+    byteptr = wpmd->data = malloc (tcount + 1);
+    wpmd->id = ID_DECORR_TERMS;
+
+    for (dpp = wps->decorr_passes; tcount--; ++dpp)
+        *byteptr++ = ((dpp->term + 5) & 0x1f) | ((dpp->delta << 5) & 0xe0);
+
+    wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
+}
+
+// Allocate room for and copy the decorrelation term weights from the
+// decorr_passes array into the specified metadata structure. The weights
+// range +/-1024, but are rounded and truncated to fit in signed chars for
+// metadata storage. Weights are separate for the two channels
+
+static void write_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    struct decorr_pass *dpp = wps->decorr_passes;
+    int tcount = wps->num_terms, i;
+    char *byteptr;
+
+    byteptr = wpmd->data = malloc ((tcount * 2) + 1);
+    wpmd->id = ID_DECORR_WEIGHTS;
+
+    for (i = wps->num_terms - 1; i >= 0; --i)
+        if (store_weight (dpp [i].weight_A) ||
+            (!(wps->wphdr.flags & MONO_DATA) && store_weight (dpp [i].weight_B)))
+                break;
+
+    tcount = i + 1;
+
+    for (i = 0; i < wps->num_terms; ++i) {
+        if (i < tcount) {
+            dpp [i].weight_A = restore_weight (*byteptr++ = store_weight (dpp [i].weight_A));
+
+            if (!(wps->wphdr.flags & MONO_DATA))
+                dpp [i].weight_B = restore_weight (*byteptr++ = store_weight (dpp [i].weight_B));
+        }
+        else
+            dpp [i].weight_A = dpp [i].weight_B = 0;
+    }
+
+    wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
+}
+
+// Allocate room for and copy the decorrelation samples from the decorr_passes
+// array into the specified metadata structure. The samples are signed 32-bit
+// values, but are converted to signed log2 values for storage in metadata.
+// Values are stored for both channels and are specified from the first term
+// with unspecified samples set to zero. The number of samples stored varies
+// with the actual term value, so those must obviously be specified before
+// these in the metadata list. Any number of terms can have their samples
+// specified from no terms to all the terms, however I have found that
+// sending more than the first term's samples is a waste. The "wcount"
+// variable can be set to the number of terms to have their samples stored.
+
+static void write_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    int tcount = wps->num_terms, wcount = 1, temp;
+    struct decorr_pass *dpp;
+    unsigned char *byteptr;
+
+    byteptr = wpmd->data = malloc (256);
+    wpmd->id = ID_DECORR_SAMPLES;
+
+    for (dpp = wps->decorr_passes; tcount--; ++dpp)
+        if (wcount) {
+            if (dpp->term > MAX_TERM) {
+                dpp->samples_A [0] = wp_exp2s (temp = wp_log2s (dpp->samples_A [0]));
+                *byteptr++ = temp;
+                *byteptr++ = temp >> 8;
+                dpp->samples_A [1] = wp_exp2s (temp = wp_log2s (dpp->samples_A [1]));
+                *byteptr++ = temp;
+                *byteptr++ = temp >> 8;
+
+                if (!(wps->wphdr.flags & MONO_DATA)) {
+                    dpp->samples_B [0] = wp_exp2s (temp = wp_log2s (dpp->samples_B [0]));
+                    *byteptr++ = temp;
+                    *byteptr++ = temp >> 8;
+                    dpp->samples_B [1] = wp_exp2s (temp = wp_log2s (dpp->samples_B [1]));
+                    *byteptr++ = temp;
+                    *byteptr++ = temp >> 8;
+                }
+            }
+            else if (dpp->term < 0) {
+                dpp->samples_A [0] = wp_exp2s (temp = wp_log2s (dpp->samples_A [0]));
+                *byteptr++ = temp;
+                *byteptr++ = temp >> 8;
+                dpp->samples_B [0] = wp_exp2s (temp = wp_log2s (dpp->samples_B [0]));
+                *byteptr++ = temp;
+                *byteptr++ = temp >> 8;
+            }
+            else {
+                int m = 0, cnt = dpp->term;
+
+                while (cnt--) {
+                    dpp->samples_A [m] = wp_exp2s (temp = wp_log2s (dpp->samples_A [m]));
+                    *byteptr++ = temp;
+                    *byteptr++ = temp >> 8;
+
+                    if (!(wps->wphdr.flags & MONO_DATA)) {
+                        dpp->samples_B [m] = wp_exp2s (temp = wp_log2s (dpp->samples_B [m]));
+                        *byteptr++ = temp;
+                        *byteptr++ = temp >> 8;
+                    }
+
+                    m++;
+                }
+            }
+
+            wcount--;
+        }
+        else {
+            CLEAR (dpp->samples_A);
+            CLEAR (dpp->samples_B);
+        }
+
+    wpmd->byte_length = (int32_t)(byteptr - (unsigned char *) wpmd->data);
+}
+
+// Allocate room for and copy the decorrelation terms from the decorr_passes
+// array into the specified metadata structure. Both the actual term id and
+// the delta are packed into single characters.
+
 static int decorr_terms_match (WavpackStream *wps, const WavpackDecorrSpec *spec)
 {
     int i, neg_term_replace = 0;
@@ -117,20 +246,22 @@ static int decorr_terms_match (WavpackStream *wps, const WavpackDecorrSpec *spec
     return TRUE;
 }
 
-static void write_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
+static void write_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    int tcount = wps->num_terms, i;
+    int tcount = wps->num_terms, wcount = 1, i;
+    signed char *byteptr, *saveptr;
     struct decorr_pass *dpp;
-    char *byteptr;
 
-    byteptr = wpmd->data = malloc (tcount + 1);
-    wpmd->id = ID_DECORR_TERMS;
+    byteptr = wpmd->data = malloc (256);
+    wpmd->id = ID_DECORR_COMBINED;
 
     if (!tcount) {
-        *byteptr++ = 0x80;
+        *byteptr++ = 0x0;
         wpmd->byte_length = 1;
         return;
     }
+
+    // first store the terms themselves, either from table or literally
 
     for (i = 0; i < wps->num_decorrs; ++i)
         if (decorr_terms_match (wps, wps->decorr_specs + i))
@@ -150,33 +281,27 @@ static void write_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
     }
     else {
         *byteptr++ = tcount | 0x80;
+        dpp = wps->decorr_passes;
+        *byteptr++ = (((dpp->term > MAX_TERM) ? dpp->term - 3 : dpp->term + 3) << 4) | (dpp->delta & 0x7);
+        dpp++; tcount--;
 
-        for (dpp = wps->decorr_passes; tcount--; ++dpp)
-            *byteptr++ = ((dpp->term + 5) & 0x1f) | ((dpp->delta << 5) & 0xe0);
+        while (tcount >= 2) {
+            *byteptr = (dpp->term > MAX_TERM) ? dpp->term - 3 : dpp->term + 3;
+            dpp++;
+            *byteptr++ |= ((dpp->term > MAX_TERM) ? dpp->term - 3 : dpp->term + 3) << 4;
+            dpp++;
+            tcount -= 2;
+        }
+
+        if (tcount)
+            *byteptr++ = (dpp->term > MAX_TERM) ? dpp->term - 3 : dpp->term + 3;
     }
 
-    wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
-}
+    // next store the weights
 
-// Allocate room for and copy the decorrelation term weights from the
-// decorr_passes array into the specified metadata structure. The weights
-// range +/-1024, but are rounded and truncated to fit in signed chars for
-// metadata storage. Weights are separate for the two channels
-
-static void write_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
-{
-    struct decorr_pass *dpp = wps->decorr_passes;
-    int tcount = wps->num_terms, i;
-    char *byteptr;
-
-    byteptr = wpmd->data = calloc (2, tcount);
-
-    for (i = wps->num_terms - 1; i >= 0; --i)
-        if (store_weight_nybble (dpp [i].weight_A) ||
-            (!(wps->wphdr.flags & MONO_DATA) && store_weight_nybble (dpp [i].weight_B)))
-                break;
-
-    tcount = i + 1;
+    dpp = wps->decorr_passes;
+    tcount = wps->num_terms;
+    saveptr = byteptr;
 
     if (wps->wphdr.flags & MONO_DATA) {
         if (tcount < wps->num_terms && (tcount & 1))
@@ -202,37 +327,17 @@ static void write_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
         tcount *= 2;
     }
 
-    byteptr = wpmd->data;
+    byteptr = saveptr;
 
     for (i = 0; i < tcount; ++i)
         if (i & 1)
-            byteptr [-1] |= (((char *) wpmd->data) [i] >> 4) & 0xF;
+            byteptr [-1] |= (saveptr [i] >> 4) & 0xF;
         else
-            *byteptr++ = ((char *) wpmd->data) [i];
+            *byteptr++ = saveptr [i];
 
-    wpmd->id = ID_DECORR_WEIGHTS;
-    wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
-}
+    // finally, store the sample history data
 
-// Allocate room for and copy the decorrelation samples from the decorr_passes
-// array into the specified metadata structure. The samples are signed 32-bit
-// values, but are converted to signed log2 values for storage in metadata.
-// Values are stored for both channels and are specified from the first term
-// with unspecified samples set to zero. The number of samples stored varies
-// with the actual term value, so those must obviously be specified before
-// these in the metadata list. Any number of terms can have their samples
-// specified from no terms to all the terms, however I have found that
-// sending more than the first term's samples is a waste. The "wcount"
-// variable can be set to the number of terms to have their samples stored.
-
-static void write_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
-{
-    int tcount = wps->num_terms, wcount = 1;
-    struct decorr_pass *dpp;
-    signed char *byteptr;
-
-    byteptr = wpmd->data = malloc (256);
-    wpmd->id = ID_DECORR_SAMPLES;
+    tcount = wps->num_terms;
 
     for (dpp = wps->decorr_passes; tcount--; ++dpp)
         if (wcount) {
@@ -1122,6 +1227,11 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
         double noise_acc = 0.0, noise;
         uint32_t max_magnitude = 0;
 
+#ifdef SHORT_BLOCKS
+        write_decorr_combined (wps, &wpmd);
+        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+        free_metadata (&wpmd);
+#else
         write_decorr_terms (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
@@ -1133,6 +1243,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
         write_decorr_samples (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
+#endif
 
         write_entropy_vars (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);

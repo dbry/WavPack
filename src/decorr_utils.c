@@ -32,27 +32,184 @@
 
 int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    signed char *byteptr = wpmd->data;
-    signed char *endptr = byteptr + wpmd->byte_length;
+    int termcnt = wpmd->byte_length;
+    unsigned char *byteptr = wpmd->data;
     struct decorr_pass *dpp;
-    int termcnt;
 
-    if (wpmd->byte_length < 1 || wpmd->byte_length > MAX_NTERMS + 1)
+    if (termcnt > MAX_NTERMS)
         return FALSE;
+
+    wps->num_terms = termcnt;
+
+    for (dpp = wps->decorr_passes + termcnt - 1; termcnt--; dpp--) {
+        dpp->term = (int)(*byteptr & 0x1f) - 5;
+        dpp->delta = (*byteptr++ >> 5) & 0x7;
+
+        if (!dpp->term || dpp->term < -3 || (dpp->term > MAX_TERM && dpp->term < 17) || dpp->term > 18 ||
+            ((wps->wphdr.flags & MONO_DATA) && dpp->term < 0))
+                return FALSE;
+    }
+
+    return TRUE;
+}
+
+// Read decorrelation weights from specified metadata block into the
+// decorr_passes array. The weights range +/-1024, but are rounded and
+// truncated to fit in signed chars for metadata storage. Weights are
+// separate for the two channels and are specified from the "last" term
+// (first during encode). Unspecified weights are set to zero.
+
+int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    int termcnt = wpmd->byte_length, tcount;
+    char *byteptr = wpmd->data;
+    struct decorr_pass *dpp;
+
+    if (!(wps->wphdr.flags & MONO_DATA))
+        termcnt /= 2;
+
+    if (termcnt > wps->num_terms)
+        return FALSE;
+
+    for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
+        dpp->weight_A = dpp->weight_B = 0;
+
+    while (--dpp >= wps->decorr_passes && termcnt--) {
+        dpp->weight_A = restore_weight (*byteptr++);
+
+        if (!(wps->wphdr.flags & MONO_DATA))
+            dpp->weight_B = restore_weight (*byteptr++);
+    }
+
+    return TRUE;
+}
+
+// Read decorrelation samples from specified metadata block into the
+// decorr_passes array. The samples are signed 32-bit values, but are
+// converted to signed log2 values for storage in metadata. Values are
+// stored for both channels and are specified from the "last" term
+// (first during encode) with unspecified samples set to zero. The
+// number of samples stored varies with the actual term value, so
+// those must obviously come first in the metadata.
+
+int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    unsigned char *byteptr = wpmd->data;
+    unsigned char *endptr = byteptr + wpmd->byte_length;
+    struct decorr_pass *dpp;
+    int tcount;
+
+    for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++) {
+        CLEAR (dpp->samples_A);
+        CLEAR (dpp->samples_B);
+    }
+
+    if (wps->wphdr.version == 0x402 && (wps->wphdr.flags & HYBRID_FLAG)) {
+        if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+            return FALSE;
+
+        wps->dc.error [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+        byteptr += 2;
+
+        if (!(wps->wphdr.flags & MONO_DATA)) {
+            wps->dc.error [1] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+            byteptr += 2;
+        }
+    }
+
+    while (dpp-- > wps->decorr_passes && byteptr < endptr)
+        if (dpp->term > MAX_TERM) {
+            if (byteptr + (wps->wphdr.flags & MONO_DATA ? 4 : 8) > endptr)
+                return FALSE;
+
+            dpp->samples_A [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+            dpp->samples_A [1] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
+            byteptr += 4;
+
+            if (!(wps->wphdr.flags & MONO_DATA)) {
+                dpp->samples_B [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+                dpp->samples_B [1] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
+                byteptr += 4;
+            }
+        }
+        else if (dpp->term < 0) {
+            if (byteptr + 4 > endptr)
+                return FALSE;
+
+            dpp->samples_A [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+            dpp->samples_B [0] = wp_exp2s ((int16_t)(byteptr [2] + (byteptr [3] << 8)));
+            byteptr += 4;
+        }
+        else {
+            int m = 0, cnt = dpp->term;
+
+            while (cnt--) {
+                if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+                    return FALSE;
+
+                dpp->samples_A [m] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+                byteptr += 2;
+
+                if (!(wps->wphdr.flags & MONO_DATA)) {
+                    dpp->samples_B [m] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
+                    byteptr += 2;
+                }
+
+                m++;
+            }
+        }
+
+    return byteptr == endptr;
+}
+
+int read_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    signed char *byteptr = wpmd->data, *saveptr;
+    signed char *endptr = byteptr + wpmd->byte_length;
+    signed char *expanded_data;
+    struct decorr_pass *dpp;
+    int termcnt, i;
+
+    if (wpmd->byte_length < 1)
+        return FALSE;
+
+    // first, read the terms
 
     termcnt = wps->num_terms = *byteptr & 0x1f;
 
-     if (termcnt > MAX_NTERMS)
+    if (termcnt > MAX_NTERMS)
         return FALSE;
+    else if (!termcnt)
+        return TRUE;
 
     if (*byteptr & 0x80) {
-        for (dpp = wps->decorr_passes + termcnt - 1; termcnt--; dpp--) {
-            dpp->term = (int)(*++byteptr & 0x1f) - 5;
-            dpp->delta = (*byteptr >> 5) & 0x7;
+        int delta;
+
+        if ((*byteptr++ & 0x60) || endptr - byteptr < termcnt / 2 + 1)
+            return FALSE;
+
+        delta = *byteptr & 0x7;
+        dpp = wps->decorr_passes + termcnt;
+        (--dpp)->term = *byteptr++ >> 4;
+        termcnt--;
+
+        while (termcnt >= 2) {
+            (--dpp)->term = *byteptr;
+            (--dpp)->term = *byteptr++ >> 4;
+            termcnt -= 2;
+        }
+
+        if (termcnt)
+            (--dpp)->term = *byteptr++;
+
+        for (i = 0; i < wps->num_terms; ++i) {
+            dpp->term = ((dpp->term & 0xF) < 12) ? (dpp->term & 0xF) - 3 : (dpp->term & 0xF) + 3;
 
             if (!dpp->term || dpp->term < -3 || (dpp->term > MAX_TERM && dpp->term < 17) || dpp->term > 18 ||
                 ((wps->wphdr.flags & MONO_DATA) && dpp->term < 0))
                     return FALSE;
+
+            dpp++->delta = delta;
         }
     }
     else {
@@ -100,22 +257,14 @@ int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd)
                 ((wps->wphdr.flags & MONO_DATA) && dpp->term < 0))
                     return FALSE;
         }
+
+        byteptr += 2;
     }
 
-    return TRUE;
-}
+    // next, read the weights (which are stored 2 per byte)
 
-// Read decorrelation weights from specified metadata block into the
-// decorr_passes array. The weights range +/-1024, but are rounded and
-// truncated to fit in signed chars for metadata storage. Weights are
-// separate for the two channels and are specified from the "last" term
-// (first during encode). Unspecified weights are set to zero.
-
-int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
-{
-    int termcnt = wpmd->byte_length * 2, i;
-    char *byteptr = wpmd->data, *expanded_data = malloc (termcnt);
-    struct decorr_pass *dpp;
+    termcnt = (wps->wphdr.flags & MONO_DATA) ? (wps->num_terms + 1) & ~1 : wps->num_terms * 2;
+    expanded_data = malloc (termcnt);
 
     for (i = 0; i < termcnt; i++)
         if (i & 1)
@@ -123,6 +272,7 @@ int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
         else
             expanded_data [i] = *byteptr;
 
+    saveptr = byteptr;
     byteptr = expanded_data;
 
     if (wps->wphdr.flags & MONO_DATA) {
@@ -132,7 +282,7 @@ int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
     else
         termcnt /= 2;
 
-    if (termcnt > wps->num_terms) {
+    if (termcnt != wps->num_terms) {
         free (expanded_data);
         return FALSE;
     }
@@ -152,25 +302,11 @@ int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
     }
 
     free (expanded_data);
-    return TRUE;
-}
+    byteptr = saveptr;
 
-// Read decorrelation samples from specified metadata block into the
-// decorr_passes array. The samples are signed 32-bit values, but are
-// converted to signed log2 values for storage in metadata. Values are
-// stored for both channels and are specified from the "last" term
-// (first during encode) with unspecified samples set to zero. The
-// number of samples stored varies with the actual term value, so
-// those must obviously come first in the metadata.
+    // finally, handle the sample history
 
-int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
-{
-    signed char *byteptr = wpmd->data;
-    signed char *endptr = byteptr + wpmd->byte_length;
-    struct decorr_pass *dpp;
-    int tcount;
-
-    for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++) {
+    for (termcnt = wps->num_terms, dpp = wps->decorr_passes; termcnt--; dpp++) {
         CLEAR (dpp->samples_A);
         CLEAR (dpp->samples_B);
     }

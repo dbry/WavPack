@@ -27,6 +27,8 @@
 
 #include <sys/types.h>
 
+#define SHORT_BLOCKS
+
 // This header file contains all the definitions required by WavPack.
 
 #if defined(_MSC_VER) && _MSC_VER < 1600
@@ -245,6 +247,9 @@ typedef struct {
 #define ID_WVX_BITSTREAM        0xc
 #define ID_CHANNEL_INFO         0xd
 #define ID_DSD_BLOCK            0xe
+
+#define ID_DECORR_COMBINED      0x10
+#define ID_ENTROPY_COMBINED     0x11
 
 #define ID_RIFF_HEADER          (ID_OPTIONAL_DATA | 0x1)
 #define ID_RIFF_TRAILER         (ID_OPTIONAL_DATA | 0x2)
