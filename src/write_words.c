@@ -35,59 +35,12 @@
 // are no parameters to select; in hybrid mode the bitrate mode and value need
 // be initialized.
 
-static void word_set_bitrate (WavpackStream *wps);
-
 void init_words (WavpackStream *wps)
 {
     CLEAR (wps->w);
 
     if (wps->wphdr.flags & HYBRID_FLAG)
         word_set_bitrate (wps);
-}
-
-// Set up parameters for hybrid mode based on header flags and "bits" field.
-// This is currently only set up for the HYBRID_BITRATE mode in which the
-// allowed error varies with the residual level (from "slow_level"). The
-// simpler mode (which is not used yet) has the error level directly
-// controlled from the metadata.
-
-static void word_set_bitrate (WavpackStream *wps)
-{
-    int bitrate_0, bitrate_1;
-
-    if (wps->wphdr.flags & HYBRID_BITRATE) {
-        if (wps->wphdr.flags & FALSE_STEREO)
-            bitrate_0 = (wps->bits * 2 - 512) < 568 ? 0 : (wps->bits * 2 - 512) - 568;
-        else
-            bitrate_0 = wps->bits < 568 ? 0 : wps->bits - 568;
-
-        if (!(wps->wphdr.flags & MONO_DATA)) {
-
-            if (wps->wphdr.flags & HYBRID_BALANCE)
-                bitrate_1 = (wps->wphdr.flags & JOINT_STEREO) ? 256 : 0;
-            else {
-                bitrate_1 = bitrate_0;
-
-                if (wps->wphdr.flags & JOINT_STEREO) {
-                    if (bitrate_0 < 128) {
-                        bitrate_1 += bitrate_0;
-                        bitrate_0 = 0;
-                    }
-                    else {
-                        bitrate_0 -= 128;
-                        bitrate_1 += 128;
-                    }
-                }
-            }
-        }
-        else
-            bitrate_1 = 0;
-    }
-    else
-        bitrate_0 = bitrate_1 = 0;
-
-    wps->w.bitrate_acc [0] = (int32_t) bitrate_0 << 16;
-    wps->w.bitrate_acc [1] = (int32_t) bitrate_1 << 16;
 }
 
 // Allocates the correct space in the metadata structure and writes the
@@ -99,18 +52,25 @@ static void word_set_bitrate (WavpackStream *wps)
 void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     unsigned char *byteptr;
+    int temp;
 
-    byteptr = wpmd->data = malloc (6);
+    byteptr = wpmd->data = malloc (12);
     wpmd->id = ID_ENTROPY_VARS;
 
-    *byteptr++ = wp_log2_uchar (wps->w.c [0].median [0]);
-    *byteptr++ = wp_log2_uchar (wps->w.c [0].median [1]);
-    *byteptr++ = wp_log2_uchar (wps->w.c [0].median [2]);
+    *byteptr++ = temp = wp_log2 (wps->w.c [0].median [0]);
+    *byteptr++ = temp >> 8;
+    *byteptr++ = temp = wp_log2 (wps->w.c [0].median [1]);
+    *byteptr++ = temp >> 8;
+    *byteptr++ = temp = wp_log2 (wps->w.c [0].median [2]);
+    *byteptr++ = temp >> 8;
 
     if (!(wps->wphdr.flags & MONO_DATA)) {
-        *byteptr++ = wp_log2_uchar (wps->w.c [1].median [0]);
-        *byteptr++ = wp_log2_uchar (wps->w.c [1].median [1]);
-        *byteptr++ = wp_log2_uchar (wps->w.c [1].median [2]);
+        *byteptr++ = temp = wp_log2 (wps->w.c [1].median [0]);
+        *byteptr++ = temp >> 8;
+        *byteptr++ = temp = wp_log2 (wps->w.c [1].median [1]);
+        *byteptr++ = temp >> 8;
+        *byteptr++ = temp = wp_log2 (wps->w.c [1].median [2]);
+        *byteptr++ = temp >> 8;
     }
 
     wpmd->byte_length = (int32_t)(byteptr - (unsigned char *) wpmd->data);
@@ -163,6 +123,41 @@ void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
 
     wpmd->byte_length = (int32_t)(byteptr - (unsigned char *) wpmd->data);
     read_hybrid_profile (wps, wpmd);
+}
+
+void write_entropy_combined (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    unsigned char *byteptr;
+
+    byteptr = wpmd->data = malloc (64);
+    wpmd->id = ID_ENTROPY_COMBINED;
+
+    *byteptr++ = wp_log2_uchar (wps->w.c [0].median [0]);
+    *byteptr++ = wp_log2_uchar (wps->w.c [0].median [1]);
+    *byteptr++ = wp_log2_uchar (wps->w.c [0].median [2]);
+
+    if (!(wps->wphdr.flags & MONO_DATA)) {
+        *byteptr++ = wp_log2_uchar (wps->w.c [1].median [0]);
+        *byteptr++ = wp_log2_uchar (wps->w.c [1].median [1]);
+        *byteptr++ = wp_log2_uchar (wps->w.c [1].median [2]);
+    }
+
+    word_set_bitrate (wps);
+
+    if (wps->wphdr.flags & HYBRID_FLAG) {
+        if (wps->wphdr.flags & HYBRID_BITRATE) {
+            *byteptr++ = wp_log2_uchar (wp_exp2s ((wps->w.c [0].slow_level + SLO) >> SLS));
+
+            if (!(wps->wphdr.flags & MONO_DATA))
+                *byteptr++ = wp_log2_uchar (wp_exp2s ((wps->w.c [1].slow_level + SLO) >> SLS));
+        }
+
+        *byteptr++ = wps->bits;
+        *byteptr++ = wps->bits >> 8;
+    }
+
+    wpmd->byte_length = (int32_t)(byteptr - (unsigned char *) wpmd->data);
+    read_entropy_combined (wps, wpmd);
 }
 
 // This function writes the specified word to the open bitstream "wvbits" and,

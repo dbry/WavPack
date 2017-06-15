@@ -112,17 +112,17 @@ int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     unsigned char *byteptr = wpmd->data;
 
-    if (wpmd->byte_length != ((wps->wphdr.flags & MONO_DATA) ? 3 : 6))
+    if (wpmd->byte_length != ((wps->wphdr.flags & MONO_DATA) ? 6 : 12))
         return FALSE;
 
-    wps->w.c [0].median [0] = wp_exp2_uchar (*byteptr++);
-    wps->w.c [0].median [1] = wp_exp2_uchar (*byteptr++);
-    wps->w.c [0].median [2] = wp_exp2_uchar (*byteptr++);
+    wps->w.c [0].median [0] = wp_exp2s (byteptr [0] + (byteptr [1] << 8));
+    wps->w.c [0].median [1] = wp_exp2s (byteptr [2] + (byteptr [3] << 8));
+    wps->w.c [0].median [2] = wp_exp2s (byteptr [4] + (byteptr [5] << 8));
 
     if (!(wps->wphdr.flags & MONO_DATA)) {
-        wps->w.c [1].median [0] = wp_exp2_uchar (*byteptr++);
-        wps->w.c [1].median [1] = wp_exp2_uchar (*byteptr++);
-        wps->w.c [1].median [2] = wp_exp2_uchar (*byteptr++);
+        wps->w.c [1].median [0] = wp_exp2s (byteptr [6] + (byteptr [7] << 8));
+        wps->w.c [1].median [1] = wp_exp2s (byteptr [8] + (byteptr [9] << 8));
+        wps->w.c [1].median [2] = wp_exp2s (byteptr [10] + (byteptr [11] << 8));
     }
 
     return TRUE;
@@ -181,6 +181,91 @@ int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
         wps->w.bitrate_delta [0] = wps->w.bitrate_delta [1] = 0;
 
     return TRUE;
+}
+
+int read_entropy_combined (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    unsigned char *byteptr = wpmd->data;
+    unsigned char *endptr = byteptr + wpmd->byte_length;
+
+    if (wpmd->byte_length < ((wps->wphdr.flags & MONO_DATA) ? 3 : 6))
+        return FALSE;
+
+    wps->w.c [0].median [0] = wp_exp2_uchar (*byteptr++);
+    wps->w.c [0].median [1] = wp_exp2_uchar (*byteptr++);
+    wps->w.c [0].median [2] = wp_exp2_uchar (*byteptr++);
+
+    if (!(wps->wphdr.flags & MONO_DATA)) {
+        wps->w.c [1].median [0] = wp_exp2_uchar (*byteptr++);
+        wps->w.c [1].median [1] = wp_exp2_uchar (*byteptr++);
+        wps->w.c [1].median [2] = wp_exp2_uchar (*byteptr++);
+    }
+
+    if (wps->wphdr.flags & HYBRID_FLAG) {
+        if (wps->wphdr.flags & HYBRID_BITRATE) {
+            if (byteptr + (wps->wphdr.flags & MONO_DATA ? 1 : 2) > endptr)
+                return FALSE;
+
+            wps->w.c [0].slow_level = wp_log2 (wp_exp2_uchar (*byteptr++)) << SLS;
+
+            if (!(wps->wphdr.flags & MONO_DATA))
+                wps->w.c [1].slow_level = wp_log2 (wp_exp2_uchar (*byteptr++)) << SLS;
+        }
+
+        if (byteptr + 2 > endptr)
+            return FALSE;
+
+        wps->bits = byteptr [0] | (byteptr [1] << 8);
+        word_set_bitrate (wps);
+        byteptr += 2;
+    }
+
+    return byteptr == endptr;
+}
+
+// Set up parameters for hybrid mode based on header flags and "bits" field.
+// This is currently only set up for the HYBRID_BITRATE mode in which the
+// allowed error varies with the residual level (from "slow_level"). The
+// simpler mode (which is not used yet) has the error level directly
+// controlled from the metadata.
+
+void word_set_bitrate (WavpackStream *wps)
+{
+    int bitrate_0, bitrate_1;
+
+    if (wps->wphdr.flags & HYBRID_BITRATE) {
+        if (wps->wphdr.flags & FALSE_STEREO)
+            bitrate_0 = (wps->bits * 2 - 512) < 568 ? 0 : (wps->bits * 2 - 512) - 568;
+        else
+            bitrate_0 = wps->bits < 568 ? 0 : wps->bits - 568;
+
+        if (!(wps->wphdr.flags & MONO_DATA)) {
+
+            if (wps->wphdr.flags & HYBRID_BALANCE)
+                bitrate_1 = (wps->wphdr.flags & JOINT_STEREO) ? 256 : 0;
+            else {
+                bitrate_1 = bitrate_0;
+
+                if (wps->wphdr.flags & JOINT_STEREO) {
+                    if (bitrate_0 < 128) {
+                        bitrate_1 += bitrate_0;
+                        bitrate_0 = 0;
+                    }
+                    else {
+                        bitrate_0 -= 128;
+                        bitrate_1 += 128;
+                    }
+                }
+            }
+        }
+        else
+            bitrate_1 = 0;
+    }
+    else
+        bitrate_0 = bitrate_1 = 0;
+
+    wps->w.bitrate_acc [0] = (int32_t) bitrate_0 << 16;
+    wps->w.bitrate_acc [1] = (int32_t) bitrate_1 << 16;
 }
 
 // This function is called during both encoding and decoding of hybrid data to

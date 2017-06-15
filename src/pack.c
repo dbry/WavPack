@@ -1231,6 +1231,10 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
         write_decorr_combined (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
+
+        write_entropy_combined (wps, &wpmd);
+        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+        free_metadata (&wpmd);
 #else
         write_decorr_terms (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
@@ -1243,7 +1247,6 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
         write_decorr_samples (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
-#endif
 
         write_entropy_vars (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
@@ -1254,6 +1257,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
             free_metadata (&wpmd);
         }
+#endif
 
         if (flags & FLOAT_DATA) {
             write_float_info (wps, &wpmd);

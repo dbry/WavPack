@@ -733,8 +733,10 @@ static __inline int count_bits (uint32_t av) { unsigned long res; return _BitSca
 void init_words (WavpackStream *wps);
 void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd);
 void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd);
+void write_entropy_combined (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd);
+int read_entropy_combined (WavpackStream *wps, WavpackMetadata *wpmd);
 int32_t FASTCALL send_word (WavpackStream *wps, int32_t value, int chan);
 void send_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsamples);
 int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction);
@@ -742,6 +744,7 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 void flush_word (WavpackStream *wps);
 int32_t nosend_word (WavpackStream *wps, int32_t value, int chan);
 void scan_word (WavpackStream *wps, int32_t *samples, uint32_t num_samples, int dir);
+void word_set_bitrate (WavpackStream *wps);
 void update_error_limit (WavpackStream *wps);
 
 extern const uint32_t bitset [32];

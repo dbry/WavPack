@@ -721,6 +721,9 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
         case ID_HYBRID_PROFILE:
             return read_hybrid_profile (wps, wpmd);
 
+        case ID_ENTROPY_COMBINED:
+            return read_entropy_combined (wps, wpmd);
+
         case ID_SHAPING_WEIGHTS:
             return read_shaping_info (wps, wpmd);
 
