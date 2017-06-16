@@ -1083,10 +1083,11 @@ void send_general_metadata (WavpackContext *wpc)
         free_metadata (&wpmd);
     }
 
-    if (flags & INITIAL_BLOCK) {
-        write_new_config_info (wpc, &wpmd);
-        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
-        free_metadata (&wpmd);
+    if ((flags & INITIAL_BLOCK) &&
+        (wpc->file_format || (wpc->config.qmode & 0xff) || wpc->channel_layout)) {
+            write_new_config_info (wpc, &wpmd);
+            copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+            free_metadata (&wpmd);
     }
 }
 
