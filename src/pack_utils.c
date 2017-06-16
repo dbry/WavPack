@@ -950,12 +950,14 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 #endif
             result = pack_block (wpc, wps->sample_buffer);
 
+#ifdef ADD_BLOCK_CHECKSUM
         if (result) {
             result = block_add_checksum (outbuff, outend, (flags & HYBRID_FLAG) ? 2 : 4);
 
             if (result && out2buff)
                 result = block_add_checksum (out2buff, out2end, 2);
         }
+#endif
 
         wps->blockbuff = wps->block2buff = NULL;
 
@@ -1030,7 +1032,9 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
             memcpy (WavpackGetWrapperLocation (first_block, NULL), riff_header, wrapper_size);
     }
 
+#ifdef ADD_BLOCK_CHECKSUM
     block_update_checksum (first_block);
+#endif
     WavpackNativeToLittleEndian (first_block, WavpackHeaderFormat);
 }
 
@@ -1257,7 +1261,9 @@ static int write_metadata_block (WavpackContext *wpc)
         free (wpc->metadata);
         wpc->metadata = NULL;
         // add a 4-byte checksum here (increases block size by 6)
+#ifdef ADD_BLOCK_CHECKSUM
         block_add_checksum ((unsigned char *) block_buff, (unsigned char *) block_buff + (block_size += 6), 4);
+#endif
         WavpackNativeToLittleEndian ((WavpackHeader *) block_buff, WavpackHeaderFormat);
 
         if (!wpc->blockout (wpc->wv_out, block_buff, block_size)) {
@@ -1284,6 +1290,8 @@ void free_metadata (WavpackMetadata *wpmd)
 // The presence of the checksum is indicated by a flag in the wavpack header (HAS_CHECKSUM)
 // and the actual metadata item should be the last one in the block, and can be either 2 or 4
 // bytes. Of course, older versions of the decoder will simply ignore both of these.
+
+#ifdef ADD_BLOCK_CHECKSUM
 
 static int block_add_checksum (unsigned char *buffer_start, unsigned char *buffer_end, int bytes)
 {
@@ -1416,3 +1424,5 @@ static void block_update_checksum (unsigned char *buffer_start)
         dp += meta_bc;
     }
 }
+
+#endif

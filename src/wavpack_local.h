@@ -28,6 +28,7 @@
 #include <sys/types.h>
 
 #define SHORT_BLOCKS
+// #define ADD_BLOCK_CHECKSUM
 
 // This header file contains all the definitions required by WavPack.
 
