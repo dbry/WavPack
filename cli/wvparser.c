@@ -119,6 +119,8 @@ typedef struct {
 static const char *metadata_names [] = {
     "DUMMY", "ENCODER_INFO", "DECORR_TERMS", "DECORR_WEIGHTS", "DECORR_SAMPLES", "ENTROPY_VARS", "HYBRID_PROFILE", "SHAPING_WEIGHTS",
     "FLOAT_INFO", "INT32_INFO", "WV_BITSTREAM", "WVC_BITSTREAM", "WVX_BITSTREAM", "CHANNEL_INFO", "DSD_BLOCK", "UNASSIGNED",
+    "DECORR_COMBINED", "ENTROPY_COMBINED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED",
+    "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED",
     "UNASSIGNED", "RIFF_HEADER", "RIFF_TRAILER", "ALT_HEADER", "ALT_TRAILER", "CONFIG_BLOCK", "MD5_CHECKSUM", "SAMPLE_RATE",
     "ALT_EXTENSION", "ALT_MD5_CHECKSUM", "NEW_CONFIG", "CHANNEL_IDENTITIES", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "BLOCK_CHECKSUM"
 };
@@ -314,12 +316,10 @@ static void parse_wavpack_block (unsigned char *block_data)
 
     while (read_metadata_buff (&wpmd, block_data, &blockptr)) {
         metadata_count++;
-        if (wpmd.id & 0x10)
+        if ((wpmd.id & 0x30) == 0x30)
             printf ("  metadata: ID = 0x%02x (UNASSIGNED), size = %d bytes\n", wpmd.id, wpmd.byte_length);
-        else if (wpmd.id & 0x20)
-            printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id - 0x10], wpmd.byte_length);
         else
-            printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id], wpmd.byte_length);
+            printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id & 0x3F], wpmd.byte_length);
 
         if ((wpmd.id & ID_UNIQUE) >= 0xA && (wpmd.id & ID_UNIQUE) <= 0xC)
             realdata += blockptr - blockprev;
