@@ -27,6 +27,7 @@
 
 #include <sys/types.h>
 
+// #define LARGE_HEADER
 #define SHORT_BLOCKS
 // #define ADD_BLOCK_CHECKSUM
 
@@ -134,6 +135,8 @@ typedef struct {
 // WavPack 4.0 files, and is the preamble to every block in both the .wv
 // and .wvc files.
 
+#ifdef LARGE_HEADER
+
 typedef struct {
     char ckID [4];
     uint32_t ckSize;
@@ -144,6 +147,9 @@ typedef struct {
 } WavpackHeader;
 
 #define WavpackHeaderFormat "4LS2LLLLL"
+
+#define CHUNK_SIZE_OFFSET 8
+#define CHUNK_SIZE_REMAINDER (sizeof (WavpackHeader) - CHUNK_SIZE_OFFSET)
 
 // Macros to access the 40-bit block_index field
 
@@ -173,6 +179,26 @@ typedef struct {
             (unsigned char) (tmp >> 32);        \
     }                                           \
 } while (0)
+
+#else
+
+typedef struct {
+    char ckID [4];
+    uint16_t ckSize, block_samples;
+    uint32_t flags;
+} WavpackHeader;
+
+#define WavpackHeaderFormat "4SSL"
+
+#define CHUNK_SIZE_OFFSET 6
+#define CHUNK_SIZE_REMAINDER (sizeof (WavpackHeader) - CHUNK_SIZE_OFFSET)
+
+#define GET_BLOCK_INDEX(hdr) (0)
+#define SET_BLOCK_INDEX(hdr,value)
+#define GET_TOTAL_SAMPLES(hdr) (-1)
+#define SET_TOTAL_SAMPLES(hdr,value)
+
+#endif
 
 // or-values for "flags"
 

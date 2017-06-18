@@ -108,16 +108,17 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         }
 
         wpc->filepos += bcount;
-        wps->blockbuff = malloc (wps->wphdr.ckSize + 8);
+        wps->blockbuff = malloc (wps->wphdr.ckSize + CHUNK_SIZE_OFFSET);
         if (!wps->blockbuff) {
             if (error) strcpy (error, "can't allocate memory");
             return WavpackCloseFile (wpc);
         }
-        memcpy (wps->blockbuff, &wps->wphdr, 32);
+        memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
-        if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + 32, wps->wphdr.ckSize - 24) != wps->wphdr.ckSize - 24) {
-            if (error) strcpy (error, "can't read all of WavPack file!");
-            return WavpackCloseFile (wpc);
+        if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + sizeof (WavpackHeader), wps->wphdr.ckSize - CHUNK_SIZE_REMAINDER) !=
+            wps->wphdr.ckSize - CHUNK_SIZE_REMAINDER) {
+                if (error) strcpy (error, "can't read all of WavPack file!");
+                return WavpackCloseFile (wpc);
         }
 
         // if block does not verify, flag error, free buffer, and continue
@@ -131,6 +132,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
 
         wps->init_done = FALSE;
 
+#ifdef LARGE_HEADER
         if (wps->wphdr.block_samples) {
             if (flags & OPEN_STREAMING)
                 SET_BLOCK_INDEX (wps->wphdr, 0);
@@ -154,6 +156,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         }
         else if (wpc->total_samples == -1 && !GET_BLOCK_INDEX (wps->wphdr) && GET_TOTAL_SAMPLES (wps->wphdr))
             wpc->total_samples = GET_TOTAL_SAMPLES (wps->wphdr);
+#endif
 
         if (wpc->wvc_in && wps->wphdr.block_samples && (wps->wphdr.flags & HYBRID_FLAG)) {
             unsigned char ch;
@@ -655,7 +658,7 @@ static int read_wrapper_data (WavpackContext *wpc, WavpackMetadata *wpmd)
 static int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, unsigned char **buffptr)
 {
     WavpackHeader *wphdr = (WavpackHeader *) blockbuff;
-    unsigned char *buffend = blockbuff + wphdr->ckSize + 8;
+    unsigned char *buffend = blockbuff + wphdr->ckSize + CHUNK_SIZE_OFFSET;
 
     if (buffend - *buffptr < 2)
         return FALSE;
@@ -907,6 +910,7 @@ uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeade
 
         sp = buffer;
 
+#ifdef LARGE_HEADER
         if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
             !(*++sp & 1) && sp [2] < 16 && !sp [3] && (sp [2] || sp [1] || *sp >= 24) && sp [5] == 4 &&
             sp [4] >= (MIN_STREAM_VERS & 0xff) && sp [4] <= (MAX_STREAM_VERS & 0xff) && sp [18] < 3 && !sp [19]) {
@@ -914,12 +918,25 @@ uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeade
                 WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
                 return bytes_skipped;
             }
+#else
+        if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
+            !(*++sp & 1) && sp [1] < 32 && sp [3] < 32) {
+                memcpy (wphdr, buffer, sizeof (*wphdr));
+                WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
+                return bytes_skipped;
+            }
+#endif
 
         while (sp < ep && *sp != 'w')
             sp++;
 
+#ifdef LARGE_HEADER
         if ((bytes_skipped += (uint32_t)(sp - buffer)) > 1024 * 1024)
             return -1;
+#else
+        if ((bytes_skipped += (uint32_t)(sp - buffer)) > 1024 * 10)
+            return -1;
+#endif
     }
 }
 
@@ -987,12 +1004,18 @@ int read_wvc_block (WavpackContext *wpc)
             return FALSE;
         }
 
-        memcpy (&orig_wphdr, &wphdr, 32);       // save original header for verify step
+        memcpy (&orig_wphdr, &wphdr, sizeof (WavpackHeader));       // save original header for verify step
 
-        if (wpc->open_flags & OPEN_STREAMING)
-            SET_BLOCK_INDEX (wphdr, wps->sample_index = 0);
+#ifdef LARGE_HEADER
+        if (wpc->open_flags & OPEN_STREAMING) {
+            SET_BLOCK_INDEX (wphdr, 0);
+            wps->sample_index = 0;
+        }
         else
             SET_BLOCK_INDEX (wphdr, GET_BLOCK_INDEX (wphdr) - wpc->initial_index);
+#else
+        wps->sample_index = 0;
+#endif
 
         if (wphdr.flags & INITIAL_BLOCK)
             wpc->file2pos = file2pos + bcount;
@@ -1000,12 +1023,12 @@ int read_wvc_block (WavpackContext *wpc)
         compare_result = match_wvc_header (&wps->wphdr, &wphdr);
 
         if (!compare_result) {
-            wps->block2buff = malloc (wphdr.ckSize + 8);
+            wps->block2buff = malloc (wphdr.ckSize + CHUNK_SIZE_OFFSET);
 	    if (!wps->block2buff)
 	        return FALSE;
 
-            if (wpc->reader->read_bytes (wpc->wvc_in, wps->block2buff + 32, wphdr.ckSize - 24) !=
-                wphdr.ckSize - 24) {
+            if (wpc->reader->read_bytes (wpc->wvc_in, wps->block2buff + sizeof (WavpackHeader), wphdr.ckSize - CHUNK_SIZE_REMAINDER) !=
+                wphdr.ckSize - CHUNK_SIZE_REMAINDER) {
                     free (wps->block2buff);
                     wps->block2buff = NULL;
                     wps->wvc_skip = TRUE;
@@ -1013,7 +1036,7 @@ int read_wvc_block (WavpackContext *wpc)
                     return FALSE;
             }
 
-            memcpy (wps->block2buff, &orig_wphdr, 32);
+            memcpy (wps->block2buff, &orig_wphdr, sizeof (WavpackHeader));
 
             // don't use corrupt blocks
             if (!WavpackVerifySingleBlock (wps->block2buff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
@@ -1025,13 +1048,13 @@ int read_wvc_block (WavpackContext *wpc)
             }
 
             wps->wvc_skip = FALSE;
-            memcpy (wps->block2buff, &wphdr, 32);
-            memcpy (&wps->wphdr, &wphdr, 32);
+            memcpy (wps->block2buff, &wphdr, sizeof (WavpackHeader));
+            memcpy (&wps->wphdr, &wphdr, sizeof (WavpackHeader));
             return TRUE;
         }
         else if (compare_result == -1) {
             wps->wvc_skip = TRUE;
-            wpc->reader->set_pos_rel (wpc->wvc_in, -32, SEEK_CUR);
+            wpc->reader->set_pos_rel (wpc->wvc_in, -sizeof (WavpackHeader), SEEK_CUR);
             wpc->crc_errors++;
             return TRUE;
         }
@@ -1134,7 +1157,7 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
         // at this point we have seen at least one block with audio, so we parse the
         // entire block looking for MD5 metadata or (conditionally) trailing wrappers
 
-        bcount = wphdr.ckSize - sizeof (WavpackHeader) + 8;
+        bcount = wphdr.ckSize - CHUNK_SIZE_REMAINDER;
 
         while (bcount >= 2) {
             unsigned char meta_id, c1, c2;
@@ -1211,10 +1234,10 @@ int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum)
     uint32_t checksum_passed = 0, bcount, meta_bc;
     unsigned char *dp, meta_id, c1, c2;
 
-    if (strncmp (wphdr->ckID, "wvpk", 4) || wphdr->ckSize + 8 < sizeof (WavpackHeader))
+    if (strncmp (wphdr->ckID, "wvpk", 4) || wphdr->ckSize + CHUNK_SIZE_OFFSET < sizeof (WavpackHeader))
         return FALSE;
 
-    bcount = wphdr->ckSize - sizeof (WavpackHeader) + 8;
+    bcount = wphdr->ckSize - CHUNK_SIZE_REMAINDER;
     dp = (unsigned char *)(wphdr + 1);
 
     while (bcount >= 2) {

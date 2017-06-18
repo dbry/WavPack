@@ -391,9 +391,11 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
             break;
 
         memcpy (wps->wphdr.ckID, "wvpk", 4);
-        wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+        wps->wphdr.ckSize = CHUNK_SIZE_REMAINDER;
         SET_TOTAL_SAMPLES (wps->wphdr, wpc->total_samples);
+#ifdef LARGE_HEADER
         wps->wphdr.version = wpc->stream_version;
+#endif
         wps->wphdr.flags = flags;
         wps->bits = bps;
 
@@ -969,7 +971,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
             break;
         }
 
-        bcount = ((WavpackHeader *) outbuff)->ckSize + 8;
+        bcount = ((WavpackHeader *) outbuff)->ckSize + CHUNK_SIZE_OFFSET;
         WavpackNativeToLittleEndian ((WavpackHeader *) outbuff, WavpackHeaderFormat);
         result = wpc->blockout (wpc->wv_out, outbuff, bcount);
 
@@ -981,7 +983,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         wpc->filelen += bcount;
 
         if (out2buff) {
-            bcount = ((WavpackHeader *) out2buff)->ckSize + 8;
+            bcount = ((WavpackHeader *) out2buff)->ckSize + CHUNK_SIZE_OFFSET;
             WavpackNativeToLittleEndian ((WavpackHeader *) out2buff, WavpackHeaderFormat);
             result = wpc->blockout (wpc->wvc_out, out2buff, bcount);
 
@@ -1081,7 +1083,7 @@ static void *find_metadata (void *wavpack_block, int desired_id, uint32_t *size)
     if (strncmp (wphdr->ckID, "wvpk", 4))
         return NULL;
 
-    bcount = wphdr->ckSize - sizeof (WavpackHeader) + 8;
+    bcount = wphdr->ckSize - CHUNK_SIZE_REMAINDER;
     dp = (unsigned char *)(wphdr + 1);
 
     while (bcount >= 2) {
@@ -1125,7 +1127,7 @@ int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned 
     WavpackHeader *wphdr = (WavpackHeader *) buffer_start;
 
     mdsize += (wpmd->byte_length > 510) ? 4 : 2;
-    buffer_start += wphdr->ckSize + 8;
+    buffer_start += wphdr->ckSize + CHUNK_SIZE_OFFSET;
 
     if (buffer_start + mdsize >= buffer_end)
         return FALSE;
@@ -1243,8 +1245,10 @@ static int write_metadata_block (WavpackContext *wpc)
         CLEAR (*wphdr);
         memcpy (wphdr->ckID, "wvpk", 4);
         SET_TOTAL_SAMPLES (*wphdr, wpc->total_samples);
+#ifdef LARGE_HEADER
         wphdr->version = wpc->stream_version;
-        wphdr->ckSize = block_size - 8;
+#endif
+        wphdr->ckSize = block_size - CHUNK_SIZE_OFFSET;
         wphdr->block_samples = 0;
 
         block_ptr = (char *)(wphdr + 1);
@@ -1301,7 +1305,7 @@ static int block_add_checksum (unsigned char *buffer_start, unsigned char *buffe
 #else
     unsigned char *csptr = buffer_start;
 #endif
-    int bcount = wphdr->ckSize + 8, wcount;
+    int bcount = wphdr->ckSize + CHUNK_SIZE_OFFSET, wcount;
     uint32_t csum = (uint32_t) -1;
 
     if (bytes != 2 && bytes != 4)
@@ -1356,7 +1360,7 @@ static void block_update_checksum (unsigned char *buffer_start)
     if (!(wphdr->flags & HAS_CHECKSUM))
         return;
 
-    bcount = wphdr->ckSize - sizeof (WavpackHeader) + 8;
+    bcount = wphdr->ckSize - CHUNK_SIZE_REMAINDER;
     dp = (unsigned char *)(wphdr + 1);
 
     while (bcount >= 2) {

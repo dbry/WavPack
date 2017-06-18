@@ -39,6 +39,8 @@ typedef __int8  int8_t;
 #include <stdint.h>
 #endif
 
+// #define LARGE_HEADER
+
 typedef int32_t (*read_stream)(void *, int32_t);
 
 ////////////////////////////// WavPack Header /////////////////////////////////
@@ -46,6 +48,8 @@ typedef int32_t (*read_stream)(void *, int32_t);
 // Note that this is the ONLY structure that is written to (or read from)
 // WavPack 4.0 files, and is the preamble to every block in both the .wv
 // and .wvc files.
+
+#ifdef LARGE_HEADER
 
 typedef struct {
     char ckID [4];
@@ -56,6 +60,24 @@ typedef struct {
 } WavpackHeader;
 
 #define WavpackHeaderFormat "4LS2LLLLL"
+
+#define CHUNK_SIZE_OFFSET 8
+#define CHUNK_SIZE_REMAINDER (sizeof (WavpackHeader) - CHUNK_SIZE_OFFSET)
+
+#else
+
+typedef struct {
+    char ckID [4];
+    uint16_t ckSize, block_samples;
+    uint32_t flags;
+} WavpackHeader;
+
+#define WavpackHeaderFormat "4SSL"
+
+#define CHUNK_SIZE_OFFSET 6
+#define CHUNK_SIZE_REMAINDER (sizeof (WavpackHeader) - CHUNK_SIZE_OFFSET)
+
+#endif
 
 // or-values for "flags"
 
@@ -142,6 +164,9 @@ int main ()
     int channel_count, block_count;
     char flags_list [256];
     WavpackHeader wphdr;
+#ifndef LARGE_HEADER
+    uint32_t block_index = 0;
+#endif
 
 #ifdef _WIN32
     setmode (fileno (stdin), O_BINARY);
@@ -176,10 +201,15 @@ int main ()
             printf ("\n");
 
 	if (wphdr.block_samples) {
-	    printf ("%s audio block, version 0x%03x, %d samples in %d bytes, time = %.2f-%.2f\n",
-                (wphdr.flags & MONO_FLAG) ? "mono" : "stereo", wphdr.version, wphdr.block_samples, wphdr.ckSize + 8,
+#ifdef LARGE_HEADER
+	    printf ("%s audio block, %d samples in %d bytes, time = %.2f-%.2f\n",
+                (wphdr.flags & MONO_FLAG) ? "mono" : "stereo", wphdr.block_samples, wphdr.ckSize + CHUNK_SIZE_OFFSET,
                 (double) wphdr.block_index / sample_rate, (double) (wphdr.block_index + wphdr.block_samples - 1) / sample_rate);
-
+#else
+	    printf ("%s audio block, %d samples in %d bytes, time = %.2f-%.2f\n",
+                (wphdr.flags & MONO_FLAG) ? "mono" : "stereo", wphdr.block_samples, wphdr.ckSize + CHUNK_SIZE_OFFSET,
+                (double) block_index / sample_rate, (double) (block_index + wphdr.block_samples - 1) / sample_rate);
+#endif
             // now show information from the "flags" field of the header
 
             printf ("samples are %d bits in %d bytes, shifted %d bits, sample rate = %d\n",
@@ -211,14 +241,21 @@ int main ()
                 strcat (flags_list, "none");
 
             printf ("flags: %s\n", flags_list);
+#ifndef LARGE_HEADER
+            block_index += wphdr.block_samples;
+#endif
         }
         else
-            printf ("non-audio block of %d bytes, version 0x%03x\n", wphdr.ckSize + 8, wphdr.version);
+#ifdef LARGE_HEADER
+            printf ("non-audio block of %d bytes, version 0x%03x\n", wphdr.ckSize + CHUNK_SIZE_OFFSET, wphdr.version);
+#else
+            printf ("non-audio block of %d bytes\n", wphdr.ckSize + CHUNK_SIZE_OFFSET);
+#endif
 
 	// read and parse the actual block data (which is entirely composed of "meta" blocks)
 
-	if (wphdr.ckSize > sizeof (WavpackHeader) - 8) {
-	    uint32_t block_size = wphdr.ckSize + 8;
+	if (wphdr.ckSize > CHUNK_SIZE_REMAINDER) {
+	    uint32_t block_size = wphdr.ckSize + CHUNK_SIZE_OFFSET;
 	    char *block_buff = malloc (block_size);
 
             memcpy (block_buff, &wphdr, sizeof (WavpackHeader));
@@ -228,7 +265,7 @@ int main ()
 	}
 
 	// if there's audio samples in there do some other sanity checks (especially for multichannel)
-
+#ifdef LARGE_HEADER
 	if (wphdr.block_samples) {
 	    if ((wphdr.flags & INITIAL_BLOCK) && wphdr.block_index != last_sample + 1)
 		printf ("error: discontinuity detected!\n");
@@ -242,12 +279,12 @@ int main ()
 
 	    if (wphdr.flags & INITIAL_BLOCK) {
 		channel_count = (wphdr.flags & MONO_FLAG) ? 1 : 2;
-		total_bytes = wphdr.ckSize + 8;
+		total_bytes = wphdr.ckSize + CHUNK_SIZE_OFFSET;
 		block_count = 1;
 	    }
 	    else {
 		channel_count += (wphdr.flags & MONO_FLAG) ? 1 : 2;
-		total_bytes += wphdr.ckSize + 8;
+		total_bytes += wphdr.ckSize + CHUNK_SIZE_OFFSET;
 		block_count++;
 
 		if (wphdr.flags & FINAL_BLOCK)
@@ -255,6 +292,8 @@ int main ()
 			channel_count, block_count, total_bytes);
 	    }
 	}
+#endif
+
     }
 
     return 0;
@@ -265,7 +304,7 @@ int main ()
 static int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, unsigned char **buffptr)
 {
     WavpackHeader *wphdr = (WavpackHeader *) blockbuff;
-    unsigned char *buffend = blockbuff + wphdr->ckSize + 8;
+    unsigned char *buffend = blockbuff + wphdr->ckSize + CHUNK_SIZE_OFFSET;
 
     if (buffend - *buffptr < 2)
         return 0;
@@ -310,8 +349,8 @@ static int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, 
 static void parse_wavpack_block (unsigned char *block_data)
 {
     unsigned char *blockptr = block_data + sizeof (WavpackHeader), *blockprev = blockptr;
+    int metadata_count = 0, overhead = sizeof (WavpackHeader), realdata = 0;
     WavpackHeader *wphdr = (WavpackHeader *) block_data;
-    int metadata_count = 0, overhead = 32, realdata = 0;
     WavpackMetadata wpmd;
 
     while (read_metadata_buff (&wpmd, block_data, &blockptr)) {
@@ -329,7 +368,7 @@ static void parse_wavpack_block (unsigned char *block_data)
         blockprev = blockptr;
     }
 
-    if (blockptr != block_data + wphdr->ckSize + 8)
+    if (blockptr != block_data + wphdr->ckSize + CHUNK_SIZE_OFFSET)
         printf ("error: garbage at end of WavPack block\n");
 
     if (!verify_wavpack_block (block_data))
@@ -353,10 +392,10 @@ static int verify_wavpack_block (unsigned char *buffer)
     uint32_t checksum_passed = 0, bcount, meta_bc;
     unsigned char *dp, meta_id, c1, c2;
 
-    if (strncmp (wphdr->ckID, "wvpk", 4) || wphdr->ckSize + 8 < sizeof (WavpackHeader))
+    if (strncmp (wphdr->ckID, "wvpk", 4) || wphdr->ckSize + CHUNK_SIZE_OFFSET < sizeof (WavpackHeader))
         return 0;
 
-    bcount = wphdr->ckSize - sizeof (WavpackHeader) + 8;
+    bcount = wphdr->ckSize - CHUNK_SIZE_REMAINDER;
     dp = (unsigned char *)(wphdr + 1);
 
     while (bcount >= 2) {
@@ -448,6 +487,7 @@ static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
 
 	sp = buffer;
 
+#ifdef LARGE_HEADER
 	if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
             !(*++sp & 1) && sp [2] < 16 && !sp [3] && (sp [2] || sp [1] || *sp >= 24) && sp [5] == 4 &&
             sp [4] >= (MIN_STREAM_VERS & 0xff) && sp [4] <= (MAX_STREAM_VERS & 0xff) && sp [18] < 3 && !sp [19]) {
@@ -455,14 +495,26 @@ static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
 		little_endian_to_native (wphdr, WavpackHeaderFormat);
 		return bytes_skipped;
 	    }
-
+#else
+        if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
+            !(*++sp & 1) && sp [1] < 32 && sp [3] < 32) {
+                memcpy (wphdr, buffer, sizeof (*wphdr));
+                little_endian_to_native (wphdr, WavpackHeaderFormat);
+                return bytes_skipped;
+            }
+#endif
         // printf ("read_next_header() did not see valid block right away: %c %c %c %c\n", buffer [0], buffer [1], buffer [2], buffer [3]);
 
 	while (sp < ep && *sp != 'w')
 	    sp++;
 
-	if ((bytes_skipped += sp - buffer) > 1024 * 1024)
+#ifdef LARGE_HEADER
+	if ((bytes_skipped += (uint32_t)(sp - buffer)) > 1024 * 1024)
 	    return -1;
+#else
+        if ((bytes_skipped += (uint32_t)(sp - buffer)) > 1024 * 10)
+            return -1;
+#endif
     }
 }
 

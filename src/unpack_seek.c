@@ -41,6 +41,10 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
     uint32_t bcount, samples_to_skip, samples_to_decode = 0;
     int32_t *buffer;
 
+#ifndef LARGE_HEADER
+    return FALSE;
+#endif
+
     if (wpc->total_samples == -1 || sample >= wpc->total_samples ||
         !wpc->reader->can_seek (wpc->wv_in) || (wpc->open_flags & OPEN_STREAMING) ||
         (wpc->wvc_flag && !wpc->reader->can_seek (wpc->wvc_in)))

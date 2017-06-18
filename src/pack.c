@@ -817,9 +817,9 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         unsigned char *cptr;
 
         if (wpc->wvc_flag)
-            cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
+            cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + CHUNK_SIZE_OFFSET;
         else
-            cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
+            cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + CHUNK_SIZE_OFFSET;
 
         bs_open_write (&wps->wvxbits, cptr + 8, wpc->wvc_flag ? wps->block2end : wps->blockend);
 
@@ -1185,7 +1185,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
         }
     }
 
-    wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+    wps->wphdr.ckSize = CHUNK_SIZE_REMAINDER;
     memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
     if (wpc->metacount) {
@@ -1273,10 +1273,10 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
         }
 
         send_general_metadata (wpc);
-        bs_open_write (&wps->wvbits, wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12, wps->blockend);
+        bs_open_write (&wps->wvbits, wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + CHUNK_SIZE_OFFSET + 4, wps->blockend);
 
         if (wpc->wvc_flag) {
-            wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+            wps->wphdr.ckSize = CHUNK_SIZE_REMAINDER;
             memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
 
             if (flags & HYBRID_SHAPE) {
@@ -1285,7 +1285,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
                 free_metadata (&wpmd);
             }
 
-            bs_open_write (&wps->wvcbits, wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 12, wps->block2end);
+            bs_open_write (&wps->wvcbits, wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + CHUNK_SIZE_OFFSET + 4, wps->block2end);
         }
 
         /////////////////////// handle lossless mono mode /////////////////////////
@@ -1557,7 +1557,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
         if (data_count) {
             if (data_count != (uint32_t) -1) {
-                unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
+                unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + CHUNK_SIZE_OFFSET;
 
                 *cptr++ = ID_WV_BITSTREAM | ID_LARGE;
                 *cptr++ = data_count >> 1;
@@ -1569,14 +1569,16 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
                 return FALSE;
         }
 
+#ifdef LARGE_HEADER
         ((WavpackHeader *) wps->blockbuff)->crc = crc;
+#endif
 
         if (wpc->wvc_flag) {
             data_count = bs_close_write (&wps->wvcbits);
 
             if (data_count && lossy) {
                 if (data_count != (uint32_t) -1) {
-                    unsigned char *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
+                    unsigned char *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + CHUNK_SIZE_OFFSET;
 
                     *cptr++ = ID_WVC_BITSTREAM | ID_LARGE;
                     *cptr++ = data_count >> 1;
@@ -1588,7 +1590,9 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
                     return FALSE;
             }
 
+#ifdef LARGE_HEADER
             ((WavpackHeader *) wps->block2buff)->crc = crc2;
+#endif
         }
         else if (lossy)
             wpc->lossy_blocks = TRUE;

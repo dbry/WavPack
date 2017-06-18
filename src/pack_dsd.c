@@ -83,7 +83,7 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
             wps->wphdr.flags = flags &= ~FALSE_STEREO;
     }
 
-    wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
+    wps->wphdr.ckSize = CHUNK_SIZE_REMAINDER;
     memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
     if (wpc->metacount) {
@@ -106,7 +106,7 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
     send_general_metadata (wpc);
     memcpy (&wps->wphdr, wps->blockbuff, sizeof (WavpackHeader));
 
-    dsd_encoding = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12;
+    dsd_encoding = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + CHUNK_SIZE_OFFSET + 4;
 
     while (mult >>= 1)
         dsd_power++;
@@ -135,13 +135,15 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
         while (num_samples--)
             crc += (crc << 1) + (*dsd_encoding++ = *buffer++);
 
+#ifdef LARGE_HEADER
         ((WavpackHeader *) wps->blockbuff)->crc = crc;
+#endif
     }
     else
         data_count = res + 1;
 
     if (data_count) {
-        unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
+        unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + CHUNK_SIZE_OFFSET;
 
         if (data_count & 1) {
             cptr [data_count + 4] = 0;
@@ -347,7 +349,9 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
         total_summed_probabilities += summed_probabilities [p0] [255];
     }
 
+#ifdef LARGE_HEADER
     ((WavpackHeader *) wps->blockbuff)->crc = crc;
+#endif
 
     // This code detects the case where the required value lookup tables grow silly big and cuts them back down. This would
     // normally only happen with large blocks or poorly compressible data. The target is to guarantee that the total memory
@@ -651,7 +655,9 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
             sp [1].factor -= (sp [1].factor + 512) >> 10;
     }
 
+#ifdef LARGE_HEADER
     ((WavpackHeader *) wps->blockbuff)->crc = crc;
+#endif
     high = low;
 
     while (DSD_BYTE_READY (high, low)) {

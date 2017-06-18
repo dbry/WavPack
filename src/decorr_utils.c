@@ -104,6 +104,7 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
         CLEAR (dpp->samples_B);
     }
 
+#ifdef LARGE_HEADER
     if (wps->wphdr.version == 0x402 && (wps->wphdr.flags & HYBRID_FLAG)) {
         if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
             return FALSE;
@@ -116,6 +117,7 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
             byteptr += 2;
         }
     }
+#endif
 
     while (dpp-- > wps->decorr_passes && byteptr < endptr)
         if (dpp->term > MAX_TERM) {
