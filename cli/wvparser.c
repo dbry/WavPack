@@ -137,6 +137,7 @@ typedef struct {
 #define ID_OPTIONAL_DATA        0x20
 #define ID_ODD_SIZE             0x40
 #define ID_LARGE                0x80
+#define ID_DSD_BLOCK            0x0e
 
 static const char *metadata_names [] = {
     "DUMMY", "ENCODER_INFO", "DECORR_TERMS", "DECORR_WEIGHTS", "DECORR_SAMPLES", "ENTROPY_VARS", "HYBRID_PROFILE", "SHAPING_WEIGHTS",
@@ -144,7 +145,9 @@ static const char *metadata_names [] = {
     "DECORR_COMBINED", "ENTROPY_COMBINED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED",
     "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED",
     "UNASSIGNED", "RIFF_HEADER", "RIFF_TRAILER", "ALT_HEADER", "ALT_TRAILER", "CONFIG_BLOCK", "MD5_CHECKSUM", "SAMPLE_RATE",
-    "ALT_EXTENSION", "ALT_MD5_CHECKSUM", "NEW_CONFIG", "CHANNEL_IDENTITIES", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "BLOCK_CHECKSUM"
+    "ALT_EXTENSION", "ALT_MD5_CHECKSUM", "NEW_CONFIG", "CHANNEL_IDENTITIES", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "BLOCK_CHECKSUM",
+    "TOTAL_SAMPLES", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED",
+    "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED", "UNASSIGNED"
 };
 
 static int32_t read_bytes (void *buff, int32_t bcount);
@@ -355,12 +358,9 @@ static void parse_wavpack_block (unsigned char *block_data)
 
     while (read_metadata_buff (&wpmd, block_data, &blockptr)) {
         metadata_count++;
-        if ((wpmd.id & 0x30) == 0x30)
-            printf ("  metadata: ID = 0x%02x (UNASSIGNED), size = %d bytes\n", wpmd.id, wpmd.byte_length);
-        else
-            printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id & 0x3F], wpmd.byte_length);
+        printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id & 0x3F], wpmd.byte_length);
 
-        if ((wpmd.id & ID_UNIQUE) >= 0xA && (wpmd.id & ID_UNIQUE) <= 0xC)
+        if (((wpmd.id & ID_UNIQUE) >= 0xA && (wpmd.id & ID_UNIQUE) <= 0xC) || (wpmd.id & ID_UNIQUE) == ID_DSD_BLOCK)
             realdata += blockptr - blockprev;
         else
             overhead += blockptr - blockprev;
