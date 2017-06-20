@@ -527,6 +527,27 @@ static void write_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
 
+// Allocate room for and copy the total number of samples into the
+// metadata structure.
+
+#ifndef LARGE_HEADER
+
+static void write_total_samples (WavpackContext *wpc, WavpackMetadata *wpmd)
+{
+    char *byteptr;
+
+    byteptr = wpmd->data = malloc (8);
+    wpmd->id = ID_TOTAL_SAMPLES;
+    *byteptr++ = (char) (wpc->total_samples);
+    *byteptr++ = (char) (wpc->total_samples >> 8);
+    *byteptr++ = (char) (wpc->total_samples >> 16);
+    *byteptr++ = (char) (wpc->total_samples >> 24);
+    *byteptr++ = (char) (wpc->total_samples >> 32);
+    wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
+}
+
+#endif
+
 // Allocate room for and copy the "new" configuration information into the
 // specified metadata structure. This is all the stuff introduced with version
 // 5.0 and includes the qmode flags (big-endian, etc.) and CAF extended
@@ -1081,6 +1102,12 @@ void send_general_metadata (WavpackContext *wpc)
         write_config_info (wpc, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
+
+#ifndef LARGE_HEADER
+        write_total_samples (wpc, &wpmd);
+        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+        free_metadata (&wpmd);
+#endif
     }
 
     if ((flags & INITIAL_BLOCK) &&

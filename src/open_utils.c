@@ -636,6 +636,28 @@ static int read_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
     return TRUE;
 }
 
+// Read total sample count from metadata
+
+static int read_total_samples (WavpackContext *wpc, WavpackMetadata *wpmd)
+{
+    int bytecnt = wpmd->byte_length;
+    unsigned char *byteptr = wpmd->data;
+
+    if (bytecnt != 5)
+        return FALSE;
+
+    wpc->total_samples = (int64_t) *byteptr++;
+    wpc->total_samples |= (int64_t) *byteptr++ << 8;
+    wpc->total_samples |= (int64_t) *byteptr++ << 16;
+    wpc->total_samples |= (int64_t) *byteptr++ << 24;
+    wpc->total_samples |= (int64_t) *byteptr++ << 32;
+
+    if (wpc->total_samples == 0xffffffffffLL)
+        wpc->total_samples = -1;
+
+    return TRUE;
+}
+
 // Read wrapper data from metadata. Currently, this consists of the RIFF
 // header and trailer that wav files contain around the audio data but could
 // be used for other formats as well. Because WavPack files contain all the
@@ -750,6 +772,9 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
 
         case ID_SAMPLE_RATE:
             return read_sample_rate (wpc, wpmd);
+
+        case ID_TOTAL_SAMPLES:
+            return read_total_samples (wpc, wpmd);
 
         case ID_WV_BITSTREAM:
             return init_wv_bitstream (wps, wpmd);

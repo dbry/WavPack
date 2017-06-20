@@ -1019,13 +1019,32 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 // rewrite the block. An example of this can be found in the Audition filter.
 
 static void block_update_checksum (unsigned char *buffer_start);
+static void *find_metadata (void *wavpack_block, int desired_id, uint32_t *size);
 
 void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
 {
     uint32_t wrapper_size;
 
     WavpackLittleEndianToNative (first_block, WavpackHeaderFormat);
+
+#ifdef LARGE_HEADER
     SET_TOTAL_SAMPLES (* (WavpackHeader *) first_block, WavpackGetSampleIndex64 (wpc));
+#else
+    {
+        void *loc = find_metadata (first_block, ID_TOTAL_SAMPLES, &wrapper_size);
+
+        if (loc && wrapper_size == 5) {
+            char *byteptr = loc;
+
+            *byteptr++ = (char) (wpc->total_samples);
+            *byteptr++ = (char) (wpc->total_samples >> 8);
+            *byteptr++ = (char) (wpc->total_samples >> 16);
+            *byteptr++ = (char) (wpc->total_samples >> 24);
+            *byteptr++ = (char) (wpc->total_samples >> 32);
+            printf ("WavpackUpdateNumSamples(): updated total samples = %lld\n", (long long) wpc->total_samples);
+        }
+    }
+#endif
 
     if (wpc->riff_header_created && WavpackGetWrapperLocation (first_block, &wrapper_size)) {
         unsigned char riff_header [128];
@@ -1056,8 +1075,6 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
 // in the block's metadata (or it is not a valid WavPack block). It is the
 // responsibility of the application to read and rewrite the block. An example
 // of this can be found in the Audition filter.
-
-static void *find_metadata (void *wavpack_block, int desired_id, uint32_t *size);
 
 void *WavpackGetWrapperLocation (void *first_block, uint32_t *size)
 {

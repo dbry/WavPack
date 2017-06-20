@@ -290,6 +290,7 @@ typedef struct {
 #define ID_NEW_CONFIG_BLOCK     (ID_OPTIONAL_DATA | 0xa)
 #define ID_CHANNEL_IDENTITIES   (ID_OPTIONAL_DATA | 0xb)
 #define ID_BLOCK_CHECKSUM       (ID_OPTIONAL_DATA | 0xf)
+#define ID_TOTAL_SAMPLES        (ID_OPTIONAL_DATA | 0x10)
 
 ///////////////////////// WavPack Configuration ///////////////////////////////
 
