@@ -82,12 +82,21 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
 
     // don't attempt to decode past the end of the block, but watch out for overflow!
 
+#ifdef LARGE_HEADER
     if (wps->sample_index + sample_count > GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples &&
         GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index < sample_count)
             sample_count = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index);
 
     if (GET_BLOCK_INDEX (wps->wphdr) > wps->sample_index || wps->wphdr.block_samples < sample_count)
         wps->mute_error = TRUE;
+#else
+    if (wps->sample_index + sample_count > wps->block_index + wps->wphdr.block_samples &&
+        wps->block_index + wps->wphdr.block_samples - wps->sample_index < sample_count)
+            sample_count = (uint32_t) (wps->block_index + wps->wphdr.block_samples - wps->sample_index);
+
+    if (wps->block_index > wps->sample_index || wps->wphdr.block_samples < sample_count)
+        wps->mute_error = TRUE;
+#endif
 
     if (wps->mute_error) {
         if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))

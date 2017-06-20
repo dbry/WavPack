@@ -350,8 +350,12 @@ int unpack_init (WavpackContext *wpc)
                 wpc->lossy_blocks = TRUE;
     }
 
+#ifdef LARGE_HEADER
     if (wps->wphdr.block_samples)
         wps->sample_index = GET_BLOCK_INDEX (wps->wphdr);
+#else
+    wps->block_index = wps->sample_index;
+#endif
 
     return TRUE;
 }
@@ -1039,7 +1043,7 @@ int read_wvc_block (WavpackContext *wpc)
         else
             SET_BLOCK_INDEX (wphdr, GET_BLOCK_INDEX (wphdr) - wpc->initial_index);
 #else
-        wps->sample_index = 0;
+        wps->block_index = wps->sample_index;
 #endif
 
         if (wphdr.flags & INITIAL_BLOCK)

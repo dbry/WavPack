@@ -1034,14 +1034,14 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
         void *loc = find_metadata (first_block, ID_TOTAL_SAMPLES, &wrapper_size);
 
         if (loc && wrapper_size == 5) {
+            int64_t total_samples = WavpackGetSampleIndex64 (wpc);
             char *byteptr = loc;
 
-            *byteptr++ = (char) (wpc->total_samples);
-            *byteptr++ = (char) (wpc->total_samples >> 8);
-            *byteptr++ = (char) (wpc->total_samples >> 16);
-            *byteptr++ = (char) (wpc->total_samples >> 24);
-            *byteptr++ = (char) (wpc->total_samples >> 32);
-            printf ("WavpackUpdateNumSamples(): updated total samples = %lld\n", (long long) wpc->total_samples);
+            *byteptr++ = (char) (total_samples);
+            *byteptr++ = (char) (total_samples >> 8);
+            *byteptr++ = (char) (total_samples >> 16);
+            *byteptr++ = (char) (total_samples >> 24);
+            *byteptr++ = (char) (total_samples >> 32);
         }
     }
 #endif

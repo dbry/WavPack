@@ -431,7 +431,7 @@ typedef struct {
     unsigned char *block2buff, *block2end;
     int32_t *sample_buffer;
 
-    int64_t sample_index;
+    int64_t sample_index, block_index;
     int bits, num_terms, mute_error, joint_stereo, false_stereo, shift;
     int num_decorrs, num_passes, best_decorr, mask_decorr;
     uint32_t crc, crc_x, crc_wvx;
