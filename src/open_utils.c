@@ -642,6 +642,8 @@ static int read_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 
 // Read total sample count from metadata
 
+#ifndef LARGE_HEADER
+
 static int read_total_samples (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     int bytecnt = wpmd->byte_length;
@@ -661,6 +663,27 @@ static int read_total_samples (WavpackContext *wpc, WavpackMetadata *wpmd)
 
     return TRUE;
 }
+
+// Read audio checksum from metadata
+
+static int read_audio_checksum (WavpackStream *wps, WavpackMetadata *wpmd)
+{
+    int bytecnt = wpmd->byte_length;
+    unsigned char *byteptr = wpmd->data;
+
+    if (bytecnt != 4)
+        return FALSE;
+
+    wps->crc_wv = *byteptr++;
+    wps->crc_wv |= (int32_t) *byteptr++ << 8;
+    wps->crc_wv |= (int32_t) *byteptr++ << 16;
+    wps->crc_wv |= (int32_t) *byteptr++ << 24;
+    wps->crc_wv_read = TRUE;
+
+    return TRUE;
+}
+
+#endif
 
 // Read wrapper data from metadata. Currently, this consists of the RIFF
 // header and trailer that wav files contain around the audio data but could
@@ -779,6 +802,9 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
 
         case ID_TOTAL_SAMPLES:
             return read_total_samples (wpc, wpmd);
+
+        case ID_AUDIO_CHECKSUM:
+            return read_audio_checksum (wps, wpmd);
 
         case ID_WV_BITSTREAM:
             return init_wv_bitstream (wps, wpmd);

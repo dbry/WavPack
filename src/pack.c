@@ -546,6 +546,22 @@ static void write_total_samples (WavpackContext *wpc, WavpackMetadata *wpmd)
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
 
+// Allocate room for and copy the specified checksum value into the
+// metadata structure.
+
+static void write_audio_checksum (WavpackMetadata *wpmd, uint32_t checksum)
+{
+    char *byteptr;
+
+    byteptr = wpmd->data = malloc (4);
+    wpmd->id = ID_AUDIO_CHECKSUM;
+    *byteptr++ = (char) (checksum);
+    *byteptr++ = (char) (checksum >> 8);
+    *byteptr++ = (char) (checksum >> 16);
+    *byteptr++ = (char) (checksum >> 24);
+    wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
+}
+
 #endif
 
 // Allocate room for and copy the "new" configuration information into the
@@ -1598,6 +1614,10 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
 #ifdef LARGE_HEADER
         ((WavpackHeader *) wps->blockbuff)->crc = crc;
+#elif defined(ADD_AUDIO_CHECKSUM)
+        write_audio_checksum (&wpmd, crc);
+        copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+        free_metadata (&wpmd);
 #endif
 
         if (wpc->wvc_flag) {
@@ -1619,6 +1639,10 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
 #ifdef LARGE_HEADER
             ((WavpackHeader *) wps->block2buff)->crc = crc2;
+#elif defined(ADD_AUDIO_CHECKSUM)
+            write_audio_checksum (&wpmd, crc2);
+            copy_metadata (&wpmd, wps->block2buff, wps->block2end);
+            free_metadata (&wpmd);
 #endif
         }
         else if (lossy)

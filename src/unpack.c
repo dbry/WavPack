@@ -813,16 +813,19 @@ int check_crc_error (WavpackContext *wpc)
 {
     int result = 0, stream;
 
-#ifdef LARGE_HEADER
     for (stream = 0; stream < wpc->num_streams; stream++) {
         WavpackStream *wps = wpc->streams [stream];
 
+#ifdef LARGE_HEADER
         if (wps->crc != wps->wphdr.crc)
             ++result;
+#else
+        if (wps->crc_wv_read && wps->crc_wv != wps->crc)
+            ++result;
+#endif
         else if (bs_is_open (&wps->wvxbits) && wps->crc_x != wps->crc_wvx)
             ++result;
     }
-#endif
 
     return result;
 }
