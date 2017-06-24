@@ -294,7 +294,7 @@ int unpack_init (WavpackContext *wpc)
     WavpackMetadata wpmd;
 
     wps->num_terms = 0;
-    wps->mute_error = FALSE;
+    wps->mute_error = wps->crc_wv_read = wps->crc_wvx_read = FALSE;
     wps->crc = wps->crc_x = 0xffffffff;
     wps->dsd.ready = 0;
     CLEAR (wps->wvbits);
@@ -400,13 +400,8 @@ static int init_wvx_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     unsigned char *cp = wpmd->data;
 
-    if (wpmd->byte_length <= 4 || (wpmd->byte_length & 1))
+    if (wpmd->byte_length <= 0 || (wpmd->byte_length & 1))
         return FALSE;
-
-    wps->crc_wvx = *cp++;
-    wps->crc_wvx |= (int32_t) *cp++ << 8;
-    wps->crc_wvx |= (int32_t) *cp++ << 16;
-    wps->crc_wvx |= (int32_t) *cp++ << 24;
 
     bs_open_read (&wps->wvxbits, cp, (unsigned char *) wpmd->data + wpmd->byte_length);
     return TRUE;
@@ -670,15 +665,24 @@ static int read_audio_checksum (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     int bytecnt = wpmd->byte_length;
     unsigned char *byteptr = wpmd->data;
+    uint32_t checksum;
 
     if (bytecnt != 4)
         return FALSE;
 
-    wps->crc_wv = *byteptr++;
-    wps->crc_wv |= (int32_t) *byteptr++ << 8;
-    wps->crc_wv |= (int32_t) *byteptr++ << 16;
-    wps->crc_wv |= (int32_t) *byteptr++ << 24;
-    wps->crc_wv_read = TRUE;
+    checksum = *byteptr++;
+    checksum |= (int32_t) *byteptr++ << 8;
+    checksum |= (int32_t) *byteptr++ << 16;
+    checksum |= (int32_t) *byteptr++ << 24;
+
+    if (wpmd->id == ID_AUDIO_CHECKSUM) {
+        wps->crc_wv_read = TRUE;
+        wps->crc_wv = checksum;
+    }
+    else {
+        wps->crc_wvx_read = TRUE;
+        wps->crc_wvx = checksum;
+    }
 
     return TRUE;
 }
@@ -804,6 +808,7 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
             return read_total_samples (wpc, wpmd);
 
         case ID_AUDIO_CHECKSUM:
+        case ID_AUDIO_CHECKSUM_WVX:
             return read_audio_checksum (wps, wpmd);
 
         case ID_WV_BITSTREAM:

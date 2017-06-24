@@ -823,7 +823,7 @@ int check_crc_error (WavpackContext *wpc)
         if (wps->crc_wv_read && wps->crc_wv != wps->crc)
             ++result;
 #endif
-        else if (bs_is_open (&wps->wvxbits) && wps->crc_x != wps->crc_wvx)
+        else if (wps->crc_wvx_read && wps->crc_x != wps->crc_wvx)
             ++result;
     }
 
