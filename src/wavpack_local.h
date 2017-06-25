@@ -30,7 +30,7 @@
 // #define LARGE_HEADER
 #define SHORT_BLOCKS
 // #define ADD_BLOCK_CHECKSUM
-#define ADD_AUDIO_CHECKSUM
+#define AUDIO_CHECKSUM_BYTES 2  // must be 0, 2, or 4
 
 // This header file contains all the definitions required by WavPack.
 
@@ -436,7 +436,7 @@ typedef struct {
 
     int64_t sample_index, block_index;
     int bits, num_terms, shift;
-    char mute_error, joint_stereo, false_stereo, init_done, wvc_skip, crc_wv_read, crc_wvx_read;
+    char mute_error, joint_stereo, false_stereo, init_done, wvc_skip, crc_wv_bytes, crc_wvx_bytes;
     int num_decorrs, num_passes, best_decorr, mask_decorr;
     uint32_t crc, crc_x, crc_wv, crc_wvx;
     Bitstream wvbits, wvcbits, wvxbits;

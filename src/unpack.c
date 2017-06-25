@@ -820,11 +820,13 @@ int check_crc_error (WavpackContext *wpc)
         if (wps->crc != wps->wphdr.crc)
             ++result;
 #else
-        if (wps->crc_wv_read && wps->crc_wv != wps->crc)
-            ++result;
+        if (wps->crc_wv_bytes &&
+            (wps->crc_wv_bytes == 4 ? wps->crc != wps->crc_wv : ((wps->crc ^ wps->crc >> 16) & 0xFFFF) != wps->crc_wv))
+                ++result;
 #endif
-        else if (wps->crc_wvx_read && wps->crc_x != wps->crc_wvx)
-            ++result;
+        else if (wps->crc_wvx_bytes &&
+            (wps->crc_wvx_bytes == 4 ? wps->crc_x != wps->crc_wvx : ((wps->crc_x ^ wps->crc_x >> 16) & 0xFFFF) != wps->crc_wvx))
+                ++result;
     }
 
     return result;

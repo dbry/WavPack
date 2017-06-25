@@ -294,8 +294,9 @@ int unpack_init (WavpackContext *wpc)
     WavpackMetadata wpmd;
 
     wps->num_terms = 0;
-    wps->mute_error = wps->crc_wv_read = wps->crc_wvx_read = FALSE;
+    wps->mute_error = FALSE;
     wps->crc = wps->crc_x = 0xffffffff;
+    wps->crc_wv_bytes = wps->crc_wvx_bytes = 0;
     wps->dsd.ready = 0;
     CLEAR (wps->wvbits);
     CLEAR (wps->wvcbits);
@@ -667,20 +668,23 @@ static int read_audio_checksum (WavpackStream *wps, WavpackMetadata *wpmd)
     unsigned char *byteptr = wpmd->data;
     uint32_t checksum;
 
-    if (bytecnt != 4)
+    if (bytecnt != 4 && bytecnt != 2)
         return FALSE;
 
     checksum = *byteptr++;
     checksum |= (int32_t) *byteptr++ << 8;
-    checksum |= (int32_t) *byteptr++ << 16;
-    checksum |= (int32_t) *byteptr++ << 24;
+
+    if (bytecnt == 4) {
+        checksum |= (int32_t) *byteptr++ << 16;
+        checksum |= (int32_t) *byteptr++ << 24;
+    }
 
     if (wpmd->id == ID_AUDIO_CHECKSUM) {
-        wps->crc_wv_read = TRUE;
+        wps->crc_wv_bytes = bytecnt;
         wps->crc_wv = checksum;
     }
     else {
-        wps->crc_wvx_read = TRUE;
+        wps->crc_wvx_bytes = bytecnt;
         wps->crc_wvx = checksum;
     }
 

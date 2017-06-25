@@ -555,10 +555,16 @@ static void write_audio_checksum (WavpackMetadata *wpmd, unsigned char id, uint3
 
     byteptr = wpmd->data = malloc (4);
     wpmd->id = id;
+#if AUDIO_CHECKSUM_BYTES == 4
     *byteptr++ = (char) (checksum);
     *byteptr++ = (char) (checksum >> 8);
     *byteptr++ = (char) (checksum >> 16);
     *byteptr++ = (char) (checksum >> 24);
+#elif AUDIO_CHECKSUM_BYTES == 2
+    checksum ^= checksum >> 16;
+    *byteptr++ = (char) (checksum);
+    *byteptr++ = (char) (checksum >> 8);
+#endif
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
 
@@ -885,7 +891,7 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
             else
                 return FALSE;
 
-#ifdef ADD_AUDIO_CHECKSUM
+#if AUDIO_CHECKSUM_BYTES
             write_audio_checksum (&wpmd, ID_AUDIO_CHECKSUM_WVX, wps->crc_x);
 
             if (wpc->wvc_flag)
@@ -1623,7 +1629,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
 #ifdef LARGE_HEADER
         ((WavpackHeader *) wps->blockbuff)->crc = crc;
-#elif defined(ADD_AUDIO_CHECKSUM)
+#elif AUDIO_CHECKSUM_BYTES
         write_audio_checksum (&wpmd, ID_AUDIO_CHECKSUM, crc);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
@@ -1648,7 +1654,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
 #ifdef LARGE_HEADER
             ((WavpackHeader *) wps->block2buff)->crc = crc2;
-#elif defined(ADD_AUDIO_CHECKSUM)
+#elif AUDIO_CHECKSUM_BYTES
             write_audio_checksum (&wpmd, ID_AUDIO_CHECKSUM, crc2);
             copy_metadata (&wpmd, wps->block2buff, wps->block2end);
             free_metadata (&wpmd);
