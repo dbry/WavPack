@@ -29,8 +29,9 @@
 
 // #define LARGE_HEADER
 #define SHORT_BLOCKS
-// #define ADD_BLOCK_CHECKSUM
-#define AUDIO_CHECKSUM_BYTES 2  // must be 0, 2, or 4
+
+#define BLOCK_CHECKSUM_BYTES 0  // must be 0, 2, or 4
+#define AUDIO_CHECKSUM_BYTES 0  // must be 0, 2, or 4
 
 // This header file contains all the definitions required by WavPack.
 
