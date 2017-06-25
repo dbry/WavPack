@@ -607,6 +607,7 @@ typedef struct {
 
 void pack_init (WavpackContext *wpc);
 int pack_block (WavpackContext *wpc, int32_t *buffer);
+void write_audio_checksum (WavpackMetadata *wpmd, unsigned char id, uint32_t checksum);
 void send_general_metadata (WavpackContext *wpc);
 void free_metadata (WavpackMetadata *wpmd);
 int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned char *buffer_end);

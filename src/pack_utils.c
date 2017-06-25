@@ -482,40 +482,31 @@ static int write_metadata_block (WavpackContext *wpc);
 
 int WavpackPackInit (WavpackContext *wpc)
 {
-    if (wpc->metabytes > 16384)             // 16384 bytes still leaves plenty of room for audio
-        write_metadata_block (wpc);         //  in this block (otherwise write a special one)
+    int sample_rate = wpc->config.sample_rate;
+    int divisor = 75;                           // 1/75th second is basic block size
 
-    // The default block size is a compromise. Longer blocks provide better encoding efficiency,
-    // but longer blocks adversely affect memory requirements and seeking performance. For WavPack
-    // version 5.0, the default block sizes have been reduced by half from the previous version,
-    // but the difference in encoding efficiency will generally be less than 0.1 percent.
+    if (wpc->metabytes > 1000)                  // 1000 bytes still leaves plenty of room for audio
+        write_metadata_block (wpc);             //  in this block (otherwise write a special one)
 
-    if (wpc->dsd_multiplier) {
-        wpc->block_samples = (wpc->config.sample_rate % 7) ? 48000 : 44100;
+    if (wpc->dsd_multiplier)
+        sample_rate *= wpc->dsd_multiplier;
 
-        if (wpc->config.flags & CONFIG_HIGH_FLAG)
-            wpc->block_samples /= 2;
-
-        if (wpc->config.num_channels == 1)
-            wpc->block_samples *= 2;
-
-        while (wpc->block_samples > 12000 && wpc->block_samples * wpc->config.num_channels > 300000)
-            wpc->block_samples /= 2;
+    if (sample_rate % divisor) {
+        if (sample_rate % 100) {
+            while (sample_rate % divisor)
+                divisor--;
+        }
+        else
+            divisor = 100;
     }
-    else {
-        int divisor = (wpc->config.flags & CONFIG_HIGH_FLAG) ? 2 : 4;
 
-        while (wpc->config.sample_rate % divisor)
-            divisor--;
+    wpc->block_samples = sample_rate / divisor;
 
-        wpc->block_samples = wpc->config.sample_rate / divisor;
+    while (wpc->block_samples > 8000 || wpc->block_samples * wpc->config.num_channels > 25000)
+        wpc->block_samples /= 2;
 
-        while (wpc->block_samples > 12000 && wpc->block_samples * wpc->config.num_channels > 75000)
-            wpc->block_samples /= 2;
-
-        while (wpc->block_samples * wpc->config.num_channels < 20000)
-            wpc->block_samples *= 2;
-    }
+    while (wpc->block_samples < 256)
+        wpc->block_samples *= 2;
 
     if (wpc->config.block_samples) {
         if ((wpc->config.flags & CONFIG_MERGE_BLOCKS) &&
@@ -1181,8 +1172,8 @@ static int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, un
             mdp = wpc->metadata + wpc->metacount - 1;
 
             if (mdp->id == id) {
-                if (wpc->metabytes + bcount > 1000000)
-                    bc = 1000000 - wpc->metabytes;
+                if (wpc->metabytes + bcount > 10000)
+                    bc = 10000 - wpc->metabytes;
 
                 mdp->data = realloc (mdp->data, mdp->byte_length + bc);
                 memcpy ((char *) mdp->data + mdp->byte_length, src, bc);
@@ -1191,7 +1182,7 @@ static int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, un
                 bcount -= bc;
                 src += bc;
 
-                if (wpc->metabytes >= 1000000 && !write_metadata_block (wpc))
+                if (wpc->metabytes >= 10000 && !write_metadata_block (wpc))
                     return FALSE;
             }
         }

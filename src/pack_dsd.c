@@ -59,6 +59,7 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
     uint32_t flags = wps->wphdr.flags, mult = wpc->dsd_multiplier, data_count;
     uint32_t sample_count = wps->wphdr.block_samples;
     unsigned char *dsd_encoding, dsd_power = 0;
+    WavpackMetadata wpmd;
     int32_t res;
 
     // This code scans stereo data to check whether it can be stored as mono data
@@ -135,9 +136,7 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
         while (num_samples--)
             crc += (crc << 1) + (*dsd_encoding++ = *buffer++);
 
-#ifdef LARGE_HEADER
-        ((WavpackHeader *) wps->blockbuff)->crc = crc;
-#endif
+        wps->crc = crc;
     }
     else
         data_count = res + 1;
@@ -158,6 +157,14 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
         *cptr++ = data_count >> 17;
         ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
     }
+
+#ifdef LARGE_HEADER
+    ((WavpackHeader *) wps->blockbuff)->crc = wps->crc;
+#elif AUDIO_CHECKSUM_BYTES
+    write_audio_checksum (&wpmd, ID_AUDIO_CHECKSUM, wps->crc);
+    copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
+    free_metadata (&wpmd);
+#endif
 
     wps->sample_index += sample_count;
     return TRUE;
@@ -349,9 +356,7 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
         total_summed_probabilities += summed_probabilities [p0] [255];
     }
 
-#ifdef LARGE_HEADER
-    ((WavpackHeader *) wps->blockbuff)->crc = crc;
-#endif
+    wps->crc = crc;
 
     // This code detects the case where the required value lookup tables grow silly big and cuts them back down. This would
     // normally only happen with large blocks or poorly compressible data. The target is to guarantee that the total memory
@@ -655,9 +660,7 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
             sp [1].factor -= (sp [1].factor + 512) >> 10;
     }
 
-#ifdef LARGE_HEADER
-    ((WavpackHeader *) wps->blockbuff)->crc = crc;
-#endif
+    wps->crc = crc;
     high = low;
 
     while (DSD_BYTE_READY (high, low)) {

@@ -120,7 +120,7 @@ static const char *help =
 "                              n = 2.0 to 23.9 bits/sample, or\n"
 "                              n = 24-9600 kbits/second (kbps)\n"
 "                              add -c to create correction file (.wvc)\n"
-"    --blocksize=n           specify block size in samples (max = 131072 and\n"
+"    --blocksize=n           specify block size in samples (max = 8000 and\n"
 "                               min = 16 with --merge-blocks, otherwise 128)\n"
 "    -c                      hybrid lossless mode (use with -b to create\n"
 "                             correction file (.wvc) in hybrid mode)\n"
@@ -472,7 +472,7 @@ int main (int argc, char **argv)
             else if (!strncmp (long_option, "blocksize", 9)) {          // --blocksize
                 config.block_samples = strtol (long_param, NULL, 10);
 
-                if (config.block_samples < 16 || config.block_samples > 131072) {
+                if (config.block_samples < 16 || config.block_samples > 8000) {
                     error_line ("invalid blocksize!");
                     ++error_count;
                 }

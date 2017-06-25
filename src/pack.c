@@ -549,9 +549,16 @@ static void write_total_samples (WavpackContext *wpc, WavpackMetadata *wpmd)
 // Allocate room for and copy the specified checksum value into the
 // metadata structure.
 
-static void write_audio_checksum (WavpackMetadata *wpmd, unsigned char id, uint32_t checksum)
+void write_audio_checksum (WavpackMetadata *wpmd, unsigned char id, uint32_t checksum)
 {
     char *byteptr;
+
+    // static uint32_t randoms = 0x31415926;
+    // randoms = ((randoms << 4) - randoms) ^ 1;
+    // randoms = ((randoms << 4) - randoms) ^ 1;
+    // randoms = ((randoms << 4) - randoms) ^ 1;
+    // if (!(randoms >> 20))
+    //     checksum ^= 1 << ((randoms >> 16) & 0xF);
 
     byteptr = wpmd->data = malloc (4);
     wpmd->id = id;
