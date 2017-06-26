@@ -508,24 +508,15 @@ int WavpackPackInit (WavpackContext *wpc)
     while (wpc->block_samples < 256)
         wpc->block_samples *= 2;
 
-    if (wpc->config.block_samples) {
-        if ((wpc->config.flags & CONFIG_MERGE_BLOCKS) &&
-            wpc->block_samples > (uint32_t) wpc->config.block_samples) {
-                wpc->block_boundary = wpc->config.block_samples;
-                wpc->block_samples /= wpc->config.block_samples;
-                wpc->block_samples *= wpc->config.block_samples;
-        }
-        else
-            wpc->block_samples = wpc->config.block_samples;
-    }
+    if (wpc->config.block_samples)
+        wpc->block_samples = wpc->config.block_samples;
 
     wpc->ave_block_samples = wpc->block_samples;
-    wpc->max_samples = wpc->block_samples + (wpc->block_samples >> 1);
 
     for (wpc->current_stream = 0; wpc->current_stream < wpc->num_streams; wpc->current_stream++) {
         WavpackStream *wps = wpc->streams [wpc->current_stream];
 
-        wps->sample_buffer = malloc (wpc->max_samples * (wps->wphdr.flags & MONO_FLAG ? 4 : 8));
+        wps->sample_buffer = malloc (wpc->block_samples * (wps->wphdr.flags & MONO_FLAG ? 4 : 8));
 
 #ifdef ENABLE_DSD
         if (wps->wphdr.flags & DSD_FLAG)
@@ -567,8 +558,8 @@ int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sa
                 return FALSE;
         }
 
-        if (wpc->acc_samples + sample_count > wpc->max_samples)
-            samples_to_copy = wpc->max_samples - wpc->acc_samples;
+        if (wpc->acc_samples + sample_count > wpc->block_samples)
+            samples_to_copy = wpc->block_samples - wpc->acc_samples;
         else
             samples_to_copy = sample_count;
 
@@ -666,7 +657,7 @@ int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sa
         sample_buffer += samples_to_copy * nch;
         sample_count -= samples_to_copy;
 
-        if ((wpc->acc_samples += samples_to_copy) == wpc->max_samples &&
+        if ((wpc->acc_samples += samples_to_copy) == wpc->block_samples &&
             !pack_streams (wpc, wpc->block_samples))
                 return FALSE;
     }

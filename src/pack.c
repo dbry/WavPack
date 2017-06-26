@@ -65,7 +65,7 @@ void pack_init (WavpackContext *wpc)
     }
 
     if (wpc->config.flags & CONFIG_DYNAMIC_SHAPING)
-        wps->dc.shaping_data = malloc (wpc->max_samples * sizeof (*wps->dc.shaping_data));
+        wps->dc.shaping_data = malloc (wpc->block_samples * sizeof (*wps->dc.shaping_data));
 
     if (!wpc->config.xmode)
         wps->num_passes = 0;
@@ -681,17 +681,6 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
             dynamic_noise_shaping (wpc, buffer, TRUE);
             sample_count = wps->wphdr.block_samples;
             dynamic_shaping_done = TRUE;
-        }
-        else if (wpc->block_boundary && sample_count >= (int32_t) wpc->block_boundary * 2) {
-            int bc = sample_count / wpc->block_boundary, chans = (flags & MONO_DATA) ? 1 : 2;
-            int res = scan_redundancy (buffer, wpc->block_boundary * chans), i; 
-
-            for (i = 1; i < bc; ++i)
-                if (res != scan_redundancy (buffer + (i * wpc->block_boundary * chans),
-                    wpc->block_boundary * chans)) {
-                        sample_count = wps->wphdr.block_samples = wpc->block_boundary * i;
-                        break;
-                    }
         }
     }
 

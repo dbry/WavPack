@@ -337,7 +337,6 @@ typedef struct {
 #define CONFIG_EXTRA_MODE       0x2000000 // extra processing mode
 #define CONFIG_SKIP_WVX         0x4000000 // no wvx stream w/ floats & big ints
 #define CONFIG_MD5_CHECKSUM     0x8000000 // compute & store MD5 signature
-#define CONFIG_MERGE_BLOCKS     0x10000000 // merge blocks of equal redundancy (for lossyWAV)
 #define CONFIG_PAIR_UNDEF_CHANS 0x20000000 // encode undefined channels in stereo pairs
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
@@ -358,6 +357,7 @@ typedef struct {
 #define CONFIG_QUALITY_MODE     0x200000 // psychoacoustic quality mode
 #define CONFIG_RAW_FLAG         0x400000 // raw mode (not implemented yet)
 #define CONFIG_QUIET_MODE       0x10000000 // don't report progress %
+#define CONFIG_MERGE_BLOCKS     0x10000000 // merge blocks of equal redundancy (for lossyWAV)
 #define CONFIG_IGNORE_LENGTH    0x20000000 // ignore length in wav header
 #define CONFIG_NEW_RIFF_HEADER  0x40000000 // generate new RIFF wav header
  *
@@ -532,7 +532,7 @@ typedef struct {
     int64_t filelen, file2len, filepos, file2pos, total_samples, initial_index;
     uint32_t crc_errors, first_flags;
     int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, version_five;
-    uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, riff_trailer_bytes;
+    uint32_t block_samples, ave_block_samples, acc_samples, riff_trailer_bytes;
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
 
