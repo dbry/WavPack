@@ -497,7 +497,7 @@ static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
 	    }
 #else
         if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
-            !(*++sp & 1) && sp [1] < 32 && sp [3] < 32) {
+            !(*++sp & 1) && sp [1] < 64 && sp [3] < 32) {
                 memcpy (wphdr, buffer, sizeof (*wphdr));
                 little_endian_to_native (wphdr, WavpackHeaderFormat);
                 return bytes_skipped;

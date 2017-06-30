@@ -657,7 +657,6 @@ static void write_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 static int scan_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void scan_int32_quick (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
-static int scan_redundancy (int32_t *values, int32_t num_values);
 static int pack_samples (WavpackContext *wpc, int32_t *buffer);
 static void bs_open_write (Bitstream *bs, void *buffer_start, void *buffer_end);
 static uint32_t bs_close_write (Bitstream *bs);
@@ -965,44 +964,6 @@ static void scan_int32_quick (WavpackStream *wps, int32_t *values, int32_t num_v
         for (dp = values, count = num_values; count--; dp++)
             *dp >>= total_shift;
     }
-}
-
-static int scan_redundancy (int32_t *values, int32_t num_values)
-{
-    uint32_t ordata = 0, xordata = 0, anddata = ~0;
-    int redundant_bits = 0;
-    int32_t *dp, count;
-
-    for (dp = values, count = num_values; count--; dp++) {
-        xordata |= *dp ^ -(*dp & 1);
-        anddata &= *dp;
-        ordata |= *dp;
-
-        if ((ordata & 1) && !(anddata & 1) && (xordata & 2))
-            return 0;
-    }
-
-    if (!ordata || anddata == ~0 || !xordata)
-        return 0;
-
-    if (!(ordata & 1))
-        while (!(ordata & 1)) {
-            redundant_bits++;
-            ordata >>= 1;
-        }
-    else if (anddata & 1)
-        while (anddata & 1) {
-            redundant_bits = (redundant_bits + 1) | 0x40;
-            anddata >>= 1;
-        }
-    else if (!(xordata & 2))
-        while (!(xordata & 2)) {
-            redundant_bits = (redundant_bits + 1) | 0x80;
-            redundant_bits++;
-            xordata >>= 1;
-        }
-
-    return redundant_bits;
 }
 
 // Scan a buffer of long integer data and determine whether any redundancy in
@@ -1934,21 +1895,20 @@ static uint32_t bs_close_write (Bitstream *bs)
 {
     uint32_t bytes_written;
 
-    if (bs->error)
-        return (uint32_t) -1;
-
     while (1) {
         while (bs->bc)
             putbit_1 (bs);
 
         bytes_written = (uint32_t)(bs->ptr - bs->buf) * sizeof (*(bs->ptr));
 
-        if (bytes_written & 1) {
+        if (bytes_written & 1)
             putbit_1 (bs);
-        }
         else
             break;
     };
+
+    if (bs->error)
+        return (uint32_t) -1;
 
     CLEAR (*bs);
     return bytes_written;

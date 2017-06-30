@@ -907,6 +907,9 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 
     max_blocksize += wpc->metabytes + 1024;     // finally, add metadata & another 1K margin
 
+    if (max_blocksize >= 16384)                 // limit blocks to 16K for now (somewhat arbitrary)
+        max_blocksize = 16384;
+
     out2buff = (wpc->wvc_flag) ? malloc (max_blocksize) : NULL;
     out2end = out2buff + max_blocksize;
     outbuff = malloc (max_blocksize);
