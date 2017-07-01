@@ -872,7 +872,17 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         if (data_count) {
             WavpackMetadata wpmd;
 
-            if (data_count != (uint32_t) -1) {
+            if (data_count < 512) {
+                *cptr++ = ID_WVX_BITSTREAM;
+                *cptr++ = data_count >> 1;
+                memmove (cptr, cptr + 2, data_count);
+
+                if (wpc->wvc_flag)
+                    ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 2;
+                else
+                    ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 2;
+            }
+            else if (data_count != (uint32_t) -1) {
                 *cptr++ = ID_WVX_BITSTREAM | ID_LARGE;
                 *cptr++ = data_count >> 1;
                 *cptr++ = data_count >> 9;
@@ -1571,9 +1581,15 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
         data_count = bs_close_write (&wps->wvbits);
 
         if (data_count) {
-            if (data_count != (uint32_t) -1) {
-                unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + CHUNK_SIZE_OFFSET;
+            unsigned char *cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + CHUNK_SIZE_OFFSET;
 
+            if (data_count < 512) {
+                *cptr++ = ID_WV_BITSTREAM;
+                *cptr++ = data_count >> 1;
+                memmove (cptr, cptr + 2, data_count);
+                ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 2;
+            }
+            else if (data_count != (uint32_t) -1) {
                 *cptr++ = ID_WV_BITSTREAM | ID_LARGE;
                 *cptr++ = data_count >> 1;
                 *cptr++ = data_count >> 9;
@@ -1596,9 +1612,15 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             data_count = bs_close_write (&wps->wvcbits);
 
             if (data_count && lossy) {
-                if (data_count != (uint32_t) -1) {
-                    unsigned char *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + CHUNK_SIZE_OFFSET;
+                unsigned char *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + CHUNK_SIZE_OFFSET;
 
+                if (data_count < 512) {
+                    *cptr++ = ID_WVC_BITSTREAM;
+                    *cptr++ = data_count >> 1;
+                    memmove (cptr, cptr + 2, data_count);
+                    ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 2;
+                }
+                else if (data_count != (uint32_t) -1) {
                     *cptr++ = ID_WVC_BITSTREAM | ID_LARGE;
                     *cptr++ = data_count >> 1;
                     *cptr++ = data_count >> 9;
