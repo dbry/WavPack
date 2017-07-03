@@ -162,15 +162,8 @@ uint32_t WavpackGetSampleIndex (WavpackContext *wpc)
 int64_t WavpackGetSampleIndex64 (WavpackContext *wpc)
 {
     if (wpc) {
-#ifdef ENABLE_LEGACY
-        if (wpc->stream3)
-            return get_sample_index3 (wpc);
-        else if (wpc->streams && wpc->streams [0])
-            return wpc->streams [0]->sample_index;
-#else
         if (wpc->streams && wpc->streams [0])
             return wpc->streams [0]->sample_index;
-#endif
     }
 
     return -1;
@@ -368,11 +361,6 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
 
         free (wpc->streams);
     }
-
-#ifdef ENABLE_LEGACY
-    if (wpc->stream3)
-        free_stream3 (wpc);
-#endif
 
     if (wpc->reader && wpc->reader->close && wpc->wv_in)
         wpc->reader->close (wpc->wv_in);

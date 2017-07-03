@@ -122,14 +122,6 @@ AC_MSG_RESULT([$windows_host])
 
 AM_CONDITIONAL([WINDOWS_HOST], [test "x$windows_host" = "xyes"])
 
-AC_ARG_ENABLE([legacy],
-    AS_HELP_STRING([--enable-legacy], [decode legacy (< 4.0) WavPack files]))
-
-AS_IF([test "x$enable_legacy" = "xyes"],
-    [AC_DEFINE([ENABLE_LEGACY])])
-
-AM_CONDITIONAL([ENABLE_LEGACY], [test "x$enable_legacy" == "xyes"])
-
 AC_ARG_ENABLE([dsd],
     AS_HELP_STRING([--disable-dsd], [disable support for WavPack DSD files]))
 

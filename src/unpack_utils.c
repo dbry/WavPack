@@ -41,11 +41,6 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
     uint32_t bcount, samples_unpacked = 0, samples_to_unpack;
     int32_t *bptr = buffer;
 
-#ifdef ENABLE_LEGACY
-    if (wpc->stream3)
-        return unpack_samples3 (wpc, buffer, samples);
-#endif
-
     while (samples) {
 
         // if the current block has no audio, or it's not the first block of a multichannel

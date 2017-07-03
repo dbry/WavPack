@@ -23,10 +23,6 @@ libwavpack_la_SOURCES = \
 	unpack_utils.c \
 	write_words.c
 
-if ENABLE_LEGACY
-libwavpack_la_SOURCES += unpack3.c unpack3_open.c unpack3_seek.c
-endif
-
 if ENABLE_DSD
 libwavpack_la_SOURCES += pack_dsd.c unpack_dsd.c
 endif
@@ -45,7 +41,6 @@ endif
 
 noinst_HEADERS = \
 	decorr_tables.h \
-	unpack3.h \
 	wavpack_local.h \
 	wavpack_version.h
 
