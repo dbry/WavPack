@@ -71,35 +71,6 @@ typedef int32_t f32;
 #define FALSE 0
 #define TRUE 1
 
-// ID3v1 and APEv2 TAG formats (may occur at the end of WavPack files)
-
-typedef struct {
-    char tag_id [3], title [30], artist [30], album [30];
-    char year [4], comment [30], genre;
-} ID3_Tag;
-
-typedef struct {
-    char ID [8];
-    int32_t version, length, item_count, flags;
-    char res [8];
-} APE_Tag_Hdr;
-
-#define APE_Tag_Hdr_Format "8LLLL"
-
-#define APE_TAG_TYPE_TEXT       0x0
-#define APE_TAG_TYPE_BINARY     0x1
-#define APE_TAG_THIS_IS_HEADER  0x20000000
-#define APE_TAG_CONTAINS_HEADER 0x80000000
-#define APE_TAG_MAX_LENGTH      (1024 * 1024 * 16)
-
-typedef struct {
-    int64_t tag_file_pos;
-    int tag_begins_file;
-    ID3_Tag id3_tag;
-    APE_Tag_Hdr ape_tag_hdr;
-    unsigned char *ape_tag_data;
-} M_Tag;
-
 // RIFF / wav header formats (these occur at the beginning of both wav files
 // and pre-4.0 WavPack files that are not in the "raw" mode)
 
@@ -245,8 +216,6 @@ typedef struct {
     int qmode, flags, xmode, num_channels, float_norm_exp;
     int32_t block_samples, extra_flags, sample_rate, channel_mask;
     unsigned char md5_checksum [16], md5_read;
-    int num_tag_strings;
-    char **tag_strings;
 } WavpackConfig;
 
 #define CONFIG_BYTES_STORED     3       // 1-4 bytes/sample
@@ -471,7 +440,6 @@ typedef struct {
     int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, version_five;
     uint32_t block_samples, ave_block_samples, acc_samples, riff_trailer_bytes;
     int riff_header_added, riff_header_created;
-    M_Tag m_tag;
 
     int current_stream, num_streams, max_streams;
     WavpackStream **streams;
@@ -759,13 +727,11 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
 
 #define OPEN_WVC        0x1     // open/read "correction" file
-#define OPEN_TAGS       0x2     // read ID3v1 / APEv2 tags (seekable file)
 #define OPEN_WRAPPER    0x4     // make audio wrapper available (i.e. RIFF)
 #define OPEN_2CH_MAX    0x8     // open multichannel as stereo (no downmix)
 #define OPEN_NORMALIZE  0x10    // normalize floating point data to +/- 1.0
 #define OPEN_STREAMING  0x20    // "streaming" mode blindly unpacks blocks
                                 // w/o regard to header file position info
-#define OPEN_EDIT_TAGS  0x40    // allow editing of tags
 #define OPEN_FILE_UTF8  0x80    // assume filenames are UTF-8 encoded, not ANSI (Windows only)
 
 // new for version 5
@@ -783,11 +749,9 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_LOSSLESS   0x2
 #define MODE_HYBRID     0x4
 #define MODE_FLOAT      0x8
-#define MODE_VALID_TAG  0x10
 #define MODE_HIGH       0x20
 #define MODE_FAST       0x40
 #define MODE_EXTRA      0x80    // extra mode used, see MODE_XMODE for possible level
-#define MODE_APETAG     0x100
 #define MODE_SFX        0x200
 #define MODE_VERY_HIGH  0x400
 #define MODE_MD5        0x800
@@ -857,24 +821,6 @@ void WavpackNativeToBigEndian (void *data, char *format);
 
 void install_close_callback (WavpackContext *wpc, void cb_func (void *wpc));
 void free_streams (WavpackContext *wpc);
-
-/////////////////////////////////// tag utilities ////////////////////////////////////
-// modules: tags.c, tag_utils.c
-
-int WavpackGetNumTagItems (WavpackContext *wpc);
-int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int size);
-int WavpackGetTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
-int WavpackGetNumBinaryTagItems (WavpackContext *wpc);
-int WavpackGetBinaryTagItem (WavpackContext *wpc, const char *item, char *value, int size);
-int WavpackGetBinaryTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
-int WavpackAppendTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
-int WavpackAppendBinaryTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
-int WavpackDeleteTagItem (WavpackContext *wpc, const char *item);
-int WavpackWriteTag (WavpackContext *wpc);
-int load_tag (WavpackContext *wpc);
-void free_tag (M_Tag *m_tag);
-int valid_tag (M_Tag *m_tag);
-int editable_tag (M_Tag *m_tag);
 
 #endif
 

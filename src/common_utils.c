@@ -93,15 +93,6 @@ int WavpackGetMode (WavpackContext *wpc)
         if ((wpc->config.flags & CONFIG_HYBRID_FLAG) && (wpc->config.flags & CONFIG_DYNAMIC_SHAPING))
             mode |= MODE_DNS;
 
-#ifndef NO_TAGS
-        if (valid_tag (&wpc->m_tag)) {
-            mode |= MODE_VALID_TAG;
-
-            if (valid_tag (&wpc->m_tag) == 'A')
-                mode |= MODE_APETAG;
-        }
-#endif
-
         mode |= (wpc->config.qmode << 16) & 0xFF0000;
     }
 
@@ -372,10 +363,6 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
 
     if (wpc->channel_reordering)
         free (wpc->channel_reordering);
-
-#ifndef NO_TAGS
-    free_tag (&wpc->m_tag);
-#endif
 
 #ifdef ENABLE_DSD
     if (wpc->decimation_context)

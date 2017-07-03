@@ -24,7 +24,6 @@
 #include <sys/stat.h>
 #include <sys/param.h>
 #include <locale.h>
-#include <iconv.h>
 #if defined (__GNUC__)
 #include <unistd.h>
 #include <glob.h>
@@ -110,16 +109,14 @@ static const char *usage =
 "          -m  = calculate and display MD5 signature; verify if lossless\n"
 "          -n  = no audio decoding (use with -xx to extract tags only)\n"
 #ifdef _WIN32
-"          --no-utf8-convert = leave tag items in UTF-8 when extracting to files\n"
 "          --pause = pause before exiting (if console window disappears)\n"
 #else
-"          --no-utf8-convert = leave tag items in UTF-8 on extract or display\n"
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
 "          -q  = quiet (keep console output to a minimum)\n"
 "          -r or --raw  = force raw audio decode (results in .raw extension)\n"
 "          -s  = display summary information only to stdout (no audio decode)\n"
-"          -ss = display super summary (including tags) to stdout (no decode)\n"
+"          -ss = display super summary to stdout (no decode)\n"
 "          --skip=[-][sample|hh:mm:ss.ss] = start decoding at specified sample/time\n"
 "              (specifying a '-' causes sample/time to be relative to end of file)\n"
 "          -t  = copy input file's time stamp to output file(s)\n"
@@ -130,12 +127,6 @@ static const char *usage =
 "          --version = write the version to stdout\n"
 "          -w or --wav  = force output to Microsoft RIFF/RF64 (extension .wav)\n"
 "          --w64 = force output to Sony Wave64 format (extension .w64)\n"
-"          -x \"Field\" = extract specified tag field only to stdout (no audio decode)\n"
-"          -xx \"Field[=file]\" = extract specified tag field to file, optional\n"
-"              filename specification can inlude following replacement codes:\n"
-"                %a = audio output filename\n"
-"                %t = tag field name (note: comes from data for binary tags)\n"
-"                %e = extension from binary tag source file, or 'txt' for text tag\n"
 "          -y  = yes to overwrite warning (use with caution!)\n"
 #if defined (_WIN32)
 "          -z  = don't set console title to indicate progress\n\n"
@@ -179,17 +170,12 @@ static struct sample_time_index {
     double value;
 } skip, until;
 
-static char *tag_extract_stdout;    // extract single tag to stdout
-static char **tag_extractions;      // extract multiple tags to named files
-static int num_tag_extractions;
-
 #ifdef _WIN32
 static int pause_mode;
 #endif
 
 /////////////////////////// local function declarations ///////////////////////
 
-static void add_tag_extraction_to_list (char *spec);
 static void parse_sample_time_index (struct sample_time_index *dst, char *src);
 static int unpack_file (char *infilename, char *outfilename, int add_extension);
 static void display_progress (double file_progress);
@@ -216,7 +202,7 @@ int main(int argc, char **argv)
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
 #endif
-    int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, c_count = 0, x_count = 0;
+    int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0;
     char outpath, **matches = NULL, *outfilename = NULL;
     int result;
 
@@ -329,14 +315,6 @@ int main(int argc, char **argv)
                         overwrite_all = 1;
                         break;
 
-                    case 'C': case 'c':
-                        if (++c_count == 2) {
-                            add_tag_extraction_to_list ("cuesheet=%a.cue");
-                            c_count = 0;
-                        }
-
-                        break;
-
                     case 'D': case 'd':
                         delete_source = 1;
                         break;
@@ -425,15 +403,6 @@ int main(int argc, char **argv)
                         --*argv;
                         break;
 
-                    case 'X': case 'x':
-                        if (++x_count == 3) {
-                            error_line ("illegal option: %s !", *argv);
-                            ++error_count;
-                            x_count = 0;
-                        }
-
-                        break;
-
                     case 'I': case 'i':
                         ignore_wvc = 1;
                         break;
@@ -443,24 +412,8 @@ int main(int argc, char **argv)
                         ++error_count;
                 }
         else {
-            if (x_count) {
-                if (x_count == 1) {
-                    if (tag_extract_stdout) {
-                        error_line ("can't extract more than 1 tag item to stdout at a time!");
-                        ++error_count;
-                    }
-                    else {
-                        tag_extract_stdout = *argv;
-                        no_audio_decode = 1;
-                    }
-                }
-                else if (x_count == 2)
-                    add_tag_extraction_to_list (*argv);
-
-                x_count = 0;
-            }
 #if defined (_WIN32)
-            else if (!num_files) {
+            if (!num_files) {
                 matches = realloc (matches, (num_files + 1) * sizeof (*matches));
                 matches [num_files] = malloc (strlen (*argv) + 10);
                 strcpy (matches [num_files], *argv);
@@ -480,7 +433,7 @@ int main(int argc, char **argv)
                 ++error_count;
             }
 #else
-            else if (output_spec) {
+            if (output_spec) {
                 outfilename = malloc (strlen (*argv) + PATH_MAX);
                 strcpy (outfilename, *argv);
                 output_spec = 0;
@@ -522,24 +475,8 @@ int main(int argc, char **argv)
         ++error_count;
     }
 
-    if (c_count == 1) {
-        if (tag_extract_stdout) {
-            error_line ("can't extract more than 1 tag item to stdout at a time!");
-            error_count++;
-        }
-        else {
-            tag_extract_stdout = "cuesheet";
-            no_audio_decode = 1;
-        }
-    }
-
-    if ((summary || tag_extract_stdout) && (num_tag_extractions || outfilename || verify_only || delete_source || format_specified || raw_decode)) {
-        error_line ("can't display summary information or extract a tag to stdout and do anything else!");
-        ++error_count;
-    }
-
-    if ((tag_extract_stdout || num_tag_extractions) && outfilename && *outfilename == '-') {
-        error_line ("can't extract tags when unpacking audio to stdout!");
+    if (summary && (outfilename || verify_only || delete_source || format_specified || raw_decode)) {
+        error_line ("can't display summary information and do anything else!");
         ++error_count;
     }
 
@@ -993,10 +930,8 @@ static FILE *open_output_file (char *filename, char **tempfilename)
 
 static int unpack_audio (WavpackContext *wpc, FILE *outfile, int qmode, unsigned char *md5_digest, int64_t *sample_count);
 static int unpack_dsd_audio (WavpackContext *wpc, FILE *outfile, int qmode, unsigned char *md5_digest, int64_t *sample_count);
-static int do_tag_extractions (WavpackContext *wpc, char *outfilename);
 static void *store_samples (void *dst, int32_t *src, int qmode, int bps, int count);
 static void dump_summary (WavpackContext *wpc, char *name, FILE *dst);
-static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fn);
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int parameter);
 static void unreorder_channels (int32_t *data, unsigned char *order, int num_chans, int num_samples);
 
@@ -1037,9 +972,6 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     if (!ignore_wvc)
         open_flags |= OPEN_WVC;
-
-    if (summary > 1 || num_tag_extractions || tag_extract_stdout)
-        open_flags |= OPEN_TAGS;
 
     if (format_specified && decode_format != WP_FORMAT_DFF && decode_format != WP_FORMAT_DSF)
         open_flags |= OPEN_DSD_AS_PCM | OPEN_ALT_TYPES;
@@ -1196,21 +1128,6 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         dump_file_info (wpc, infilename, stdout, file_info - 1);
     else if (summary)
         dump_summary (wpc, infilename, stdout);
-    else if (tag_extract_stdout) {
-        if (!dump_tag_item_to_file (wpc, tag_extract_stdout, stdout, NULL)) {
-            error_line ("tag \"%s\" not found!", tag_extract_stdout);
-            WavpackCloseFile (wpc);
-            return WAVPACK_SOFT_ERROR;
-        }
-    }
-    else if (num_tag_extractions && outfilename && *outfilename != '-' && filespec_name (outfilename)) {
-        result = do_tag_extractions (wpc, outfilename);
-
-        if (result != WAVPACK_NO_ERROR) {
-            WavpackCloseFile (wpc);
-            return result;
-        }
-    }
 
     if (no_audio_decode) {
         WavpackCloseFile (wpc);
@@ -1795,134 +1712,6 @@ static int unpack_dsd_audio (WavpackContext *wpc, FILE *outfile, int qmode, unsi
     return result;
 }
 
-static void add_tag_extraction_to_list (char *spec)
-{
-    tag_extractions = realloc (tag_extractions, (num_tag_extractions + 1) * sizeof (*tag_extractions));
-    tag_extractions [num_tag_extractions] = malloc (strlen (spec) + 10);
-    strcpy (tag_extractions [num_tag_extractions], spec);
-    num_tag_extractions++;
-}
-
-static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
-{
-    int result = WAVPACK_NO_ERROR, i;
-    FILE *outfile;
-
-    for (i = 0; result == WAVPACK_NO_ERROR && i < num_tag_extractions; ++i) {
-        char *extraction_spec = strdup (tag_extractions [i]);
-        char *output_spec = strchr (extraction_spec, '=');
-        char tag_filename [256];
-
-        if (output_spec && output_spec > extraction_spec && strlen (output_spec) > 1)
-            *output_spec++ = 0;
-
-        if (dump_tag_item_to_file (wpc, extraction_spec, NULL, tag_filename)) {
-            int max_length = (int) strlen (outfilename) + (int) strlen (tag_filename) + 10;
-            char *full_filename;
-
-            if (output_spec)
-                max_length += (int) strlen (output_spec) + 256;
-
-            full_filename = malloc (max_length * 2 + 1);
-            strcpy (full_filename, outfilename);
-
-            if (output_spec) {
-                char *dst = filespec_name (full_filename);
-
-                while (*output_spec && dst - full_filename < max_length) {
-                    if (*output_spec == '%') {
-                        switch (*++output_spec) {
-                            case 'a':                           // audio filename
-                                strcpy (dst, filespec_name (outfilename));
-
-                                if (filespec_ext (dst))         // get rid of any extension
-                                    dst = filespec_ext (dst);
-                                else
-                                    dst += strlen (dst);
-
-                                output_spec++;
-                                break;
-
-                            case 't':                           // tag field name
-                                strcpy (dst, tag_filename);
-
-                                if (filespec_ext (dst))         // get rid of any extension
-                                    dst = filespec_ext (dst);
-                                else
-                                    dst += strlen (dst);
-
-                                output_spec++;
-                                break;
-
-                            case 'e':                           // default extension
-                                if (filespec_ext (tag_filename)) {
-                                    strcpy (dst, filespec_ext (tag_filename) + 1);
-                                    dst += strlen (dst);
-                                }
-
-                                output_spec++;
-                                break;
-
-                            default:
-                                *dst++ = '%';
-                        }
-                    }
-                    else
-                        *dst++ = *output_spec++;
-                }
-
-                *dst = 0;
-            }
-            else
-                strcpy (filespec_name (full_filename), tag_filename);
-
-            if (!overwrite_all && (outfile = fopen (full_filename, "r")) != NULL) {
-                DoCloseHandle (outfile);
-                fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (full_filename));
-                fflush (stderr);
-
-                if (set_console_title)
-                    DoSetConsoleTitle ("overwrite?");
-
-                switch (yna ()) {
-
-                    case 'n':
-                        *full_filename = 0;
-                        break;
-
-                    case 'a':
-                        overwrite_all = 1;
-                }
-            }
-
-            // open output file for writing
-
-            if (*full_filename) {
-                if ((outfile = fopen (full_filename, "w")) == NULL) {
-                    error_line ("can't create file %s!", FN_FIT (full_filename));
-                    result = WAVPACK_SOFT_ERROR;
-                }
-                else {
-                    dump_tag_item_to_file (wpc, extraction_spec, outfile, NULL);
-
-                    if (!DoCloseHandle (outfile)) {
-                        error_line ("can't close file %s!", FN_FIT (full_filename));
-                        result = WAVPACK_SOFT_ERROR;
-                    }
-                    else if (!quiet_mode)
-                        error_line ("extracted tag \"%s\" to file %s", extraction_spec, FN_FIT (full_filename));
-                }
-            }
-
-            free (full_filename);
-        }
-
-        free (extraction_spec);
-    }
-
-    return result;
-}
-
 // Code to store samples. Source is an array of int32_t data (which is what WavPack uses
 // internally), but the destination can have from 1 to 4 bytes per sample. Also, the destination
 // data is assumed to be little-endian and signed, except for byte data which is unsigned (these
@@ -2315,95 +2104,6 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         else
             fprintf (dst, "file wrapper:      none stored\n");
     }
-
-    if (WavpackGetMode (wpc) & MODE_VALID_TAG) {
-        int ape_tag = WavpackGetMode (wpc) & MODE_APETAG;
-        int num_binary_items = WavpackGetNumBinaryTagItems (wpc);
-        int num_items = WavpackGetNumTagItems (wpc), i;
-        char *spaces = "                  ";
-
-        fprintf (dst, "\n%s tag items:   %d\n", ape_tag ? "APEv2" : "ID3v1", num_items + num_binary_items);
-
-        for (i = 0; i < num_items; ++i) {
-            int item_len, value_len, j;
-            char *item, *value;
-
-            item_len = WavpackGetTagItemIndexed (wpc, i, NULL, 0);
-            item = malloc (item_len + 1);
-            WavpackGetTagItemIndexed (wpc, i, item, item_len + 1);
-            value_len = WavpackGetTagItem (wpc, item, NULL, 0);
-            value = malloc (value_len * 2 + 1);
-            WavpackGetTagItem (wpc, item, value, value_len + 1);
-
-            fprintf (dst, "%s:%s", item, strlen (item) < strlen (spaces) ? spaces + strlen (item) : " ");
-
-            if (ape_tag) {
-                for (j = 0; j < value_len; ++j)
-                    if (!value [j])
-                        value [j] = '\\';
-
-                if (strchr (value, '\n'))
-                    fprintf (dst, "%d-byte multi-line text string\n", value_len);
-                else {
-                    dump_UTF8_string (value, dst);
-                    fprintf (dst, "\n");
-                }
-            }
-            else
-                fprintf (dst, "%s\n", value);
-
-            free (value);
-            free (item);
-        }
-
-        for (i = 0; i < num_binary_items; ++i) {
-            int item_len, value_len;
-            char *item, fname [256];
-
-            item_len = WavpackGetBinaryTagItemIndexed (wpc, i, NULL, 0);
-            item = malloc (item_len + 1);
-            WavpackGetBinaryTagItemIndexed (wpc, i, item, item_len + 1);
-            value_len = dump_tag_item_to_file (wpc, item, NULL, fname);
-            fprintf (dst, "%s:%s", item, strlen (item) < strlen (spaces) ? spaces + strlen (item) : " ");
-
-            if (filespec_ext (fname))
-                fprintf (dst, "%d-byte binary item (%s)\n", value_len, filespec_ext (fname)+1);
-            else
-                fprintf (dst, "%d-byte binary item\n", value_len);
-
-#if 0   // debug binary tag reading
-            {
-                char md5_string [] = "00000000000000000000000000000000";
-                unsigned char md5_result [16];
-                MD5_CTX md5_context;
-                char *value;
-                int i, j;
-
-                MD5Init (&md5_context);
-                value_len = WavpackGetBinaryTagItem (wpc, item, NULL, 0);
-                value = malloc (value_len);
-                value_len = WavpackGetBinaryTagItem (wpc, item, value, value_len);
-
-                for (i = 0; i < value_len; ++i)
-                    if (!value [i]) {
-                        MD5Update (&md5_context, (unsigned char *) value + i + 1, value_len - i - 1);
-                        MD5Final (md5_result, &md5_context);
-                        for (j = 0; j < 16; ++j)
-                            sprintf (md5_string + (j * 2), "%02x", md5_result [j]);
-                        fprintf (dst, "    %d byte string >>%s<<\n", i, value);
-                        fprintf (dst, "    %d bytes binary data >>%s<<\n", value_len - i - 1, md5_string);
-                        break;
-                    }
-
-                if (i == value_len)
-                    fprintf (dst, "    no NULL found in binary value (or value not readable)\n");
-
-                free (value);
-            }
-#endif
-            free (item);
-        }
-    }
 }
 
 // Dump a summary of the file information in a machine-parsable format to the specified file (usually stdout).
@@ -2510,310 +2210,6 @@ static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
         default:
             break;
     }
-}
-
-// Dump the specified tag field to the specified stream. Both text and binary tags may be written,
-// and in Windows the appropriate file mode will be set. If the tag is not found then 0 is returned,
-// otherwise the length of the data is returned, and this is true even when the file pointer is NULL
-// so this can be used to determine if the tag exists before further processing.
-//
-// The "fname" parameter can optionally be set to a character array that will accept the suggested
-// filename. This is formed by the tag item name with the extension ".txt" for text fields; for
-// binary fields this is supplied by convention as a NULL terminated string at the beginning of the
-// data, so this is returned. The string should have 256 characters available.
-
-static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fname)
-{
-    if (WavpackGetMode (wpc) & MODE_VALID_TAG) {
-        if (WavpackGetTagItem (wpc, tag_item, NULL, 0)) {
-            int value_len = WavpackGetTagItem (wpc, tag_item, NULL, 0);
-            char *value;
-
-            if (fname) {
-                strcpy (fname, tag_item);
-                strcat (fname, ".txt");
-            }
-
-            if (!value_len || !dst)
-                return value_len;
-
-#if defined(_WIN32)
-            _setmode (_fileno (dst), O_TEXT);
-#endif
-#if defined(__OS2__)
-            setmode (fileno (dst), O_TEXT);
-#endif
-            value = malloc (value_len * 2 + 1);
-            WavpackGetTagItem (wpc, tag_item, value, value_len + 1);
-            dump_UTF8_string (value, dst);
-            free (value);
-            return value_len;
-        }
-        else if (WavpackGetBinaryTagItem (wpc, tag_item, NULL, 0)) {
-            int value_len = WavpackGetBinaryTagItem (wpc, tag_item, NULL, 0), res = 0, i;
-            uint32_t bcount = 0;
-            char *value;
-
-            value = malloc (value_len);
-            WavpackGetBinaryTagItem (wpc, tag_item, value, value_len);
-
-            for (i = 0; i < value_len; ++i)
-                if (!value [i]) {
-
-                    if (dst) {
-#if defined(_WIN32)
-                        _setmode (_fileno (dst), O_BINARY);
-#endif
-#if defined(__OS2__)
-                        setmode (fileno (dst), O_BINARY);
-#endif
-                        res = DoWriteFile (dst, (unsigned char *) value + i + 1, value_len - i - 1, &bcount);
-                    }
-
-                    if (fname) {
-                        if (i < 256)
-                            strcpy (fname, value);
-                        else {
-                            strcpy (fname, tag_item);
-                            strcat (fname, ".bin");
-                        }
-                    }
-
-                    break;
-                }
-
-            free (value);
-
-            if (i == value_len)
-                return 0;
-
-            if (dst && (!res || bcount != value_len - i - 1))
-                return 0;
-
-            return value_len - i - 1;
-        }
-        else
-            return 0;
-    }
-    else
-        return 0;
-}
-
-// Dump the specified null-terminated, possibly multi-line, UTF-8 string to
-// the specified stream. To make sure that this works correctly on both
-// Windows and Linux, all CR characters ('\r') are removed from the stream
-// and it is assumed that the output FILE will be in "text" mode (on Windows).
-// Lines are processed and transmitted one at a time.
-
-static void dump_UTF8_string (char *string, FILE *dst)
-{
-    while (*string) {
-        char *p = string, *temp;
-        int len = 0;
-
-        while (*p) {
-            if (*p != '\r')
-                ++len;
-
-            if (*p++ == '\n')
-                break;
-        }
-
-        if (!len)
-            return;
-
-        p = temp = malloc (len * 2 + 1);
-
-        while (*string) {
-            if (*string != '\r')
-                *p++ = *string;
-
-            if (*string++ == '\n')
-                break;
-        }
-
-        *p = 0;
-
-#ifdef _WIN32
-        if (!no_utf8_convert && dst != stdout && dst != stderr)
-#else
-        if (!no_utf8_convert)
-#endif
-            UTF8ToAnsi (temp, len * 2);
-
-        fputs (temp, dst);
-        free (temp);
-    }
-}
-
-#if defined (_WIN32)
-
-// Convert Unicode UTF-8 string to wide format. UTF-8 string must be NULL
-// terminated. Resulting wide string must be able to fit in provided space
-// and will also be NULL terminated. The number of characters converted will
-// be returned (not counting terminator).
-
-static int UTF8ToWideChar (const unsigned char *pUTF8, wchar_t *pWide)
-{
-    int trail_bytes = 0;
-    int chrcnt = 0;
-
-    while (*pUTF8) {
-        if (*pUTF8 & 0x80) {
-            if (*pUTF8 & 0x40) {
-                if (trail_bytes) {
-                    trail_bytes = 0;
-                    chrcnt++;
-                }
-                else {
-                    char temp = *pUTF8;
-
-                    while (temp & 0x80) {
-                        trail_bytes++;
-                        temp <<= 1;
-                    }
-
-                    pWide [chrcnt] = temp >> trail_bytes--;
-                }
-            }
-            else if (trail_bytes) {
-                pWide [chrcnt] = (pWide [chrcnt] << 6) | (*pUTF8 & 0x3f);
-
-                if (!--trail_bytes)
-                    chrcnt++;
-            }
-        }
-        else
-            pWide [chrcnt++] = *pUTF8;
-
-        pUTF8++;
-    }
-
-    pWide [chrcnt] = 0;
-    return chrcnt;
-}
-
-// Convert the Unicode wide-format string into a UTF-8 string using no more
-// than the specified buffer length. The wide-format string must be NULL
-// terminated and the resulting string will be NULL terminated. The actual
-// number of characters converted (not counting terminator) is returned, which
-// may be less than the number of characters in the wide string if the buffer
-// length is exceeded.
-
-static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len)
-{
-    const wchar_t *pWide = Wide;
-    int outndx = 0;
-
-    while (*pWide) {
-        if (*pWide < 0x80 && outndx + 1 < len)
-            pUTF8 [outndx++] = (unsigned char) *pWide++;
-        else if (*pWide < 0x800 && outndx + 2 < len) {
-            pUTF8 [outndx++] = (unsigned char) (0xc0 | ((*pWide >> 6) & 0x1f));
-            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
-        }
-        else if (outndx + 3 < len) {
-            pUTF8 [outndx++] = (unsigned char) (0xe0 | ((*pWide >> 12) & 0xf));
-            pUTF8 [outndx++] = (unsigned char) (0x80 | ((*pWide >> 6) & 0x3f));
-            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
-        }
-        else
-            break;
-    }
-
-    pUTF8 [outndx] = 0;
-    return (int)(pWide - Wide);
-}
-
-// Convert a text string into its Unicode UTF-8 format equivalent. The
-// conversion is done in-place so the maximum length of the string buffer must
-// be specified because the string may become longer or shorter. If the
-// resulting string will not fit in the specified buffer size then it is
-// truncated.
-
-static void TextToUTF8 (void *string, int len)
-{
-    unsigned char *inp = string;
-
-    // simple case: test for UTF8 BOM and if so, simply delete the BOM
-
-    if (len > 3 && inp [0] == 0xEF && inp [1] == 0xBB && inp [2] == 0xBF) {
-        memmove (inp, inp + 3, len - 3);
-        inp [len - 3] = 0;
-    }
-    else if (* (wchar_t *) string == 0xFEFF) {
-        wchar_t *temp = _wcsdup (string);
-
-        WideCharToUTF8 (temp + 1, (unsigned char *) string, len);
-        free (temp);
-    }
-    else {
-        int max_chars = (int) strlen (string);
-        wchar_t *temp = (wchar_t *) malloc ((max_chars + 1) * 2);
-
-        MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
-        WideCharToUTF8 (temp, (unsigned char *) string, len);
-        free (temp);
-    }
-}
-
-#endif
-
-// Convert a Unicode UTF-8 format string into its Ansi equivalent. The
-// conversion is done in-place so the maximum length of the string buffer must
-// be specified because the string may become longer or shorter. If the
-// resulting string will not fit in the specified buffer size then it is
-// truncated.
-
-static void UTF8ToAnsi (char *string, int len)
-{
-    int max_chars = (int) strlen (string);
-#if defined (_WIN32)
-    wchar_t *temp = malloc ((max_chars + 1) * 2);
-    int act_chars = UTF8ToWideChar (string, temp);
-
-    while (act_chars) {
-        memset (string, 0, len);
-
-        if (WideCharToMultiByte (CP_ACP, 0, temp, act_chars, string, len - 1, NULL, NULL))
-            break;
-        else
-            act_chars--;
-    }
-
-    if (!act_chars)
-        *string = 0;
-#else
-    char *temp = malloc (len);
-    char *outp = temp;
-    char *inp = string;
-    size_t insize = max_chars;
-    size_t outsize = len - 1;
-    int err = 0;
-    char *old_locale;
-    iconv_t converter;
-
-    memset(temp, 0, len);
-    old_locale = setlocale (LC_CTYPE, "");
-    converter = iconv_open ("", "UTF-8");
-
-    if (converter != (iconv_t) -1) {
-        err = iconv (converter, &inp, &insize, &outp, &outsize);
-        iconv_close (converter);
-    }
-    else
-        err = -1;
-
-    setlocale (LC_CTYPE, old_locale);
-
-    if (err == -1) {
-        free(temp);
-        return;
-    }
-
-    memmove (string, temp, len);
-#endif
-    free (temp);
 }
 
 //////////////////////////////////////////////////////////////////////////////

@@ -201,12 +201,10 @@ static WavpackStreamReader64 freader = {
 // values to specify details of the open operation:
 
 // OPEN_WVC:  attempt to open/read "correction" file
-// OPEN_TAGS:  attempt to read ID3v1 / APEv2 tags (requires seekable file)
 // OPEN_WRAPPER:  make audio wrapper available (i.e. RIFF) to caller
 // OPEN_2CH_MAX:  open only first stream of multichannel file (usually L/R)
 // OPEN_NORMALIZE:  normalize floating point data to +/- 1.0 (w/ offset exp)
 // OPEN_STREAMING:  blindly unpacks blocks w/o regard to header file position
-// OPEN_EDIT_TAGS:  allow editing of tags (file must be writable)
 // OPEN_FILE_UTF8:  assume infilename is UTF-8 encoded (Windows only)
 
 // Version 4.2 of the WavPack library adds the OPEN_STREAMING flag. This is
@@ -224,7 +222,7 @@ static WavpackStreamReader64 freader = {
 
 WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset)
 {
-    char *file_mode = (flags & OPEN_EDIT_TAGS) ? "r+b" : "rb";
+    char *file_mode = "rb";
     FILE *(*fopen_func)(const char *, const char *) = fopen;
     FILE *wv_id, *wvc_id;
 
@@ -243,7 +241,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 #endif
     }
     else if ((wv_id = fopen_func (infilename, file_mode)) == NULL) {
-        if (error) strcpy (error, (flags & OPEN_EDIT_TAGS) ? "can't open file for editing" : "can't open file");
+        if (error) strcpy (error, "can't open file");
         return NULL;
     }
 

@@ -15,8 +15,6 @@ libwavpack_la_SOURCES = \
 	pack_floats.c \
 	pack_utils.c \
 	read_words.c \
-	tags.c \
-	tag_utils.c \
 	unpack.c \
 	unpack_floats.c \
 	unpack_seek.c \

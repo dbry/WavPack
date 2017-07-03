@@ -298,13 +298,11 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
 WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
 
 #define OPEN_WVC        0x1     // open/read "correction" file
-#define OPEN_TAGS       0x2     // read ID3v1 / APEv2 tags (seekable file)
 #define OPEN_WRAPPER    0x4     // make audio wrapper available (i.e. RIFF)
 #define OPEN_2CH_MAX    0x8     // open multichannel as stereo (no downmix)
 #define OPEN_NORMALIZE  0x10    // normalize floating point data to +/- 1.0
 #define OPEN_STREAMING  0x20    // "streaming" mode blindly unpacks blocks
                                 // w/o regard to header file position info
-#define OPEN_EDIT_TAGS  0x40    // allow editing of tags
 #define OPEN_FILE_UTF8  0x80    // assume filenames are UTF-8 encoded, not ANSI (Windows only)
 
 // new for version 5
@@ -322,11 +320,9 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_LOSSLESS   0x2
 #define MODE_HYBRID     0x4
 #define MODE_FLOAT      0x8
-#define MODE_VALID_TAG  0x10
 #define MODE_HIGH       0x20
 #define MODE_FAST       0x40
 #define MODE_EXTRA      0x80    // extra mode used, see MODE_XMODE for possible level
-#define MODE_APETAG     0x100
 #define MODE_SFX        0x200
 #define MODE_VERY_HIGH  0x400
 #define MODE_MD5        0x800
@@ -371,16 +367,6 @@ int64_t WavpackGetFileSize64 (WavpackContext *wpc);
 double WavpackGetRatio (WavpackContext *wpc);
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc);
 double WavpackGetInstantBitrate (WavpackContext *wpc);
-int WavpackGetNumTagItems (WavpackContext *wpc);
-int WavpackGetTagItem (WavpackContext *wpc, const char *item, char *value, int size);
-int WavpackGetTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
-int WavpackGetNumBinaryTagItems (WavpackContext *wpc);
-int WavpackGetBinaryTagItem (WavpackContext *wpc, const char *item, char *value, int size);
-int WavpackGetBinaryTagItemIndexed (WavpackContext *wpc, int index, char *item, int size);
-int WavpackAppendTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
-int WavpackAppendBinaryTagItem (WavpackContext *wpc, const char *item, const char *value, int vsize);
-int WavpackDeleteTagItem (WavpackContext *wpc, const char *item);
-int WavpackWriteTag (WavpackContext *wpc);
 
 WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
 void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsigned char file_format);

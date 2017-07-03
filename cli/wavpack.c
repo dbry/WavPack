@@ -24,7 +24,6 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <locale.h>
-#include <iconv.h>
 #endif
 
 #include <string.h>
@@ -78,7 +77,7 @@ static const char *usage =
 " Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
 "             (default is lossless; multiple input files allowed)\n\n"
 #endif
-" Formats: .wav (default, bwf/rf64 okay)  .wv (transcode, with tags)\n"
+" Formats: .wav (default, bwf/rf64 okay)  .wv (transcode)\n"
 "          .w64 (Sony Wave64)             .caf (Core Audio Format)\n"
 "          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n\n"
 " Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
@@ -106,16 +105,13 @@ static const char *help =
 "    below). Raw PCM data may also be used (see --raw-pcm option).\n\n"
 #endif
 " Input Formats:             .wav (default, includes bwf/rf64 varients)\n"
-"                            .wv  (transcode operation, tags copied)\n"
+"                            .wv  (transcode operation)\n"
 "                            .caf (Core Audio Format)\n"
 "                            .w64 (Sony Wave64)\n"
 "                            .dff (Philips DSDIFF)\n"
 "                            .dsf (Sony DSD stream)\n\n"
 " Options:\n"
 "    -a                      Adobe Audition (CoolEdit) mode for 32-bit floats\n"
-"    --allow-huge-tags       allow tag data up to 16 MB (embedding > 1 MB is not\n"
-"                             recommended for portable devices and may not work\n"
-"                             with some programs including WavPack pre-4.70)\n"
 "    -bn                     enable hybrid compression\n"
 "                              n = 2.0 to 23.9 bits/sample, or\n"
 "                              n = 24-9600 kbits/second (kbps)\n"
@@ -143,7 +139,6 @@ static const char *help =
 "                             and NOT recommended for portable hardware use)\n"
 "    --help                  this extended help display\n"
 "    -i                      ignore length in file header (no pipe output allowed)\n"
-"    --import-id3            import ID3v2 tags from the trailer of DSF files only\n"
 "    -jn                     joint-stereo override (0 = left/right, 1 = mid/side)\n"
 #if defined (_WIN32) || defined (__OS2__)
 "    -l                      run at lower priority for smoother multitasking\n"
@@ -151,14 +146,6 @@ static const char *help =
 "    -m                      compute & store MD5 signature of raw audio data\n"
 "    -n                      calculate average and peak quantization noise\n"
 "                             (for hybrid mode only, reference fullscale sine)\n"
-#ifdef _WIN32
-"    --no-utf8-convert       assume tag values read from files are already UTF-8,\n"
-"                             don't attempt to convert from local encoding\n"
-#else
-"    --no-utf8-convert       don't recode passed tags from local encoding to\n"
-"                             UTF-8, assume they are in UTF-8 already\n"
-"    -o FILENAME | PATH      specify output filename or path\n"
-#endif
 "    --pair-unassigned-chans encode unassigned channels into stereo pairs\n"
 #ifdef _WIN32
 "    --pause                 pause before exiting (if console window disappears)\n"
@@ -187,16 +174,6 @@ static const char *help =
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 "    -v                      verify output file integrity after write (no pipes)\n"
 "    --version               write the version to stdout\n"
-"    -w Encoder              write actual \"Encoder\" information to APEv2 tag\n"
-"    -w Settings             write actual \"Settings\" information to APEv2 tag\n"
-"    -w \"Field=Value\"        write specified text metadata to APEv2 tag\n"
-"    -w \"Field=@file.ext\"    write specified text metadata from file to APEv2\n"
-"                             tag, normally used for embedded cuesheets and logs\n"
-"                             (field names \"Cuesheet\" and \"Log\")\n"
-"    --write-binary-tag \"Field=@file.ext\"\n"
-"                            write the specified binary metadata file to APEv2\n"
-"                             tag, normally used for cover art with the specified\n"
-"                             field name \"Cover Art (Front)\"\n"
 "    -x[n]                   extra encode processing (optional n = 1 to 6, 1=default)\n"
 "                             -x1 to -x3 to choose best of predefined filters\n"
 "                             -x4 to -x6 to generate custom filters (very slow!)\n"
@@ -244,24 +221,12 @@ static struct {
 int debug_logging_mode;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
-    no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, quantize_round, import_id3,
+    set_console_title, quantize_bits, quantize_round,
     raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end;
 
 static int num_channels_order;
 static unsigned char channel_order [18];
 static double encode_time_percent;
-
-// These two statics are used to keep track of tags that the user specifies on the
-// command line. The "num_tag_strings" and "tag_strings" fields in the WavpackConfig
-// structure are no longer used for anything (they should not have been there in
-// the first place).
-
-static int num_tag_items, total_tag_size;
-
-static struct tag_item {
-    char *item, *value, *ext;
-    int vsize, binary;
-} *tag_items;
 
 #if defined (_WIN32)
 static int pause_mode;
@@ -298,7 +263,7 @@ int main (int argc, char **argv)
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
 #endif
-    int error_count = 0, tag_next_arg = 0, output_spec = 0;
+    int error_count = 0, output_spec = 0;
     char *outfilename = NULL, *out2filename = NULL;
     char **matches = NULL;
     WavpackConfig config;
@@ -367,14 +332,6 @@ int main (int argc, char **argv)
                 config.flags |= CONFIG_CROSS_DECORR;
             else if (!strcmp (long_option, "pair-unassigned-chans"))    // --pair-unassigned-chans
                 config.flags |= CONFIG_PAIR_UNDEF_CHANS;
-            else if (!strcmp (long_option, "import-id3"))               // --import-id3
-                import_id3 = 1;
-            else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
-                no_utf8_convert = 1;
-            else if (!strcmp (long_option, "allow-huge-tags"))          // --allow-huge-tags
-                allow_huge_tags = 1;
-            else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
-                tag_next_arg = 2;
             else if (!strncmp (long_option, "raw-pcm-skip", 12)) {      // --raw-pcm-skip
                 raw_pcm_skip_bytes_begin = strtol (long_param, &long_param, 10);
 
@@ -709,60 +666,10 @@ int main (int argc, char **argv)
                         --*argv;
                         break;
 
-                    case 'W': case 'w':
-                        if (++tag_next_arg == 2) {
-                            error_line ("warning: -ww deprecated, use --write-binary-tag");
-                            ++error_count;
-                        }
-
-                        break;
-
                     default:
                         error_line ("illegal option: %c !", **argv);
                         ++error_count;
                 }
-        else if (tag_next_arg) {
-            char *cp;
-
-            // check for and allow "encoder" or "settings" without a value and create
-            // an appropriate value for them (otherwise missing value is an error)
-
-            if (!stricmp (*argv, "encoder")) {
-                char *tag_arg = malloc (80);
-                sprintf (tag_arg, "%s=WavPack %s", *argv, PACKAGE_VERSION);
-                *argv = tag_arg;
-            }
-            else if (!stricmp (*argv, "settings")) {
-                char settings [256], *tag_arg;
-
-                make_settings_string (settings, &config);
-                tag_arg = malloc (strlen (settings) + 16);
-                sprintf (tag_arg, "%s=%s", *argv, settings);
-                *argv = tag_arg;
-            }
-
-            cp = strchr (*argv, '=');
-
-            if (cp && cp > *argv) {
-                int i = num_tag_items;
-
-                tag_items = realloc (tag_items, ++num_tag_items * sizeof (*tag_items));
-                tag_items [i].item = malloc (cp - *argv + 1);
-                memcpy (tag_items [i].item, *argv, cp - *argv);
-                tag_items [i].item [cp - *argv] = 0;
-                tag_items [i].vsize = (int) strlen (cp + 1);
-                tag_items [i].value = malloc (tag_items [i].vsize + 1);
-                strcpy (tag_items [i].value, cp + 1);
-                tag_items [i].binary = (tag_next_arg == 2);
-                tag_items [i].ext = NULL;
-            }
-            else {
-                error_line ("error in tag spec: %s !", *argv);
-                ++error_count;
-            }
-
-            tag_next_arg = 0;
-        }
 #if defined (_WIN32)
         else if (!num_files) {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
@@ -815,11 +722,6 @@ int main (int argc, char **argv)
         ++error_count;
     }
 
-    if (tag_next_arg) {
-        error_line ("no tag specified with %s option!", tag_next_arg == 1 ? "-w" : "--write-binary-tag");
-        ++error_count;
-    }
-
     if (!(~config.flags & (CONFIG_HIGH_FLAG | CONFIG_FAST_FLAG))) {
         error_line ("high and fast modes are mutually exclusive!");
         ++error_count;
@@ -859,119 +761,6 @@ int main (int argc, char **argv)
     else if (!quiet_mode && !error_count) {
         fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
         fflush (stderr);
-    }
-
-    // Loop through any tag specification strings and check for file access, convert text
-    // strings to UTF-8, and otherwise prepare for writing to APE tags. This is done here
-    // rather than after encoding so that any errors can be reported to the user now.
-
-    for (i = 0; i < num_tag_items; ++i) {
-#ifdef _WIN32
-        int tag_came_from_file = 0;
-#endif
-        if (*tag_items [i].value == '@') {
-            char *fn = tag_items [i].value + 1, *new_value = NULL;
-            FILE *file = wild_fopen (fn, "rb");
-
-            // if the file is not found, try using any input and output directories that the
-            // user may have specified on the command line
-
-            if (!file && num_files && filespec_name (matches [0]) && *matches [0] != '-') {
-                char *temp = malloc (strlen (matches [0]) + PATH_MAX);
-
-                strcpy (temp, matches [0]);
-                strcpy (filespec_name (temp), fn);
-                file = wild_fopen (temp, "rb");
-                free (temp);
-            }
-
-            if (!file && outfilename && filespec_name (outfilename) && *outfilename != '-') {
-                char *temp = malloc (strlen (outfilename) + PATH_MAX);
-
-                strcpy (temp, outfilename);
-                strcpy (filespec_name (temp), fn);
-                file = wild_fopen (temp, "rb");
-                free (temp);
-            }
-
-            if (file) {
-                uint32_t bcount;
-
-                tag_items [i].vsize = (int) DoGetFileSize (file);
-
-                if (filespec_ext (fn))
-                    tag_items [i].ext = strdup (filespec_ext (fn));
-
-                if (tag_items [i].vsize < 1048576 * (allow_huge_tags ? 16 : 1)) {
-                    new_value = malloc (tag_items [i].vsize + 2);
-                    memset (new_value, 0, tag_items [i].vsize + 2);
-
-                    if (!DoReadFile (file, new_value, tag_items [i].vsize, &bcount) ||
-                        bcount != tag_items [i].vsize) {
-                            free (new_value);
-                            new_value = NULL;
-                        }
-                }
-
-                DoCloseHandle (file);
-            }
-
-            if (!new_value) {
-                error_line ("error in tag spec: %s !", tag_items [i].value);
-                ++error_count;
-            }
-            else {
-                free (tag_items [i].value);
-                tag_items [i].value = new_value;
-#ifdef _WIN32
-                tag_came_from_file = 1;
-#endif
-            }
-        }
-        else if (tag_items [i].binary) {
-            error_line ("binary tags must be from files: %s !", tag_items [i].value);
-            ++error_count;
-        }
-
-        if (tag_items [i].binary) {
-            int isize = (int) strlen (tag_items [i].item);
-            int esize = tag_items [i].ext ? (int) strlen (tag_items [i].ext) : 0;
-
-            tag_items [i].value = realloc (tag_items [i].value, isize + esize + 1 + tag_items [i].vsize);
-            memmove (tag_items [i].value + isize + esize + 1, tag_items [i].value, tag_items [i].vsize);
-            strcpy (tag_items [i].value, tag_items [i].item);
-
-            if (tag_items [i].ext)
-                strcat (tag_items [i].value, tag_items [i].ext);
-
-            tag_items [i].vsize += isize + esize + 1;
-        }
-        else if (tag_items [i].vsize) {
-            tag_items [i].value = realloc (tag_items [i].value, tag_items [i].vsize * 2 + 1);
-
-#ifdef _WIN32
-            if (tag_came_from_file && !no_utf8_convert)
-#else
-            if (!no_utf8_convert)
-#endif
-                TextToUTF8 (tag_items [i].value, (int) tag_items [i].vsize * 2 + 1);
-
-            // if a UTF8 BOM gets through to here, delete it now (redundant in APEv2 tags)
-
-            if (tag_items [i].vsize >= 3 && (unsigned char) tag_items [i].value [0] == 0xEF &&
-                (unsigned char) tag_items [i].value [1] == 0xBB && (unsigned char) tag_items [i].value [2] == 0xBF) {
-                    memmove (tag_items [i].value, tag_items [i].value + 3, tag_items [i].vsize -= 3);
-                    tag_items [i].value [tag_items [i].vsize] = 0;
-            }
-
-            tag_items [i].vsize = (int) strlen (tag_items [i].value);
-        }
-
-        if ((total_tag_size += tag_items [i].vsize) > 1048576 * (allow_huge_tags ? 16 : 1)) {
-            error_line ("total APEv2 tag size exceeds %d MB !", allow_huge_tags ? 16 : 1);
-            ++error_count;
-            break;
-        }
     }
 
     if (error_count) {
@@ -1467,13 +1256,10 @@ static FILE *wild_fopen (char *filename, const char *mode)
 // file would go there. The files are opened and closed in this function
 // and the "config" structure specifies the mode of compression.
 
-int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used); // import_id3.c
-
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     char *outfilename_temp = NULL, *out2filename_temp = NULL, dummy;
     int use_tempfiles = (out2filename != NULL), chunk_alignment = 1;
-    int imported_tag_items = 0;
     uint32_t bcount;
     WavpackConfig loc_config = *config;
     unsigned char *new_channel_order = NULL;
@@ -1908,38 +1694,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             result = WAVPACK_HARD_ERROR;
         }
 
-        // if we're supposed to try to import ID3 tags, check for and do that now
-        // (but only error on a bad tag, not just a missing one or one with no applicable items)
-
-        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10 && !strncmp ((char *) buffer, "ID3", 3)) {
-            int32_t bytes_used, id3_res;
-            char error [80];
-
-            // first we do a "dry run" pass through the ID3 tag, and only if that passes do we try to write the tag items
-
-            id3_res = ImportID3v2 (NULL, buffer, wrapper_size, error, &bytes_used);
-
-            if (!allow_huge_tags && bytes_used > 1048576) {
-                error_line ("imported tag items exceed 1 MB, use --allow-huge-tags to override");
-                result = WAVPACK_SOFT_ERROR;
-            }
-            else if (bytes_used > 1048576 * 16) {
-                error_line ("imported tag items exceed 16 MB");
-                result = WAVPACK_SOFT_ERROR;
-            }
-            else {
-                if (id3_res > 0)
-                    id3_res = ImportID3v2 (wpc, buffer, wrapper_size, error, NULL);
-
-                if (id3_res < 0) {
-                    error_line ("ID3v2 import: %s", error);
-                    result = WAVPACK_SOFT_ERROR;
-                }
-                else if (id3_res > 0)
-                    imported_tag_items = id3_res;
-            }
-        }
-
         free (buffer);
     }
 
@@ -1950,26 +1704,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     if (result == WAVPACK_NO_ERROR && !WavpackFlushSamples (wpc)) {
         error_line ("%s", WavpackGetErrorMessage (wpc));
         result = WAVPACK_HARD_ERROR;
-    }
-
-    // if still no errors, check to see if we need to create & write a tag
-    // (which is NOT stored in regular WavPack blocks)
-
-    if (result == WAVPACK_NO_ERROR && (num_tag_items || imported_tag_items)) {
-        int i, res = TRUE;
-
-        for (i = 0; i < num_tag_items && res; ++i)
-            if (tag_items [i].vsize) {
-                if (tag_items [i].binary) 
-                    res = WavpackAppendBinaryTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
-                else
-                    res = WavpackAppendTagItem (wpc, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
-            }
-
-        if (!res || !WavpackWriteTag (wpc)) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
-            result = WAVPACK_HARD_ERROR;
-        }
     }
 
     // At this point we're done writing to the output files. However, in some
@@ -2160,9 +1894,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     if (!quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
-
-        if (imported_tag_items)
-            error_line ("successfully imported %d items from ID3v2 tag", imported_tag_items);
 
         if (loc_config.flags & CONFIG_MD5_CHECKSUM) {
             char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
@@ -2539,7 +2270,7 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
 static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
 {
     int output_lossless = !(config->flags & CONFIG_HYBRID_FLAG) || (config->flags & CONFIG_CREATE_WVC);
-    int flags = OPEN_WVC | OPEN_TAGS | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, imported_tag_items = 0;
+    int flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
     char *outfilename_temp = NULL, *out2filename_temp = NULL;
     int use_tempfiles = (out2filename != NULL), input_mode;
     unsigned char md5_verify [16], md5_display [16];
@@ -2559,7 +2290,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     struct timezone timez;
 #endif
 
-    if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) || import_id3)
+    if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER))
         flags |= OPEN_WRAPPER;
 
 #if defined(_WIN32)
@@ -2858,38 +2589,6 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             result = WAVPACK_SOFT_ERROR;
         }
 
-        // if we're supposed to try to import ID3 tags, check for and do that now
-        // (but only error on a bad tag, not just a missing one or one with no applicable items)
-
-        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10 && !strncmp ((char *) buffer, "ID3", 3)) {
-            int32_t bytes_used, id3_res;
-            char error [80];
-
-            // first we do a "dry run" pass through the ID3 tag, and only if that passes do we try to write the tag items
-
-            id3_res = ImportID3v2 (NULL, buffer, wrapper_size, error, &bytes_used);
-
-            if (!allow_huge_tags && bytes_used > 1048576) {
-                error_line ("imported tag items exceed 1 MB, use --allow-huge-tags to override");
-                result = WAVPACK_SOFT_ERROR;
-            }
-            else if (bytes_used > 1048576 * 16) {
-                error_line ("imported tag items exceed 16 MB");
-                result = WAVPACK_SOFT_ERROR;
-            }
-            else {
-                if (id3_res > 0)
-                    id3_res = ImportID3v2 (outfile, buffer, wrapper_size, error, NULL);
-
-                if (id3_res < 0) {
-                    error_line ("ID3v2 import: %s", error);
-                    result = WAVPACK_SOFT_ERROR;
-                }
-                else if (id3_res > 0)
-                    imported_tag_items = id3_res;
-            }
-        }
-
         WavpackFreeWrapper (infile);
     }
 
@@ -2898,73 +2597,6 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     if (result == WAVPACK_NO_ERROR && !WavpackFlushSamples (outfile)) {
         error_line ("%s", WavpackGetErrorMessage (outfile));
         result = WAVPACK_HARD_ERROR;
-    }
-
-    // if still no errors, check to see if we need to create & write a tag
-    // (which is NOT stored in regular WavPack blocks)
-
-    if (result == WAVPACK_NO_ERROR && ((input_mode & MODE_VALID_TAG) || num_tag_items || imported_tag_items)) {
-        int num_binary_items = WavpackGetNumBinaryTagItems (infile);
-        int num_items = WavpackGetNumTagItems (infile), i;
-        int item_len, value_len;
-        char *item, *value;
-        int res = TRUE;
-
-        for (i = 0; i < num_items && res; ++i) {
-            item_len = WavpackGetTagItemIndexed (infile, i, NULL, 0);
-            item = malloc (item_len + 1);
-            WavpackGetTagItemIndexed (infile, i, item, item_len + 1);
-
-            // don't copy the values from the "encoder" or "settings" items because
-            // these should be based on the current encoder and user settings
-
-            if (!stricmp (item, "encoder")) {
-                value = malloc (80);
-                sprintf (value, "WavPack %s", PACKAGE_VERSION);
-                value_len = (int) strlen (value);
-            }
-            else if (!stricmp (item, "settings")) {
-                value = malloc (256);
-                make_settings_string (value, &loc_config);
-                value_len = (int) strlen (value);
-            }
-            else {
-                value_len = WavpackGetTagItem (infile, item, NULL, 0);
-                value = malloc (value_len + 1);
-                WavpackGetTagItem (infile, item, value, value_len + 1);
-            }
-
-            res = WavpackAppendTagItem (outfile, item, value, value_len);
-            free (value);
-            free (item);
-        }
-
-        for (i = 0; i < num_binary_items && res; ++i) {
-            item_len = WavpackGetBinaryTagItemIndexed (infile, i, NULL, 0);
-            item = malloc (item_len + 1);
-            WavpackGetBinaryTagItemIndexed (infile, i, item, item_len + 1);
-            value_len = WavpackGetBinaryTagItem (infile, item, NULL, 0);
-            value = malloc (value_len);
-            value_len = WavpackGetBinaryTagItem (infile, item, value, value_len);
-            res = WavpackAppendBinaryTagItem (outfile, item, value, value_len);
-            free (value);
-            free (item);
-        }
-
-        for (i = 0; i < num_tag_items && res; ++i)
-            if (tag_items [i].vsize) {
-                if (tag_items [i].binary) 
-                    res = WavpackAppendBinaryTagItem (outfile, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
-                else
-                    res = WavpackAppendTagItem (outfile, tag_items [i].item, tag_items [i].value, tag_items [i].vsize);
-            }
-            else
-                WavpackDeleteTagItem (outfile, tag_items [i].item);
-
-        if (!res || !WavpackWriteTag (outfile)) {
-            error_line ("%s", WavpackGetErrorMessage (outfile));
-            result = WAVPACK_HARD_ERROR;
-        }
     }
 
     WavpackCloseFile (infile);     // we're now done with input file, so close
@@ -3114,9 +2746,6 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     if (!quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
-
-        if (imported_tag_items)
-            error_line ("successfully imported %d items from ID3v2 tag", imported_tag_items);
 
         if (config->flags & CONFIG_MD5_CHECKSUM) {
             char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
@@ -3575,69 +3204,6 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     return result;
 }
 
-// Create a string from the specified configuration that can be used for the "settings"
-// tag. Note that the module globals allow_huge_tags and quantize_bits are also accessed.
-// Room for 256 characters should be plenty.
-
-static void make_settings_string (char *settings, WavpackConfig *config)
-{
-    strcpy (settings, "-");
-
-    // basic settings
-
-    if (config->flags & CONFIG_FAST_FLAG)
-        strcat (settings, "f");
-    else if (config->flags & CONFIG_VERY_HIGH_FLAG)
-        strcat (settings, "hh");
-    else if (config->flags & CONFIG_HIGH_FLAG)
-        strcat (settings, "h");
-
-    if (config->flags & CONFIG_HYBRID_FLAG) {
-        sprintf (settings + strlen (settings), "b%g", config->bitrate);
-
-        if (config->flags & CONFIG_OPTIMIZE_WVC)
-            strcat (settings, "cc");
-        else if (config->flags & CONFIG_CREATE_WVC)
-            strcat (settings, "c");
-    }
-
-    if (config->flags & CONFIG_EXTRA_MODE)
-        sprintf (settings + strlen (settings), "x%d", config->xmode ? config->xmode : 1);
-
-    // override settings
-
-    if (config->flags & CONFIG_JOINT_OVERRIDE) {
-        if (config->flags & CONFIG_JOINT_STEREO)
-            strcat (settings, "j1");
-        else
-            strcat (settings, "j0");
-    }
-
-    if (config->flags & CONFIG_SHAPE_OVERRIDE)
-        sprintf (settings + strlen (settings), "s%g", config->shaping_weight);
-
-    // long options
-
-    if (quantize_bits)
-        sprintf (settings + strlen (settings), " --pre-quantize%s=%d",
-            quantize_round ? "-round" : "", quantize_bits);
-
-    if (config->block_samples)
-        sprintf (settings + strlen (settings), " --blocksize=%d", config->block_samples);
-
-    if (config->flags & CONFIG_DYNAMIC_SHAPING)
-        strcat (settings, " --use-dns");
-
-    if (config->flags & CONFIG_CROSS_DECORR)
-        strcat (settings, " --cross-decorr");
-
-    if (config->flags & CONFIG_PAIR_UNDEF_CHANS)
-        strcat (settings, " --pair-unassigned-chans");
-
-    if (allow_huge_tags)
-        strcat (settings, " --allow-huge-tags");
-}
-
 // Code to load samples. Destination is an array of int32_t data (which is what WavPack uses
 // internally), but the source can have from 1 to 4 bytes per sample. Also, the source data
 // is assumed to be little-endian and signed, except for byte data which is unsigned (these
@@ -4015,130 +3581,6 @@ static void *store_big_endian_signed_samples (void *dst, int32_t *src, int bps, 
 
     return dptr;
 }
-
-#if defined(_WIN32)
-
-// Convert the Unicode wide-format string into a UTF-8 string using no more
-// than the specified buffer length. The wide-format string must be NULL
-// terminated and the resulting string will be NULL terminated. The actual
-// number of characters converted (not counting terminator) is returned, which
-// may be less than the number of characters in the wide string if the buffer
-// length is exceeded.
-
-static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len)
-{
-    const wchar_t *pWide = Wide;
-    int outndx = 0;
-
-    while (*pWide) {
-        if (*pWide < 0x80 && outndx + 1 < len)
-            pUTF8 [outndx++] = (unsigned char) *pWide++;
-        else if (*pWide < 0x800 && outndx + 2 < len) {
-            pUTF8 [outndx++] = (unsigned char) (0xc0 | ((*pWide >> 6) & 0x1f));
-            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
-        }
-        else if (outndx + 3 < len) {
-            pUTF8 [outndx++] = (unsigned char) (0xe0 | ((*pWide >> 12) & 0xf));
-            pUTF8 [outndx++] = (unsigned char) (0x80 | ((*pWide >> 6) & 0x3f));
-            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
-        }
-        else
-            break;
-    }
-
-    pUTF8 [outndx] = 0;
-    return (int)(pWide - Wide);
-}
-
-// Convert a text string into its Unicode UTF-8 format equivalent. The
-// conversion is done in-place so the maximum length of the string buffer must
-// be specified because the string may become longer or shorter. If the
-// resulting string will not fit in the specified buffer size then it is
-// truncated.
-
-static void TextToUTF8 (void *string, int len)
-{
-    unsigned char *inp = string;
-
-    // simple case: test for UTF8 BOM and if so, simply delete the BOM
-
-    if (len > 3 && inp [0] == 0xEF && inp [1] == 0xBB && inp [2] == 0xBF) {
-        memmove (inp, inp + 3, len - 3);
-        inp [len - 3] = 0;
-    }
-    else if (* (wchar_t *) string == 0xFEFF) {
-        wchar_t *temp = _wcsdup (string);
-
-        WideCharToUTF8 (temp + 1, (unsigned char *) string, len);
-        free (temp);
-    }
-    else {
-        int max_chars = (int) strlen (string);
-        wchar_t *temp = (wchar_t *) malloc ((max_chars + 1) * 2);
-
-        MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
-        WideCharToUTF8 (temp, (unsigned char *) string, len);
-        free (temp);
-    }
-}
-
-#else
-
-static void TextToUTF8 (void *string, int len)
-{
-    char *temp = malloc (len);
-    char *outp = temp;
-    char *inp = string;
-    size_t insize = 0;
-    size_t outsize = len - 1;
-    int err = 0;
-    char *old_locale;
-    iconv_t converter;
-
-    // simple case: test for UTF8 BOM and if so, simply delete the BOM and return
-
-    if (len > 3 && (unsigned char) inp [0] == 0xEF && (unsigned char) inp [1] == 0xBB &&
-        (unsigned char) inp [2] == 0xBF) {
-            memmove (inp, inp + 3, len - 3);
-            inp [len - 3] = 0;
-            return;
-    }
-
-    memset(temp, 0, len);
-    old_locale = setlocale (LC_CTYPE, "");
-
-    if ((unsigned char) inp [0] == 0xFF && (unsigned char) inp [1] == 0xFE) {
-        uint16_t *utf16p = (uint16_t *) (inp += 2);
-
-        while (*utf16p++)
-            insize += 2;
-
-        converter = iconv_open ("UTF-8", "UTF-16LE");
-    }
-    else {
-        insize = strlen (string);
-        converter = iconv_open ("UTF-8", "");
-    }
-
-    if (converter != (iconv_t) -1) {
-        err = iconv (converter, &inp, &insize, &outp, &outsize);
-        iconv_close (converter);
-    }
-    else
-        err = -1;
-
-    setlocale (LC_CTYPE, old_locale);
-
-    if (err == -1) {
-        free(temp);
-        return;
-    }
-
-    memmove (string, temp, len);
-    free (temp);
-}
-
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 // This function displays the progress status on the title bar of the DOS   //

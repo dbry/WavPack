@@ -55,18 +55,6 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
 
     wpc->filelen = wpc->reader->get_length (wpc->wv_in);
 
-#ifndef NO_TAGS
-    if ((flags & (OPEN_TAGS | OPEN_EDIT_TAGS)) && wpc->reader->can_seek (wpc->wv_in)) {
-        load_tag (wpc);
-        wpc->reader->set_pos_abs (wpc->wv_in, 0);
-
-        if ((flags & OPEN_EDIT_TAGS) && !editable_tag (&wpc->m_tag)) {
-            if (error) strcpy (error, "can't edit tags located at the beginning of files!");
-            return WavpackCloseFile (wpc);
-        }
-    }
-#endif
-
     wpc->streams = malloc ((wpc->num_streams = 1) * sizeof (wpc->streams [0]));
     if (!wpc->streams) {
         if (error) strcpy (error, "can't allocate memory");

@@ -60,59 +60,9 @@ AC_FUNC_FSEEKO
 AC_MINGW32
 
 AC_ARG_ENABLE([apps],
-    AS_HELP_STRING([--disable-apps], [build only libwavpack (removes ICONV dependency)]))
+    AS_HELP_STRING([--disable-apps], [build only libwavpack (not command-line utils)]))
 
 AM_CONDITIONAL([ENABLE_APPS], [test "x$enable_apps" != "xno"])
-
-if test "x$enable_apps" != "xno" ; then
-if test "x$MINGW32" != "xyes" ; then
-# Check for iconv
-AC_ARG_WITH(iconv, [[  --with-iconv[=DIR]      add ICONV support [yes]]])
-if test "$with_iconv" = "no" ; then
-    AC_MSG_ERROR([[iconv is required for apps, use --disable-apps to build only libwavpack]])
-else
-    if test "$with_iconv" != "yes" -a "$with_iconv" != "" ; then
-       ICONV_CFLAGS="${CPPFLAGS} -I$with_iconv/include"
-       ICONV_LIBS="-L$with_iconv/lib"
-    fi
-
-    AC_CHECK_HEADER(iconv.h,
-        AC_MSG_CHECKING(for iconv)
-        AC_TRY_LINK([#include <stdlib.h>
-#include <iconv.h>],[
-iconv_t cd = iconv_open ("","");
-iconv (cd, NULL, NULL, NULL, NULL);],[
-            AC_MSG_RESULT(yes)
-            WITH_ICONV=1],[
-            AC_MSG_RESULT(no)
-            AC_MSG_CHECKING(for iconv in -liconv)
-
-            old_cflags="${CFLAGS}"
-            old_ldflags="${LDFLAGS}"
-            old_libs="${LIBS}"
-            CFLAGS="${ICONV_CFLAGS} ${CFLAGS}"
-            LDFLAGS="${LDFLAGS} ${ICONV_LIBS}"
-            LIBS="${LIBS} -liconv"
-
-            AC_TRY_LINK([#include <stdlib.h>
-#include <iconv.h>],[
-iconv_t cd = iconv_open ("","");
-iconv (cd, NULL, NULL, NULL, NULL);],[
-                AC_MSG_RESULT(yes)
-                WITH_ICONV=1
-                ICONV_LIBS="${ICONV_LIBS} -liconv"
-                ICONV="-liconv"],[
-                AC_MSG_ERROR([[Can't find iconv libraries.]])])
-            CFLAGS=$old_cflags
-            LDFLAGS=$old_ldflags
-            LIBS=$old_libs
-            ]),
-            AC_MSG_ERROR([[Can't find iconv headers.]]))
-fi
-AC_SUBST(ICONV_LIBS)
-AC_SUBST(ICONV)
-fi
-fi
 
 AC_MSG_CHECKING([if we are building for a Windows host])
 AS_CASE([$host_os],
