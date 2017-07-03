@@ -74,14 +74,8 @@ int WavpackGetMode (WavpackContext *wpc)
         if (wpc->config.flags & (CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG)) {
             mode |= MODE_HIGH;
 
-#ifdef LARGE_HEADER
-            if ((wpc->config.flags & CONFIG_VERY_HIGH_FLAG) ||
-                (wpc->streams && wpc->streams [0] && wpc->streams [0]->wphdr.version < 0x405))
-                    mode |= MODE_VERY_HIGH;
-#else
             if (wpc->config.flags & CONFIG_VERY_HIGH_FLAG)
                 mode |= MODE_VERY_HIGH;
-#endif
         }
 
         if (wpc->config.flags & CONFIG_FAST_FLAG)
@@ -96,14 +90,8 @@ int WavpackGetMode (WavpackContext *wpc)
         if (wpc->config.flags & CONFIG_MD5_CHECKSUM)
             mode |= MODE_MD5;
 
-#ifdef LARGE_HEADER
-        if ((wpc->config.flags & CONFIG_HYBRID_FLAG) && (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) &&
-            wpc->streams && wpc->streams [0] && wpc->streams [0]->wphdr.version >= 0x407)
-                mode |= MODE_DNS;
-#else
         if ((wpc->config.flags & CONFIG_HYBRID_FLAG) && (wpc->config.flags & CONFIG_DYNAMIC_SHAPING))
             mode |= MODE_DNS;
-#endif
 
 #ifndef NO_TAGS
         if (valid_tag (&wpc->m_tag)) {

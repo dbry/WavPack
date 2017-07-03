@@ -63,21 +63,12 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
 
     // don't attempt to decode past the end of the block, but watch out for overflow!
 
-#ifdef LARGE_HEADER
-    if (wps->sample_index + sample_count > GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples &&
-        GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index < sample_count)
-            sample_count = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index);
-
-    if (GET_BLOCK_INDEX (wps->wphdr) > wps->sample_index || wps->wphdr.block_samples < sample_count)
-        wps->mute_error = TRUE;
-#else
     if (wps->sample_index + sample_count > wps->block_index + wps->wphdr.block_samples &&
         wps->block_index + wps->wphdr.block_samples - wps->sample_index < sample_count)
             sample_count = (uint32_t) (wps->block_index + wps->wphdr.block_samples - wps->sample_index);
 
     if (wps->block_index > wps->sample_index || wps->wphdr.block_samples < sample_count)
         wps->mute_error = TRUE;
-#endif
 
     if (!wps->mute_error) {
         if (!wps->dsd.mode) {

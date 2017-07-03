@@ -204,13 +204,8 @@ WavpackContext *WavpackOpenRawDecoder (
             memset (wphdr, 0, sizeof (WavpackHeader));
             memcpy (wphdr->ckID, "wvpk", 4);
             wphdr->ckSize = CHUNK_SIZE_REMAINDER + block_size;
-            SET_TOTAL_SAMPLES (*wphdr, block_samples);
             wphdr->block_samples = block_samples;
             wphdr->flags = wphdr_flags;
-#ifdef LARGE_HEADER
-            wphdr->version = version;
-            wphdr->crc = crc;
-#endif
             WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
 
             raw_wv->num_segments += 2;
@@ -253,13 +248,8 @@ WavpackContext *WavpackOpenRawDecoder (
                 memset (wphdr, 0, sizeof (WavpackHeader));
                 memcpy (wphdr->ckID, "wvpk", 4);
                 wphdr->ckSize = CHUNK_SIZE_REMAINDER + block_size;
-                SET_TOTAL_SAMPLES (*wphdr, block_samples);
                 wphdr->block_samples = block_samples;
                 wphdr->flags = wphdr_flags;
-#ifdef LARGE_HEADER
-                wphdr->version = version;
-                wphdr->crc = crc;
-#endif
                 WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
 
                 raw_wvc->num_segments += 2;

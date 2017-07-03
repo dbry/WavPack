@@ -53,11 +53,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         // to free up the streams and read the next block
 
         if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
-#ifdef LARGE_HEADER
-            wps->sample_index >= GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples) {
-#else
             wps->sample_index >= wps->block_index + wps->wphdr.block_samples) {
-#endif
 
                 int64_t nexthdrpos;
 
@@ -99,26 +95,9 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                 // potentially adjusting block_index must be done AFTER verifying block
 
-#ifdef LARGE_HEADER
-                if (wpc->open_flags & OPEN_STREAMING) {
-                    SET_BLOCK_INDEX (wps->wphdr, 0);
-                    wps->sample_index = 0;
-                }
-                else
-                    SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
-#else
                 wps->block_index = wps->sample_index;
-#endif
-
                 memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
                 wps->init_done = FALSE;     // we have not yet called unpack_init() for this block
-
-                // if this block has audio, but not the sample index we were expecting, flag an error
-
-#ifdef LARGE_HEADER
-                if (wps->wphdr.block_samples && wps->sample_index != GET_BLOCK_INDEX (wps->wphdr))
-                    wpc->crc_errors++;
-#endif
 
                 // if this block has audio, and we're in hybrid lossless mode, read the matching wvc block
 
@@ -139,56 +118,14 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         // sequence, or the sample we're on is past the last sample in this block...we need
         // to loop back and read the next block
 
-#ifdef LARGE_HEADER
-        if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
-            wps->sample_index >= GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples)
-                continue;
-#else
         if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
             wps->sample_index >= wps->block_index + wps->wphdr.block_samples)
                 continue;
-#endif
-
-        // There seems to be some missing data, like a block was corrupted or something.
-        // If it's not too much data, just fill in with silence here and loop back.
-
-#ifdef LARGE_HEADER
-        if (wps->sample_index < GET_BLOCK_INDEX (wps->wphdr)) {
-            int32_t zvalue = (wps->wphdr.flags & DSD_FLAG) ? 0x55 : 0;
-
-            samples_to_unpack = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) - wps->sample_index);
-
-            if (!samples_to_unpack || samples_to_unpack > 262144) {
-                strcpy (wpc->error_message, "discontinuity found, aborting file!");
-                wps->wphdr.block_samples = 0;
-                wps->wphdr.ckSize = CHUNK_SIZE_REMAINDER;
-                break;
-            }
-
-            if (samples_to_unpack > samples)
-                samples_to_unpack = samples;
-
-            wps->sample_index += samples_to_unpack;
-            samples_unpacked += samples_to_unpack;
-            samples -= samples_to_unpack;
-
-            samples_to_unpack *= (wpc->reduced_channels ? wpc->reduced_channels : num_channels);
-
-            while (samples_to_unpack--)
-                *bptr++ = zvalue;
-
-            continue;
-        }
-#endif
 
         // calculate number of samples to process from this block, then initialize the decoder for
         // this block if we haven't already
 
-#ifdef LARGE_HEADER
-        samples_to_unpack = (uint32_t) (GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples - wps->sample_index);
-#else
         samples_to_unpack = (uint32_t) (wps->block_index + wps->wphdr.block_samples - wps->sample_index);
-#endif
 
         if (samples_to_unpack > samples)
             samples_to_unpack = samples;
@@ -263,16 +200,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                     // potentially adjusting block_index must be done AFTER verifying block
 
-#ifdef LARGE_HEADER
-                    if (wpc->open_flags & OPEN_STREAMING) {
-                        SET_BLOCK_INDEX (wps->wphdr, 0);
-                        wps->sample_index = 0;
-                    }
-                    else
-                        SET_BLOCK_INDEX (wps->wphdr, GET_BLOCK_INDEX (wps->wphdr) - wpc->initial_index);
-#else
                     wps->block_index = wps->sample_index;
-#endif
                     memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
                     // if this block has audio, and we're in hybrid lossless mode, read the matching wvc block
@@ -400,11 +328,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         // if we just finished a block, check for a calculated crc error
         // (and back up the streams a little if possible in case we passed a header)
 
-#ifdef LARGE_HEADER
-        if (wps->sample_index == GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples) {
-#else
         if (wps->sample_index == wps->block_index + wps->wphdr.block_samples) {
-#endif
             if (check_crc_error (wpc)) {
                 int32_t *zptr = bptr, zvalue = (wps->wphdr.flags & DSD_FLAG) ? 0x55 : 0;
                 uint32_t samples_to_zero = wps->wphdr.block_samples;

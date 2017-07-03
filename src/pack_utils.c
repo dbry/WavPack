@@ -39,7 +39,6 @@ WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id,
 
     CLEAR (*wpc);
     wpc->total_samples = -1;
-    wpc->stream_version = CUR_STREAM_VERS;
     wpc->blockout = blockout;
     wpc->wv_out = wv_id;
     wpc->wvc_out = wvc_id;
@@ -194,8 +193,6 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     uint32_t chan_mask = config->channel_mask;
     int num_chans = config->num_channels;
     int i;
-
-    wpc->stream_version = (config->flags & CONFIG_COMPATIBLE_WRITE) ? CUR_STREAM_VERS : MAX_STREAM_VERS;
 
     if ((config->qmode & QMODE_DSD_AUDIO) && config->bytes_per_sample == 1 && config->bits_per_sample == 8) {
 #ifdef ENABLE_DSD
@@ -392,10 +389,6 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
 
         memcpy (wps->wphdr.ckID, "wvpk", 4);
         wps->wphdr.ckSize = CHUNK_SIZE_REMAINDER;
-        SET_TOTAL_SAMPLES (wps->wphdr, wpc->total_samples);
-#ifdef LARGE_HEADER
-        wps->wphdr.version = wpc->stream_version;
-#endif
         wps->wphdr.flags = flags;
         wps->bits = bps;
 
@@ -774,7 +767,6 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         flags &= ~MAG_MASK;
         flags += (1 << MAG_LSB) * ((flags & BYTES_STORED) * 8 + 7);
 
-        SET_BLOCK_INDEX (wps->wphdr, wps->sample_index);
         wps->wphdr.block_samples = block_samples;
         wps->wphdr.flags = flags;
         wps->block2buff = out2buff;
@@ -861,27 +853,21 @@ static void *find_metadata (void *wavpack_block, int desired_id, uint32_t *size)
 void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
 {
     uint32_t wrapper_size;
+    void *loc;
 
     WavpackLittleEndianToNative (first_block, WavpackHeaderFormat);
+    loc = find_metadata (first_block, ID_TOTAL_SAMPLES, &wrapper_size);
 
-#ifdef LARGE_HEADER
-    SET_TOTAL_SAMPLES (* (WavpackHeader *) first_block, WavpackGetSampleIndex64 (wpc));
-#else
-    {
-        void *loc = find_metadata (first_block, ID_TOTAL_SAMPLES, &wrapper_size);
+    if (loc && wrapper_size == 5) {
+        int64_t total_samples = WavpackGetSampleIndex64 (wpc);
+        char *byteptr = loc;
 
-        if (loc && wrapper_size == 5) {
-            int64_t total_samples = WavpackGetSampleIndex64 (wpc);
-            char *byteptr = loc;
-
-            *byteptr++ = (char) (total_samples);
-            *byteptr++ = (char) (total_samples >> 8);
-            *byteptr++ = (char) (total_samples >> 16);
-            *byteptr++ = (char) (total_samples >> 24);
-            *byteptr++ = (char) (total_samples >> 32);
-        }
+        *byteptr++ = (char) (total_samples);
+        *byteptr++ = (char) (total_samples >> 8);
+        *byteptr++ = (char) (total_samples >> 16);
+        *byteptr++ = (char) (total_samples >> 24);
+        *byteptr++ = (char) (total_samples >> 32);
     }
-#endif
 
 #if BLOCK_CHECKSUM_BYTES
     block_update_checksum (first_block);
@@ -1091,10 +1077,6 @@ static int write_metadata_block (WavpackContext *wpc)
 
         CLEAR (*wphdr);
         memcpy (wphdr->ckID, "wvpk", 4);
-        SET_TOTAL_SAMPLES (*wphdr, wpc->total_samples);
-#ifdef LARGE_HEADER
-        wphdr->version = wpc->stream_version;
-#endif
         wphdr->ckSize = block_size - CHUNK_SIZE_OFFSET;
         wphdr->block_samples = 0;
 

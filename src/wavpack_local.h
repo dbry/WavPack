@@ -27,9 +27,6 @@
 
 #include <sys/types.h>
 
-// #define LARGE_HEADER
-#define SHORT_BLOCKS
-
 #define BLOCK_CHECKSUM_BYTES 0  // must be 0, 2, or 4
 #define AUDIO_CHECKSUM_BYTES 0  // must be 0, 2, or 4
 
@@ -137,53 +134,6 @@ typedef struct {
 // WavPack 4.0 files, and is the preamble to every block in both the .wv
 // and .wvc files.
 
-#ifdef LARGE_HEADER
-
-typedef struct {
-    char ckID [4];
-    uint32_t ckSize;
-    int16_t version;
-    unsigned char block_index_u8;
-    unsigned char total_samples_u8;
-    uint32_t total_samples, block_index, block_samples, flags, crc;
-} WavpackHeader;
-
-#define WavpackHeaderFormat "4LS2LLLLL"
-
-#define CHUNK_SIZE_OFFSET 8
-#define CHUNK_SIZE_REMAINDER (sizeof (WavpackHeader) - CHUNK_SIZE_OFFSET)
-
-// Macros to access the 40-bit block_index field
-
-#define GET_BLOCK_INDEX(hdr) ( (int64_t) (hdr).block_index + ((int64_t) (hdr).block_index_u8 << 32) )
-
-#define SET_BLOCK_INDEX(hdr,value) do { \
-    int64_t tmp = (value);              \
-    (hdr).block_index = (uint32_t) tmp; \
-    (hdr).block_index_u8 =              \
-        (unsigned char) (tmp >> 32);    \
-} while (0)
-
-// Macros to access the 40-bit total_samples field, which is complicated by the fact that
-// all 1's in the lower 32 bits indicates "unknown" (regardless of upper 8 bits)
-
-#define GET_TOTAL_SAMPLES(hdr) ( ((hdr).total_samples == (uint32_t) -1) ? -1 : \
-    (int64_t) (hdr).total_samples + ((int64_t) (hdr).total_samples_u8 << 32) - (hdr).total_samples_u8 )
-
-#define SET_TOTAL_SAMPLES(hdr,value) do {       \
-    int64_t tmp = (value);                      \
-    if (tmp < 0)                                \
-        (hdr).total_samples = (uint32_t) -1;    \
-    else {                                      \
-        tmp += (tmp / (int64_t) 0xffffffff);    \
-        (hdr).total_samples = (uint32_t) tmp;   \
-        (hdr).total_samples_u8 =                \
-            (unsigned char) (tmp >> 32);        \
-    }                                           \
-} while (0)
-
-#else
-
 typedef struct {
     char ckID [4];
     uint16_t ckSize, block_samples;
@@ -194,13 +144,6 @@ typedef struct {
 
 #define CHUNK_SIZE_OFFSET 6
 #define CHUNK_SIZE_REMAINDER (sizeof (WavpackHeader) - CHUNK_SIZE_OFFSET)
-
-#define GET_BLOCK_INDEX(hdr) (0)
-#define SET_BLOCK_INDEX(hdr,value)
-#define GET_TOTAL_SAMPLES(hdr) (-1)
-#define SET_TOTAL_SAMPLES(hdr,value)
-
-#endif
 
 // or-values for "flags"
 
@@ -240,12 +183,6 @@ typedef struct {
 #define IGNORED_FLAGS   0x08000000      // reserved, but ignore if encountered
 #define UNKNOWN_FLAGS   0x00000000      // we no longer have any of these spares
 
-#define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
-#define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
-                                        // (only stream version to support mono optimization)
-#define CUR_STREAM_VERS     0x407       // universally compatible stream version
-
-
 //////////////////////////// WavPack Metadata /////////////////////////////////
 
 // This is an internal representation of metadata.
@@ -263,11 +200,11 @@ typedef struct {
 
 #define ID_DUMMY                0x0
 #define ID_ENCODER_INFO         0x1
-#define ID_DECORR_TERMS         0x2
-#define ID_DECORR_WEIGHTS       0x3
-#define ID_DECORR_SAMPLES       0x4
-#define ID_ENTROPY_VARS         0x5
-#define ID_HYBRID_PROFILE       0x6
+#define ID_DECORR_TERMS         0x2     // no longer used
+#define ID_DECORR_WEIGHTS       0x3     // no longer used
+#define ID_DECORR_SAMPLES       0x4     // no longer used
+#define ID_ENTROPY_VARS         0x5     // no longer used
+#define ID_HYBRID_PROFILE       0x6     // no longer used
 #define ID_SHAPING_WEIGHTS      0x7
 #define ID_FLOAT_INFO           0x8
 #define ID_INT32_INFO           0x9
@@ -536,7 +473,7 @@ typedef struct {
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
 
-    int current_stream, num_streams, max_streams, stream_version;
+    int current_stream, num_streams, max_streams;
     WavpackStream **streams;
     void *stream3;
 

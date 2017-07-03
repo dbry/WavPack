@@ -29,7 +29,7 @@
 // function which handles the correction file transparently, in this case it
 // is the responsibility of the caller to be aware of correction files.
 
-static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int get_wrapper);
+static int seek_eof_information (WavpackContext *wpc, int get_wrapper);
 
 WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
@@ -131,32 +131,6 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         }
 
         wps->init_done = FALSE;
-
-#ifdef LARGE_HEADER
-        if (wps->wphdr.block_samples) {
-            if (flags & OPEN_STREAMING)
-                SET_BLOCK_INDEX (wps->wphdr, 0);
-            else if (wpc->total_samples == -1) {
-                if (GET_BLOCK_INDEX (wps->wphdr) || GET_TOTAL_SAMPLES (wps->wphdr) == -1) {
-                    wpc->initial_index = GET_BLOCK_INDEX (wps->wphdr);
-                    SET_BLOCK_INDEX (wps->wphdr, 0);
-
-                    if (wpc->reader->can_seek (wpc->wv_in)) {
-                        int64_t final_index = -1;
-
-                        seek_eof_information (wpc, &final_index, FALSE);
-
-                        if (final_index != -1)
-                            wpc->total_samples = final_index - wpc->initial_index;
-                    }
-                }
-                else
-                    wpc->total_samples = GET_TOTAL_SAMPLES (wps->wphdr);
-            }
-        }
-        else if (wpc->total_samples == -1 && !GET_BLOCK_INDEX (wps->wphdr) && GET_TOTAL_SAMPLES (wps->wphdr))
-            wpc->total_samples = GET_TOTAL_SAMPLES (wps->wphdr);
-#endif
 
         if (wpc->wvc_in && wps->wphdr.block_samples && (wps->wphdr.flags & HYBRID_FLAG)) {
             unsigned char ch;
@@ -351,12 +325,7 @@ int unpack_init (WavpackContext *wpc)
                 wpc->lossy_blocks = TRUE;
     }
 
-#ifdef LARGE_HEADER
-    if (wps->wphdr.block_samples)
-        wps->sample_index = GET_BLOCK_INDEX (wps->wphdr);
-#else
     wps->block_index = wps->sample_index;
-#endif
 
     return TRUE;
 }
@@ -638,8 +607,6 @@ static int read_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 
 // Read total sample count from metadata
 
-#ifndef LARGE_HEADER
-
 static int read_total_samples (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
     int bytecnt = wpmd->byte_length;
@@ -690,8 +657,6 @@ static int read_audio_checksum (WavpackStream *wps, WavpackMetadata *wpmd)
 
     return TRUE;
 }
-
-#endif
 
 // Read wrapper data from metadata. Currently, this consists of the RIFF
 // header and trailer that wav files contain around the audio data but could
@@ -763,23 +728,8 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
         case ID_DUMMY:
             return TRUE;
 
-        case ID_DECORR_TERMS:
-            return read_decorr_terms (wps, wpmd);
-
-        case ID_DECORR_WEIGHTS:
-            return read_decorr_weights (wps, wpmd);
-
-        case ID_DECORR_SAMPLES:
-            return read_decorr_samples (wps, wpmd);
-
         case ID_DECORR_COMBINED:
             return read_decorr_combined (wps, wpmd);
-
-        case ID_ENTROPY_VARS:
-            return read_entropy_vars (wps, wpmd);
-
-        case ID_HYBRID_PROFILE:
-            return read_hybrid_profile (wps, wpmd);
 
         case ID_ENTROPY_COMBINED:
             return read_entropy_combined (wps, wpmd);
@@ -927,7 +877,7 @@ void WavpackSeekTrailingWrapper (WavpackContext *wpc)
 {
     if ((wpc->open_flags & OPEN_WRAPPER) &&
         wpc->reader->can_seek (wpc->wv_in) && !wpc->stream3)
-            seek_eof_information (wpc, NULL, TRUE);
+            seek_eof_information (wpc, TRUE);
 }
 
 // Get any MD5 checksum stored in the metadata (should be called after reading
@@ -938,7 +888,7 @@ int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16])
 {
     if (wpc->config.flags & CONFIG_MD5_CHECKSUM) {
         if (!wpc->config.md5_read && wpc->reader->can_seek (wpc->wv_in))
-            seek_eof_information (wpc, NULL, FALSE);
+            seek_eof_information (wpc, FALSE);
 
         if (wpc->config.md5_read) {
             memcpy (data, wpc->config.md5_checksum, 16);
@@ -974,33 +924,18 @@ uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeade
 
         sp = buffer;
 
-#ifdef LARGE_HEADER
-        if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
-            !(*++sp & 1) && sp [2] < 16 && !sp [3] && (sp [2] || sp [1] || *sp >= 24) && sp [5] == 4 &&
-            sp [4] >= (MIN_STREAM_VERS & 0xff) && sp [4] <= (MAX_STREAM_VERS & 0xff) && sp [18] < 3 && !sp [19]) {
-                memcpy (wphdr, buffer, sizeof (*wphdr));
-                WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
-                return bytes_skipped;
-            }
-#else
         if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
             !(*++sp & 1) && sp [1] < 64 && sp [3] < 32) {
                 memcpy (wphdr, buffer, sizeof (*wphdr));
                 WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
                 return bytes_skipped;
             }
-#endif
 
         while (sp < ep && *sp != 'w')
             sp++;
 
-#ifdef LARGE_HEADER
-        if ((bytes_skipped += (uint32_t)(sp - buffer)) > 1024 * 1024)
-            return -1;
-#else
         if ((bytes_skipped += (uint32_t)(sp - buffer)) > 1024 * 10)
             return -1;
-#endif
     }
 }
 
@@ -1014,32 +949,28 @@ uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeade
 
 static int match_wvc_header (WavpackHeader *wv_hdr, WavpackHeader *wvc_hdr)
 {
-    if (GET_BLOCK_INDEX (*wv_hdr) == GET_BLOCK_INDEX (*wvc_hdr) &&
-        wv_hdr->block_samples == wvc_hdr->block_samples) {
-            int wvi = 0, wvci = 0;
+    if (wv_hdr->block_samples == wvc_hdr->block_samples) {
+        int wvi = 0, wvci = 0;
 
-            if (wv_hdr->flags == wvc_hdr->flags)
-                return 0;
+        if (wv_hdr->flags == wvc_hdr->flags)
+            return 0;
 
-            if (wv_hdr->flags & INITIAL_BLOCK)
-                wvi -= 1;
+        if (wv_hdr->flags & INITIAL_BLOCK)
+            wvi -= 1;
 
-            if (wv_hdr->flags & FINAL_BLOCK)
-                wvi += 1;
+        if (wv_hdr->flags & FINAL_BLOCK)
+            wvi += 1;
 
-            if (wvc_hdr->flags & INITIAL_BLOCK)
-                wvci -= 1;
+        if (wvc_hdr->flags & INITIAL_BLOCK)
+            wvci -= 1;
 
-            if (wvc_hdr->flags & FINAL_BLOCK)
-                wvci += 1;
+        if (wvc_hdr->flags & FINAL_BLOCK)
+            wvci += 1;
 
-            return (wvci - wvi < 0) ? 1 : -1;
-        }
+        return (wvci - wvi < 0) ? 1 : -1;
+    }
 
-    if (((GET_BLOCK_INDEX (*wvc_hdr) - GET_BLOCK_INDEX (*wv_hdr)) << 24) < 0)
-        return 1;
-    else
-        return -1;
+    return -1;
 }
 
 // Read the wvc block that matches the regular wv block that has been
@@ -1069,17 +1000,7 @@ int read_wvc_block (WavpackContext *wpc)
         }
 
         memcpy (&orig_wphdr, &wphdr, sizeof (WavpackHeader));       // save original header for verify step
-
-#ifdef LARGE_HEADER
-        if (wpc->open_flags & OPEN_STREAMING) {
-            SET_BLOCK_INDEX (wphdr, 0);
-            wps->sample_index = 0;
-        }
-        else
-            SET_BLOCK_INDEX (wphdr, GET_BLOCK_INDEX (wphdr) - wpc->initial_index);
-#else
         wps->block_index = wps->sample_index;
-#endif
 
         if (wphdr.flags & INITIAL_BLOCK)
             wpc->file2pos = file2pos + bcount;
@@ -1137,7 +1058,7 @@ int read_wvc_block (WavpackContext *wpc)
 // terminated unexpectedly. Note that this could be used to get all three
 // types of information in one go, but it's not actually used that way now.
 
-static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int get_wrapper)
+static int seek_eof_information (WavpackContext *wpc, int get_wrapper)
 {
     int64_t restore_pos, last_pos = -1;
     WavpackStreamReader64 *reader = wpc->reader;
@@ -1203,12 +1124,8 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
         // this block does not have audio, and we haven't seen one with audio, we have
         // to go back some more.
 
-        if (wphdr.block_samples) {
-            if (final_index)
-                *final_index = GET_BLOCK_INDEX (wphdr) + wphdr.block_samples;
-
+        if (wphdr.block_samples)
             audio_blocks++;
-        }
         else if (!audio_blocks) {
             if (current_pos > (int64_t) 1048576)
                 reader->set_pos_rel (id, -1048576, SEEK_CUR);

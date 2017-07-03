@@ -158,9 +158,7 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
         ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
     }
 
-#ifdef LARGE_HEADER
-    ((WavpackHeader *) wps->blockbuff)->crc = wps->crc;
-#elif AUDIO_CHECKSUM_BYTES
+#if AUDIO_CHECKSUM_BYTES
     write_audio_checksum (&wpmd, ID_AUDIO_CHECKSUM, wps->crc);
     copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
     free_metadata (&wpmd);
