@@ -1,11 +1,11 @@
-# wavpack 5.1.0 configure.ac
+# wavpack 0.1.0 configure.ac
 
-AC_INIT(wavpack, 5.1.0, bryant@wavpack.com)
+AC_INIT(wavpack, 0.1.0, bryant@wavpack.com)
 AC_CONFIG_SRCDIR([src/pack.c])
 AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE
 
-LIBWAVPACK_MAJOR=5
+LIBWAVPACK_MAJOR=0
 LIBWAVPACK_MINOR=1
 LIBWAVPACK_MICRO=0
 LIBWAVPACK_VERSION_STRING=$LIBWAVPACK_MAJOR.$LIBWAVPACK_MINOR.$LIBWAVPACK_MICRO
@@ -20,9 +20,9 @@ AC_DEFINE_UNQUOTED(LIBWAVPACK_VERSION_STRING, "$LIBWAVPACK_VERSION_STRING", [lib
 # +1 :  0 :  0   == changed/removed an interface. Breaks old apps.
 #  ? : +1 :  ?   == internal changes that doesn't break anything.
 # CURRENT : REVISION : AGE
-LT_CURRENT=3
+LT_CURRENT=0
 LT_REVISION=0
-LT_AGE=2
+LT_AGE=0
 
 AC_SUBST(LT_CURRENT)
 AC_SUBST(LT_REVISION)

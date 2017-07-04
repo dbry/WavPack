@@ -63,7 +63,7 @@
 ///////////////////////////// local variable storage //////////////////////////
 
 static const char *sign_on = "\n"
-" WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
+" WAVPACK  Short Blocks Audio Compressor  %s Version %s\n"
 " Copyright (c) 1998 - 2017 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"

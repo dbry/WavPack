@@ -60,7 +60,7 @@
 ///////////////////////////// local variable storage //////////////////////////
 
 static const char *sign_on = "\n"
-" WVUNPACK  Hybrid Lossless Audio Decompressor  %s Version %s\n"
+" WVUNPACK  Short Blocks Audio Decompressor  %s Version %s\n"
 " Copyright (c) 1998 - 2017 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
