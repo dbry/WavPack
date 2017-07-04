@@ -301,8 +301,6 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 #define OPEN_WRAPPER    0x4     // make audio wrapper available (i.e. RIFF)
 #define OPEN_2CH_MAX    0x8     // open multichannel as stereo (no downmix)
 #define OPEN_NORMALIZE  0x10    // normalize floating point data to +/- 1.0
-#define OPEN_STREAMING  0x20    // "streaming" mode blindly unpacks blocks
-                                // w/o regard to header file position info
 #define OPEN_FILE_UTF8  0x80    // assume filenames are UTF-8 encoded, not ANSI (Windows only)
 
 // new for version 5

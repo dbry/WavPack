@@ -84,19 +84,11 @@ static WavpackStreamReader64 trans_reader = {
 // This function is identical to WavpackOpenFileInput64() except that instead
 // of providing the new 64-bit reader callbacks, the old reader callbacks are
 // utilized and a translation layer is employed. It is provided as a compatibility
-// function for existing applications. To ensure that streaming applications using
-// this function continue to work, the OPEN_NO_CHECKSUM flag is forced on when
-// the OPEN_STREAMING flag is set.
+// function for existing applications.
 
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
     WavpackReaderTranslator *trans_wv = NULL, *trans_wvc = NULL;
-
-    // this prevents existing streaming applications from failing if they try to pass
-    // in blocks that have been modified from the original (e.g., Matroska blocks)
-
-    if (flags & OPEN_STREAMING)
-        flags |= OPEN_NO_CHECKSUM;
 
     if (wv_id) {
         trans_wv = malloc (sizeof (WavpackReaderTranslator));

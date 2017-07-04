@@ -27,8 +27,13 @@
 
 #include <sys/types.h>
 
-#define BLOCK_CHECKSUM_BYTES 0  // must be 0, 2, or 4
-#define AUDIO_CHECKSUM_BYTES 0  // must be 0, 2, or 4
+// Checksums for the encoded block and/or the audio data may be added, and these checksums
+// may be 2 or 4 bytes wide. They are automatically verified on decode. These do occupy
+// space in every block, so they might not be desirable in all applications. One idea might
+// be to include them in test code during development, and delete them later if desired.
+
+#define BLOCK_CHECKSUM_BYTES 0  // must be 0, 2, or 4 (cost: 0, 4, or 6 bytes)
+#define AUDIO_CHECKSUM_BYTES 0  // must be 0, 2, or 4 (cost: 0, 4, or 6 bytes)
 
 // This header file contains all the definitions required by WavPack.
 
@@ -519,9 +524,7 @@ void free_metadata (WavpackMetadata *wpmd);
 int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned char *buffer_end);
 double WavpackGetEncodedNoise (WavpackContext *wpc, double *peak);
 int unpack_init (WavpackContext *wpc);
-int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd);
+int read_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd);
 int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
 int check_crc_error (WavpackContext *wpc);
@@ -679,11 +682,7 @@ static __inline int count_bits (uint32_t av) { unsigned long res; return _BitSca
 #endif
 
 void init_words (WavpackStream *wps);
-void write_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd);
-void write_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd);
 void write_entropy_combined (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd);
-int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_entropy_combined (WavpackStream *wps, WavpackMetadata *wpmd);
 int32_t FASTCALL send_word (WavpackStream *wps, int32_t value, int chan);
 void send_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsamples);
@@ -740,8 +739,6 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 #define OPEN_WRAPPER    0x4     // make audio wrapper available (i.e. RIFF)
 #define OPEN_2CH_MAX    0x8     // open multichannel as stereo (no downmix)
 #define OPEN_NORMALIZE  0x10    // normalize floating point data to +/- 1.0
-#define OPEN_STREAMING  0x20    // "streaming" mode blindly unpacks blocks
-                                // w/o regard to header file position info
 #define OPEN_FILE_UTF8  0x80    // assume filenames are UTF-8 encoded, not ANSI (Windows only)
 
 // new for version 5

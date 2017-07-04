@@ -294,7 +294,7 @@ WavpackContext *WavpackOpenRawDecoder (
         }
     }
 
-    return WavpackOpenFileInputEx64 (&raw_reader, raw_wv, raw_wvc, error, flags | OPEN_STREAMING | OPEN_NO_CHECKSUM, norm_offset);
+    return WavpackOpenFileInputEx64 (&raw_reader, raw_wv, raw_wvc, error, flags | OPEN_NO_CHECKSUM, norm_offset);
 }
 
 // Return the number of samples represented by the current (and in the raw case, only) frame.
