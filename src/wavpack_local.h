@@ -113,6 +113,7 @@ typedef struct {
 
 #define WavpackHeaderFormat "4SSL"
 
+#define FOURCC "wpsb"
 #define CHUNK_SIZE_OFFSET 6
 #define CHUNK_SIZE_REMAINDER (sizeof (WavpackHeader) - CHUNK_SIZE_OFFSET)
 

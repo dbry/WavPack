@@ -140,7 +140,7 @@ WavpackContext *WavpackOpenRawDecoder (
     // if the WavPack data does not contain headers we assume Matroska-style storage
     // and recreate the missing headers
 
-    if (strncmp (main_data, "wvpk", 4)) {
+    if (strncmp (main_data, FOURCC, 4)) {
         uint32_t multiple_blocks = 0, block_size, block_samples = 0, wphdr_flags, crc;
         uint32_t main_bytes = main_size, corr_bytes = corr_size;
         unsigned char *mcp = main_data;
@@ -202,7 +202,7 @@ WavpackContext *WavpackOpenRawDecoder (
             } 
 
             memset (wphdr, 0, sizeof (WavpackHeader));
-            memcpy (wphdr->ckID, "wvpk", 4);
+            memcpy (wphdr->ckID, FOURCC, 4);
             wphdr->ckSize = CHUNK_SIZE_REMAINDER + block_size;
             wphdr->block_samples = block_samples;
             wphdr->flags = wphdr_flags;
@@ -246,7 +246,7 @@ WavpackContext *WavpackOpenRawDecoder (
                 } 
 
                 memset (wphdr, 0, sizeof (WavpackHeader));
-                memcpy (wphdr->ckID, "wvpk", 4);
+                memcpy (wphdr->ckID, FOURCC, 4);
                 wphdr->ckSize = CHUNK_SIZE_REMAINDER + block_size;
                 wphdr->block_samples = block_samples;
                 wphdr->flags = wphdr_flags;

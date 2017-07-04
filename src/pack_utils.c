@@ -387,7 +387,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         if (num_chans && wpc->current_stream == NEW_MAX_STREAMS - 1)
             break;
 
-        memcpy (wps->wphdr.ckID, "wvpk", 4);
+        memcpy (wps->wphdr.ckID, FOURCC, 4);
         wps->wphdr.ckSize = CHUNK_SIZE_REMAINDER;
         wps->wphdr.flags = flags;
         wps->bits = bps;
@@ -913,7 +913,7 @@ static void *find_metadata (void *wavpack_block, int desired_id, uint32_t *size)
     unsigned char *dp, meta_id, c1, c2;
     int32_t bcount, meta_bc;
 
-    if (strncmp (wphdr->ckID, "wvpk", 4))
+    if (strncmp (wphdr->ckID, FOURCC, 4))
         return NULL;
 
     bcount = wphdr->ckSize - CHUNK_SIZE_REMAINDER;
@@ -1076,7 +1076,7 @@ static int write_metadata_block (WavpackContext *wpc)
         wphdr = (WavpackHeader *) (block_buff = malloc (block_size + 6));
 
         CLEAR (*wphdr);
-        memcpy (wphdr->ckID, "wvpk", 4);
+        memcpy (wphdr->ckID, FOURCC, 4);
         wphdr->ckSize = block_size - CHUNK_SIZE_OFFSET;
         wphdr->block_samples = 0;
 

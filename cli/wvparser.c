@@ -61,6 +61,7 @@ typedef struct {
 
 #define WavpackHeaderFormat "4LS2LLLLL"
 
+#define FOURCC "wvpk"
 #define CHUNK_SIZE_OFFSET 8
 #define CHUNK_SIZE_REMAINDER (sizeof (WavpackHeader) - CHUNK_SIZE_OFFSET)
 
@@ -74,6 +75,7 @@ typedef struct {
 
 #define WavpackHeaderFormat "4SSL"
 
+#define FOURCC "wpsb"
 #define CHUNK_SIZE_OFFSET 6
 #define CHUNK_SIZE_REMAINDER (sizeof (WavpackHeader) - CHUNK_SIZE_OFFSET)
 
@@ -392,7 +394,7 @@ static int verify_wavpack_block (unsigned char *buffer)
     uint32_t checksum_passed = 0, bcount, meta_bc;
     unsigned char *dp, meta_id, c1, c2;
 
-    if (strncmp (wphdr->ckID, "wvpk", 4) || wphdr->ckSize + CHUNK_SIZE_OFFSET < sizeof (WavpackHeader))
+    if (strncmp (wphdr->ckID, FOURCC, 4) || wphdr->ckSize + CHUNK_SIZE_OFFSET < sizeof (WavpackHeader))
         return 0;
 
     bcount = wphdr->ckSize - CHUNK_SIZE_REMAINDER;
@@ -488,7 +490,7 @@ static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
 	sp = buffer;
 
 #ifdef LARGE_HEADER
-	if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
+	if (*sp++ == FOURCC [0] && *sp == FOURCC [1] && *++sp == FOURCC [2] && *++sp == FOURCC [3] &&
             !(*++sp & 1) && sp [2] < 16 && !sp [3] && (sp [2] || sp [1] || *sp >= 24) && sp [5] == 4 &&
             sp [4] >= (MIN_STREAM_VERS & 0xff) && sp [4] <= (MAX_STREAM_VERS & 0xff) && sp [18] < 3 && !sp [19]) {
 		memcpy (wphdr, buffer, sizeof (*wphdr));
@@ -496,7 +498,7 @@ static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
 		return bytes_skipped;
 	    }
 #else
-        if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
+        if (*sp++ == FOURCC [0] && *sp == FOURCC [1] && *++sp == FOURCC [2] && *++sp == FOURCC [3] &&
             !(*++sp & 1) && sp [1] < 64 && sp [3] < 32) {
                 memcpy (wphdr, buffer, sizeof (*wphdr));
                 little_endian_to_native (wphdr, WavpackHeaderFormat);
@@ -505,7 +507,7 @@ static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
 #endif
         // printf ("read_next_header() did not see valid block right away: %c %c %c %c\n", buffer [0], buffer [1], buffer [2], buffer [3]);
 
-	while (sp < ep && *sp != 'w')
+	while (sp < ep && *sp != FOURCC [0])
 	    sp++;
 
 #ifdef LARGE_HEADER

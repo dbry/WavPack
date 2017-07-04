@@ -891,14 +891,14 @@ uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeade
 
         sp = buffer;
 
-        if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
+        if (*sp++ == FOURCC [0] && *sp == FOURCC [1] && *++sp == FOURCC [2] && *++sp == FOURCC [3] &&
             !(*++sp & 1) && sp [1] < 64 && sp [3] < 32) {
                 memcpy (wphdr, buffer, sizeof (*wphdr));
                 WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
                 return bytes_skipped;
             }
 
-        while (sp < ep && *sp != 'w')
+        while (sp < ep && *sp != FOURCC [0])
             sp++;
 
         if ((bytes_skipped += (uint32_t)(sp - buffer)) > 1024 * 10)
@@ -1182,7 +1182,7 @@ int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum)
     uint32_t checksum_passed = 0, bcount, meta_bc;
     unsigned char *dp, meta_id, c1, c2;
 
-    if (strncmp (wphdr->ckID, "wvpk", 4) || wphdr->ckSize + CHUNK_SIZE_OFFSET < sizeof (WavpackHeader))
+    if (strncmp (wphdr->ckID, FOURCC, 4) || wphdr->ckSize + CHUNK_SIZE_OFFSET < sizeof (WavpackHeader))
         return FALSE;
 
     bcount = wphdr->ckSize - CHUNK_SIZE_REMAINDER;
