@@ -19,7 +19,6 @@
 #include <math.h>
 
 #include "wavpack_local.h"
-#include "decorr_tables.h"      // contains data, only include from this module!
 
 ///////////////////////////// executable code ////////////////////////////////
 
@@ -77,20 +76,20 @@ void pack_init (WavpackContext *wpc)
         wps->num_passes = 9;
 
     if (wpc->config.flags & CONFIG_VERY_HIGH_FLAG) {
-        wps->num_decorrs = NUM_VERY_HIGH_SPECS;
-        wps->decorr_specs = very_high_specs;
+        wps->num_decorrs = get_num_very_high_specs();
+        wps->decorr_specs = get_very_high_specs();
     }
     else if (wpc->config.flags & CONFIG_HIGH_FLAG) {
-        wps->num_decorrs = NUM_HIGH_SPECS;
-        wps->decorr_specs = high_specs;
+        wps->num_decorrs = get_num_high_specs();
+        wps->decorr_specs = get_high_specs();
     }
     else if (wpc->config.flags & CONFIG_FAST_FLAG) {
-        wps->num_decorrs = NUM_FAST_SPECS;
-        wps->decorr_specs = fast_specs;
+        wps->num_decorrs = get_num_fast_specs();
+        wps->decorr_specs = get_fast_specs();
     }
     else {
-        wps->num_decorrs = NUM_DEFAULT_SPECS;
-        wps->decorr_specs = default_specs;
+        wps->num_decorrs = get_num_default_specs();
+        wps->decorr_specs = get_default_specs();
     }
 
     init_words (wps);
@@ -139,13 +138,13 @@ static void write_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd)
             break;
 
     if (i < wps->num_decorrs) {
-        if (wps->decorr_specs == fast_specs)
+        if (wps->decorr_specs == get_fast_specs())
             *byteptr++ = tcount;
-        else if (wps->decorr_specs == default_specs)
+        else if (wps->decorr_specs == get_default_specs())
             *byteptr++ = tcount | 0x20;
-        else if (wps->decorr_specs == high_specs)
+        else if (wps->decorr_specs == get_high_specs())
             *byteptr++ = tcount | 0x40;
-        else if (wps->decorr_specs == very_high_specs)
+        else if (wps->decorr_specs == get_very_high_specs())
             *byteptr++ = tcount | 0x60;
 
         *byteptr++ = i;

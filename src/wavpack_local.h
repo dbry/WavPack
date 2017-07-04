@@ -531,6 +531,15 @@ void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening
 void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
 void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
 
+const WavpackDecorrSpec *get_fast_specs (void);
+int get_num_fast_specs (void);
+const WavpackDecorrSpec *get_default_specs (void);
+int get_num_default_specs (void);
+const WavpackDecorrSpec *get_high_specs (void);
+int get_num_high_specs (void);
+const WavpackDecorrSpec *get_very_high_specs (void);
+int get_num_very_high_specs (void);
+
 ////////////////////////// DSD related (including decimation) //////////////////////////
 // modules: pack_dsd.c unpack_dsd.c
 

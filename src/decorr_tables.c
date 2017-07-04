@@ -6,7 +6,7 @@
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
 
-// decorr_tables.h
+// decorr_tables.c
 
 // These four tables specify the characteristics of the decorrelation filters
 // for the four basic compression modes (fast, normal, high, and very high).
@@ -31,9 +31,8 @@
 // that code to make sure the correct filter is being passed in. SO, IF A
 // CHANGE IS MADE HERE TO ONE OF THE DEFAULT FILTERS, THEN THE CORRESPONDING
 // ASSEMBLY CODE MUST BE CHANGED ALSO, OR VERY CORRUPT FILES WILL RESULT!!
-//
-// Since this include file contains that actual tables as static const data,
-// it should only be included from ONE source file (currently pack.c)!
+
+#include "wavpack_local.h"
 
 static const WavpackDecorrSpec fast_specs [] = {
         { 1, 2,18,17 },  // 0
@@ -1071,7 +1070,15 @@ static const WavpackDecorrSpec very_high_specs [] = {
         { 0, 1,-1,18,18, 2,18, 3, 5,18, 2,18, 6, 8, 4, 5, 7,-1 },        // 255
 };
 
-#define NUM_FAST_SPECS (sizeof (fast_specs) / sizeof (fast_specs [0]))
-#define NUM_DEFAULT_SPECS (sizeof (default_specs) / sizeof (default_specs [0]))
-#define NUM_HIGH_SPECS (sizeof (high_specs) / sizeof (high_specs [0]))
-#define NUM_VERY_HIGH_SPECS (sizeof (very_high_specs) / sizeof (very_high_specs [0]))
+const WavpackDecorrSpec *get_fast_specs (void) { return fast_specs; }
+int get_num_fast_specs (void) { return sizeof (fast_specs) / sizeof (fast_specs [0]); }
+
+const WavpackDecorrSpec *get_default_specs (void) { return default_specs; }
+int get_num_default_specs (void) { return sizeof (default_specs) / sizeof (default_specs [0]); }
+
+const WavpackDecorrSpec *get_high_specs (void) { return high_specs; }
+int get_num_high_specs (void) { return sizeof (high_specs) / sizeof (high_specs [0]); }
+
+const WavpackDecorrSpec *get_very_high_specs (void) { return very_high_specs; }
+int get_num_very_high_specs (void) { return sizeof (very_high_specs) / sizeof (very_high_specs [0]); }
+

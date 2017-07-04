@@ -2,6 +2,7 @@ lib_LTLIBRARIES = libwavpack.la
 
 libwavpack_la_SOURCES = \
 	common_utils.c \
+	decorr_tables.c \
 	decorr_utils.c \
 	entropy_utils.c \
 	extra1.c \
@@ -38,7 +39,6 @@ libwavpack_la_SOURCES += unpack_armv7.S
 endif
 
 noinst_HEADERS = \
-	decorr_tables.h \
 	wavpack_local.h \
 	wavpack_version.h
 

@@ -19,7 +19,6 @@
 #include <string.h>
 
 #include "wavpack_local.h"
-#include "decorr_tables.h"      // contains data, only include from this module!
 
 ///////////////////////////// executable code ////////////////////////////////
 
@@ -84,28 +83,28 @@ int read_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd)
             neg_term_replace = -3;
 
         if ((*byteptr & 0x60) == 0x00) {
-            if (table_index >= NUM_FAST_SPECS)
+            if (table_index >= get_num_fast_specs())
                 return FALSE;
 
-            spec = fast_specs + table_index;
+            spec = get_fast_specs() + table_index;
         }
         else if ((*byteptr & 0x60) == 0x20) {
-            if (table_index >= NUM_DEFAULT_SPECS)
+            if (table_index >= get_num_default_specs())
                 return FALSE;
 
-            spec = default_specs + table_index;
+            spec = get_default_specs() + table_index;
         }
         else if ((*byteptr & 0x60) == 0x40) {
-            if (table_index >= NUM_HIGH_SPECS)
+            if (table_index >= get_num_high_specs())
                 return FALSE;
 
-            spec = high_specs + table_index;
+            spec = get_high_specs() + table_index;
         }
         else {
-            if (table_index >= NUM_VERY_HIGH_SPECS)
+            if (table_index >= get_num_very_high_specs())
                 return FALSE;
 
-            spec = very_high_specs + table_index;
+            spec = get_very_high_specs() + table_index;
         }
 
         spec_terms = spec->terms;
