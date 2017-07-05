@@ -32,8 +32,8 @@
 // space in every block, so they might not be desirable in all applications. One idea might
 // be to include them in test code during development, and delete them later if desired.
 
-#define BLOCK_CHECKSUM_BYTES 0  // must be 0, 2, or 4 (cost: 0, 4, or 6 bytes)
-#define AUDIO_CHECKSUM_BYTES 0  // must be 0, 2, or 4 (cost: 0, 4, or 6 bytes)
+#define BLOCK_CHECKSUM_BYTES 0  // must be 0, 2, or 4 (cost: 0, 4, or 6 bytes per block)
+#define AUDIO_CHECKSUM_BYTES 0  // must be 0, 2, or 4 (cost: 0, 4, or 6 bytes per block)
 
 // This header file contains all the definitions required by WavPack.
 

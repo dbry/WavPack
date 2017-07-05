@@ -2212,6 +2212,74 @@ static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
     }
 }
 
+#if defined(_WIN32)
+
+// Convert the Unicode wide-format string into a UTF-8 string using no more
+// than the specified buffer length. The wide-format string must be NULL
+// terminated and the resulting string will be NULL terminated. The actual
+// number of characters converted (not counting terminator) is returned, which
+// may be less than the number of characters in the wide string if the buffer
+// length is exceeded.
+
+static int WideCharToUTF8 (const wchar_t *Wide, unsigned char *pUTF8, int len)
+{
+    const wchar_t *pWide = Wide;
+    int outndx = 0;
+
+    while (*pWide) {
+        if (*pWide < 0x80 && outndx + 1 < len)
+            pUTF8 [outndx++] = (unsigned char) *pWide++;
+        else if (*pWide < 0x800 && outndx + 2 < len) {
+            pUTF8 [outndx++] = (unsigned char) (0xc0 | ((*pWide >> 6) & 0x1f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
+        }
+        else if (outndx + 3 < len) {
+            pUTF8 [outndx++] = (unsigned char) (0xe0 | ((*pWide >> 12) & 0xf));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | ((*pWide >> 6) & 0x3f));
+            pUTF8 [outndx++] = (unsigned char) (0x80 | (*pWide++ & 0x3f));
+        }
+        else
+            break;
+    }
+
+    pUTF8 [outndx] = 0;
+    return (int)(pWide - Wide);
+}
+
+// Convert a text string into its Unicode UTF-8 format equivalent. The
+// conversion is done in-place so the maximum length of the string buffer must
+// be specified because the string may become longer or shorter. If the
+// resulting string will not fit in the specified buffer size then it is
+// truncated.
+
+static void TextToUTF8 (void *string, int len)
+{
+    unsigned char *inp = string;
+
+    // simple case: test for UTF8 BOM and if so, simply delete the BOM
+
+    if (len > 3 && inp [0] == 0xEF && inp [1] == 0xBB && inp [2] == 0xBF) {
+        memmove (inp, inp + 3, len - 3);
+        inp [len - 3] = 0;
+    }
+    else if (* (wchar_t *) string == 0xFEFF) {
+        wchar_t *temp = _wcsdup (string);
+
+        WideCharToUTF8 (temp + 1, (unsigned char *) string, len);
+        free (temp);
+    }
+    else {
+        int max_chars = (int) strlen (string);
+        wchar_t *temp = (wchar_t *) malloc ((max_chars + 1) * 2);
+
+        MultiByteToWideChar (CP_ACP, 0, string, -1, temp, max_chars + 1);
+        WideCharToUTF8 (temp, (unsigned char *) string, len);
+        free (temp);
+    }
+}
+
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 // This function displays the progress status on the title bar of the DOS   //
 // window that WavPack is running in. The "file_progress" argument is for   //
