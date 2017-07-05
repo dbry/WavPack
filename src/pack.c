@@ -736,6 +736,9 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         free (orig_data);
 
         if (data_count) {
+#if AUDIO_CHECKSUM_BYTES
+            WavpackMetadata wpmd;
+#endif
             if (data_count < 512) {
                 *cptr++ = ID_WVX_BITSTREAM;
                 *cptr++ = data_count >> 1;
