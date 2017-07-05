@@ -723,7 +723,10 @@ int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16])
     return add_to_metadata (wpc, data, 16, (wpc->config.qmode & 0xff) ? ID_ALT_MD5_CHECKSUM : ID_MD5_CHECKSUM);
 }
 
+#if BLOCK_CHECKSUM_BYTES
 static int block_add_checksum (unsigned char *buffer_start, unsigned char *buffer_end, int bytes);
+static void block_update_checksum (unsigned char *buffer_start);
+#endif
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 {
@@ -847,7 +850,6 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 // of samples (or -1). It is the responsibility of the application to read and
 // rewrite the block. An example of this can be found in the Audition filter.
 
-static void block_update_checksum (unsigned char *buffer_start);
 static void *find_metadata (void *wavpack_block, int desired_id, uint32_t *size);
 
 void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)

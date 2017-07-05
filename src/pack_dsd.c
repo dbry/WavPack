@@ -59,7 +59,6 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
     uint32_t flags = wps->wphdr.flags, mult = wpc->dsd_multiplier, data_count;
     uint32_t sample_count = wps->wphdr.block_samples;
     unsigned char *dsd_encoding, dsd_power = 0;
-    WavpackMetadata wpmd;
     int32_t res;
 
     // This code scans stereo data to check whether it can be stored as mono data

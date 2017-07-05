@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
-//                  Hybrid Lossless Wavefile Compressor                   //
+//                     Short Blocks Audio Compressor                      //
 //                Copyright (c) 1998 - 2017 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
@@ -234,16 +234,17 @@ static int pause_mode;
 
 /////////////////////////// local function declarations ///////////////////////
 
-static FILE *wild_fopen (char *filename, const char *mode);
 static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
 static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source);
 static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source);
 static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
 static int repack_audio (WavpackContext *wpc, WavpackContext *infile, unsigned char *md5_digest_source);
 static int verify_audio (char *infilename, unsigned char *md5_digest_source);
-static void make_settings_string (char *settings, WavpackConfig *config);
 static void display_progress (double file_progress);
+
+#ifdef _WIN32
 static void TextToUTF8 (void *string, int len);
+#endif
 
 #define WAVPACK_NO_ERROR    0
 #define WAVPACK_SOFT_ERROR  1
@@ -267,7 +268,7 @@ int main (int argc, char **argv)
     char *outfilename = NULL, *out2filename = NULL;
     char **matches = NULL;
     WavpackConfig config;
-    int result, i;
+    int result;
 
 #if defined(_WIN32)
     char selfname [MAX_PATH];
@@ -1157,99 +1158,6 @@ static int write_block (void *id, void *data, int32_t length)
 
     return TRUE;
 }
-
-// Special version of fopen() that allows a wildcard specification for the
-// filename. If a wildcard is specified, then it must match 1 and only 1
-// file to be acceptable (i.e. it won't match just the "first" file).
-
-#if defined (_WIN32)
-
-static FILE *wild_fopen (char *filename, const char *mode)
-{
-    struct _wfinddata_t _wfinddata_t;
-    char *matchname = NULL;
-    wchar_t *wfilename;
-    FILE *res = NULL;
-    intptr_t file;
-
-    if (!filespec_wild (filename) || !filespec_name (filename))
-        return fopen (filename, mode);
-
-    wfilename = utf8_to_utf16(filename);
-
-    if (!wfilename)
-        return NULL;
-
-    if ((file = _wfindfirst (wfilename, &_wfinddata_t)) != (intptr_t) -1) {
-        do {
-            if (!(_wfinddata_t.attrib & _A_SUBDIR)) {
-                char *name_utf8;
-
-                if (matchname) {
-                    free (matchname);
-                    matchname = NULL;
-                    break;
-                }
-                else if ((name_utf8 = utf16_to_utf8(_wfinddata_t.name))) {
-                    matchname = malloc (strlen (filename) + strlen(name_utf8));
-                    strcpy (matchname, filename);
-                    strcpy (filespec_name (matchname), name_utf8);
-                    free (name_utf8);
-                }
-            }
-        } while (_wfindnext (file, &_wfinddata_t) == 0);
-
-        _findclose (file);
-    }
-
-    if (matchname) {
-        res = fopen (matchname, mode);
-        free (matchname);
-    }
-
-    free (wfilename);
-    return res;
-}
-
-#else
-
-static FILE *wild_fopen (char *filename, const char *mode)
-{
-    char *matchname = NULL;
-    struct stat statbuf;
-    FILE *res = NULL;
-    glob_t globbuf;
-    int i;
-
-    glob (filename, 0, NULL, &globbuf);
-
-    for (i = 0; i < globbuf.gl_pathc; ++i) {
-        if (stat (globbuf.gl_pathv [i], &statbuf) == -1 || S_ISDIR (statbuf.st_mode))
-            continue;
-
-        if (matchname) {
-            free (matchname);
-            matchname = NULL;
-            break;
-        }
-        else {
-            matchname = malloc (strlen (globbuf.gl_pathv [i]) + 10);
-            strcpy (matchname, globbuf.gl_pathv [i]);
-        }
-    }
-
-    globfree (&globbuf);
-
-    if (matchname) {
-        res = fopen (matchname, mode);
-        free (matchname);
-    }
-
-    return res;
-}
-
-#endif
-
 
 // This function packs a single file "infilename" and stores the result at
 // "outfilename". If "out2filename" is specified, then the "correction"

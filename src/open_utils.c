@@ -36,7 +36,6 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
     WavpackContext *wpc = malloc (sizeof (WavpackContext));
     WavpackStream *wps;
     int num_blocks = 0;
-    unsigned char first_byte;
     uint32_t bcount;
 
     if (!wpc) {

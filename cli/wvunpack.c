@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
-//                  Hybrid Lossless Wavefile Compressor                   //
+//                     Short Blocks Audio Compressor                      //
 //                Copyright (c) 1998 - 2017 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
@@ -1934,8 +1934,6 @@ static void unreorder_channels (int32_t *data, unsigned char *order, int num_cha
         free (temp);
 }
 
-static void dump_UTF8_string (char *string, FILE *dst);
-static void UTF8ToAnsi (char *string, int len);
 static const char *speakers [] = {
     "FL", "FR", "FC", "LFE", "BL", "BR", "FLC", "FRC", "BC",
     "SL", "SR", "TC", "TFL", "TFC", "TFR", "TBL", "TBC", "TBR"

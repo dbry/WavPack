@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
-//                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2016 David Bryant.                 //
+//                     Short Blocks Audio Compressor                      //
+//                Copyright (c) 1998 - 2017 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
