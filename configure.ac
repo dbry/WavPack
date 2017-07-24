@@ -112,6 +112,7 @@ fi
 AC_SUBST(ICONV_LIBS)
 AC_SUBST(ICONV)
 fi
+AC_CHECK_LIB([crypto],[MD5_Init])
 fi
 
 AC_MSG_CHECKING([if we are building for a Windows host])
