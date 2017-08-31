@@ -78,6 +78,10 @@ static const char *usage =
 " Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
 "             (default is lossless; multiple input files allowed)\n\n"
 #endif
+" Utils:   WAVPACK:  create or transcode WavPack files\n"
+"          WVUNPACK: unpack or verify existing WavPack files\n"
+"          WVGAIN:   apply ReplayGain to WavPack files\n"
+"          WVTAG:    apply or edit metadata tags on WavPack files\n\n"
 " Formats: .wav (default, bwf/rf64 okay)  .wv (transcode, with tags)\n"
 "          .w64 (Sony Wave64)             .caf (Core Audio Format)\n"
 "          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n\n"
@@ -105,6 +109,10 @@ static const char *help =
 "    and the source file type is automatically determined (see accepted formats\n"
 "    below). Raw PCM data may also be used (see --raw-pcm option).\n\n"
 #endif
+" All Utilities:             WAVPACK:  create or transcode WavPack files\n"
+"                            WVUNPACK: unpack or verify existing WavPack files\n"
+"                            WVGAIN:   apply ReplayGain to WavPack files\n"
+"                            WVTAG:    apply or edit metadata tags on WavPack files\n\n"
 " Input Formats:             .wav (default, includes bwf/rf64 varients)\n"
 "                            .wv  (transcode operation, tags copied)\n"
 "                            .caf (Core Audio Format)\n"
