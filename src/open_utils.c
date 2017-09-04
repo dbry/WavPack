@@ -581,6 +581,9 @@ static int read_total_samples (WavpackContext *wpc, WavpackMetadata *wpmd)
     if (bytecnt != 5)
         return FALSE;
 
+    if (wpc->streams [0] && wpc->streams[0]->sample_index)  // ignore this once we're decoding
+        return TRUE;                                        // (but don't flag as an error)
+
     wpc->total_samples = (int64_t) *byteptr++;
     wpc->total_samples |= (int64_t) *byteptr++ << 8;
     wpc->total_samples |= (int64_t) *byteptr++ << 16;
@@ -891,7 +894,7 @@ uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeade
         sp = buffer;
 
         if (*sp++ == FOURCC [0] && *sp == FOURCC [1] && *++sp == FOURCC [2] && *++sp == FOURCC [3] &&
-            !(*++sp & 1) && sp [1] < 64 && sp [3] < 32) {
+            !(*++sp & 1) && (sp [1] << 8) + sp [0] >= CHUNK_SIZE_REMAINDER && sp [1] < 64 && sp [3] < 32) {
                 memcpy (wphdr, buffer, sizeof (*wphdr));
                 WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
                 return bytes_skipped;
