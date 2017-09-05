@@ -24,9 +24,9 @@
 
 int read_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    signed char *byteptr = wpmd->data, *saveptr;
+    signed char *byteptr = wpmd->data;
     signed char *endptr = byteptr + wpmd->byte_length;
-    signed char *expanded_data;
+    signed char expanded_data [MAX_NTERMS * 2];
     struct decorr_pass *dpp;
     int termcnt, i;
 
@@ -124,16 +124,12 @@ int read_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd)
     // next, read the weights (which are stored 2 per byte)
 
     termcnt = (wps->wphdr.flags & MONO_DATA) ? (wps->num_terms + 1) & ~1 : wps->num_terms * 2;
-    expanded_data = malloc (termcnt);
 
     for (i = 0; i < termcnt; i++)
         if (i & 1)
             expanded_data [i] = *byteptr++ << 4;
         else
             expanded_data [i] = *byteptr;
-
-    saveptr = byteptr;
-    byteptr = expanded_data;
 
     if (wps->wphdr.flags & MONO_DATA) {
         if (termcnt == wps->num_terms + 1)
@@ -142,27 +138,12 @@ int read_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd)
     else
         termcnt /= 2;
 
-    if (termcnt != wps->num_terms) {
-        free (expanded_data);
-        return FALSE;
-    }
-
-    // first we reset all the terms to "0"
-
-    for (i = wps->num_terms, dpp = wps->decorr_passes; i--; dpp++)
-        dpp->weight_A = dpp->weight_B = restore_weight_nybble (0);
-
-    // then we just write to "termcnt" values (*2 for stereo), starting at the end
-
-    while (--dpp >= wps->decorr_passes && termcnt--) {
-        dpp->weight_A = restore_weight_nybble (*byteptr++);
+    for (i = 0, dpp = wps->decorr_passes + termcnt - 1; termcnt--; dpp--) {
+        dpp->weight_A = restore_weight_nybble (expanded_data [i++]);
 
         if (!(wps->wphdr.flags & MONO_DATA))
-            dpp->weight_B = restore_weight_nybble (*byteptr++);
+            dpp->weight_B = restore_weight_nybble (expanded_data [i++]);
     }
-
-    free (expanded_data);
-    byteptr = saveptr;
 
     // finally, handle the sample history
 

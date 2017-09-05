@@ -174,24 +174,14 @@ static void write_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd)
     saveptr = byteptr;
 
     if (wps->wphdr.flags & MONO_DATA) {
-        if (tcount < wps->num_terms && (tcount & 1))
-            tcount++;
 
-        for (i = 0; i < wps->num_terms; ++i) {
-            if (i < tcount)
-                dpp [i].weight_A = restore_weight_nybble (*byteptr++ = store_weight_nybble (dpp [i].weight_A));
-            else
-                dpp [i].weight_A = dpp [i].weight_B = restore_weight_nybble (0);
-        }
+        for (i = 0; i < wps->num_terms; ++i)
+            dpp [i].weight_A = restore_weight_nybble (*byteptr++ = store_weight_nybble (dpp [i].weight_A));
     }
     else {
         for (i = 0; i < wps->num_terms; ++i) {
-            if (i < tcount) {
-                dpp [i].weight_A = restore_weight_nybble (*byteptr++ = store_weight_nybble (dpp [i].weight_A));
-                dpp [i].weight_B = restore_weight_nybble (*byteptr++ = store_weight_nybble (dpp [i].weight_B));
-            }
-            else
-                dpp [i].weight_A = dpp [i].weight_B = restore_weight_nybble (0);
+            dpp [i].weight_A = restore_weight_nybble (*byteptr++ = store_weight_nybble (dpp [i].weight_A));
+            dpp [i].weight_B = restore_weight_nybble (*byteptr++ = store_weight_nybble (dpp [i].weight_B));
         }
 
         tcount *= 2;
