@@ -44,7 +44,7 @@ static void Latin1ToUTF8 (void *string, int len);
 // zero in the case of no applicable tags. An optional integer pointer can be provided
 // to accept the total number of bytes consumed by the tag (name and value).
 
-int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used)
+static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used, int syncsafe)
 {
     int tag_size_from_header, items_imported = 0, done_cover = 0;
     unsigned char id3_header [10];
@@ -125,7 +125,10 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
             return -1;
         }
 
-        frame_size = frame_header [7] + (frame_header [6] << 8) + (frame_header [5] << 16) + (frame_header [4] << 24);
+        if (syncsafe)
+            frame_size = frame_header [7] + (frame_header [6] << 7) + (frame_header [5] << 14) + (frame_header [4] << 21);
+        else
+            frame_size = frame_header [7] + (frame_header [6] << 8) + (frame_header [5] << 16) + (frame_header [4] << 24);
 
         if (!frame_size) {
             strcpy (error, "empty frame not allowed");
@@ -288,6 +291,18 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
     }
 
     return items_imported;
+}
+
+int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used)
+{
+    int res = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, NULL, 0);
+
+    if (res > 0)
+        return ImportID3v2_syncsafe (wpc, tag_data, tag_size, error, bytes_used, 0);
+    else if (ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, NULL, 1) > 0)
+        return ImportID3v2_syncsafe (wpc, tag_data, tag_size, error, bytes_used, 1);
+    else
+        return res;
 }
 
 // Convert the Unicode wide-format string into a UTF-8 string using no more
