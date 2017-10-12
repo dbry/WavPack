@@ -34,7 +34,7 @@ int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
     if (wpmd->byte_length < 2)
         return FALSE;
 
-    wps->dsd.byteptr = wpmd->data;
+    wps->dsd.byteptr = (unsigned char *)wpmd->data;
     wps->dsd.endptr = wps->dsd.byteptr + wpmd->byte_length;
     wpc->dsd_multiplier = 1 << *wps->dsd.byteptr++;
     wps->dsd.mode = *wps->dsd.byteptr++;
@@ -141,10 +141,10 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
 
     wps->dsd.history_bins = 1 << history_bits;
 
-    wps->dsd.value_lookup = malloc (sizeof (*wps->dsd.value_lookup) * wps->dsd.history_bins);
+    wps->dsd.value_lookup = (unsigned char **)malloc (sizeof (*wps->dsd.value_lookup) * wps->dsd.history_bins);
     memset (wps->dsd.value_lookup, 0, sizeof (*wps->dsd.value_lookup) * wps->dsd.history_bins);
-    wps->dsd.summed_probabilities = malloc (sizeof (*wps->dsd.summed_probabilities) * wps->dsd.history_bins);
-    wps->dsd.probabilities = malloc (sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins);
+    wps->dsd.summed_probabilities = (int16_t (*)[256])malloc (sizeof (*wps->dsd.summed_probabilities) * wps->dsd.history_bins);
+    wps->dsd.probabilities = (unsigned char (*)[256])malloc (sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins);
 
     max_probability = *wps->dsd.byteptr++;
 
@@ -186,7 +186,7 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
 
         if (sum_values) {
             total_summed_probabilities += sum_values;
-            vp = wps->dsd.value_lookup [wps->dsd.p0] = malloc (sum_values);
+            vp = wps->dsd.value_lookup [wps->dsd.p0] = (unsigned char *)malloc (sum_values);
 
             for (i = 0; i < 256; i++) {
                 int c = wps->dsd.probabilities [wps->dsd.p0] [i];
@@ -316,7 +316,7 @@ static int init_dsd_block_high (WavpackStream *wps, WavpackMetadata *wpmd)
     if (rate_s != RATE_S)
         return FALSE;
 
-    wps->dsd.ptable = malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
+    wps->dsd.ptable = (int32_t *)malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
     init_ptable (wps->dsd.ptable, rate_i, rate_s);
 
     for (channel = 0; channel < ((flags & MONO_DATA) ? 1 : 2); ++channel) {
@@ -495,7 +495,7 @@ typedef struct {
 
 void *decimate_dsd_init (int num_channels)
 {
-    DecimationContext *context = malloc (sizeof (DecimationContext));
+    DecimationContext *context = (DecimationContext *)malloc (sizeof (DecimationContext));
     double filter_sum = 0, filter_scale;
     int skipped_terms, i, j;
 
@@ -504,7 +504,7 @@ void *decimate_dsd_init (int num_channels)
 
     memset (context, 0, sizeof (*context));
     context->num_channels = num_channels;
-    context->chans = malloc (num_channels * sizeof (DecimationChannel));
+    context->chans = (DecimationChannel *)malloc (num_channels * sizeof (DecimationChannel));
 
     if (!context->chans) {
         free (context);
