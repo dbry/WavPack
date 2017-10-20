@@ -1174,11 +1174,11 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
             wpc->crc_errors++;
 
         if (wpc->open_flags & OPEN_WRAPPER) {
-            unsigned char *temp = malloc (1024);
+            unsigned char *temp = (unsigned char *)malloc (1024);
             uint32_t bcount;
 
             if (bs_unused_bytes (&wps->wvbits)) {
-                wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + bs_unused_bytes (&wps->wvbits));
+                wpc->wrapper_data = (unsigned char *)realloc (wpc->wrapper_data, wpc->wrapper_bytes + bs_unused_bytes (&wps->wvbits));
                 memcpy (wpc->wrapper_data + wpc->wrapper_bytes, bs_unused_data (&wps->wvbits), bs_unused_bytes (&wps->wvbits));
                 wpc->wrapper_bytes += bs_unused_bytes (&wps->wvbits);
             }
@@ -1189,7 +1189,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                 if (!bcount)
                     break;
 
-                wpc->wrapper_data = realloc (wpc->wrapper_data, wpc->wrapper_bytes + bcount);
+                wpc->wrapper_data = (unsigned char *)realloc (wpc->wrapper_data, wpc->wrapper_bytes + bcount);
                 memcpy (wpc->wrapper_data + wpc->wrapper_bytes, temp, bcount);
                 wpc->wrapper_bytes += bcount;
             }

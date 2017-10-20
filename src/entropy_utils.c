@@ -110,7 +110,7 @@ static const unsigned char exp2_table [] = {
 
 int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    unsigned char *byteptr = wpmd->data;
+    unsigned char *byteptr = (unsigned char *)wpmd->data;
 
     if (wpmd->byte_length != ((wps->wphdr.flags & MONO_DATA) ? 6 : 12))
         return FALSE;
@@ -135,7 +135,7 @@ int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 
 int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    unsigned char *byteptr = wpmd->data;
+    unsigned char *byteptr = (unsigned char *)wpmd->data;
     unsigned char *endptr = byteptr + wpmd->byte_length;
 
     if (wps->wphdr.flags & HYBRID_BITRATE) {
