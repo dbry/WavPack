@@ -21,5 +21,5 @@ MAINTAINERCLEANFILES = \
 	missing \
 	install-sh
 
-EXTRA_DIST = doc/*.pdf doc/*.html doc/*.css
+EXTRA_DIST = README.md doc/*.pdf doc/*.html doc/*.css
 
