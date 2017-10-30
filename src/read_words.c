@@ -125,7 +125,7 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
         }
 
 #ifdef _WIN32
-        _BitScanForward (&ones_count, ~wps->wvbits.sr);
+        { unsigned long res; _BitScanForward (&res, (unsigned long)~wps->wvbits.sr); ones_count = (uint32_t) res; }
 #else
         ones_count = __builtin_ctz (~wps->wvbits.sr);
 #endif
@@ -404,7 +404,7 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
         }
 
 #ifdef _WIN32
-        _BitScanForward (&ones_count, ~wps->wvbits.sr);
+        { unsigned long res; _BitScanForward (&res, (unsigned long)~wps->wvbits.sr); ones_count = (uint32_t) res; }
 #else
         ones_count = __builtin_ctz (~wps->wvbits.sr);
 #endif
