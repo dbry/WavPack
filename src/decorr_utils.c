@@ -125,6 +125,9 @@ int read_decorr_combined (WavpackStream *wps, WavpackMetadata *wpmd)
 
     termcnt = (wps->wphdr.flags & MONO_DATA) ? (wps->num_terms + 1) & ~1 : wps->num_terms * 2;
 
+    if (termcnt / 2 > endptr - byteptr)
+        return FALSE;
+
     for (i = 0; i < termcnt; i++)
         if (i & 1)
             expanded_data [i] = *byteptr++ << 4;
