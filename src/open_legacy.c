@@ -81,12 +81,12 @@ static WavpackStreamReader64 trans_reader = {
     trans_push_back_byte, trans_get_length, trans_can_seek, NULL, trans_close_stream
 };
 
-// This function is identical to WavpackOpenFileInput64() except that instead
+// This function is identical to WavpackStreamOpenFileInput64() except that instead
 // of providing the new 64-bit reader callbacks, the old reader callbacks are
 // utilized and a translation layer is employed. It is provided as a compatibility
 // function for existing applications.
 
-WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
+WavpackContext *WavpackStreamOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
     WavpackReaderTranslator *trans_wv = NULL, *trans_wvc = NULL;
 
@@ -102,5 +102,5 @@ WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id
         trans_wvc->id = wvc_id;
     }
 
-    return WavpackOpenFileInputEx64 (&trans_reader, trans_wv, trans_wvc, error, flags, norm_offset);
+    return WavpackStreamOpenFileInputEx64 (&trans_reader, trans_wv, trans_wvc, error, flags, norm_offset);
 }

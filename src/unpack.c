@@ -477,7 +477,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
     fixup_samples (wpc, buffer, i);
 
     if ((flags & FLOAT_DATA) && (wpc->open_flags & OPEN_NORMALIZE))
-        WavpackFloatNormalize (buffer, (flags & MONO_DATA) ? i : i * 2,
+        WavpackStreamFloatNormalize (buffer, (flags & MONO_DATA) ? i : i * 2,
             127 - wps->float_norm_exp + wpc->norm_offset);
 
     if (flags & FALSE_STEREO) {

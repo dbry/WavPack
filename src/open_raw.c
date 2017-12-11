@@ -121,7 +121,7 @@ static WavpackStreamReader64 raw_reader = {
     raw_push_back_byte, raw_get_length, raw_can_seek, NULL, raw_close_stream
 };
 
-// This function is similar to WavpackOpenFileInput() except that instead of
+// This function is similar to WavpackStreamOpenFileInput() except that instead of
 // providing a filename to open, the caller provides pointers to buffered
 // WavPack frames (both standard and, optionally, correction data). It
 // decodes only a single frame. Note that in this context, a "frame" is a
@@ -130,7 +130,7 @@ static WavpackStreamReader64 raw_reader = {
 // for multichannel streams each frame consists of several WavPack blocks
 // (which can contain only 1 or 2 channels).
 
-WavpackContext *WavpackOpenRawDecoder (
+WavpackContext *WavpackStreamOpenRawDecoder (
     void *main_data, int32_t main_size,
     void *corr_data, int32_t corr_size,
     int16_t version, char *error, int flags, int norm_offset)
@@ -206,7 +206,7 @@ WavpackContext *WavpackOpenRawDecoder (
             wphdr->ckSize = CHUNK_SIZE_REMAINDER + block_size;
             wphdr->block_samples = block_samples;
             wphdr->flags = wphdr_flags;
-            WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
+            WavpackStreamLittleEndianToNative (wphdr, WavpackHeaderFormat);
 
             raw_wv->num_segments += 2;
             raw_wv->segments = realloc (raw_wv->segments, sizeof (RawSegment) * raw_wv->num_segments);
@@ -250,7 +250,7 @@ WavpackContext *WavpackOpenRawDecoder (
                 wphdr->ckSize = CHUNK_SIZE_REMAINDER + block_size;
                 wphdr->block_samples = block_samples;
                 wphdr->flags = wphdr_flags;
-                WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
+                WavpackStreamLittleEndianToNative (wphdr, WavpackHeaderFormat);
 
                 raw_wvc->num_segments += 2;
                 raw_wvc->segments = realloc (raw_wvc->segments, sizeof (RawSegment) * raw_wvc->num_segments);
@@ -294,12 +294,12 @@ WavpackContext *WavpackOpenRawDecoder (
         }
     }
 
-    return WavpackOpenFileInputEx64 (&raw_reader, raw_wv, raw_wvc, error, flags | OPEN_NO_CHECKSUM, norm_offset);
+    return WavpackStreamOpenFileInputEx64 (&raw_reader, raw_wv, raw_wvc, error, flags | OPEN_NO_CHECKSUM, norm_offset);
 }
 
 // Return the number of samples represented by the current (and in the raw case, only) frame.
 
-uint32_t WavpackGetNumSamplesInFrame (WavpackContext *wpc)
+uint32_t WavpackStreamGetNumSamplesInFrame (WavpackContext *wpc)
 {
     if (wpc && wpc->streams && wpc->streams [0])
         return wpc->streams [0]->wphdr.block_samples;

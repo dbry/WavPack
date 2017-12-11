@@ -731,9 +731,9 @@ void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
 /////////////////////////// high-level unpacking API and support ////////////////////////////
 // modules: open_utils.c, unpack_utils.c, unpack_seek.c, unpack_floats.c
 
-WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
-WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
-WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
 
 #define OPEN_WVC        0x1     // open/read "correction" file
 #define OPEN_WRAPPER    0x4     // make audio wrapper available (i.e. RIFF)
@@ -750,7 +750,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
                                 // (just affects retrieving wrappers & MD5 checksums)
 #define OPEN_NO_CHECKSUM 0x800  // don't verify block checksums before decoding
 
-int WavpackGetMode (WavpackContext *wpc);
+int WavpackStreamGetMode (WavpackContext *wpc);
 
 #define MODE_WVC        0x1
 #define MODE_LOSSLESS   0x2
@@ -765,66 +765,66 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_XMODE      0x7000  // mask for extra level (1-6, 0=unknown)
 #define MODE_DNS        0x8000
 
-int WavpackGetQualifyMode (WavpackContext *wpc);
-int WavpackGetVersion (WavpackContext *wpc);
-uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
-int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
-int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample);
-int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
+int WavpackStreamGetQualifyMode (WavpackContext *wpc);
+int WavpackStreamGetVersion (WavpackContext *wpc);
+uint32_t WavpackStreamUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
+int WavpackStreamSeekSample (WavpackContext *wpc, uint32_t sample);
+int WavpackStreamSeekSample64 (WavpackContext *wpc, int64_t sample);
+int WavpackStreamGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 
-int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum);
+int WavpackStreamVerifySingleBlock (unsigned char *buffer, int verify_checksum);
 uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr);
 int read_wvc_block (WavpackContext *wpc);
 
 /////////////////////////// high-level packing API and support ////////////////////////////
 // modules: pack_utils.c, pack_floats.c
 
-WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
-int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
-int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids);
-int WavpackPackInit (WavpackContext *wpc);
-int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
-int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);
-int WavpackFlushSamples (WavpackContext *wpc);
-int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
+WavpackContext *WavpackStreamOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
+int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
+int WavpackStreamSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids);
+int WavpackStreamPackInit (WavpackContext *wpc);
+int WavpackStreamAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
+int WavpackStreamPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);
+int WavpackStreamFlushSamples (WavpackContext *wpc);
+int WavpackStreamStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 void WavpackSeekTrailingWrapper (WavpackContext *wpc);
-void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block);
-void *WavpackGetWrapperLocation (void *first_block, uint32_t *size);
+void WavpackStreamUpdateNumSamples (WavpackContext *wpc, void *first_block);
+void *WavpackStreamGetWrapperLocation (void *first_block, uint32_t *size);
 
 /////////////////////////////////// common utilities ////////////////////////////////////
 // module: common_utils.c
 
 extern const uint32_t sample_rates [16];
-uint32_t WavpackGetLibraryVersion (void);
-const char *WavpackGetLibraryVersionString (void);
-uint32_t WavpackGetSampleRate (WavpackContext *wpc);
-int WavpackGetBitsPerSample (WavpackContext *wpc);
-int WavpackGetBytesPerSample (WavpackContext *wpc);
-int WavpackGetNumChannels (WavpackContext *wpc);
-int WavpackGetChannelMask (WavpackContext *wpc);
-int WavpackGetReducedChannels (WavpackContext *wpc);
-int WavpackGetFloatNormExp (WavpackContext *wpc);
-uint32_t WavpackGetNumSamples (WavpackContext *wpc);
-int64_t WavpackGetNumSamples64 (WavpackContext *wpc);
-uint32_t WavpackGetSampleIndex (WavpackContext *wpc);
-int64_t WavpackGetSampleIndex64 (WavpackContext *wpc);
-char *WavpackGetErrorMessage (WavpackContext *wpc);
-int WavpackGetNumErrors (WavpackContext *wpc);
-int WavpackLossyBlocks (WavpackContext *wpc);
-uint32_t WavpackGetWrapperBytes (WavpackContext *wpc);
-unsigned char *WavpackGetWrapperData (WavpackContext *wpc);
-void WavpackFreeWrapper (WavpackContext *wpc);
-double WavpackGetProgress (WavpackContext *wpc);
-uint32_t WavpackGetFileSize (WavpackContext *wpc);
-int64_t WavpackGetFileSize64 (WavpackContext *wpc);
-double WavpackGetRatio (WavpackContext *wpc);
-double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc);
-double WavpackGetInstantBitrate (WavpackContext *wpc);
-WavpackContext *WavpackCloseFile (WavpackContext *wpc);
-void WavpackLittleEndianToNative (void *data, char *format);
-void WavpackNativeToLittleEndian (void *data, char *format);
-void WavpackBigEndianToNative (void *data, char *format);
-void WavpackNativeToBigEndian (void *data, char *format);
+uint32_t WavpackStreamGetLibraryVersion (void);
+const char *WavpackStreamGetLibraryVersionString (void);
+uint32_t WavpackStreamGetSampleRate (WavpackContext *wpc);
+int WavpackStreamGetBitsPerSample (WavpackContext *wpc);
+int WavpackStreamGetBytesPerSample (WavpackContext *wpc);
+int WavpackStreamGetNumChannels (WavpackContext *wpc);
+int WavpackStreamGetChannelMask (WavpackContext *wpc);
+int WavpackStreamGetReducedChannels (WavpackContext *wpc);
+int WavpackStreamGetFloatNormExp (WavpackContext *wpc);
+uint32_t WavpackStreamGetNumSamples (WavpackContext *wpc);
+int64_t WavpackStreamGetNumSamples64 (WavpackContext *wpc);
+uint32_t WavpackStreamGetSampleIndex (WavpackContext *wpc);
+int64_t WavpackStreamGetSampleIndex64 (WavpackContext *wpc);
+char *WavpackStreamGetErrorMessage (WavpackContext *wpc);
+int WavpackStreamGetNumErrors (WavpackContext *wpc);
+int WavpackStreamLossyBlocks (WavpackContext *wpc);
+uint32_t WavpackStreamGetWrapperBytes (WavpackContext *wpc);
+unsigned char *WavpackStreamGetWrapperData (WavpackContext *wpc);
+void WavpackStreamFreeWrapper (WavpackContext *wpc);
+double WavpackStreamGetProgress (WavpackContext *wpc);
+uint32_t WavpackStreamGetFileSize (WavpackContext *wpc);
+int64_t WavpackStreamGetFileSize64 (WavpackContext *wpc);
+double WavpackStreamGetRatio (WavpackContext *wpc);
+double WavpackStreamGetAverageBitrate (WavpackContext *wpc, int count_wvc);
+double WavpackStreamGetInstantBitrate (WavpackContext *wpc);
+WavpackContext *WavpackStreamCloseFile (WavpackContext *wpc);
+void WavpackStreamLittleEndianToNative (void *data, char *format);
+void WavpackStreamNativeToLittleEndian (void *data, char *format);
+void WavpackStreamBigEndianToNative (void *data, char *format);
+void WavpackStreamNativeToBigEndian (void *data, char *format);
 
 void install_close_callback (WavpackContext *wpc, void cb_func (void *wpc));
 void free_streams (WavpackContext *wpc);

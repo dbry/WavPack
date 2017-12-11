@@ -30,7 +30,7 @@
 // wvc file). A return value of NULL indicates that memory could not be
 // allocated for the context.
 
-WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id)
+WavpackContext *WavpackStreamOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id)
 {
     WavpackContext *wpc = malloc (sizeof (WavpackContext));
 
@@ -53,10 +53,10 @@ static int add_to_metadata (WavpackContext *wpc, void *data, uint32_t bcount, un
 // had the "wrong" extension for the file format (e.g., a Wave64 file having a "wav" extension)
 // or an alternative (e.g., "bwf") or where the file format is not known. Specifying a file
 // format besides the default WP_FORMAT_WAV will ensure that old decoders will not be able to
-// see the non-wav wrapper provided with WavpackAddWrapper() (which they would end up putting
+// see the non-wav wrapper provided with WavpackStreamAddWrapper() (which they would end up putting
 // on a file with a .wav extension).
 
-void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsigned char file_format)
+void WavpackStreamSetFileInformation (WavpackContext *wpc, char *file_extension, unsigned char file_format)
 {
     if (file_extension && strlen (file_extension) < sizeof (wpc->file_extension) && strcmp (file_extension, "wav")) {
         add_to_metadata (wpc, file_extension, (uint32_t) strlen (file_extension), ID_ALT_EXTENSION);
@@ -71,8 +71,8 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 // metadata before calling this. The "config" structure contains the following
 // required information:
 
-// config->bytes_per_sample     see WavpackGetBytesPerSample() for info
-// config->bits_per_sample      see WavpackGetBitsPerSample() for info
+// config->bytes_per_sample     see WavpackStreamGetBytesPerSample() for info
+// config->bits_per_sample      see WavpackStreamGetBitsPerSample() for info
 // config->channel_mask         Microsoft standard (mono = 4, stereo = 3)
 // config->num_channels         self evident
 // config->sample_rate          self evident
@@ -177,17 +177,17 @@ static const struct { unsigned char a, b; } stereo_pairs [] = {
 // does not support the "mono optimization" feature where stereo blocks containing identical audio data
 // in both channels are encoded in mono for better efficiency.
 
-int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples)
+int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples)
 {
     config->flags |= CONFIG_COMPATIBLE_WRITE;       // write earlier version streams
 
     if (total_samples == (uint32_t) -1)
-        return WavpackSetConfiguration64 (wpc, config, -1, NULL);
+        return WavpackStreamSetConfiguration64 (wpc, config, -1, NULL);
     else
-        return WavpackSetConfiguration64 (wpc, config, total_samples, NULL);
+        return WavpackStreamSetConfiguration64 (wpc, config, total_samples, NULL);
 }
 
-int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids)
+int WavpackStreamSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids)
 {
     uint32_t flags, bps = 0;
     uint32_t chan_mask = config->channel_mask;
@@ -432,10 +432,10 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
 //
 // Note: This function should only be used to encode Core Audio files in such a way that a
 // verbatim archive can be created. Applications can just include the chan_ids parameter in
-// the call to WavpackSetConfiguration64() if there are non-Microsoft channels to specify,
+// the call to WavpackStreamSetConfiguration64() if there are non-Microsoft channels to specify,
 // or do nothing special if only Microsoft channels are present (the vast majority of cases).
 
-int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder)
+int WavpackStreamSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder)
 {
     int nchans = layout_tag & 0xff;
 
@@ -468,12 +468,12 @@ int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const uns
 
 // Prepare to actually pack samples by determining the size of the WavPack
 // blocks and allocating sample buffers and initializing each stream. Call
-// after WavpackSetConfiguration() and before WavpackPackSamples(). A return
-// of FALSE indicates an error.
+// after WavpackStreamSetConfiguration() and before WavpackStreamPackSamples().
+// A return of FALSE indicates an error.
 
 static int write_metadata_block (WavpackContext *wpc);
 
-int WavpackPackInit (WavpackContext *wpc)
+int WavpackStreamPackInit (WavpackContext *wpc)
 {
     int sample_rate = wpc->config.sample_rate;
     int divisor = 75;                           // 1/75th second is basic block size
@@ -529,13 +529,13 @@ int WavpackPackInit (WavpackContext *wpc)
 // channels. Note that samples are accumulated here until enough exist to
 // create a complete WavPack block (or several blocks for multichannel audio).
 // If an application wants to break a block at a specific sample, then it must
-// simply call WavpackFlushSamples() to force an early termination. Completed
+// simply call WavpackStreamFlushSamples() to force an early termination. Completed
 // WavPack blocks are send to the function provided in the initial call to
-// WavpackOpenFileOutput(). A return of FALSE indicates an error.
+// WavpackStreamOpenFileOutput(). A return of FALSE indicates an error.
 
 static int pack_streams (WavpackContext *wpc, uint32_t block_samples);
 
-int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count)
+int WavpackStreamPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count)
 {
     int nch = wpc->config.num_channels;
 
@@ -651,13 +651,13 @@ int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sa
 }
 
 // Flush all accumulated samples into WavPack blocks. This is normally called
-// after all samples have been sent to WavpackPackSamples(), but can also be
+// after all samples have been sent to WavpackStreamPackSamples(), but can also be
 // called to terminate a WavPack block at a specific sample (in other words it
 // is possible to continue after this operation). This is also called to
 // dump non-audio blocks like those holding metadata for various purposes.
 // A return of FALSE indicates an error.
 
-int WavpackFlushSamples (WavpackContext *wpc)
+int WavpackStreamFlushSamples (WavpackContext *wpc)
 {
     while (wpc->acc_samples) {
         uint32_t block_samples;
@@ -685,7 +685,7 @@ int WavpackFlushSamples (WavpackContext *wpc)
 
 // Add wrapper (currently RIFF only) to WavPack blocks. This should be called
 // before sending any audio samples for the RIFF header or after all samples
-// have been sent for any RIFF trailer. WavpackFlushSamples() should be called
+// have been sent for any RIFF trailer. WavpackStreamFlushSamples() should be called
 // between sending the last samples and calling this for trailer data to make
 // sure that headers and trailers don't get mixed up in very short files. If
 // the exact contents of the RIFF header are not known because, for example,
@@ -695,9 +695,9 @@ int WavpackFlushSamples (WavpackContext *wpc)
 // directly. An example of this can be found in the Audition filter. A
 // return of FALSE indicates an error.
 
-int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
+int WavpackStreamAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
 {
-    int64_t index = WavpackGetSampleIndex64 (wpc);
+    int64_t index = WavpackStreamGetSampleIndex64 (wpc);
     unsigned char meta_id;
 
     if (!index || index == -1) {
@@ -718,7 +718,7 @@ int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount)
 // a metadata ID that old decoders do not recognize (because they would not
 // interpret the qmode and would therefore fail the verification).
 
-int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16])
+int WavpackStreamStoreMD5Sum (WavpackContext *wpc, unsigned char data [16])
 {
     return add_to_metadata (wpc, data, 16, (wpc->config.qmode & 0xff) ? ID_ALT_MD5_CHECKSUM : ID_MD5_CHECKSUM);
 }
@@ -804,7 +804,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         }
 
         bcount = ((WavpackHeader *) outbuff)->ckSize + CHUNK_SIZE_OFFSET;
-        WavpackNativeToLittleEndian ((WavpackHeader *) outbuff, WavpackHeaderFormat);
+        WavpackStreamNativeToLittleEndian ((WavpackHeader *) outbuff, WavpackHeaderFormat);
         result = wpc->blockout (wpc->wv_out, outbuff, bcount);
 
         if (!result) {
@@ -816,7 +816,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 
         if (out2buff) {
             bcount = ((WavpackHeader *) out2buff)->ckSize + CHUNK_SIZE_OFFSET;
-            WavpackNativeToLittleEndian ((WavpackHeader *) out2buff, WavpackHeaderFormat);
+            WavpackStreamNativeToLittleEndian ((WavpackHeader *) out2buff, WavpackHeaderFormat);
             result = wpc->blockout (wpc->wvc_out, out2buff, bcount);
 
             if (!result) {
@@ -846,22 +846,22 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
 // Given the pointer to the first block written (to either a .wv or .wvc file),
 // update the block with the actual number of samples written. If the wav
 // header was generated by the library, then it is updated also. This should
-// be done if WavpackSetConfiguration() was called with an incorrect number
+// be done if WavpackStreamSetConfiguration() was called with an incorrect number
 // of samples (or -1). It is the responsibility of the application to read and
 // rewrite the block. An example of this can be found in the Audition filter.
 
 static void *find_metadata (void *wavpack_block, int desired_id, uint32_t *size);
 
-void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
+void WavpackStreamUpdateNumSamples (WavpackContext *wpc, void *first_block)
 {
     uint32_t wrapper_size;
     void *loc;
 
-    WavpackLittleEndianToNative (first_block, WavpackHeaderFormat);
+    WavpackStreamLittleEndianToNative (first_block, WavpackHeaderFormat);
     loc = find_metadata (first_block, ID_TOTAL_SAMPLES, &wrapper_size);
 
     if (loc && wrapper_size == 5) {
-        int64_t total_samples = WavpackGetSampleIndex64 (wpc);
+        int64_t total_samples = WavpackStreamGetSampleIndex64 (wpc);
         char *byteptr = loc;
 
         *byteptr++ = (char) (total_samples);
@@ -874,18 +874,18 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
 #if BLOCK_CHECKSUM_BYTES
     block_update_checksum (first_block);
 #endif
-    WavpackNativeToLittleEndian (first_block, WavpackHeaderFormat);
+    WavpackStreamNativeToLittleEndian (first_block, WavpackHeaderFormat);
 }
 
 // Note: The following function is no longer required because the wav header
 // automatically generated for the application will also be updated by
-// WavpackUpdateNumSamples (). However, if the application wants to generate
+// WavpackStreamUpdateNumSamples (). However, if the application wants to generate
 // its own header or wants to include additional chunks, then this function
 // still must be used to update the application generated header.
 
 // Given the pointer to the first block written to a WavPack file, this
 // function returns the location of the stored RIFF header that was originally
-// written with WavpackAddWrapper(). This would normally be used to update
+// written with WavpackStreamAddWrapper(). This would normally be used to update
 // the wav header to indicate that a different number of samples was actually
 // written or if additional RIFF chunks are written at the end of the file.
 // The "size" parameter can be set to non-NULL to obtain the exact size of the
@@ -894,17 +894,17 @@ void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block)
 // responsibility of the application to read and rewrite the block. An example
 // of this can be found in the Audition filter.
 
-void *WavpackGetWrapperLocation (void *first_block, uint32_t *size)
+void *WavpackStreamGetWrapperLocation (void *first_block, uint32_t *size)
 {
     void *loc;
 
-    WavpackLittleEndianToNative (first_block, WavpackHeaderFormat);
+    WavpackStreamLittleEndianToNative (first_block, WavpackHeaderFormat);
     loc = find_metadata (first_block, ID_RIFF_HEADER, size);
 
     if (!loc)
         loc = find_metadata (first_block, ID_ALT_HEADER, size);
 
-    WavpackNativeToLittleEndian (first_block, WavpackHeaderFormat);
+    WavpackStreamNativeToLittleEndian (first_block, WavpackHeaderFormat);
 
     return loc;
 }
@@ -1099,7 +1099,7 @@ static int write_metadata_block (WavpackContext *wpc)
 #if BLOCK_CHECKSUM_BYTES
         block_add_checksum ((unsigned char *) block_buff, (unsigned char *) block_buff + (block_size += BLOCK_CHECKSUM_BYTES + 2), BLOCK_CHECKSUM_BYTES);
 #endif
-        WavpackNativeToLittleEndian ((WavpackHeader *) block_buff, WavpackHeaderFormat);
+        WavpackStreamNativeToLittleEndian ((WavpackHeader *) block_buff, WavpackHeaderFormat);
 
         if (!wpc->blockout (wpc->wv_out, block_buff, block_size)) {
             free (block_buff);
@@ -1153,14 +1153,14 @@ static int block_add_checksum (unsigned char *buffer_start, unsigned char *buffe
     while (wcount--)
         csum = (csum * 3) + *csptr++;
 #else
-    WavpackNativeToLittleEndian ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
+    WavpackStreamNativeToLittleEndian ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
 
     while (wcount--) {
         csum = (csum * 3) + csptr [0] + (csptr [1] << 8);
         csptr += 2;
     }
 
-    WavpackLittleEndianToNative ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
+    WavpackStreamLittleEndianToNative ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
 #endif
 
     buffer_start += bcount;
@@ -1230,14 +1230,14 @@ static void block_update_checksum (unsigned char *buffer_start)
             while (wcount--)
                 csum = (csum * 3) + *csptr++;
 #else
-            WavpackNativeToLittleEndian ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
+            WavpackStreamNativeToLittleEndian ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
 
             while (wcount--) {
                 csum = (csum * 3) + csptr [0] + (csptr [1] << 8);
                 csptr += 2;
             }
 
-            WavpackLittleEndianToNative ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
+            WavpackStreamLittleEndianToNative ((WavpackHeader *) buffer_start, WavpackHeaderFormat);
 #endif
 
             if (meta_bc == 4) {

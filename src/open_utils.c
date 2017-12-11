@@ -21,7 +21,7 @@
 
 #include "wavpack_local.h"
 
-// This function is identical to WavpackOpenFileInput() except that instead
+// This function is identical to WavpackStreamOpenFileInput() except that instead
 // of providing a filename to open, the caller provides a pointer to a set of
 // reader callbacks and instances of up to two streams. The first of these
 // streams is required and contains the regular WavPack data stream; the second
@@ -31,7 +31,7 @@
 
 static int seek_eof_information (WavpackContext *wpc, int get_wrapper);
 
-WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
+WavpackContext *WavpackStreamOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
     WavpackContext *wpc = malloc (sizeof (WavpackContext));
     WavpackStream *wps;
@@ -57,13 +57,13 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
     wpc->streams = malloc ((wpc->num_streams = 1) * sizeof (wpc->streams [0]));
     if (!wpc->streams) {
         if (error) strcpy (error, "can't allocate memory");
-        return WavpackCloseFile (wpc);
+        return WavpackStreamCloseFile (wpc);
     }
 
     wpc->streams [0] = wps = malloc (sizeof (WavpackStream));
     if (!wps) {
         if (error) strcpy (error, "can't allocate memory");
-        return WavpackCloseFile (wpc);
+        return WavpackStreamCloseFile (wpc);
     }
     CLEAR (*wps);
 
@@ -75,25 +75,25 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         if (bcount == (uint32_t) -1 ||
             (!wps->wphdr.block_samples && num_blocks++ > 16)) {
                 if (error) strcpy (error, "not compatible with this version of WavPack file!");
-                return WavpackCloseFile (wpc);
+                return WavpackStreamCloseFile (wpc);
         }
 
         wpc->filepos += bcount;
         wps->blockbuff = malloc (wps->wphdr.ckSize + CHUNK_SIZE_OFFSET);
         if (!wps->blockbuff) {
             if (error) strcpy (error, "can't allocate memory");
-            return WavpackCloseFile (wpc);
+            return WavpackStreamCloseFile (wpc);
         }
         memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
         if (wpc->reader->read_bytes (wpc->wv_in, wps->blockbuff + sizeof (WavpackHeader), wps->wphdr.ckSize - CHUNK_SIZE_REMAINDER) !=
             wps->wphdr.ckSize - CHUNK_SIZE_REMAINDER) {
                 if (error) strcpy (error, "can't read all of WavPack file!");
-                return WavpackCloseFile (wpc);
+                return WavpackStreamCloseFile (wpc);
         }
 
         // if block does not verify, flag error, free buffer, and continue
-        if (!WavpackVerifySingleBlock (wps->blockbuff, !(flags & OPEN_NO_CHECKSUM))) {
+        if (!WavpackStreamVerifySingleBlock (wps->blockbuff, !(flags & OPEN_NO_CHECKSUM))) {
             wps->wphdr.block_samples = 0;
             free (wps->blockbuff);
             wps->blockbuff = NULL;
@@ -115,14 +115,14 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
 
         if (wpc->wvc_flag && !read_wvc_block (wpc)) {
             if (error) strcpy (error, "not compatible with this version of correction file!");
-            return WavpackCloseFile (wpc);
+            return WavpackStreamCloseFile (wpc);
         }
 
         if (!wps->init_done && !unpack_init (wpc)) {
             if (error) strcpy (error, wpc->error_message [0] ? wpc->error_message :
                 "not compatible with this version of WavPack file!");
 
-            return WavpackCloseFile (wpc);
+            return WavpackStreamCloseFile (wpc);
         }
 
         wps->init_done = TRUE;
@@ -154,11 +154,11 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         }
         else {
             if (error) strcpy (error, "not configured to handle DSD WavPack files!");
-            return WavpackCloseFile (wpc);
+            return WavpackStreamCloseFile (wpc);
         }
 #else
         if (error) strcpy (error, "not configured to handle DSD WavPack files!");
-        return WavpackCloseFile (wpc);
+        return WavpackStreamCloseFile (wpc);
 #endif
     }
     else {
@@ -183,7 +183,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
 // (or library) that created the open file. Currently, this can be 1 to 5.
 // Minor versions are not recorded in WavPack files.
 
-int WavpackGetVersion (WavpackContext *wpc)
+int WavpackStreamGetVersion (WavpackContext *wpc)
 {
     if (wpc)
         return wpc->version_five ? 5 : 4;
@@ -191,11 +191,11 @@ int WavpackGetVersion (WavpackContext *wpc)
     return 0;
 }
 
-// Return the file format specified in the call to WavpackSetFileInformation()
+// Return the file format specified in the call to WavpackStreamSetFileInformation()
 // when the file was created. For all files created prior to WavPack 5.0 this
 // will 0 (WP_FORMAT_WAV).
 
-unsigned char WavpackGetFileFormat (WavpackContext *wpc)
+unsigned char WavpackStreamGetFileFormat (WavpackContext *wpc)
 {
     return wpc->file_format;
 }
@@ -203,9 +203,9 @@ unsigned char WavpackGetFileFormat (WavpackContext *wpc)
 // Return a string representing the recommended file extension for the open
 // WavPack file. For all files created prior to WavPack 5.0 this will be "wav",
 // even for raw files with no RIFF into. This string is specified in the
-// call to WavpackSetFileInformation() when the file was created.
+// call to WavpackStreamSetFileInformation() when the file was created.
 
-char *WavpackGetFileExtension (WavpackContext *wpc)
+char *WavpackStreamGetFileExtension (WavpackContext *wpc)
 {
     if (wpc && wpc->file_extension [0])
         return wpc->file_extension;
@@ -842,7 +842,7 @@ uint32_t bs_close_read (Bitstream *bs)
 // be used for seekable files (not pipes) and is not available for pre-4.0 WavPack
 // files.
 
-void WavpackSeekTrailingWrapper (WavpackContext *wpc)
+void WavpackStreamSeekTrailingWrapper (WavpackContext *wpc)
 {
     if ((wpc->open_flags & OPEN_WRAPPER) &&
         wpc->reader->can_seek (wpc->wv_in) && !wpc->stream3)
@@ -853,7 +853,7 @@ void WavpackSeekTrailingWrapper (WavpackContext *wpc)
 // last sample or an extra seek will occur). A return value of FALSE indicates
 // that no MD5 checksum was stored.
 
-int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16])
+int WavpackStreamGetMD5Sum (WavpackContext *wpc, unsigned char data [16])
 {
     if (wpc->config.flags & CONFIG_MD5_CHECKSUM) {
         if (!wpc->config.md5_read && wpc->reader->can_seek (wpc->wv_in))
@@ -896,7 +896,7 @@ uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeade
         if (*sp++ == FOURCC [0] && *sp == FOURCC [1] && *++sp == FOURCC [2] && *++sp == FOURCC [3] &&
             !(*++sp & 1) && (sp [1] << 8) + sp [0] >= CHUNK_SIZE_REMAINDER && sp [1] < 64 && sp [3] < 32) {
                 memcpy (wphdr, buffer, sizeof (*wphdr));
-                WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
+                WavpackStreamLittleEndianToNative (wphdr, WavpackHeaderFormat);
                 return bytes_skipped;
             }
 
@@ -993,7 +993,7 @@ int read_wvc_block (WavpackContext *wpc)
             memcpy (wps->block2buff, &orig_wphdr, sizeof (WavpackHeader));
 
             // don't use corrupt blocks
-            if (!WavpackVerifySingleBlock (wps->block2buff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
+            if (!WavpackStreamVerifySingleBlock (wps->block2buff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
                 free (wps->block2buff);
                 wps->block2buff = NULL;
                 wps->wvc_skip = TRUE;
@@ -1178,7 +1178,7 @@ static int seek_eof_information (WavpackContext *wpc, int get_wrapper)
 // then it is checked, otherwise we just check that all the metadata blocks are formatted
 // correctly (without looking at their contents). Returns FALSE for bad block.
 
-int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum)
+int WavpackStreamVerifySingleBlock (unsigned char *buffer, int verify_checksum)
 {
     WavpackHeader *wphdr = (WavpackHeader *) buffer;
     uint32_t checksum_passed = 0, bcount, meta_bc;
@@ -1226,14 +1226,14 @@ int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum)
             while (wcount--)
                 csum = (csum * 3) + *csptr++;
 #else
-            WavpackNativeToLittleEndian ((WavpackHeader *) buffer, WavpackHeaderFormat);
+            WavpackStreamNativeToLittleEndian ((WavpackHeader *) buffer, WavpackHeaderFormat);
 
             while (wcount--) {
                 csum = (csum * 3) + csptr [0] + (csptr [1] << 8);
                 csptr += 2;
             }
 
-            WavpackLittleEndianToNative ((WavpackHeader *) buffer, WavpackHeaderFormat);
+            WavpackStreamLittleEndianToNative ((WavpackHeader *) buffer, WavpackHeaderFormat);
 #endif
 
             if (meta_bc == 4) {

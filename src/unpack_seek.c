@@ -26,12 +26,12 @@
 // FALSE return the file should not be accessed again (other than to close
 // it); this is a fatal error.
 
-int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
+int WavpackStreamSeekSample (WavpackContext *wpc, uint32_t sample)
 {
-    return WavpackSeekSample64 (wpc, sample);
+    return WavpackStreamSeekSample64 (wpc, sample);
 }
 
-int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
+int WavpackStreamSeekSample64 (WavpackContext *wpc, int64_t sample)
 {
     return FALSE;
 }

@@ -83,13 +83,13 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
             return WAVPACK_SOFT_ERROR;
     }
     else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-        !WavpackAddWrapper (wpc, &file_chunk, sizeof (DSFFileChunk))) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
+        !WavpackStreamAddWrapper (wpc, &file_chunk, sizeof (DSFFileChunk))) {
+            error_line ("%s", WavpackStreamGetErrorMessage (wpc));
             return WAVPACK_SOFT_ERROR;
     }
 
 #if 1   // this might be a little too picky...
-    WavpackLittleEndianToNative (&file_chunk, DSFFileChunkFormat);
+    WavpackStreamLittleEndianToNative (&file_chunk, DSFFileChunkFormat);
 
     if (debug_logging_mode)
         error_line ("file header lengths = %lld, %lld, %lld", file_chunk.ckSize, file_chunk.fileSize, file_chunk.metaOffset);
@@ -112,12 +112,12 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
             return WAVPACK_SOFT_ERROR;
     }
     else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-        !WavpackAddWrapper (wpc, &format_chunk, sizeof (DSFFormatChunk))) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
+        !WavpackStreamAddWrapper (wpc, &format_chunk, sizeof (DSFFormatChunk))) {
+            error_line ("%s", WavpackStreamGetErrorMessage (wpc));
             return WAVPACK_SOFT_ERROR;
     }
 
-    WavpackLittleEndianToNative (&format_chunk, DSFFormatChunkFormat);
+    WavpackStreamLittleEndianToNative (&format_chunk, DSFFormatChunkFormat);
 
     if (format_chunk.ckSize != sizeof (DSFFormatChunk) || format_chunk.formatVersion != 1 ||
         format_chunk.formatID != 0 || format_chunk.blockSize != DSF_BLOCKSIZE || format_chunk.reserved ||
@@ -140,12 +140,12 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
             return WAVPACK_SOFT_ERROR;
     }
     else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-        !WavpackAddWrapper (wpc, &chunk_header, sizeof (DSFChunkHeader))) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
+        !WavpackStreamAddWrapper (wpc, &chunk_header, sizeof (DSFChunkHeader))) {
+            error_line ("%s", WavpackStreamGetErrorMessage (wpc));
             return WAVPACK_SOFT_ERROR;
     }
 
-    WavpackLittleEndianToNative (&chunk_header, DSFChunkHeaderFormat);
+    WavpackStreamLittleEndianToNative (&chunk_header, DSFChunkHeaderFormat);
 
     total_samples = format_chunk.sampleCount;
     total_blocks = total_samples / (format_chunk.blockSize * 8);
@@ -177,8 +177,8 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
     else
         config->qmode |= QMODE_DSD_MSB_FIRST | QMODE_DSD_IN_BLOCKS;
 
-    if (!WavpackSetConfiguration64 (wpc, config, (total_samples + 7) / 8, NULL)) {
-        error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
+    if (!WavpackStreamSetConfiguration64 (wpc, config, (total_samples + 7) / 8, NULL)) {
+        error_line ("%s: %s", infilename, WavpackStreamGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }
 
@@ -187,8 +187,8 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
 
 int WriteDsfHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode)
 {
-    uint32_t chan_mask = WavpackGetChannelMask (wpc), chan_type = 0;
-    int num_channels = WavpackGetNumChannels (wpc);
+    uint32_t chan_mask = WavpackStreamGetChannelMask (wpc), chan_type = 0;
+    int num_channels = WavpackStreamGetNumChannels (wpc);
     int64_t file_size, total_blocks, data_size;
     DSFFileChunk file_chunk;
     DSFFormatChunk format_chunk;
@@ -230,7 +230,7 @@ int WriteDsfHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, i
     format_chunk.formatID = 0;
     format_chunk.chanType = chan_type;
     format_chunk.numChannels = num_channels;
-    format_chunk.sampleRate = WavpackGetSampleRate (wpc) * 8;
+    format_chunk.sampleRate = WavpackStreamGetSampleRate (wpc) * 8;
     format_chunk.bitsPerSample = (qmode & QMODE_DSD_LSB_FIRST) ? 1 : 8;
     format_chunk.sampleCount = total_samples * 8;
     format_chunk.blockSize = DSF_BLOCKSIZE;
@@ -241,9 +241,9 @@ int WriteDsfHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, i
 
     // write the 3 chunks up to just before the data starts
 
-    WavpackNativeToLittleEndian (&file_chunk, DSFFileChunkFormat);
-    WavpackNativeToLittleEndian (&format_chunk, DSFFormatChunkFormat);
-    WavpackNativeToLittleEndian (&chunk_header, DSFChunkHeaderFormat);
+    WavpackStreamNativeToLittleEndian (&file_chunk, DSFFileChunkFormat);
+    WavpackStreamNativeToLittleEndian (&format_chunk, DSFFormatChunkFormat);
+    WavpackStreamNativeToLittleEndian (&chunk_header, DSFChunkHeaderFormat);
 
     if (!DoWriteFile (outfile, &file_chunk, sizeof (file_chunk), &bcount) || bcount != sizeof (file_chunk) ||
         !DoWriteFile (outfile, &format_chunk, sizeof (format_chunk), &bcount) || bcount != sizeof (format_chunk) ||

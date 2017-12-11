@@ -153,7 +153,7 @@ int main (argc, argv) int argc; char **argv;
             }
             else if (!strcmp (long_option, "version")) {                // --version
                 printf ("wvtest %s\n", PACKAGE_VERSION);
-                printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
+                printf ("libwavpack %s\n", WavpackStreamGetLibraryVersionString ());
                 return 0;
             }
             else if (!strcmp (long_option, "short")) {                  // --short
@@ -235,10 +235,10 @@ int main (argc, argv) int argc; char **argv;
         }
     }
 
-    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION))
-        printf (version_warning, WavpackGetLibraryVersionString (), PACKAGE_VERSION);
+    if (strcmp (WavpackStreamGetLibraryVersionString (), PACKAGE_VERSION))
+        printf (version_warning, WavpackStreamGetLibraryVersionString (), PACKAGE_VERSION);
     else
-        printf (sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
+        printf (sign_on, VERSION_OS, WavpackStreamGetLibraryVersionString ());
 
     if (!seektest && !(test_flags & (TEST_FLAG_DEFAULT | TEST_FLAG_EXHAUSTIVE))) {
         puts (usage);
@@ -282,7 +282,7 @@ done:
     return res;
 }
 
-// Function to stress-test the WavpackSeekSample() API. Given the specified WavPack file, perform
+// Function to stress-test the WavpackStreamSeekSample() API. Given the specified WavPack file, perform
 // the specified number of seektest runs on that file. For each test run, a different, random
 // seek interval is chosen. Note that MD5 sums are calculated for each chunk interval so we
 // actually verify that every sample decoded is correct. For each test run, we decode the entire
@@ -291,7 +291,7 @@ done:
 static int seeking_test (char *filename, uint32_t test_count)
 {
     char error [80];
-    WavpackContext *wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+    WavpackContext *wpc = WavpackStreamOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
     int64_t min_chunk_size = 256, total_samples, sample_count = 0;
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
@@ -301,17 +301,17 @@ static int seeking_test (char *filename, uint32_t test_count)
     unsigned char *chunked_md5;
 
     printf ("\n-------------------- file: %s %s--------------------\n",
-        filename, (WavpackGetMode (wpc) & MODE_WVC) ? "(+wvc) " : "");
+        filename, (WavpackStreamGetMode (wpc) & MODE_WVC) ? "(+wvc) " : "");
 
     if (!wpc) {
         printf ("seeking_test(): error \"%s\" opening input file \"%s\"\n", error, filename);
         return -1;
     }
 
-    num_chans = WavpackGetNumChannels (wpc);
-    total_samples = WavpackGetNumSamples64 (wpc);
-    bps = WavpackGetBytesPerSample (wpc);
-    qmode = WavpackGetQualifyMode (wpc);
+    num_chans = WavpackStreamGetNumChannels (wpc);
+    total_samples = WavpackStreamGetNumSamples64 (wpc);
+    bps = WavpackStreamGetBytesPerSample (wpc);
+    qmode = WavpackStreamGetQualifyMode (wpc);
 
     if (total_samples < 2 || total_samples == -1) {
         printf ("seeking_test(): can't determine file size!\n");
@@ -347,7 +347,7 @@ static int seeking_test (char *filename, uint32_t test_count)
         // read the entire file, calculating the MD5 sums for the whole file and for each "chunk"
 
         while (1) {
-            int samples = WavpackUnpackSamples (wpc, decoded_samples, chunk_samples);
+            int samples = WavpackStreamUnpackSamples (wpc, decoded_samples, chunk_samples);
 
             if (!samples)
                 break;
@@ -363,8 +363,8 @@ static int seeking_test (char *filename, uint32_t test_count)
             chunk_count++;
         }
 
-        if (WavpackGetNumErrors (wpc)) {
-            printf ("seeking_test(): decoder reported %d errors!\n", WavpackGetNumErrors (wpc));
+        if (WavpackStreamGetNumErrors (wpc)) {
+            printf ("seeking_test(): decoder reported %d errors!\n", WavpackStreamGetNumErrors (wpc));
             return -1;
         }
 
@@ -383,7 +383,7 @@ static int seeking_test (char *filename, uint32_t test_count)
         // what we got the first time.
 
         if (!test_index) {
-            int file_has_md5 = WavpackGetMD5Sum (wpc, md5_stored), i;
+            int file_has_md5 = WavpackStreamGetMD5Sum (wpc, md5_stored), i;
 
             MD5Final (md5_initial, &md5_global);
 
@@ -396,7 +396,7 @@ static int seeking_test (char *filename, uint32_t test_count)
             if (file_has_md5) printf ("stored md5: %s\n", md5_string1);
             printf ("actual md5: %s\n", md5_string2);
 
-            if (WavpackGetMode (wpc) & MODE_LOSSLESS)
+            if (WavpackStreamGetMode (wpc) & MODE_LOSSLESS)
                 if (file_has_md5 && memcmp (md5_stored, md5_initial, sizeof (md5_stored))) {
                     printf ("seeking_test(): MD5 does not match MD5 stored in file!\n");
                     return -1;
@@ -417,8 +417,8 @@ static int seeking_test (char *filename, uint32_t test_count)
         // that have never been decoded (at least not for this open call).
 
         if (frandom() < 0.5) {
-            WavpackCloseFile (wpc);
-            wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+            WavpackStreamCloseFile (wpc);
+            wpc = WavpackStreamOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
 
             if (!wpc) {
                 printf ("seeking_test(): error \"%s\" reopening input file \"%s\"\n", error, filename);
@@ -445,13 +445,13 @@ static int seeking_test (char *filename, uint32_t test_count)
 
             stop_chunk = start_chunk + num_chunks - 1;
 
-            if (!WavpackSeekSample64 (wpc, (int64_t) start_chunk * chunk_samples)) {
+            if (!WavpackStreamSeekSample64 (wpc, (int64_t) start_chunk * chunk_samples)) {
                 printf ("seeking_test(): seek error!\n");
                 return -1;
             }
 
             for (current_chunk = start_chunk; current_chunk <= stop_chunk; ++current_chunk) {
-                int samples = WavpackUnpackSamples (wpc, decoded_samples, chunk_samples);
+                int samples = WavpackStreamUnpackSamples (wpc, decoded_samples, chunk_samples);
                 unsigned char md5_chunk [16];
 
                 if (!samples) {
@@ -492,7 +492,7 @@ static int seeking_test (char *filename, uint32_t test_count)
 
         printf ("\nresult: %u successful seeks on %u-sample boundaries\n", seek_count, chunk_samples);
 
-        if (!WavpackSeekSample (wpc, 0)) {
+        if (!WavpackStreamSeekSample (wpc, 0)) {
             printf ("seeking_test(): rewind error!\n");
             return -1;
         }
@@ -501,7 +501,7 @@ static int seeking_test (char *filename, uint32_t test_count)
         free (decoded_samples);
     }
 
-    WavpackCloseFile (wpc);
+    WavpackStreamCloseFile (wpc);
     return 0;
 }
 
@@ -811,7 +811,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
     }
 
-    out_wpc = WavpackOpenFileOutput (write_block, &wv_stream, (wpconfig_flags & CONFIG_CREATE_WVC) ? &wvc_stream : NULL);
+    out_wpc = WavpackStreamOpenFileOutput (write_block, &wv_stream, (wpconfig_flags & CONFIG_CREATE_WVC) ? &wvc_stream : NULL);
 
     if (!(test_flags & TEST_FLAG_NO_DECODE))
         pthread_create (&pthread, NULL, decode_thread, (void *) &wv_decoder);
@@ -854,8 +854,8 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
     }
 
-    WavpackSetConfiguration64 (out_wpc, &wpconfig, -1, NULL);
-    WavpackPackInit (out_wpc);
+    WavpackStreamSetConfiguration64 (out_wpc, &wpconfig, -1, NULL);
+    WavpackStreamPackInit (out_wpc);
 
     while (seconds < num_seconds) {
 
@@ -903,7 +903,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
             }
         }
 
-	WavpackPackSamples (out_wpc, (int32_t *) destin, ENCODE_SAMPLES);
+	WavpackStreamPackSamples (out_wpc, (int32_t *) destin, ENCODE_SAMPLES);
         store_samples (destin, (int32_t *) destin, 0, wpconfig.bytes_per_sample, ENCODE_SAMPLES * num_chans);
         MD5Update (&md5_context, (unsigned char *) destin, wpconfig.bytes_per_sample * ENCODE_SAMPLES * num_chans);
 
@@ -930,15 +930,15 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
     }
 
-    WavpackFlushSamples (out_wpc);
+    WavpackStreamFlushSamples (out_wpc);
     MD5Final (md5_encoded, &md5_context);
 
     if (wpconfig.flags & CONFIG_MD5_CHECKSUM) {
-        WavpackStoreMD5Sum (out_wpc, md5_encoded);
-        WavpackFlushSamples (out_wpc);
+        WavpackStreamStoreMD5Sum (out_wpc, md5_encoded);
+        WavpackStreamFlushSamples (out_wpc);
     }
 
-    WavpackCloseFile (out_wpc);
+    WavpackStreamCloseFile (out_wpc);
 
     free (channels);
     free (source);
@@ -1000,7 +1000,7 @@ static void *decode_thread (void *threadid)
 {
     WavpackDecoder *wd = (WavpackDecoder *) threadid;
     char error [80];
-    WavpackContext *wpc = WavpackOpenFileInputEx (&freader, wd->wv_stream, wd->wvc_stream, error, 0, 0);
+    WavpackContext *wpc = WavpackStreamOpenFileInputEx (&freader, wd->wv_stream, wd->wvc_stream, error, 0, 0);
     int32_t *decoded_samples, num_chans, bps;
     MD5_CTX md5_context;
 
@@ -1011,8 +1011,8 @@ static void *decode_thread (void *threadid)
     }
 
     MD5Init (&md5_context);
-    num_chans = WavpackGetNumChannels (wpc);
-    bps = WavpackGetBytesPerSample (wpc);
+    num_chans = WavpackStreamGetNumChannels (wpc);
+    bps = WavpackStreamGetBytesPerSample (wpc);
 
     decoded_samples = malloc (sizeof (int32_t) * DECODE_SAMPLES * num_chans);
 
@@ -1022,7 +1022,7 @@ static void *decode_thread (void *threadid)
     }
 
     while (1) {
-        int samples = WavpackUnpackSamples (wpc, decoded_samples, DECODE_SAMPLES);
+        int samples = WavpackStreamUnpackSamples (wpc, decoded_samples, DECODE_SAMPLES);
 
         if (!samples)
             break;
@@ -1033,9 +1033,9 @@ static void *decode_thread (void *threadid)
     }
 
     MD5Final (wd->md5_decoded, &md5_context);
-    wd->num_errors = WavpackGetNumErrors (wpc);
+    wd->num_errors = WavpackStreamGetNumErrors (wpc);
     free (decoded_samples);
-    WavpackCloseFile (wpc);
+    WavpackStreamCloseFile (wpc);
     pthread_exit (NULL);
     return NULL;
 }

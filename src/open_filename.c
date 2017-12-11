@@ -219,7 +219,7 @@ static WavpackStreamReader64 freader = {
 // (and again, decoding must start at the beginning of the block containing
 // the seek sample).
 
-WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset)
+WavpackContext *WavpackStreamOpenFileInput (const char *infilename, char *error, int flags, int norm_offset)
 {
     char *file_mode = "rb";
     FILE *(*fopen_func)(const char *, const char *) = fopen;
@@ -255,7 +255,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
     else
         wvc_id = NULL;
 
-    return WavpackOpenFileInputEx64 (&freader, wv_id, wvc_id, error, flags, norm_offset);
+    return WavpackStreamOpenFileInputEx64 (&freader, wv_id, wvc_id, error, flags, norm_offset);
 }
 
 #ifdef _WIN32

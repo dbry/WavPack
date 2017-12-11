@@ -93,13 +93,13 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             return WAVPACK_SOFT_ERROR;
     }
     else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-        !WavpackAddWrapper (wpc, &dff_file_header, sizeof (DFFFileHeader))) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
+        !WavpackStreamAddWrapper (wpc, &dff_file_header, sizeof (DFFFileHeader))) {
+            error_line ("%s", WavpackStreamGetErrorMessage (wpc));
             return WAVPACK_SOFT_ERROR;
     }
 
 #if 1   // this might be a little too picky...
-    WavpackBigEndianToNative (&dff_file_header, DFFFileHeaderFormat);
+    WavpackStreamBigEndianToNative (&dff_file_header, DFFFileHeaderFormat);
 
     if (infilesize && !(config->qmode & QMODE_IGNORE_LENGTH) &&
         dff_file_header.ckDataSize && dff_file_header.ckDataSize + 1 && dff_file_header.ckDataSize + 12 != infilesize) {
@@ -122,12 +122,12 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 return WAVPACK_SOFT_ERROR;
         }
         else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-            !WavpackAddWrapper (wpc, &dff_chunk_header, sizeof (DFFChunkHeader))) {
-                error_line ("%s", WavpackGetErrorMessage (wpc));
+            !WavpackStreamAddWrapper (wpc, &dff_chunk_header, sizeof (DFFChunkHeader))) {
+                error_line ("%s", WavpackStreamGetErrorMessage (wpc));
                 return WAVPACK_SOFT_ERROR;
         }
 
-        WavpackBigEndianToNative (&dff_chunk_header, DFFChunkHeaderFormat);
+        WavpackStreamBigEndianToNative (&dff_chunk_header, DFFChunkHeaderFormat);
 
         if (debug_logging_mode)
             error_line ("chunk header indicated length = %lld", dff_chunk_header.ckDataSize);
@@ -142,12 +142,12 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                     return WAVPACK_SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, &version, sizeof (version))) {
-                    error_line ("%s", WavpackGetErrorMessage (wpc));
+                !WavpackStreamAddWrapper (wpc, &version, sizeof (version))) {
+                    error_line ("%s", WavpackStreamGetErrorMessage (wpc));
                     return WAVPACK_SOFT_ERROR;
             }
 
-            WavpackBigEndianToNative (&version, "L");
+            WavpackStreamBigEndianToNative (&version, "L");
 
             if (debug_logging_mode)
                 error_line ("dsdiff file version = 0x%08x", version);
@@ -162,8 +162,8 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                     return WAVPACK_SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, prop_chunk, (uint32_t) dff_chunk_header.ckDataSize)) {
-                    error_line ("%s", WavpackGetErrorMessage (wpc));
+                !WavpackStreamAddWrapper (wpc, prop_chunk, (uint32_t) dff_chunk_header.ckDataSize)) {
+                    error_line ("%s", WavpackStreamGetErrorMessage (wpc));
                     free (prop_chunk);
                     return WAVPACK_SOFT_ERROR;
             }
@@ -176,12 +176,12 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 while (eptr - cptr >= sizeof (dff_chunk_header)) {
                     memcpy (&dff_chunk_header, cptr, sizeof (dff_chunk_header));
                     cptr += sizeof (dff_chunk_header);
-                    WavpackBigEndianToNative (&dff_chunk_header, DFFChunkHeaderFormat);
+                    WavpackStreamBigEndianToNative (&dff_chunk_header, DFFChunkHeaderFormat);
 
                     if (eptr - cptr >= dff_chunk_header.ckDataSize) {
                         if (!strncmp (dff_chunk_header.ckID, "FS  ", 4) && dff_chunk_header.ckDataSize == 4) {
                             memcpy (&sampleRate, cptr, sizeof (sampleRate));
-                            WavpackBigEndianToNative (&sampleRate, "L");
+                            WavpackStreamBigEndianToNative (&sampleRate, "L");
                             cptr += dff_chunk_header.ckDataSize;
 
                             if (debug_logging_mode)
@@ -189,7 +189,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                         }
                         else if (!strncmp (dff_chunk_header.ckID, "CHNL", 4) && dff_chunk_header.ckDataSize >= 2) {
                             memcpy (&numChannels, cptr, sizeof (numChannels));
-                            WavpackBigEndianToNative (&numChannels, "S");
+                            WavpackStreamBigEndianToNative (&numChannels, "S");
                             cptr += sizeof (numChannels);
 
                             chansSpecified = (int)(dff_chunk_header.ckDataSize - sizeof (numChannels)) / 4;
@@ -279,8 +279,8 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             if (!DoReadFile (infile, buff, bytes_to_copy, &bcount) ||
                 bcount != bytes_to_copy ||
                 (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, buff, bytes_to_copy))) {
-                    error_line ("%s", WavpackGetErrorMessage (wpc));
+                !WavpackStreamAddWrapper (wpc, buff, bytes_to_copy))) {
+                    error_line ("%s", WavpackStreamGetErrorMessage (wpc));
                     free (buff);
                     return WAVPACK_SOFT_ERROR;
             }
@@ -292,8 +292,8 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
     if (debug_logging_mode)
         error_line ("setting configuration with %lld samples", total_samples);
 
-    if (!WavpackSetConfiguration64 (wpc, config, total_samples, NULL)) {
-        error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
+    if (!WavpackStreamSetConfiguration64 (wpc, config, total_samples, NULL)) {
+        error_line ("%s: %s", infilename, WavpackStreamGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }
 
@@ -302,8 +302,8 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 
 int WriteDsdiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode)
 {
-    uint32_t chan_mask = WavpackGetChannelMask (wpc);
-    int num_channels = WavpackGetNumChannels (wpc);
+    uint32_t chan_mask = WavpackStreamGetChannelMask (wpc);
+    int num_channels = WavpackStreamGetNumChannels (wpc);
     DFFFileHeader file_header, prop_header;
     DFFChunkHeader data_header;
     DFFVersionChunk ver_chunk;
@@ -379,7 +379,7 @@ int WriteDsdiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples
 
     memcpy (fs_chunk.ckID, "FS  ", 4);
     fs_chunk.ckDataSize = sizeof (fs_chunk) - 12;
-    fs_chunk.sampleRate = WavpackGetSampleRate (wpc) * 8;
+    fs_chunk.sampleRate = WavpackStreamGetSampleRate (wpc) * 8;
 
     memcpy (chan_header.ckID, "CHNL", 4);
     chan_header.ckDataSize = sizeof (chan_header) + chan_ids_size - 12;
@@ -392,13 +392,13 @@ int WriteDsdiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples
     memcpy (data_header.ckID, "DSD ", 4);
     data_header.ckDataSize = data_size;
 
-    WavpackNativeToBigEndian (&file_header, DFFFileHeaderFormat);
-    WavpackNativeToBigEndian (&ver_chunk, DFFVersionChunkFormat);
-    WavpackNativeToBigEndian (&prop_header, DFFFileHeaderFormat);
-    WavpackNativeToBigEndian (&fs_chunk, DFFSampleRateChunkFormat);
-    WavpackNativeToBigEndian (&chan_header, DFFChannelsHeaderFormat);
-    WavpackNativeToBigEndian (&cmpr_header, DFFCompressionHeaderFormat);
-    WavpackNativeToBigEndian (&data_header, DFFChunkHeaderFormat);
+    WavpackStreamNativeToBigEndian (&file_header, DFFFileHeaderFormat);
+    WavpackStreamNativeToBigEndian (&ver_chunk, DFFVersionChunkFormat);
+    WavpackStreamNativeToBigEndian (&prop_header, DFFFileHeaderFormat);
+    WavpackStreamNativeToBigEndian (&fs_chunk, DFFSampleRateChunkFormat);
+    WavpackStreamNativeToBigEndian (&chan_header, DFFChannelsHeaderFormat);
+    WavpackStreamNativeToBigEndian (&cmpr_header, DFFCompressionHeaderFormat);
+    WavpackStreamNativeToBigEndian (&data_header, DFFChunkHeaderFormat);
 
     if (!DoWriteFile (outfile, &file_header, sizeof (file_header), &bcount) || bcount != sizeof (file_header) ||
         !DoWriteFile (outfile, &ver_chunk, sizeof (ver_chunk), &bcount) || bcount != sizeof (ver_chunk) ||

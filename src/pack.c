@@ -1704,7 +1704,7 @@ uint32_t decorr_mono_buffer (int32_t *buffer, struct decorr_pass *decorr_passes,
 // convert this into decibels of noise below full scale.                    //
 //////////////////////////////////////////////////////////////////////////////
 
-double WavpackGetEncodedNoise (WavpackContext *wpc, double *peak)
+double WavpackStreamGetEncodedNoise (WavpackContext *wpc, double *peak)
 {
     WavpackStream *wps = wpc->streams [wpc->current_stream];
 

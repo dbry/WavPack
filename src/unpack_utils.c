@@ -29,12 +29,12 @@
 // 16-bit, then the values returned would be +/-32k. Floating point data
 // can also be returned if the source was floating point data (and this
 // can be optionally normalized to +/-1.0 by using the appropriate flag
-// in the call to WavpackOpenFileInput ()). The actual number of samples
+// in the call to WavpackStreamOpenFileInput ()). The actual number of samples
 // unpacked is returned, which should be equal to the number requested unless
 // the end of fle is encountered or an error occurs. After all samples have
 // been unpacked then 0 will be returned.
 
-uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples)
+uint32_t WavpackStreamUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples)
 {
     WavpackStream *wps = wpc->streams ? wpc->streams [wpc->current_stream = 0] : NULL;
     int num_channels = wpc->config.num_channels, file_done = FALSE;
@@ -82,7 +82,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                 }
 
                 // render corrupt blocks harmless
-                if (!WavpackVerifySingleBlock (wps->blockbuff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
+                if (!WavpackStreamVerifySingleBlock (wps->blockbuff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
                     wps->wphdr.ckSize = CHUNK_SIZE_REMAINDER;
                     wps->wphdr.block_samples = 0;
                     memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
@@ -187,7 +187,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                     }
 
                     // render corrupt blocks harmless
-                    if (!WavpackVerifySingleBlock (wps->blockbuff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
+                    if (!WavpackStreamVerifySingleBlock (wps->blockbuff, !(wpc->open_flags & OPEN_NO_CHECKSUM))) {
                         wps->wphdr.ckSize = CHUNK_SIZE_REMAINDER;
                         wps->wphdr.block_samples = 0;
                         memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));

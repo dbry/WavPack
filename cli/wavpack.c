@@ -314,7 +314,7 @@ int main (int argc, char **argv)
             }
             else if (!strcmp (long_option, "version")) {                // --version
                 printf ("wavpack %s\n", PACKAGE_VERSION);
-                printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
+                printf ("libwavpack %s\n", WavpackStreamGetLibraryVersionString ());
                 return 0;
             }
 #ifdef _WIN32
@@ -755,12 +755,12 @@ int main (int argc, char **argv)
         }
     }
 
-    if (strcmp (WavpackGetLibraryVersionString (), PACKAGE_VERSION)) {
-        fprintf (stderr, version_warning, WavpackGetLibraryVersionString (), PACKAGE_VERSION);
+    if (strcmp (WavpackStreamGetLibraryVersionString (), PACKAGE_VERSION)) {
+        fprintf (stderr, version_warning, WavpackStreamGetLibraryVersionString (), PACKAGE_VERSION);
         fflush (stderr);
     }
     else if (!quiet_mode && !error_count) {
-        fprintf (stderr, sign_on, VERSION_OS, WavpackGetLibraryVersionString ());
+        fprintf (stderr, sign_on, VERSION_OS, WavpackStreamGetLibraryVersionString ());
         fflush (stderr);
     }
 
@@ -1187,7 +1187,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     CLEAR (wv_file);
     CLEAR (wvc_file);
-    wpc = WavpackOpenFileOutput (write_block, &wv_file, out2filename ? &wvc_file : NULL);
+    wpc = WavpackStreamOpenFileOutput (write_block, &wv_file, out2filename ? &wvc_file : NULL);
 
     // open the source file for reading
 
@@ -1202,7 +1202,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     }
     else if ((infile = fopen (infilename, "rb")) == NULL) {
         error_line ("can't open file %s!", infilename);
-        WavpackCloseFile (wpc);
+        WavpackStreamCloseFile (wpc);
         return WAVPACK_SOFT_ERROR;
     }
 
@@ -1218,7 +1218,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             if (total_samples <= 0) {
                 error_line ("no raw PCM data to encode!");
                 DoCloseHandle (infile);
-                WavpackCloseFile (wpc);
+                WavpackStreamCloseFile (wpc);
                 return WAVPACK_SOFT_ERROR;
             }
 
@@ -1230,7 +1230,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             if (raw_pcm_skip_bytes_end) {
                 error_line ("can't skip trailer in raw PCM read from stdin!");
                 DoCloseHandle (infile);
-                WavpackCloseFile (wpc);
+                WavpackStreamCloseFile (wpc);
                 return WAVPACK_SOFT_ERROR;
             }
 
@@ -1247,10 +1247,10 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 loc_config.channel_mask = 0x3ffff;
         }
 
-        if (!WavpackSetConfiguration64 (wpc, &loc_config, total_samples, NULL)) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
+        if (!WavpackStreamSetConfiguration64 (wpc, &loc_config, total_samples, NULL)) {
+            error_line ("%s", WavpackStreamGetErrorMessage (wpc));
             DoCloseHandle (infile);
-            WavpackCloseFile (wpc);
+            WavpackStreamCloseFile (wpc);
             return WAVPACK_SOFT_ERROR;
         }
     }
@@ -1278,7 +1278,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 switch (yna ()) {
                     case 'n':
                         DoCloseHandle (infile);
-                        WavpackCloseFile (wpc);
+                        WavpackStreamCloseFile (wpc);
                         return WAVPACK_SOFT_ERROR;
 
                     case 'a':
@@ -1304,7 +1304,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
                 case 'n':
                     DoCloseHandle (infile);
-                    WavpackCloseFile (wpc);
+                    WavpackStreamCloseFile (wpc);
                     return WAVPACK_SOFT_ERROR;
 
                 case 'a':
@@ -1394,7 +1394,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     else if ((wv_file.file = fopen (use_tempfiles ? outfilename_temp : outfilename, "w+b")) == NULL) {
         error_line ("can't create file %s!", use_tempfiles ? outfilename_temp : outfilename);
         DoCloseHandle (infile);
-        WavpackCloseFile (wpc);
+        WavpackStreamCloseFile (wpc);
         return WAVPACK_SOFT_ERROR;
     }
 
@@ -1413,7 +1413,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     if (loc_config.qmode & QMODE_RAW_PCM)
         if (loc_config.qmode & QMODE_DSD_AUDIO)
-            WavpackSetFileInformation (wpc, "dff", WP_FORMAT_DFF);
+            WavpackStreamSetFileInformation (wpc, "dff", WP_FORMAT_DFF);
 
     // if not in "raw" mode, process RIFF form header and set configuration
 
@@ -1426,14 +1426,14 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-            WavpackCloseFile (wpc);
+            WavpackStreamCloseFile (wpc);
             return WAVPACK_SOFT_ERROR;
         }
 
         for (i = 0; i < NUM_FILE_FORMATS; ++i)
             if (!strncmp (fourcc, file_formats [i].fourcc, 4)) {
 
-                WavpackSetFileInformation (wpc,
+                WavpackStreamSetFileInformation (wpc,
                     filespec_ext (infilename) ? filespec_ext (infilename) + 1 : file_formats [i].default_extension,
                     file_formats [i].id);
 
@@ -1441,7 +1441,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     DoCloseHandle (infile);
                     DoCloseHandle (wv_file.file);
                     DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                    WavpackCloseFile (wpc);
+                    WavpackStreamCloseFile (wpc);
                     return WAVPACK_SOFT_ERROR;
                 }
 
@@ -1454,7 +1454,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-            WavpackCloseFile (wpc);
+            WavpackStreamCloseFile (wpc);
             return WAVPACK_SOFT_ERROR;
         }
     }
@@ -1476,7 +1476,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-            WavpackCloseFile (wpc);
+            WavpackStreamCloseFile (wpc);
             return WAVPACK_SOFT_ERROR;
         }
     }
@@ -1484,7 +1484,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // handle case where the CAF header indicated a channel layout that requires reordering
 
     if (loc_config.qmode & QMODE_REORDERED_CHANS) {
-        int layout = WavpackGetChannelLayout (wpc, NULL), i;
+        int layout = WavpackStreamGetChannelLayout (wpc, NULL), i;
 
         if ((layout & 0xff) <= loc_config.num_channels) {
             new_channel_order = malloc (loc_config.num_channels);
@@ -1492,7 +1492,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             for (i = 0; i < loc_config.num_channels; ++i)
                 new_channel_order [i] = i;
 
-            WavpackGetChannelLayout (wpc, new_channel_order);
+            WavpackStreamGetChannelLayout (wpc, new_channel_order);
         }
     }
 
@@ -1507,7 +1507,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 DoCloseHandle (infile);
                 DoCloseHandle (wv_file.file);
                 DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-                WavpackCloseFile (wpc);
+                WavpackStreamCloseFile (wpc);
                 return WAVPACK_SOFT_ERROR;
             }
 
@@ -1542,7 +1542,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-            WavpackCloseFile (wpc);
+            WavpackStreamCloseFile (wpc);
             return WAVPACK_SOFT_ERROR;
         }
     }
@@ -1560,7 +1560,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // write the md5 sum if the user asked for it to be included
 
     if (result == WAVPACK_NO_ERROR && (loc_config.flags & CONFIG_MD5_CHECKSUM))
-        WavpackStoreMD5Sum (wpc, md5_digest);
+        WavpackStreamStoreMD5Sum (wpc, md5_digest);
 
     // if everything went well, and we're not ignoring length or encoding raw
     // pcm, read past any required data chunk padding and then try to read anything
@@ -1574,7 +1574,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         // if this file format has chunk alignment padding, read past that here
 
         if (chunk_alignment != 1) {
-            int64_t data_chunk_bytes = WavpackGetNumSamples64 (wpc) * WavpackGetNumChannels (wpc) * WavpackGetBytesPerSample (wpc);
+            int64_t data_chunk_bytes = WavpackStreamGetNumSamples64 (wpc) * WavpackStreamGetNumChannels (wpc) * WavpackStreamGetBytesPerSample (wpc);
             int bytes_over = (int)(data_chunk_bytes % chunk_alignment);
             int padding_bytes = bytes_over ? chunk_alignment - bytes_over : 0;
             unsigned char pad_byte;
@@ -1597,8 +1597,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
         // if we got something and are storing wrapper, write it to the outfile file
 
-        if (wrapper_size && !(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && !WavpackAddWrapper (wpc, buffer, wrapper_size)) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
+        if (wrapper_size && !(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && !WavpackStreamAddWrapper (wpc, buffer, wrapper_size)) {
+            error_line ("%s", WavpackStreamGetErrorMessage (wpc));
             result = WAVPACK_HARD_ERROR;
         }
 
@@ -1609,8 +1609,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // we're now done with any WavPack blocks, so flush any remaining data
 
-    if (result == WAVPACK_NO_ERROR && !WavpackFlushSamples (wpc)) {
-        error_line ("%s", WavpackGetErrorMessage (wpc));
+    if (result == WAVPACK_NO_ERROR && !WavpackStreamFlushSamples (wpc)) {
+        error_line ("%s", WavpackStreamGetErrorMessage (wpc));
         result = WAVPACK_HARD_ERROR;
     }
 
@@ -1619,7 +1619,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // the only case is if we're ignoring length or reading raw pcm data from stdin
     // (which sets the ignore-length flag); otherwise it's an error.
 
-    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples64 (wpc) != WavpackGetSampleIndex64 (wpc)) {
+    if (result == WAVPACK_NO_ERROR && WavpackStreamGetNumSamples64 (wpc) != WavpackStreamGetSampleIndex64 (wpc)) {
         if (loc_config.qmode & QMODE_IGNORE_LENGTH) {
             char *block_buff = malloc (wv_file.first_block_size);
 
@@ -1629,7 +1629,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
                     // this call will take care of the initial WavPack header and any RIFF header the library made
 
-                    WavpackUpdateNumSamples (wpc, block_buff);
+                    WavpackStreamUpdateNumSamples (wpc, block_buff);
 
                     if (DoSetFilePositionAbsolute (wv_file.file, 0) ||
                         !DoWriteFile (wv_file.file, block_buff, wv_file.first_block_size, &bcount) ||
@@ -1653,7 +1653,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     DoReadFile (wvc_file.file, block_buff, wvc_file.first_block_size, &bcount) &&
                     bcount == wvc_file.first_block_size && !strncmp (block_buff, "wvpk", 4)) {
 
-                        WavpackUpdateNumSamples (wpc, block_buff);
+                        WavpackStreamUpdateNumSamples (wpc, block_buff);
 
                         if (DoSetFilePositionAbsolute (wvc_file.file, 0) ||
                             !DoWriteFile (wvc_file.file, block_buff, wvc_file.first_block_size, &bcount) ||
@@ -1698,7 +1698,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // was a lossless operation (either explicitly or because a high lossy bitrate resulted in lossless)
 
     if (result == WAVPACK_NO_ERROR && verify_mode)
-        result = verify_audio (use_tempfiles ? outfilename_temp : outfilename, !WavpackLossyBlocks (wpc) ? md5_digest : NULL);
+        result = verify_audio (use_tempfiles ? outfilename_temp : outfilename, !WavpackStreamLossyBlocks (wpc) ? md5_digest : NULL);
 
     // if there were any errors, delete the output files, close the context, and return the error
 
@@ -1708,7 +1708,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         if (out2filename)
             DoDeleteFile (use_tempfiles ? out2filename_temp : out2filename);
 
-        WavpackCloseFile (wpc);
+        WavpackStreamCloseFile (wpc);
         return result;
     }
 
@@ -1752,7 +1752,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         if (out2filename) free (out2filename_temp);
 
         if (result != WAVPACK_NO_ERROR) {
-            WavpackCloseFile (wpc);
+            WavpackStreamCloseFile (wpc);
             return result;
         }
     }
@@ -1785,18 +1785,18 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     dtime -= time1.tv_sec + time1.tv_usec / 1000000.0;
 #endif
 
-    if ((loc_config.flags & CONFIG_CALC_NOISE) && WavpackGetEncodedNoise (wpc, NULL) > 0.0) {
-        int full_scale_bits = WavpackGetBitsPerSample (wpc);
+    if ((loc_config.flags & CONFIG_CALC_NOISE) && WavpackStreamGetEncodedNoise (wpc, NULL) > 0.0) {
+        int full_scale_bits = WavpackStreamGetBitsPerSample (wpc);
         double full_scale_rms = 0.5, sum, peak;
 
         while (full_scale_bits--)
             full_scale_rms *= 2.0;
 
         full_scale_rms = full_scale_rms * (full_scale_rms - 1.0) * 0.5;
-        sum = WavpackGetEncodedNoise (wpc, &peak);
+        sum = WavpackStreamGetEncodedNoise (wpc, &peak);
 
         error_line ("ave noise = %.2f dB, peak noise = %.2f dB",
-            log10 (sum / WavpackGetNumSamples64 (wpc) / full_scale_rms) * 10,
+            log10 (sum / WavpackStreamGetNumSamples64 (wpc) / full_scale_rms) * 10,
             log10 (peak / full_scale_rms) * 10);
     }
 
@@ -1824,23 +1824,23 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             oper = "packed";
         }
 
-        if (WavpackLossyBlocks (wpc)) {
+        if (WavpackStreamLossyBlocks (wpc)) {
             cmode = "lossy";
 
-            if (WavpackGetAverageBitrate (wpc, TRUE) != 0.0)
-                sprintf (cratio, ", %d kbps", (int) (WavpackGetAverageBitrate (wpc, TRUE) / 1000.0));
+            if (WavpackStreamGetAverageBitrate (wpc, TRUE) != 0.0)
+                sprintf (cratio, ", %d kbps", (int) (WavpackStreamGetAverageBitrate (wpc, TRUE) / 1000.0));
         }
         else {
             cmode = "lossless";
 
-            if (WavpackGetRatio (wpc) != 0.0)
-                sprintf (cratio, ", %.2f%%", 100.0 - WavpackGetRatio (wpc) * 100.0);
+            if (WavpackStreamGetRatio (wpc) != 0.0)
+                sprintf (cratio, ", %.2f%%", 100.0 - WavpackStreamGetRatio (wpc) * 100.0);
         }
 
         error_line ("%s %s%s in %.2f secs (%s%s)", oper, file, fext, dtime, cmode, cratio);
     }
 
-    WavpackCloseFile (wpc);
+    WavpackStreamCloseFile (wpc);
     return WAVPACK_NO_ERROR;
 }
 
@@ -1872,22 +1872,22 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
 
     // don't use an absurd amount of memory just because we have an absurd number of channels
 
-    while (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc) > 2048*1024)
+    while (input_samples * sizeof (int32_t) * WavpackStreamGetNumChannels (wpc) > 2048*1024)
         input_samples >>= 1;
 
     if (md5_digest_source)
         MD5Init (&md5_context);
 
-    WavpackPackInit (wpc);
-    bytes_per_sample = WavpackGetBytesPerSample (wpc) * WavpackGetNumChannels (wpc);
+    WavpackStreamPackInit (wpc);
+    bytes_per_sample = WavpackStreamGetBytesPerSample (wpc) * WavpackStreamGetNumChannels (wpc);
     input_buffer = malloc ((uint32_t) input_samples * bytes_per_sample);
-    sample_buffer = malloc ((uint32_t) input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc));
-    samples_remaining = WavpackGetNumSamples64 (wpc);
+    sample_buffer = malloc ((uint32_t) input_samples * sizeof (int32_t) * WavpackStreamGetNumChannels (wpc));
+    samples_remaining = WavpackStreamGetNumSamples64 (wpc);
 
-    if (quantize_bits && quantize_bits < WavpackGetBytesPerSample (wpc) * 8) {
-        quantize_bit_mask = ~((1<<(WavpackGetBytesPerSample (wpc)*8-quantize_bits))-1);
-        if (MODE_FLOAT == (WavpackGetMode(wpc) & MODE_FLOAT)) {
-            int float_norm_exp = WavpackGetFloatNormExp (wpc);
+    if (quantize_bits && quantize_bits < WavpackStreamGetBytesPerSample (wpc) * 8) {
+        quantize_bit_mask = ~((1<<(WavpackStreamGetBytesPerSample (wpc)*8-quantize_bits))-1);
+        if (MODE_FLOAT == (WavpackStreamGetMode(wpc) & MODE_FLOAT)) {
+            int float_norm_exp = WavpackStreamGetFloatNormExp (wpc);
             fquantize_scale = exp2 (quantize_bits + 126 - float_norm_exp);
             fquantize_iscale = exp2 (float_norm_exp - 126 - quantize_bits);
         }
@@ -1912,8 +1912,8 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
         // MD5 to match the new order
 
         if (new_order && !(qmode & QMODE_REORDERED_CHANS))
-            reorder_channels (input_buffer, new_order, WavpackGetNumChannels (wpc),
-                sample_count, WavpackGetBytesPerSample (wpc));
+            reorder_channels (input_buffer, new_order, WavpackStreamGetNumChannels (wpc),
+                sample_count, WavpackStreamGetBytesPerSample (wpc));
 
         if (md5_digest_source && quantize_bit_mask == 0)
             MD5Update (&md5_context, input_buffer, sample_count * bytes_per_sample);
@@ -1923,23 +1923,23 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
         // decode time, and so we want the MD5 to match the orginal order
 
         if (new_order && (qmode & QMODE_REORDERED_CHANS))
-            reorder_channels (input_buffer, new_order, WavpackGetNumChannels (wpc),
-                sample_count, WavpackGetBytesPerSample (wpc));
+            reorder_channels (input_buffer, new_order, WavpackStreamGetNumChannels (wpc),
+                sample_count, WavpackStreamGetBytesPerSample (wpc));
 
         if (!sample_count)
             break;
 
         if (sample_count) {
-            int bps = WavpackGetBytesPerSample (wpc);
+            int bps = WavpackStreamGetBytesPerSample (wpc);
 
-            load_samples (sample_buffer, input_buffer, qmode, bps, sample_count * WavpackGetNumChannels (wpc));
+            load_samples (sample_buffer, input_buffer, qmode, bps, sample_count * WavpackStreamGetNumChannels (wpc));
 
             if (quantize_bit_mask) {
-                unsigned int x,l = sample_count * WavpackGetNumChannels (wpc);
-                if (0 == (WavpackGetMode(wpc) & MODE_FLOAT)) {
+                unsigned int x,l = sample_count * WavpackStreamGetNumChannels (wpc);
+                if (0 == (WavpackStreamGetMode(wpc) & MODE_FLOAT)) {
                     if (quantize_round) {
                         int32_t offset = (quantize_bit_mask >> 1) ^ quantize_bit_mask;
-                        int shift = 32 - WavpackGetBytesPerSample (wpc) * 8;
+                        int shift = 32 - WavpackStreamGetBytesPerSample (wpc) * 8;
 
                         for (x = 0; x < l; x ++)
                             if (sample_buffer[x] < 0 || ((sample_buffer[x] + offset) << shift) > 0)
@@ -1956,14 +1956,14 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
                 }
 
                 if (md5_digest_source) {
-                    store_samples (input_buffer, sample_buffer, qmode, bps, sample_count * WavpackGetNumChannels (wpc));
-                    MD5Update (&md5_context, input_buffer, WavpackGetBytesPerSample (wpc) * l);
+                    store_samples (input_buffer, sample_buffer, qmode, bps, sample_count * WavpackStreamGetNumChannels (wpc));
+                    MD5Update (&md5_context, input_buffer, WavpackStreamGetBytesPerSample (wpc) * l);
                 }
             }
         }
 
-        if (!WavpackPackSamples (wpc, sample_buffer, sample_count)) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
+        if (!WavpackStreamPackSamples (wpc, sample_buffer, sample_count)) {
+            error_line ("%s", WavpackStreamGetErrorMessage (wpc));
             free (sample_buffer);
             free (input_buffer);
             return WAVPACK_HARD_ERROR;
@@ -1981,11 +1981,11 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
             return WAVPACK_SOFT_ERROR;
         }
 
-        if (WavpackGetProgress (wpc) != -1.0 &&
-            progress != floor (WavpackGetProgress (wpc) * encode_time_percent + 0.5)) {
+        if (WavpackStreamGetProgress (wpc) != -1.0 &&
+            progress != floor (WavpackStreamGetProgress (wpc) * encode_time_percent + 0.5)) {
                 int nobs = progress == -1.0;
 
-                progress = floor (WavpackGetProgress (wpc) * encode_time_percent + 0.5);
+                progress = floor (WavpackStreamGetProgress (wpc) * encode_time_percent + 0.5);
                 display_progress (progress / 100.0);
 
                 if (!quiet_mode) {
@@ -1999,8 +1999,8 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
     free (sample_buffer);
     free (input_buffer);
 
-    if (!WavpackFlushSamples (wpc)) {
-        error_line ("%s", WavpackGetErrorMessage (wpc));
+    if (!WavpackStreamFlushSamples (wpc)) {
+        error_line ("%s", WavpackStreamGetErrorMessage (wpc));
         return WAVPACK_HARD_ERROR;
     }
 
@@ -2043,11 +2043,11 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
     if (md5_digest_source)
         MD5Init (&md5_context);
 
-    WavpackPackInit (wpc);
-    num_channels = WavpackGetNumChannels (wpc);
+    WavpackStreamPackInit (wpc);
+    num_channels = WavpackStreamGetNumChannels (wpc);
     input_buffer = malloc (DSD_BLOCKSIZE * num_channels);
     sample_buffer = malloc (DSD_BLOCKSIZE * sizeof (int32_t) * num_channels);
-    samples_remaining = WavpackGetNumSamples64 (wpc);
+    samples_remaining = WavpackStreamGetNumSamples64 (wpc);
 
     while (samples_remaining) {
         uint32_t bytes_to_read, bytes_read = 0;
@@ -2120,8 +2120,8 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
             }
         }
 
-        if (!WavpackPackSamples (wpc, sample_buffer, sample_count)) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
+        if (!WavpackStreamPackSamples (wpc, sample_buffer, sample_count)) {
+            error_line ("%s", WavpackStreamGetErrorMessage (wpc));
             free (sample_buffer);
             free (input_buffer);
             return WAVPACK_HARD_ERROR;
@@ -2139,11 +2139,11 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
             return WAVPACK_SOFT_ERROR;
         }
 
-        if (WavpackGetProgress (wpc) != -1.0 &&
-            progress != floor (WavpackGetProgress (wpc) * encode_time_percent + 0.5)) {
+        if (WavpackStreamGetProgress (wpc) != -1.0 &&
+            progress != floor (WavpackStreamGetProgress (wpc) * encode_time_percent + 0.5)) {
                 int nobs = progress == -1.0;
 
-                progress = floor (WavpackGetProgress (wpc) * encode_time_percent + 0.5);
+                progress = floor (WavpackStreamGetProgress (wpc) * encode_time_percent + 0.5);
                 display_progress (progress / 100.0);
 
                 if (!quiet_mode) {
@@ -2157,8 +2157,8 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
     free (sample_buffer);
     free (input_buffer);
 
-    if (!WavpackFlushSamples (wpc)) {
-        error_line ("%s", WavpackGetErrorMessage (wpc));
+    if (!WavpackStreamFlushSamples (wpc)) {
+        error_line ("%s", WavpackStreamGetErrorMessage (wpc));
         return WAVPACK_HARD_ERROR;
     }
 
@@ -2207,26 +2207,26 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     // use library to open input WavPack file
 
-    infile = WavpackOpenFileInput (infilename, error, flags, 0);
+    infile = WavpackStreamOpenFileInput (infilename, error, flags, 0);
 
     if (!infile) {
         error_line (error);
         return WAVPACK_SOFT_ERROR;
     }
 
-    input_mode = WavpackGetMode (infile);
+    input_mode = WavpackStreamGetMode (infile);
 
     if (!(input_mode & MODE_LOSSLESS) && output_lossless) {
         error_line ("can't transcode lossy file %s to lossless...not allowed!", infilename);
-        WavpackCloseFile (infile);
+        WavpackStreamCloseFile (infile);
         return WAVPACK_SOFT_ERROR;
     }
 
-    total_samples = WavpackGetNumSamples64 (infile);
+    total_samples = WavpackStreamGetNumSamples64 (infile);
 
     if (total_samples == -1) {
         error_line ("can't transcode file %s of unknown length!", infilename);
-        WavpackCloseFile (infile);
+        WavpackStreamCloseFile (infile);
         return WAVPACK_SOFT_ERROR;
     }
 
@@ -2234,7 +2234,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     CLEAR (wv_file);
     CLEAR (wvc_file);
-    outfile = WavpackOpenFileOutput (write_block, &wv_file, out2filename ? &wvc_file : NULL);
+    outfile = WavpackStreamOpenFileOutput (write_block, &wv_file, out2filename ? &wvc_file : NULL);
 
     // check both output files for overwrite warning required
 
@@ -2255,8 +2255,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
             switch (yna ()) {
                 case 'n':
-                    WavpackCloseFile (infile);
-                    WavpackCloseFile (outfile);
+                    WavpackStreamCloseFile (infile);
+                    WavpackStreamCloseFile (outfile);
                     return WAVPACK_SOFT_ERROR;
 
                 case 'a':
@@ -2276,8 +2276,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         switch (yna ()) {
 
             case 'n':
-                WavpackCloseFile (infile);
-                WavpackCloseFile (outfile);
+                WavpackStreamCloseFile (infile);
+                WavpackStreamCloseFile (outfile);
                 return WAVPACK_SOFT_ERROR;
 
             case 'a':
@@ -2357,8 +2357,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     }
     else if ((wv_file.file = fopen (use_tempfiles ? outfilename_temp : outfilename, "w+b")) == NULL) {
         error_line ("can't create file %s!", use_tempfiles ? outfilename_temp : outfilename);
-        WavpackCloseFile (infile);
-        WavpackCloseFile (outfile);
+        WavpackStreamCloseFile (infile);
+        WavpackStreamCloseFile (outfile);
         return WAVPACK_SOFT_ERROR;
     }
 
@@ -2373,70 +2373,70 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         fflush (stderr);
     }
 
-    WavpackSetFileInformation (outfile, WavpackGetFileExtension (infile), WavpackGetFileFormat (infile));
+    WavpackStreamSetFileInformation (outfile, WavpackStreamGetFileExtension (infile), WavpackStreamGetFileFormat (infile));
 
     // unless we've been specifically told not to, copy RIFF header
 
-    if (WavpackGetWrapperBytes (infile)) {
-        if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && !WavpackAddWrapper (outfile, WavpackGetWrapperData (infile), WavpackGetWrapperBytes (infile))) {
-            error_line ("%s", WavpackGetErrorMessage (outfile));
-            WavpackCloseFile (infile);
+    if (WavpackStreamGetWrapperBytes (infile)) {
+        if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && !WavpackStreamAddWrapper (outfile, WavpackStreamGetWrapperData (infile), WavpackStreamGetWrapperBytes (infile))) {
+            error_line ("%s", WavpackStreamGetErrorMessage (outfile));
+            WavpackStreamCloseFile (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-            WavpackCloseFile (outfile);
+            WavpackStreamCloseFile (outfile);
             return WAVPACK_SOFT_ERROR;
         }
 
-        WavpackFreeWrapper (infile);
+        WavpackStreamFreeWrapper (infile);
     }
 
-    loc_config.bytes_per_sample = WavpackGetBytesPerSample (infile);
-    loc_config.bits_per_sample = WavpackGetBitsPerSample (infile);
-    loc_config.channel_mask = WavpackGetChannelMask (infile);
-    loc_config.num_channels = WavpackGetNumChannels (infile);
-    loc_config.sample_rate = WavpackGetSampleRate (infile);
-    loc_config.qmode |= WavpackGetQualifyMode (infile);
+    loc_config.bytes_per_sample = WavpackStreamGetBytesPerSample (infile);
+    loc_config.bits_per_sample = WavpackStreamGetBitsPerSample (infile);
+    loc_config.channel_mask = WavpackStreamGetChannelMask (infile);
+    loc_config.num_channels = WavpackStreamGetNumChannels (infile);
+    loc_config.sample_rate = WavpackStreamGetSampleRate (infile);
+    loc_config.qmode |= WavpackStreamGetQualifyMode (infile);
     chan_ids = malloc (loc_config.num_channels + 1);
-    WavpackGetChannelIdentities (infile, chan_ids);
+    WavpackStreamGetChannelIdentities (infile, chan_ids);
 
     if (input_mode & MODE_FLOAT)
-        loc_config.float_norm_exp = WavpackGetFloatNormExp (infile);
+        loc_config.float_norm_exp = WavpackStreamGetFloatNormExp (infile);
 
     if (input_mode & MODE_MD5)
         loc_config.flags |= CONFIG_MD5_CHECKSUM;
 
-    if (!WavpackSetConfiguration64 (outfile, &loc_config, total_samples, chan_ids)) {
-        error_line ("%s", WavpackGetErrorMessage (outfile));
-        WavpackCloseFile (infile);
+    if (!WavpackStreamSetConfiguration64 (outfile, &loc_config, total_samples, chan_ids)) {
+        error_line ("%s", WavpackStreamGetErrorMessage (outfile));
+        WavpackStreamCloseFile (infile);
         DoCloseHandle (wv_file.file);
         DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-        WavpackCloseFile (outfile);
+        WavpackStreamCloseFile (outfile);
         return WAVPACK_SOFT_ERROR;
     }
 
     free (chan_ids);
 
     if (loc_config.qmode & QMODE_REORDERED_CHANS) {
-        uint32_t layout = WavpackGetChannelLayout (infile, NULL);
+        uint32_t layout = WavpackStreamGetChannelLayout (infile, NULL);
         unsigned char order [256];
 
         if (layout & 0xff) {
-            WavpackGetChannelLayout (infile, order);
-            WavpackSetChannelLayout (outfile, layout, order);
+            WavpackStreamGetChannelLayout (infile, order);
+            WavpackStreamSetChannelLayout (outfile, layout, order);
         }
     }
     else
-        WavpackSetChannelLayout (outfile, WavpackGetChannelLayout (infile, NULL), NULL);
+        WavpackStreamSetChannelLayout (outfile, WavpackStreamGetChannelLayout (infile, NULL), NULL);
 
     // if we are creating a "correction" file, open it now for writing
 
     if (out2filename) {
         if ((wvc_file.file = fopen (use_tempfiles ? out2filename_temp : out2filename, "w+b")) == NULL) {
             error_line ("can't create correction file!");
-            WavpackCloseFile (infile);
+            WavpackStreamCloseFile (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
-            WavpackCloseFile (outfile);
+            WavpackStreamCloseFile (outfile);
             return WAVPACK_SOFT_ERROR;
         }
     }
@@ -2448,12 +2448,12 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // before anything else, make sure the source file was read without errors
 
     if (result == WAVPACK_NO_ERROR) {
-        if (WavpackGetNumErrors (infile)) {
-            error_line ("missing data or crc errors detected in %d block(s)!", WavpackGetNumErrors (infile));
+        if (WavpackStreamGetNumErrors (infile)) {
+            error_line ("missing data or crc errors detected in %d block(s)!", WavpackStreamGetNumErrors (infile));
             result = WAVPACK_SOFT_ERROR;
         }
 
-        if (WavpackGetNumSamples64 (outfile) != total_samples) {
+        if (WavpackStreamGetNumSamples64 (outfile) != total_samples) {
             error_line ("incorrect number of samples read from source file!");
             result = WAVPACK_SOFT_ERROR;
         }
@@ -2461,7 +2461,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         if ((input_mode & MODE_LOSSLESS) && !quantize_bits) {
             unsigned char md5_source [16];
 
-            if (WavpackGetMD5Sum (infile, md5_source) && memcmp (md5_source, md5_verify, sizeof (md5_source))) {
+            if (WavpackStreamGetMD5Sum (infile, md5_source) && memcmp (md5_source, md5_verify, sizeof (md5_source))) {
                 error_line ("MD5 signature in source should match, but does not!");
                 result = WAVPACK_SOFT_ERROR;
             }
@@ -2472,42 +2472,42 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // store the one we just calculated
 
     if (result == WAVPACK_NO_ERROR) {
-        if (WavpackGetMD5Sum (infile, md5_display)) {
+        if (WavpackStreamGetMD5Sum (infile, md5_display)) {
             if ((input_mode & MODE_LOSSLESS) && quantize_bits)
                 memcpy (md5_display, md5_verify, sizeof (md5_verify));
                 
-            WavpackStoreMD5Sum (outfile, md5_display);
+            WavpackStreamStoreMD5Sum (outfile, md5_display);
         }
         else if (loc_config.flags & CONFIG_MD5_CHECKSUM) {
             memcpy (md5_display, md5_verify, sizeof (md5_display));
-            WavpackStoreMD5Sum (outfile, md5_verify);
+            WavpackStreamStoreMD5Sum (outfile, md5_verify);
         }
     }
 
     // this is where we deal with a trailer (i.e., trailing wrapper) if there is one
 
-    if (result == WAVPACK_NO_ERROR && WavpackGetWrapperBytes (infile)) {
-        unsigned char *buffer = WavpackGetWrapperData (infile);
-        int wrapper_size = WavpackGetWrapperBytes (infile);
+    if (result == WAVPACK_NO_ERROR && WavpackStreamGetWrapperBytes (infile)) {
+        unsigned char *buffer = WavpackStreamGetWrapperData (infile);
+        int wrapper_size = WavpackStreamGetWrapperBytes (infile);
 
         // unless we've been specifically told not to, copy RIFF trailer to output file
 
-        if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && !WavpackAddWrapper (outfile, buffer, wrapper_size)) {
-            error_line ("%s", WavpackGetErrorMessage (outfile));
+        if (!(loc_config.qmode & QMODE_NO_STORE_WRAPPER) && !WavpackStreamAddWrapper (outfile, buffer, wrapper_size)) {
+            error_line ("%s", WavpackStreamGetErrorMessage (outfile));
             result = WAVPACK_SOFT_ERROR;
         }
 
-        WavpackFreeWrapper (infile);
+        WavpackStreamFreeWrapper (infile);
     }
 
     // we're now done with any WavPack blocks, so flush any remaining data
 
-    if (result == WAVPACK_NO_ERROR && !WavpackFlushSamples (outfile)) {
-        error_line ("%s", WavpackGetErrorMessage (outfile));
+    if (result == WAVPACK_NO_ERROR && !WavpackStreamFlushSamples (outfile)) {
+        error_line ("%s", WavpackStreamGetErrorMessage (outfile));
         result = WAVPACK_HARD_ERROR;
     }
 
-    WavpackCloseFile (infile);     // we're now done with input file, so close
+    WavpackStreamCloseFile (infile);     // we're now done with input file, so close
 
     // at this point we're completely done with the files, so close 'em whether there
     // were any other errors or not
@@ -2530,7 +2530,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // was a lossless operation (either explicitly or because a high lossy bitrate resulted in lossless)
 
     if (result == WAVPACK_NO_ERROR && verify_mode)
-        result = verify_audio (use_tempfiles ? outfilename_temp : outfilename, !WavpackLossyBlocks (outfile) ? md5_verify : NULL);
+        result = verify_audio (use_tempfiles ? outfilename_temp : outfilename, !WavpackStreamLossyBlocks (outfile) ? md5_verify : NULL);
 
     // if there were any errors, delete the output files, close the context, and return the error
 
@@ -2540,7 +2540,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         if (out2filename)
             DoDeleteFile (use_tempfiles ? out2filename_temp : out2filename);
 
-        WavpackCloseFile (outfile);
+        WavpackStreamCloseFile (outfile);
         return result;
     }
 
@@ -2619,7 +2619,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         if (out2filename) free (out2filename_temp);
 
         if (result != WAVPACK_NO_ERROR) {
-            WavpackCloseFile (outfile);
+            WavpackStreamCloseFile (outfile);
             return result;
         }
     }
@@ -2637,18 +2637,18 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     dtime -= time1.tv_sec + time1.tv_usec / 1000000.0;
 #endif
 
-    if ((loc_config.flags & CONFIG_CALC_NOISE) && WavpackGetEncodedNoise (outfile, NULL) > 0.0) {
-        int full_scale_bits = WavpackGetBitsPerSample (outfile);
+    if ((loc_config.flags & CONFIG_CALC_NOISE) && WavpackStreamGetEncodedNoise (outfile, NULL) > 0.0) {
+        int full_scale_bits = WavpackStreamGetBitsPerSample (outfile);
         double full_scale_rms = 0.5, sum, peak;
 
         while (full_scale_bits--)
             full_scale_rms *= 2.0;
 
         full_scale_rms = full_scale_rms * (full_scale_rms - 1.0) * 0.5;
-        sum = WavpackGetEncodedNoise (outfile, &peak);
+        sum = WavpackStreamGetEncodedNoise (outfile, &peak);
 
         error_line ("ave noise = %.2f dB, peak noise = %.2f dB",
-            log10 (sum / WavpackGetNumSamples (outfile) / full_scale_rms) * 10,
+            log10 (sum / WavpackStreamGetNumSamples (outfile) / full_scale_rms) * 10,
             log10 (peak / full_scale_rms) * 10);
     }
 
@@ -2676,23 +2676,23 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             oper = "packed";
         }
 
-        if (WavpackLossyBlocks (outfile)) {
+        if (WavpackStreamLossyBlocks (outfile)) {
             cmode = "lossy";
 
-            if (WavpackGetAverageBitrate (outfile, TRUE) != 0.0)
-                sprintf (cratio, ", %d kbps", (int) (WavpackGetAverageBitrate (outfile, TRUE) / 1000.0));
+            if (WavpackStreamGetAverageBitrate (outfile, TRUE) != 0.0)
+                sprintf (cratio, ", %d kbps", (int) (WavpackStreamGetAverageBitrate (outfile, TRUE) / 1000.0));
         }
         else {
             cmode = "lossless";
 
-            if (WavpackGetRatio (outfile) != 0.0)
-                sprintf (cratio, ", %.2f%%", 100.0 - WavpackGetRatio (outfile) * 100.0);
+            if (WavpackStreamGetRatio (outfile) != 0.0)
+                sprintf (cratio, ", %.2f%%", 100.0 - WavpackStreamGetRatio (outfile) * 100.0);
         }
 
         error_line ("%s %s%s in %.2f secs (%s%s)", oper, file, fext, dtime, cmode, cratio);
     }
 
-    WavpackCloseFile (outfile);
+    WavpackStreamCloseFile (outfile);
     return WAVPACK_NO_ERROR;
 }
 
@@ -2706,8 +2706,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
 static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsigned char *md5_digest_source)
 {
-    int bps = WavpackGetBytesPerSample (infile), num_channels = WavpackGetNumChannels (infile);
-    int qmode = WavpackGetQualifyMode (infile);
+    int bps = WavpackStreamGetBytesPerSample (infile), num_channels = WavpackStreamGetNumChannels (infile);
+    int qmode = WavpackStreamGetQualifyMode (infile);
     unsigned char *new_channel_order = NULL;
     uint32_t input_samples = INPUT_SAMPLES;
     unsigned char *format_buffer;
@@ -2722,15 +2722,15 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     if (qmode & QMODE_DSD_IN_BLOCKS)
         input_samples = DSD_BLOCKSIZE;
     else
-        while (input_samples * sizeof (int32_t) * WavpackGetNumChannels (outfile) > 2048*1024)
+        while (input_samples * sizeof (int32_t) * WavpackStreamGetNumChannels (outfile) > 2048*1024)
             input_samples >>= 1;
 
     if (md5_digest_source) {
-        format_buffer = malloc (input_samples * bps * WavpackGetNumChannels (outfile));
+        format_buffer = malloc (input_samples * bps * WavpackStreamGetNumChannels (outfile));
         MD5Init (&md5_context);
 
         if (qmode & QMODE_REORDERED_CHANS) {
-            int layout = WavpackGetChannelLayout (infile, NULL), i;
+            int layout = WavpackStreamGetChannelLayout (infile, NULL), i;
 
             if ((layout & 0xff) <= num_channels) {
                 new_channel_order = malloc (num_channels);
@@ -2738,32 +2738,32 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
                 for (i = 0; i < num_channels; ++i)
                     new_channel_order [i] = i;
 
-                WavpackGetChannelLayout (infile, new_channel_order);
+                WavpackStreamGetChannelLayout (infile, new_channel_order);
             }
         }
     }
 
-    WavpackPackInit (outfile);
-    sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackGetNumChannels (outfile));
+    WavpackStreamPackInit (outfile);
+    sample_buffer = malloc (input_samples * sizeof (int32_t) * WavpackStreamGetNumChannels (outfile));
 
     if (quantize_bits && quantize_bits < bps*8) {
         quantize_bit_mask = ~((1<<(bps*8-quantize_bits))-1);
-        if (MODE_FLOAT == (WavpackGetMode(infile) & MODE_FLOAT)) {
-            int float_norm_exp = WavpackGetFloatNormExp (infile);
+        if (MODE_FLOAT == (WavpackStreamGetMode(infile) & MODE_FLOAT)) {
+            int float_norm_exp = WavpackStreamGetFloatNormExp (infile);
             fquantize_scale = exp2 (quantize_bits + 126 - float_norm_exp);
             fquantize_iscale = exp2 (float_norm_exp - 126 - quantize_bits);
         }
     }
 
     while (1) {
-        int32_t sample_count = WavpackUnpackSamples (infile, sample_buffer, input_samples);
+        int32_t sample_count = WavpackStreamUnpackSamples (infile, sample_buffer, input_samples);
 
         if (!sample_count)
             break;
 
         if (quantize_bit_mask) {
             unsigned int x,l = sample_count * num_channels;
-            if (0 == (WavpackGetMode(infile) & MODE_FLOAT)) {
+            if (0 == (WavpackStreamGetMode(infile) & MODE_FLOAT)) {
                 if (quantize_round) {
                     int32_t offset = (quantize_bit_mask >> 1) ^ quantize_bit_mask;
                     int shift = 32 - bps * 8;
@@ -2783,8 +2783,8 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
             }
         }
 
-        if (!WavpackPackSamples (outfile, sample_buffer, sample_count)) {
-            error_line ("%s", WavpackGetErrorMessage (outfile));
+        if (!WavpackStreamPackSamples (outfile, sample_buffer, sample_count)) {
+            error_line ("%s", WavpackStreamGetErrorMessage (outfile));
             free (sample_buffer);
             return WAVPACK_HARD_ERROR;
         }
@@ -2838,11 +2838,11 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
             return WAVPACK_SOFT_ERROR;
         }
 
-        if (WavpackGetProgress (outfile) != -1.0 &&
-            progress != floor (WavpackGetProgress (outfile) * encode_time_percent + 0.5)) {
+        if (WavpackStreamGetProgress (outfile) != -1.0 &&
+            progress != floor (WavpackStreamGetProgress (outfile) * encode_time_percent + 0.5)) {
                 int nobs = progress == -1.0;
 
-                progress = floor (WavpackGetProgress (outfile) * encode_time_percent + 0.5);
+                progress = floor (WavpackStreamGetProgress (outfile) * encode_time_percent + 0.5);
                 display_progress (progress / 100.0);
 
                 if (!quiet_mode) {
@@ -2858,8 +2858,8 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
 
     free (sample_buffer);
 
-    if (!WavpackFlushSamples (outfile)) {
-        error_line ("%s", WavpackGetErrorMessage (outfile));
+    if (!WavpackStreamFlushSamples (outfile)) {
+        error_line ("%s", WavpackStreamGetErrorMessage (outfile));
         return WAVPACK_HARD_ERROR;
     }
 
@@ -2945,9 +2945,9 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     // use library to open WavPack file
 
 #ifdef _WIN32
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_FILE_UTF8 | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+    wpc = WavpackStreamOpenFileInput (infilename, error, OPEN_WVC | OPEN_FILE_UTF8 | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
 #else
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+    wpc = WavpackStreamOpenFileInput (infilename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
 #endif
 
     if (!wpc) {
@@ -2958,13 +2958,13 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     if (md5_digest_source)
         MD5Init (&md5_context);
 
-    qmode = WavpackGetQualifyMode (wpc);
-    num_channels = WavpackGetNumChannels (wpc);
-    bps = WavpackGetBytesPerSample (wpc);
+    qmode = WavpackStreamGetQualifyMode (wpc);
+    num_channels = WavpackStreamGetNumChannels (wpc);
+    bps = WavpackStreamGetBytesPerSample (wpc);
     temp_buffer = malloc (VERIFY_BLOCKSIZE * num_channels * 4);
 
     if (qmode & QMODE_REORDERED_CHANS) {
-        int layout = WavpackGetChannelLayout (wpc, NULL), i;
+        int layout = WavpackStreamGetChannelLayout (wpc, NULL), i;
 
         if ((layout & 0xff) <= num_channels) {
             new_channel_order = malloc (num_channels);
@@ -2972,14 +2972,14 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
             for (i = 0; i < num_channels; ++i)
                 new_channel_order [i] = i;
 
-            WavpackGetChannelLayout (wpc, new_channel_order);
+            WavpackStreamGetChannelLayout (wpc, new_channel_order);
         }
     }
 
     while (result == WAVPACK_NO_ERROR) {
         int32_t samples_unpacked;
 
-        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, VERIFY_BLOCKSIZE);
+        samples_unpacked = WavpackStreamUnpackSamples (wpc, temp_buffer, VERIFY_BLOCKSIZE);
         total_unpacked_samples += samples_unpacked;
 
         if (samples_unpacked) {
@@ -3039,10 +3039,10 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
             break;
         }
 
-        if (WavpackGetProgress (wpc) != -1.0 &&
-            progress != floor (WavpackGetProgress (wpc) * (100.0 - encode_time_percent) + encode_time_percent + 0.5)) {
+        if (WavpackStreamGetProgress (wpc) != -1.0 &&
+            progress != floor (WavpackStreamGetProgress (wpc) * (100.0 - encode_time_percent) + encode_time_percent + 0.5)) {
 
-                progress = floor (WavpackGetProgress (wpc) * (100.0 - encode_time_percent) + encode_time_percent + 0.5);
+                progress = floor (WavpackStreamGetProgress (wpc) * (100.0 - encode_time_percent) + encode_time_percent + 0.5);
                 display_progress (progress / 100.0);
 
                 if (!quiet_mode) {
@@ -3089,26 +3089,26 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     // late in the decoding process (e.g., after the CRC).
 
     if (result == WAVPACK_NO_ERROR) {
-        if (WavpackGetNumSamples64 (wpc) != -1) {
-            if (total_unpacked_samples < WavpackGetNumSamples64 (wpc)) {
+        if (WavpackStreamGetNumSamples64 (wpc) != -1) {
+            if (total_unpacked_samples < WavpackStreamGetNumSamples64 (wpc)) {
                 error_line ("file is missing %llu samples!",
-                    WavpackGetNumSamples64 (wpc) - total_unpacked_samples);
+                    WavpackStreamGetNumSamples64 (wpc) - total_unpacked_samples);
                 result = WAVPACK_SOFT_ERROR;
             }
-            else if (total_unpacked_samples > WavpackGetNumSamples64 (wpc)) {
+            else if (total_unpacked_samples > WavpackStreamGetNumSamples64 (wpc)) {
                 error_line ("file has %llu extra samples!",
-                    total_unpacked_samples - WavpackGetNumSamples64 (wpc));
+                    total_unpacked_samples - WavpackStreamGetNumSamples64 (wpc));
                 result = WAVPACK_SOFT_ERROR;
             }
         }
 
-        if (WavpackGetNumErrors (wpc)) {
-            error_line ("missing data or crc errors detected in %d block(s)!", WavpackGetNumErrors (wpc));
+        if (WavpackStreamGetNumErrors (wpc)) {
+            error_line ("missing data or crc errors detected in %d block(s)!", WavpackStreamGetNumErrors (wpc));
             result = WAVPACK_SOFT_ERROR;
         }
     }
 
-    WavpackCloseFile (wpc);
+    WavpackStreamCloseFile (wpc);
     return result;
 }
 

@@ -59,127 +59,6 @@ typedef struct {
 
 #define WaveHeaderFormat "SSLLSSSSLS"
 
-// This is the ONLY structure that occurs in WavPack files (as of version
-// 4.0), and is the preamble to every block in both the .wv and .wvc
-// files (in little-endian format). Normally, this structure has no use
-// to an application using the library to read or write WavPack files,
-// but if an application needs to manually parse WavPack files then this
-// would be used (with appropriate endian correction).
-
-typedef struct {
-    char ckID [4];
-    uint32_t ckSize;
-    int16_t version;
-    unsigned char block_index_u8;
-    unsigned char total_samples_u8;
-    uint32_t total_samples, block_index, block_samples, flags, crc;
-} WavpackHeader;
-
-#define WavpackHeaderFormat "4LS2LLLLL"
-
-// Macros to access the 40-bit block_index field
-
-#define GET_BLOCK_INDEX(hdr) ( (int64_t) (hdr).block_index + ((int64_t) (hdr).block_index_u8 << 32) )
-
-#define SET_BLOCK_INDEX(hdr,value) do { \
-    int64_t tmp = (value);              \
-    (hdr).block_index = (uint32_t) tmp; \
-    (hdr).block_index_u8 =              \
-        (unsigned char) (tmp >> 32);    \
-} while (0)
-
-// Macros to access the 40-bit total_samples field, which is complicated by the fact that
-// all 1's in the lower 32 bits indicates "unknown" (regardless of upper 8 bits)
-
-#define GET_TOTAL_SAMPLES(hdr) ( ((hdr).total_samples == (uint32_t) -1) ? -1 : \
-    (int64_t) (hdr).total_samples + ((int64_t) (hdr).total_samples_u8 << 32) - (hdr).total_samples_u8 )
-
-#define SET_TOTAL_SAMPLES(hdr,value) do {       \
-    int64_t tmp = (value);                      \
-    if (tmp < 0)                                \
-        (hdr).total_samples = (uint32_t) -1;    \
-    else {                                      \
-        tmp += (tmp / 0xffffffffLL);            \
-        (hdr).total_samples = (uint32_t) tmp;   \
-        (hdr).total_samples_u8 =                \
-            (unsigned char) (tmp >> 32);        \
-    }                                           \
-} while (0)
-
-// or-values for WavpackHeader.flags
-#define BYTES_STORED    3       // 1-4 bytes/sample
-#define MONO_FLAG       4       // not stereo
-#define HYBRID_FLAG     8       // hybrid mode
-#define JOINT_STEREO    0x10    // joint stereo
-#define CROSS_DECORR    0x20    // no-delay cross decorrelation
-#define HYBRID_SHAPE    0x40    // noise shape (hybrid mode only)
-#define FLOAT_DATA      0x80    // ieee 32-bit floating point data
-
-#define INT32_DATA      0x100   // special extended int handling
-#define HYBRID_BITRATE  0x200   // bitrate noise (hybrid mode only)
-#define HYBRID_BALANCE  0x400   // balance noise (hybrid stereo mode only)
-
-#define INITIAL_BLOCK   0x800   // initial block of multichannel segment
-#define FINAL_BLOCK     0x1000  // final block of multichannel segment
-
-#define SHIFT_LSB       13
-#define SHIFT_MASK      (0x1fL << SHIFT_LSB)
-
-#define MAG_LSB         18
-#define MAG_MASK        (0x1fL << MAG_LSB)
-
-#define SRATE_LSB       23
-#define SRATE_MASK      (0xfL << SRATE_LSB)
-
-#define FALSE_STEREO    0x40000000      // block is stereo, but data is mono
-#define NEW_SHAPING     0x20000000      // use IIR filter for negative shaping
-
-#define MONO_DATA (MONO_FLAG | FALSE_STEREO)
-
-// Introduced in WavPack 5.0:
-#define HAS_CHECKSUM    0x10000000      // block contains a trailing checksum
-#define DSD_FLAG        0x80000000      // block is encoded DSD (1-bit PCM)
-
-#define IGNORED_FLAGS   0x08000000      // reserved, but ignore if encountered
-#define UNKNOWN_FLAGS   0x00000000      // we no longer have any of these spares
-
-#define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
-#define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
-
-// These are the mask bit definitions for the metadata chunk id byte (see format.txt)
-
-#define ID_UNIQUE               0x3f
-#define ID_OPTIONAL_DATA        0x20
-#define ID_ODD_SIZE             0x40
-#define ID_LARGE                0x80
-
-#define ID_DUMMY                0x0
-#define ID_ENCODER_INFO         0x1
-#define ID_DECORR_TERMS         0x2
-#define ID_DECORR_WEIGHTS       0x3
-#define ID_DECORR_SAMPLES       0x4
-#define ID_ENTROPY_VARS         0x5
-#define ID_HYBRID_PROFILE       0x6
-#define ID_SHAPING_WEIGHTS      0x7
-#define ID_FLOAT_INFO           0x8
-#define ID_INT32_INFO           0x9
-#define ID_WV_BITSTREAM         0xa
-#define ID_WVC_BITSTREAM        0xb
-#define ID_WVX_BITSTREAM        0xc
-#define ID_CHANNEL_INFO         0xd
-
-#define ID_RIFF_HEADER          (ID_OPTIONAL_DATA | 0x1)
-#define ID_RIFF_TRAILER         (ID_OPTIONAL_DATA | 0x2)
-#define ID_ALT_HEADER           (ID_OPTIONAL_DATA | 0x3)
-#define ID_ALT_TRAILER          (ID_OPTIONAL_DATA | 0x4)
-#define ID_CONFIG_BLOCK         (ID_OPTIONAL_DATA | 0x5)
-#define ID_MD5_CHECKSUM         (ID_OPTIONAL_DATA | 0x6)
-#define ID_SAMPLE_RATE          (ID_OPTIONAL_DATA | 0x7)
-#define ID_ALT_EXTENSION        (ID_OPTIONAL_DATA | 0x8)
-#define ID_ALT_MD5_CHECKSUM     (ID_OPTIONAL_DATA | 0x9)
-#define ID_NEW_CONFIG_BLOCK     (ID_OPTIONAL_DATA | 0xa)
-#define ID_BLOCK_CHECKSUM       (ID_OPTIONAL_DATA | 0xf)
-
 ///////////////////////// WavPack Configuration ///////////////////////////////
 
 // This external structure is used during encode to provide configuration to
@@ -288,14 +167,14 @@ extern "C" {
 
 #define MAX_WAVPACK_SAMPLES ((1LL << 40) - 257)
 
-WavpackContext *WavpackOpenRawDecoder (
+WavpackContext *WavpackStreamOpenRawDecoder (
     void *main_data, int32_t main_size,
     void *corr_data, int32_t corr_size,
     int16_t version, char *error, int flags, int norm_offset);
 
-WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
-WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
-WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
 
 #define OPEN_WVC        0x1     // open/read "correction" file
 #define OPEN_WRAPPER    0x4     // make audio wrapper available (i.e. RIFF)
@@ -312,7 +191,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
                                 // (just affects retrieving wrappers & MD5 checksums)
 #define OPEN_NO_CHECKSUM 0x800  // don't verify block checksums before decoding
 
-int WavpackGetMode (WavpackContext *wpc);
+int WavpackStreamGetMode (WavpackContext *wpc);
 
 #define MODE_WVC        0x1
 #define MODE_LOSSLESS   0x2
@@ -327,47 +206,47 @@ int WavpackGetMode (WavpackContext *wpc);
 #define MODE_XMODE      0x7000  // mask for extra level (1-6, 0=unknown)
 #define MODE_DNS        0x8000
 
-int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum);
-int WavpackGetQualifyMode (WavpackContext *wpc);
-char *WavpackGetErrorMessage (WavpackContext *wpc);
-int WavpackGetVersion (WavpackContext *wpc);
-char *WavpackGetFileExtension (WavpackContext *wpc);
-unsigned char WavpackGetFileFormat (WavpackContext *wpc);
-uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
-uint32_t WavpackGetNumSamples (WavpackContext *wpc);
-int64_t WavpackGetNumSamples64 (WavpackContext *wpc);
-uint32_t WavpackGetNumSamplesInFrame (WavpackContext *wpc);
-uint32_t WavpackGetSampleIndex (WavpackContext *wpc);
-int64_t WavpackGetSampleIndex64 (WavpackContext *wpc);
-int WavpackGetNumErrors (WavpackContext *wpc);
-int WavpackLossyBlocks (WavpackContext *wpc);
-int WavpackSeekSample (WavpackContext *wpc, uint32_t sample);
-int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample);
-WavpackContext *WavpackCloseFile (WavpackContext *wpc);
-uint32_t WavpackGetSampleRate (WavpackContext *wpc);
-uint32_t WavpackGetNativeSampleRate (WavpackContext *wpc);
-int WavpackGetBitsPerSample (WavpackContext *wpc);
-int WavpackGetBytesPerSample (WavpackContext *wpc);
-int WavpackGetNumChannels (WavpackContext *wpc);
-int WavpackGetChannelMask (WavpackContext *wpc);
-int WavpackGetReducedChannels (WavpackContext *wpc);
-int WavpackGetFloatNormExp (WavpackContext *wpc);
-int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
-void WavpackGetChannelIdentities (WavpackContext *wpc, unsigned char *identities);
-uint32_t WavpackGetChannelLayout (WavpackContext *wpc, unsigned char *reorder);
-uint32_t WavpackGetWrapperBytes (WavpackContext *wpc);
-unsigned char *WavpackGetWrapperData (WavpackContext *wpc);
-void WavpackFreeWrapper (WavpackContext *wpc);
-void WavpackSeekTrailingWrapper (WavpackContext *wpc);
-double WavpackGetProgress (WavpackContext *wpc);
+int WavpackStreamVerifySingleBlock (unsigned char *buffer, int verify_checksum);
+int WavpackStreamGetQualifyMode (WavpackContext *wpc);
+char *WavpackStreamGetErrorMessage (WavpackContext *wpc);
+int WavpackStreamGetVersion (WavpackContext *wpc);
+char *WavpackStreamGetFileExtension (WavpackContext *wpc);
+unsigned char WavpackStreamGetFileFormat (WavpackContext *wpc);
+uint32_t WavpackStreamUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples);
+uint32_t WavpackStreamGetNumSamples (WavpackContext *wpc);
+int64_t WavpackStreamGetNumSamples64 (WavpackContext *wpc);
+uint32_t WavpackStreamGetNumSamplesInFrame (WavpackContext *wpc);
+uint32_t WavpackStreamGetSampleIndex (WavpackContext *wpc);
+int64_t WavpackStreamGetSampleIndex64 (WavpackContext *wpc);
+int WavpackStreamGetNumErrors (WavpackContext *wpc);
+int WavpackStreamLossyBlocks (WavpackContext *wpc);
+int WavpackStreamSeekSample (WavpackContext *wpc, uint32_t sample);
+int WavpackStreamSeekSample64 (WavpackContext *wpc, int64_t sample);
+WavpackContext *WavpackStreamCloseFile (WavpackContext *wpc);
+uint32_t WavpackStreamGetSampleRate (WavpackContext *wpc);
+uint32_t WavpackStreamGetNativeSampleRate (WavpackContext *wpc);
+int WavpackStreamGetBitsPerSample (WavpackContext *wpc);
+int WavpackStreamGetBytesPerSample (WavpackContext *wpc);
+int WavpackStreamGetNumChannels (WavpackContext *wpc);
+int WavpackStreamGetChannelMask (WavpackContext *wpc);
+int WavpackStreamGetReducedChannels (WavpackContext *wpc);
+int WavpackStreamGetFloatNormExp (WavpackContext *wpc);
+int WavpackStreamGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
+void WavpackStreamGetChannelIdentities (WavpackContext *wpc, unsigned char *identities);
+uint32_t WavpackStreamGetChannelLayout (WavpackContext *wpc, unsigned char *reorder);
+uint32_t WavpackStreamGetWrapperBytes (WavpackContext *wpc);
+unsigned char *WavpackStreamGetWrapperData (WavpackContext *wpc);
+void WavpackStreamFreeWrapper (WavpackContext *wpc);
+void WavpackStreamSeekTrailingWrapper (WavpackContext *wpc);
+double WavpackStreamGetProgress (WavpackContext *wpc);
 uint32_t WavpackGetFileSize (WavpackContext *wpc);
 int64_t WavpackGetFileSize64 (WavpackContext *wpc);
 double WavpackGetRatio (WavpackContext *wpc);
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc);
 double WavpackGetInstantBitrate (WavpackContext *wpc);
 
-WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
-void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsigned char file_format);
+WavpackContext *WavpackStreamOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
+void WavpackStreamSetFileInformation (WavpackContext *wpc, char *file_extension, unsigned char file_format);
 
 #define WP_FORMAT_WAV   0       // Microsoft RIFF, including BWF and RF64 varients
 #define WP_FORMAT_W64   1       // Sony Wave64
@@ -375,27 +254,27 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 #define WP_FORMAT_DFF   3       // Philips DSDIFF
 #define WP_FORMAT_DSF   4       // Sony DSD Format
 
-int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
-int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids);
-int WavpackSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder);
-int WavpackAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
-int WavpackStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
-int WavpackPackInit (WavpackContext *wpc);
-int WavpackPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);
-int WavpackFlushSamples (WavpackContext *wpc);
-void WavpackUpdateNumSamples (WavpackContext *wpc, void *first_block);
-void *WavpackGetWrapperLocation (void *first_block, uint32_t *size);
-double WavpackGetEncodedNoise (WavpackContext *wpc, double *peak);
+int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
+int WavpackStreamSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids);
+int WavpackStreamSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder);
+int WavpackStreamAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
+int WavpackStreamStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);
+int WavpackStreamPackInit (WavpackContext *wpc);
+int WavpackStreamPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);
+int WavpackStreamFlushSamples (WavpackContext *wpc);
+void WavpackStreamUpdateNumSamples (WavpackContext *wpc, void *first_block);
+void *WavpackStreamGetWrapperLocation (void *first_block, uint32_t *size);
+double WavpackStreamGetEncodedNoise (WavpackContext *wpc, double *peak);
 
-void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
+void WavpackStreamFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
 
-void WavpackLittleEndianToNative (void *data, char *format);
-void WavpackNativeToLittleEndian (void *data, char *format);
-void WavpackBigEndianToNative (void *data, char *format);
-void WavpackNativeToBigEndian (void *data, char *format);
+void WavpackStreamLittleEndianToNative (void *data, char *format);
+void WavpackStreamNativeToLittleEndian (void *data, char *format);
+void WavpackStreamBigEndianToNative (void *data, char *format);
+void WavpackStreamNativeToBigEndian (void *data, char *format);
 
-uint32_t WavpackGetLibraryVersion (void);
-const char *WavpackGetLibraryVersionString (void);
+uint32_t WavpackStreamGetLibraryVersion (void);
+const char *WavpackStreamGetLibraryVersionString (void);
 
 #ifdef __cplusplus
 }

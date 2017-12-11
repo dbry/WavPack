@@ -65,13 +65,13 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             return WAVPACK_SOFT_ERROR;
     }
     else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-        !WavpackAddWrapper (wpc, &filehdr, sizeof (filehdr))) {
-            error_line ("%s", WavpackGetErrorMessage (wpc));
+        !WavpackStreamAddWrapper (wpc, &filehdr, sizeof (filehdr))) {
+            error_line ("%s", WavpackStreamGetErrorMessage (wpc));
             return WAVPACK_SOFT_ERROR;
     }
 
 #if 1   // this might be a little too picky...
-    WavpackLittleEndianToNative (&filehdr, Wave64ChunkHeaderFormat);
+    WavpackStreamLittleEndianToNative (&filehdr, Wave64ChunkHeaderFormat);
 
     if (infilesize && !(config->qmode & QMODE_IGNORE_LENGTH) &&
         filehdr.ckSize && filehdr.ckSize + 1 && filehdr.ckSize != infilesize) {
@@ -90,12 +90,12 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 return WAVPACK_SOFT_ERROR;
         }
         else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-            !WavpackAddWrapper (wpc, &chunk_header, sizeof (Wave64ChunkHeader))) {
-                error_line ("%s", WavpackGetErrorMessage (wpc));
+            !WavpackStreamAddWrapper (wpc, &chunk_header, sizeof (Wave64ChunkHeader))) {
+                error_line ("%s", WavpackStreamGetErrorMessage (wpc));
                 return WAVPACK_SOFT_ERROR;
         }
 
-        WavpackLittleEndianToNative (&chunk_header, Wave64ChunkHeaderFormat);
+        WavpackStreamLittleEndianToNative (&chunk_header, Wave64ChunkHeaderFormat);
         chunk_header.ckSize -= sizeof (chunk_header);
 
         // if it's the format chunk, we want to get some info out of there and
@@ -113,12 +113,12 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                     return WAVPACK_SOFT_ERROR;
             }
             else if (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, &WaveHeader, (uint32_t) chunk_header.ckSize)) {
-                    error_line ("%s", WavpackGetErrorMessage (wpc));
+                !WavpackStreamAddWrapper (wpc, &WaveHeader, (uint32_t) chunk_header.ckSize)) {
+                    error_line ("%s", WavpackStreamGetErrorMessage (wpc));
                     return WAVPACK_SOFT_ERROR;
             }
 
-            WavpackLittleEndianToNative (&WaveHeader, WaveHeaderFormat);
+            WavpackStreamLittleEndianToNative (&WaveHeader, WaveHeaderFormat);
 
             if (debug_logging_mode) {
                 error_line ("format tag size = %d", chunk_header.ckSize);
@@ -251,8 +251,8 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             if (!DoReadFile (infile, buff, bytes_to_copy, &bcount) ||
                 bcount != bytes_to_copy ||
                 (!(config->qmode & QMODE_NO_STORE_WRAPPER) &&
-                !WavpackAddWrapper (wpc, buff, bytes_to_copy))) {
-                    error_line ("%s", WavpackGetErrorMessage (wpc));
+                !WavpackStreamAddWrapper (wpc, buff, bytes_to_copy))) {
+                    error_line ("%s", WavpackStreamGetErrorMessage (wpc));
                     free (buff);
                     return WAVPACK_SOFT_ERROR;
             }
@@ -261,8 +261,8 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
         }
     }
 
-    if (!WavpackSetConfiguration64 (wpc, config, total_samples, NULL)) {
-        error_line ("%s: %s", infilename, WavpackGetErrorMessage (wpc));
+    if (!WavpackStreamSetConfiguration64 (wpc, config, total_samples, NULL)) {
+        error_line ("%s: %s", infilename, WavpackStreamGetErrorMessage (wpc));
         return WAVPACK_SOFT_ERROR;
     }
 
@@ -277,15 +277,15 @@ int WriteWave64Header (FILE *outfile, WavpackContext *wpc, int64_t total_samples
     uint32_t bcount;
 
     int64_t total_data_bytes, total_file_bytes;
-    int num_channels = WavpackGetNumChannels (wpc);
-    int32_t channel_mask = WavpackGetChannelMask (wpc);
-    int32_t sample_rate = WavpackGetSampleRate (wpc);
-    int bytes_per_sample = WavpackGetBytesPerSample (wpc);
-    int bits_per_sample = WavpackGetBitsPerSample (wpc);
-    int format = WavpackGetFloatNormExp (wpc) ? 3 : 1;
+    int num_channels = WavpackStreamGetNumChannels (wpc);
+    int32_t channel_mask = WavpackStreamGetChannelMask (wpc);
+    int32_t sample_rate = WavpackStreamGetSampleRate (wpc);
+    int bytes_per_sample = WavpackStreamGetBytesPerSample (wpc);
+    int bits_per_sample = WavpackStreamGetBitsPerSample (wpc);
+    int format = WavpackStreamGetFloatNormExp (wpc) ? 3 : 1;
     int wavhdrsize = 16;
 
-    if (format == 3 && WavpackGetFloatNormExp (wpc) != 127) {
+    if (format == 3 && WavpackStreamGetFloatNormExp (wpc) != 127) {
         error_line ("can't create valid Wave64 header for non-normalized floating data!");
         return FALSE;
     }
@@ -333,10 +333,10 @@ int WriteWave64Header (FILE *outfile, WavpackContext *wpc, int64_t total_samples
 
     // write the RIFF chunks up to just before the data starts
 
-    WavpackNativeToLittleEndian (&filehdr, Wave64ChunkHeaderFormat);
-    WavpackNativeToLittleEndian (&fmthdr, Wave64ChunkHeaderFormat);
-    WavpackNativeToLittleEndian (&wavhdr, WaveHeaderFormat);
-    WavpackNativeToLittleEndian (&datahdr, Wave64ChunkHeaderFormat);
+    WavpackStreamNativeToLittleEndian (&filehdr, Wave64ChunkHeaderFormat);
+    WavpackStreamNativeToLittleEndian (&fmthdr, Wave64ChunkHeaderFormat);
+    WavpackStreamNativeToLittleEndian (&wavhdr, WaveHeaderFormat);
+    WavpackStreamNativeToLittleEndian (&datahdr, Wave64ChunkHeaderFormat);
 
     if (!DoWriteFile (outfile, &filehdr, sizeof (filehdr), &bcount) || bcount != sizeof (filehdr) ||
         !DoWriteFile (outfile, &fmthdr, sizeof (fmthdr), &bcount) || bcount != sizeof (fmthdr) ||
