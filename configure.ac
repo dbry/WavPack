@@ -1,6 +1,6 @@
-# wavpack 0.1.0 configure.ac
+# wavpack-stream 0.1.0 configure.ac
 
-AC_INIT(wavpack, 0.1.0, bryant@wavpack.com)
+AC_INIT(wavpack-stream, 0.1.0, bryant@wavpack.com)
 AC_CONFIG_SRCDIR([src/pack.c])
 AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE
@@ -60,7 +60,7 @@ AC_FUNC_FSEEKO
 AC_MINGW32
 
 AC_ARG_ENABLE([apps],
-    AS_HELP_STRING([--disable-apps], [build only libwavpack (not command-line utils)]))
+    AS_HELP_STRING([--disable-apps], [build only libwavpack-stream (not command-line utils)]))
 
 AM_CONDITIONAL([ENABLE_APPS], [test "x$enable_apps" != "xno"])
 
@@ -86,7 +86,7 @@ AC_ARG_ENABLE([rpath],
 AM_CONDITIONAL([ENABLE_RPATH], [test "x$enable_rpath" == "xyes"])
 
 AC_ARG_ENABLE([tests],
-    AS_HELP_STRING([--enable-tests], [build libwavpack test program (requires Pthreads)]))
+    AS_HELP_STRING([--enable-tests], [build libwavpack-stream test program (requires Pthreads)]))
 
 AM_CONDITIONAL([ENABLE_TESTS], [test "x$enable_tests" == "xyes"])
 

@@ -76,34 +76,6 @@ typedef int32_t f32;
 #define FALSE 0
 #define TRUE 1
 
-// RIFF / wav header formats (these occur at the beginning of both wav files
-// and pre-4.0 WavPack files that are not in the "raw" mode)
-
-typedef struct {
-    char ckID [4];
-    uint32_t ckSize;
-    char formType [4];
-} RiffChunkHeader;
-
-typedef struct {
-    char ckID [4];
-    uint32_t ckSize;
-} ChunkHeader;
-
-#define ChunkHeaderFormat "4L"
-
-typedef struct {
-    uint16_t FormatTag, NumChannels;
-    uint32_t SampleRate, BytesPerSecond;
-    uint16_t BlockAlign, BitsPerSample;
-    uint16_t cbSize, ValidBitsPerSample;
-    int32_t ChannelMask;
-    uint16_t SubFormat;
-    char GUID [14];
-} WaveHeader;
-
-#define WaveHeaderFormat "SSLLSSSSLS"
-
 ////////////////////////////// WavPack Header /////////////////////////////////
 
 // Note that this is the ONLY structure that is written to (or read from)
@@ -222,7 +194,7 @@ typedef struct {
     int qmode, flags, xmode, num_channels, float_norm_exp;
     int32_t block_samples, extra_flags, sample_rate, channel_mask;
     unsigned char md5_checksum [16], md5_read;
-} WavpackConfig;
+} WavpackStreamConfig;
 
 #define CONFIG_BYTES_STORED     3       // 1-4 bytes/sample
 #define CONFIG_MONO_FLAG        4       // not stereo
@@ -405,7 +377,7 @@ typedef struct {
 
     // this callback is for writing edited tags only
     int32_t (*write_bytes)(void *id, void *data, int32_t bcount);
-} WavpackStreamReader;
+} WavpackReader;
 
 // Extended version of structure for handling large files and added
 // functionality for truncating and closing files
@@ -421,12 +393,12 @@ typedef struct {
     int (*can_seek)(void *id);
     int (*truncate_here)(void *id);                             // new function to truncate file at current position
     int (*close)(void *id);                                     // new function to close file
-} WavpackStreamReader64;
+} WavpackReader64;
 
 typedef int (*WavpackBlockOutput)(void *id, void *data, int32_t bcount);
 
 typedef struct {
-    WavpackConfig config;
+    WavpackStreamConfig config;
 
     WavpackMetadata *metadata;
     uint32_t metabytes;
@@ -438,7 +410,7 @@ typedef struct {
     WavpackBlockOutput blockout;
     void *wv_out, *wvc_out;
 
-    WavpackStreamReader64 *reader;
+    WavpackReader64 *reader;
     void *wv_in, *wvc_in;
 
     int64_t filelen, file2len, filepos, file2pos, total_samples, initial_index;
@@ -731,8 +703,8 @@ void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
 /////////////////////////// high-level unpacking API and support ////////////////////////////
 // modules: open_utils.c, unpack_utils.c, unpack_seek.c, unpack_floats.c
 
-WavpackContext *WavpackStreamOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
-WavpackContext *WavpackStreamOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInputEx64 (WavpackReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInputEx (WavpackReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackStreamOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
 
 #define OPEN_WVC        0x1     // open/read "correction" file
@@ -773,15 +745,15 @@ int WavpackStreamSeekSample64 (WavpackContext *wpc, int64_t sample);
 int WavpackStreamGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 
 int WavpackStreamVerifySingleBlock (unsigned char *buffer, int verify_checksum);
-uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr);
+uint32_t read_next_header (WavpackReader64 *reader, void *id, WavpackHeader *wphdr);
 int read_wvc_block (WavpackContext *wpc);
 
 /////////////////////////// high-level packing API and support ////////////////////////////
 // modules: pack_utils.c, pack_floats.c
 
 WavpackContext *WavpackStreamOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
-int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
-int WavpackStreamSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids);
+int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackStreamConfig *config, uint32_t total_samples);
+int WavpackStreamSetConfiguration64 (WavpackContext *wpc, WavpackStreamConfig *config, int64_t total_samples, const unsigned char *chan_ids);
 int WavpackStreamPackInit (WavpackContext *wpc);
 int WavpackStreamAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
 int WavpackStreamPackSamples (WavpackContext *wpc, int32_t *sample_buffer, uint32_t sample_count);

@@ -18,7 +18,7 @@
 #include "wavpack_local.h"
 
 typedef struct {
-    WavpackStreamReader *reader;
+    WavpackReader *reader;
     void *id;
 } WavpackReaderTranslator;
 
@@ -76,7 +76,7 @@ static int trans_close_stream (void *id)
     return 0;
 }
 
-static WavpackStreamReader64 trans_reader = {
+static WavpackReader64 trans_reader = {
     trans_read_bytes, trans_write_bytes, trans_get_pos, trans_set_pos_abs, trans_set_pos_rel,
     trans_push_back_byte, trans_get_length, trans_can_seek, NULL, trans_close_stream
 };
@@ -86,7 +86,7 @@ static WavpackStreamReader64 trans_reader = {
 // utilized and a translation layer is employed. It is provided as a compatibility
 // function for existing applications.
 
-WavpackContext *WavpackStreamOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
+WavpackContext *WavpackStreamOpenFileInputEx (WavpackReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
     WavpackReaderTranslator *trans_wv = NULL, *trans_wvc = NULL;
 

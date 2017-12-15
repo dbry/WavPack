@@ -31,7 +31,7 @@
 
 static int seek_eof_information (WavpackContext *wpc, int get_wrapper);
 
-WavpackContext *WavpackStreamOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
+WavpackContext *WavpackStreamOpenFileInputEx64 (WavpackReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset)
 {
     WavpackContext *wpc = malloc (sizeof (WavpackContext));
     WavpackStream *wps;
@@ -874,7 +874,7 @@ int WavpackStreamGetMD5Sum (WavpackContext *wpc, unsigned char data [16])
 // to indicate the error. No additional bytes are read past the header and it
 // is returned in the processor's native endian mode. Seeking is not required.
 
-uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr)
+uint32_t read_next_header (WavpackReader64 *reader, void *id, WavpackHeader *wphdr)
 {
     unsigned char buffer [sizeof (*wphdr)], *sp = buffer + sizeof (*wphdr), *ep = sp;
     uint32_t bytes_skipped = 0;
@@ -1030,7 +1030,7 @@ int read_wvc_block (WavpackContext *wpc)
 static int seek_eof_information (WavpackContext *wpc, int get_wrapper)
 {
     int64_t restore_pos, last_pos = -1;
-    WavpackStreamReader64 *reader = wpc->reader;
+    WavpackReader64 *reader = wpc->reader;
     int alt_types = wpc->open_flags & OPEN_ALT_TYPES;
     uint32_t blocks = 0, audio_blocks = 0;
     void *id = wpc->wv_in;

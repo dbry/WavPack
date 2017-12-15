@@ -8,8 +8,8 @@
 
 // wavpack.h
 
-#ifndef WAVPACK_H
-#define WAVPACK_H
+#ifndef WAVPACK_STREAM_H
+#define WAVPACK_STREAM_H
 
 // This header file contains all the definitions required to use the
 // functions in "wputils.c" to read and write WavPack files and streams.
@@ -29,36 +29,6 @@ typedef __int8  int8_t;
 #include <stdint.h>
 #endif
 
-// RIFF / wav header formats (these occur at the beginning of both wav files
-// and pre-4.0 WavPack files that are not in the "raw" mode). Generally, an
-// application using the library to read or write WavPack files will not be
-// concerned with any of these.
-
-typedef struct {
-    char ckID [4];
-    uint32_t ckSize;
-    char formType [4];
-} RiffChunkHeader;
-
-typedef struct {
-    char ckID [4];
-    uint32_t ckSize;
-} ChunkHeader;
-
-#define ChunkHeaderFormat "4L"
-
-typedef struct {
-    uint16_t FormatTag, NumChannels;
-    uint32_t SampleRate, BytesPerSecond;
-    uint16_t BlockAlign, BitsPerSample;
-    uint16_t cbSize, ValidBitsPerSample;
-    int32_t ChannelMask;
-    uint16_t SubFormat;
-    char GUID [14];
-} WaveHeader;
-
-#define WaveHeaderFormat "SSLLSSSSLS"
-
 ///////////////////////// WavPack Configuration ///////////////////////////////
 
 // This external structure is used during encode to provide configuration to
@@ -73,7 +43,7 @@ typedef struct {
     unsigned char md5_checksum [16], md5_read;
     int num_tag_strings;                // this field is not used
     char **tag_strings;                 // this field is not used
-} WavpackConfig;
+} WavpackStreamConfig;
 
 #define CONFIG_HYBRID_FLAG      8       // hybrid mode
 #define CONFIG_JOINT_STEREO     0x10    // joint stereo
@@ -137,7 +107,7 @@ typedef struct {
 
     // this callback is for writing edited tags only
     int32_t (*write_bytes)(void *id, void *data, int32_t bcount);
-} WavpackStreamReader;
+} WavpackReader;
 
 // Extended version of structure for handling large files and added
 // functionality for truncating and closing files
@@ -153,7 +123,7 @@ typedef struct {
     int (*can_seek)(void *id);
     int (*truncate_here)(void *id);                             // new function to truncate file at current position
     int (*close)(void *id);                                     // new function to close file
-} WavpackStreamReader64;
+} WavpackReader64;
 
 typedef int (*WavpackBlockOutput)(void *id, void *data, int32_t bcount);
 
@@ -172,8 +142,8 @@ WavpackContext *WavpackStreamOpenRawDecoder (
     void *corr_data, int32_t corr_size,
     int16_t version, char *error, int flags, int norm_offset);
 
-WavpackContext *WavpackStreamOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
-WavpackContext *WavpackStreamOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInputEx64 (WavpackReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
+WavpackContext *WavpackStreamOpenFileInputEx (WavpackReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackStreamOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
 
 #define OPEN_WVC        0x1     // open/read "correction" file
@@ -254,8 +224,8 @@ void WavpackStreamSetFileInformation (WavpackContext *wpc, char *file_extension,
 #define WP_FORMAT_DFF   3       // Philips DSDIFF
 #define WP_FORMAT_DSF   4       // Sony DSD Format
 
-int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
-int WavpackStreamSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids);
+int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackStreamConfig *config, uint32_t total_samples);
+int WavpackStreamSetConfiguration64 (WavpackContext *wpc, WavpackStreamConfig *config, int64_t total_samples, const unsigned char *chan_ids);
 int WavpackStreamSetChannelLayout (WavpackContext *wpc, uint32_t layout_tag, const unsigned char *reorder);
 int WavpackStreamAddWrapper (WavpackContext *wpc, void *data, uint32_t bcount);
 int WavpackStreamStoreMD5Sum (WavpackContext *wpc, unsigned char data [16]);

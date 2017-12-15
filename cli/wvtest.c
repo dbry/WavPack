@@ -17,7 +17,7 @@
 #include <math.h>
 #include <pthread.h>
 
-#include "wavpack.h"
+#include "wavpack-stream.h"
 #include "utils.h"                  // for PACKAGE_VERSION, etc.
 #include "md5.h"
 
@@ -128,7 +128,7 @@ static int write_block (void *id, void *data, int32_t length);
 static void flush_stream (StreamingFile *ws);
 static void free_stream (StreamingFile *ws);
 static void *decode_thread (void *threadid);
-static WavpackStreamReader freader;
+static WavpackReader freader;
 
 //////////////////////////////////////// main () function for CLI //////////////////////////////////////
 
@@ -680,7 +680,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     struct audio_channel *channels;
     pthread_t pthread;
     WavpackContext *out_wpc;
-    WavpackConfig wpconfig;
+    WavpackStreamConfig wpconfig;
     StreamingFile wv_stream, wvc_stream;
     WavpackDecoder wv_decoder;
     unsigned char md5_encoded [16];
@@ -1190,7 +1190,7 @@ static int can_seek (void *id)
     return 0;
 }
 
-static WavpackStreamReader freader = {
+static WavpackReader freader = {
     read_bytes, get_pos, set_pos_abs, set_pos_rel, push_back_byte, get_length, can_seek,
 };
 

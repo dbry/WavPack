@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "wavpack.h"
+#include "wavpack-stream.h"
 #include "utils.h"
 #include "md5.h"
 
@@ -65,7 +65,7 @@ typedef struct {
 static const uint16_t channel_masks [] = { 0x04, 0x03, 0x07, 0x33, 0x0f, 0x37, 0x3f };
 #define NUM_CHAN_TYPES (sizeof (channel_masks) / sizeof (channel_masks [0]))
 
-int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
+int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config)
 {
     int64_t infilesize, total_samples, total_blocks, leftover_samples;
     DSFFileChunk file_chunk;

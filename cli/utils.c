@@ -28,7 +28,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "wavpack.h"
+#include "wavpack-stream.h"
 #include "utils.h"
 
 #ifdef _WIN32

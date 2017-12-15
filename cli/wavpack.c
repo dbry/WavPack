@@ -33,7 +33,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "wavpack.h"
+#include "wavpack-stream.h"
 #include "utils.h"
 #include "md5.h"
 
@@ -193,16 +193,16 @@ static const char *speakers [] = {
 
 #define NUM_SPEAKERS (sizeof (speakers) / sizeof (speakers [0]))
 
-int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
-int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
-int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
-int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
-int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config);
+int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config);
+int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config);
+int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config);
+int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config);
 
 static struct {
     unsigned char id;
     char *fourcc, *default_extension;
-    int (* ParseHeader) (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+    int (* ParseHeader) (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config);
     int chunk_alignment;
 } file_formats [] = {
     { WP_FORMAT_WAV,  "RIFF", "wav", ParseRiffHeaderConfig,   2 },
@@ -234,10 +234,10 @@ static int pause_mode;
 
 /////////////////////////// local function declarations ///////////////////////
 
-static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
+static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackStreamConfig *config);
 static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source);
 static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source);
-static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config);
+static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackStreamConfig *config);
 static int repack_audio (WavpackContext *wpc, WavpackContext *infile, unsigned char *md5_digest_source);
 static int verify_audio (char *infilename, unsigned char *md5_digest_source);
 static void display_progress (double file_progress);
@@ -267,7 +267,7 @@ int main (int argc, char **argv)
     int error_count = 0, output_spec = 0;
     char *outfilename = NULL, *out2filename = NULL;
     char **matches = NULL;
-    WavpackConfig config;
+    WavpackStreamConfig config;
     int result;
 
 #if defined(_WIN32)
@@ -1164,12 +1164,12 @@ static int write_block (void *id, void *data, int32_t length)
 // file would go there. The files are opened and closed in this function
 // and the "config" structure specifies the mode of compression.
 
-static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
+static int pack_file (char *infilename, char *outfilename, char *out2filename, const WavpackStreamConfig *config)
 {
     char *outfilename_temp = NULL, *out2filename_temp = NULL, dummy;
     int use_tempfiles = (out2filename != NULL), chunk_alignment = 1;
     uint32_t bcount;
-    WavpackConfig loc_config = *config;
+    WavpackStreamConfig loc_config = *config;
     unsigned char *new_channel_order = NULL;
     unsigned char md5_digest [16];
     write_id wv_file, wvc_file;
@@ -2175,14 +2175,14 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
 // is not allowed (no technical reason, it's just dumb, and could result in files that
 // fail their MD5 verification test).
 
-static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackConfig *config)
+static int repack_file (char *infilename, char *outfilename, char *out2filename, const WavpackStreamConfig *config)
 {
     int output_lossless = !(config->flags & CONFIG_HYBRID_FLAG) || (config->flags & CONFIG_CREATE_WVC);
     int flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
     char *outfilename_temp = NULL, *out2filename_temp = NULL;
     int use_tempfiles = (out2filename != NULL), input_mode;
     unsigned char md5_verify [16], md5_display [16];
-    WavpackConfig loc_config = *config;
+    WavpackStreamConfig loc_config = *config;
     WavpackContext *infile, *outfile;
     write_id wv_file, wvc_file;
     int64_t total_samples = 0;

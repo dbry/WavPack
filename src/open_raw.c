@@ -116,7 +116,7 @@ static int raw_close_stream (void *id)
     return 0;
 }
 
-static WavpackStreamReader64 raw_reader = {
+static WavpackReader64 raw_reader = {
     raw_read_bytes, raw_write_bytes, raw_get_pos, raw_set_pos_abs, raw_set_pos_rel,
     raw_push_back_byte, raw_get_length, raw_can_seek, NULL, raw_close_stream
 };

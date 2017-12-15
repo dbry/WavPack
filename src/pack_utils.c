@@ -177,7 +177,7 @@ static const struct { unsigned char a, b; } stereo_pairs [] = {
 // does not support the "mono optimization" feature where stereo blocks containing identical audio data
 // in both channels are encoded in mono for better efficiency.
 
-int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples)
+int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackStreamConfig *config, uint32_t total_samples)
 {
     config->flags |= CONFIG_COMPATIBLE_WRITE;       // write earlier version streams
 
@@ -187,7 +187,7 @@ int WavpackStreamSetConfiguration (WavpackContext *wpc, WavpackConfig *config, u
         return WavpackStreamSetConfiguration64 (wpc, config, total_samples, NULL);
 }
 
-int WavpackStreamSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids)
+int WavpackStreamSetConfiguration64 (WavpackContext *wpc, WavpackStreamConfig *config, int64_t total_samples, const unsigned char *chan_ids)
 {
     uint32_t flags, bps = 0;
     uint32_t chan_mask = config->channel_mask;

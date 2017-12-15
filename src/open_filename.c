@@ -187,7 +187,7 @@ static int close_stream (void *id)
 //  int (*truncate_here)(void *id);                             // new function to truncate file at current position
 //  int (*close)(void *id);                                     // new function to close file
 
-static WavpackStreamReader64 freader = {
+static WavpackReader64 freader = {
     read_bytes, write_bytes, get_pos, set_pos_abs, set_pos_rel,
     push_back_byte, get_length, can_seek, truncate_here, close_stream
 };

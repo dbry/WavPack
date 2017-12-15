@@ -1,4 +1,4 @@
-wpinclude_HEADERS = wavpack.h
+wpinclude_HEADERS = wavpack-stream.h
 wpincludedir = $(prefix)/include/wavpack
 
 MAINTAINERCLEANFILES = \

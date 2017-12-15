@@ -18,9 +18,34 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "wavpack.h"
+#include "wavpack-stream.h"
 #include "utils.h"
 #include "md5.h"
+
+typedef struct {
+    char ckID [4];
+    uint32_t ckSize;
+    char formType [4];
+} RiffChunkHeader;
+
+typedef struct {
+    char ckID [4];
+    uint32_t ckSize;
+} ChunkHeader;
+
+#define ChunkHeaderFormat "4L"
+
+typedef struct {
+    uint16_t FormatTag, NumChannels;
+    uint32_t SampleRate, BytesPerSecond;
+    uint16_t BlockAlign, BitsPerSample;
+    uint16_t cbSize, ValidBitsPerSample;
+    int32_t ChannelMask;
+    uint16_t SubFormat;
+    char GUID [14];
+} WaveHeader;
+
+#define WaveHeaderFormat "SSLLSSSSLS"
 
 #pragma pack(push,4)
 
@@ -50,7 +75,7 @@ typedef struct {
 
 extern int debug_logging_mode;
 
-int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
+int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config)
 {
     int is_rf64 = !strncmp (fourcc, "RF64", 4), got_ds64 = 0;
     int64_t total_samples = 0, infilesize;

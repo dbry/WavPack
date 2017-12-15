@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "wavpack.h"
+#include "wavpack-stream.h"
 #include "utils.h"
 #include "md5.h"
 
@@ -150,7 +150,7 @@ static struct {
 
 #define NUM_LAYOUTS (sizeof (layouts) / sizeof (layouts [0]))
 
-int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
+int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config)
 {
     uint32_t chan_chunk = 0, channel_layout = 0, bcount;
     unsigned char *channel_identities = NULL;

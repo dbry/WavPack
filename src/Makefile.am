@@ -1,6 +1,6 @@
-lib_LTLIBRARIES = libwavpack.la
+lib_LTLIBRARIES = libwavpack-stream.la
 
-libwavpack_la_SOURCES = \
+libwavpack_stream_la_SOURCES = \
 	common_utils.c \
 	decorr_tables.c \
 	decorr_utils.c \
@@ -23,28 +23,28 @@ libwavpack_la_SOURCES = \
 	write_words.c
 
 if ENABLE_DSD
-libwavpack_la_SOURCES += pack_dsd.c unpack_dsd.c
+libwavpack_stream_la_SOURCES += pack_dsd.c unpack_dsd.c
 endif
 
 if ENABLE_X86ASM
-libwavpack_la_SOURCES += pack_x86.S unpack_x86.S
+libwavpack_stream_la_SOURCES += pack_x86.S unpack_x86.S
 endif
 
 if ENABLE_X64ASM
-libwavpack_la_SOURCES += pack_x64.S unpack_x64.S
+libwavpack_stream_la_SOURCES += pack_x64.S unpack_x64.S
 endif
 
 if ENABLE_ARMASM
-libwavpack_la_SOURCES += unpack_armv7.S
+libwavpack_stream_la_SOURCES += unpack_armv7.S
 endif
 
 noinst_HEADERS = \
 	wavpack_local.h \
 	wavpack_version.h
 
-libwavpack_la_CFLAGS = $(AM_CFLAGS)
-libwavpack_la_LIBADD = $(AM_LDADD) $(LIBM)
-libwavpack_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -export-symbols-regex '^Wavpack.*$$' -no-undefined
+libwavpack_stream_la_CFLAGS = $(AM_CFLAGS)
+libwavpack_stream_la_LIBADD = $(AM_LDADD) $(LIBM)
+libwavpack_stream_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -export-symbols-regex '^WavpackStream.*$$' -no-undefined
 
 MAINTAINERCLEANFILES = \
 	Makefile.in

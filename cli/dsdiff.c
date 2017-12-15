@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "wavpack.h"
+#include "wavpack-stream.h"
 #include "utils.h"
 #include "md5.h"
 
@@ -77,7 +77,7 @@ typedef struct {
 #define DFFChannelsHeaderFormat "4DS"
 #define DFFCompressionHeaderFormat "4D4"
 
-int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
+int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackStreamConfig *config)
 {
     int64_t infilesize, total_samples;
     DFFFileHeader dff_file_header;
