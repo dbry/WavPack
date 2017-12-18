@@ -137,161 +137,24 @@ WavpackContext *WavpackStreamOpenRawDecoder (
 {
     WavpackRawContext *raw_wv = NULL, *raw_wvc = NULL;
 
-    // if the WavPack data does not contain headers we assume Matroska-style storage
-    // and recreate the missing headers
-
-    if (strncmp (main_data, FOURCC, 4)) {
-        uint32_t multiple_blocks = 0, block_size, block_samples = 0, wphdr_flags, crc;
-        uint32_t main_bytes = main_size, corr_bytes = corr_size;
-        unsigned char *mcp = main_data;
-        unsigned char *ccp = corr_data;
-        int msi = 0, csi = 0;
-
+    if (main_data) {
         raw_wv = malloc (sizeof (WavpackRawContext));
         memset (raw_wv, 0, sizeof (WavpackRawContext));
-
-        if (corr_data && corr_size) {
-            raw_wvc = malloc (sizeof (WavpackRawContext));
-            memset (raw_wvc, 0, sizeof (WavpackRawContext));
-        }
-
-        while (main_bytes >= 12) {
-            WavpackHeader *wphdr = malloc (sizeof (WavpackHeader));
-
-            if (!msi) {
-                block_samples = *mcp++;
-                block_samples += *mcp++ << 8;
-                block_samples += *mcp++ << 16;
-                block_samples += *mcp++ << 24;
-                main_bytes -= 4;
-            }
-
-            wphdr_flags = *mcp++;
-            wphdr_flags += *mcp++ << 8;
-            wphdr_flags += *mcp++ << 16;
-            wphdr_flags += *mcp++ << 24;
-            main_bytes -= 4;
-
-            // if the first block does not have the FINAL_BLOCK flag set,
-            // then there are multiple blocks
-
-            if (!msi && !(wphdr_flags & FINAL_BLOCK))
-                multiple_blocks = 1;
-
-            crc = *mcp++;
-            crc += *mcp++ << 8;
-            crc += *mcp++ << 16;
-            crc += *mcp++ << 24;
-            main_bytes -= 4;
-
-            if (multiple_blocks) {
-                block_size = *mcp++;
-                block_size += *mcp++ << 8;
-                block_size += *mcp++ << 16;
-                block_size += *mcp++ << 24;
-                main_bytes -= 4;
-            }
-            else
-                block_size = main_bytes;
-
-            if (block_size > main_bytes) {
-                if (error) strcpy (error, "main block overran available data!");
-                raw_close_stream (raw_wv);
-                raw_close_stream (raw_wvc);
-                return NULL;
-            } 
-
-            memset (wphdr, 0, sizeof (WavpackHeader));
-            memcpy (wphdr->ckID, FOURCC, 4);
-            wphdr->ckSize = CHUNK_SIZE_REMAINDER + block_size;
-            wphdr->block_samples = block_samples;
-            wphdr->flags = wphdr_flags;
-            WavpackStreamLittleEndianToNative (wphdr, WavpackHeaderFormat);
-
-            raw_wv->num_segments += 2;
-            raw_wv->segments = realloc (raw_wv->segments, sizeof (RawSegment) * raw_wv->num_segments);
-            raw_wv->segments [msi].dptr = raw_wv->segments [msi].sptr = (unsigned char *) wphdr;
-            raw_wv->segments [msi].eptr = raw_wv->segments [msi].dptr + sizeof (WavpackHeader);
-            raw_wv->segments [msi++].free_required = 1;
-            raw_wv->segments [msi].dptr = raw_wv->segments [msi].sptr = mcp;
-            raw_wv->segments [msi].eptr = raw_wv->segments [msi].dptr + block_size;
-            raw_wv->segments [msi++].free_required = 0;
-            main_bytes -= block_size;
-            mcp += block_size;
-
-            if (corr_data && corr_bytes >= 4) {
-                wphdr = malloc (sizeof (WavpackHeader));
-
-                crc = *ccp++;
-                crc += *ccp++ << 8;
-                crc += *ccp++ << 16;
-                crc += *ccp++ << 24;
-                corr_bytes -= 4;
-
-                if (multiple_blocks) {
-                    block_size = *ccp++;
-                    block_size += *ccp++ << 8;
-                    block_size += *ccp++ << 16;
-                    block_size += *ccp++ << 24;
-                    corr_bytes -= 4;
-                }
-                else
-                    block_size = corr_bytes;
-
-                if (block_size > corr_bytes) {
-                    if (error) strcpy (error, "correction block overran available data!");
-                    raw_close_stream (raw_wv);
-                    raw_close_stream (raw_wvc);
-                    return NULL;
-                } 
-
-                memset (wphdr, 0, sizeof (WavpackHeader));
-                memcpy (wphdr->ckID, FOURCC, 4);
-                wphdr->ckSize = CHUNK_SIZE_REMAINDER + block_size;
-                wphdr->block_samples = block_samples;
-                wphdr->flags = wphdr_flags;
-                WavpackStreamLittleEndianToNative (wphdr, WavpackHeaderFormat);
-
-                raw_wvc->num_segments += 2;
-                raw_wvc->segments = realloc (raw_wvc->segments, sizeof (RawSegment) * raw_wvc->num_segments);
-                raw_wvc->segments [csi].dptr = raw_wvc->segments [csi].sptr = (unsigned char *) wphdr;
-                raw_wvc->segments [csi].eptr = raw_wvc->segments [csi].dptr + sizeof (WavpackHeader);
-                raw_wvc->segments [csi++].free_required = 1;
-                raw_wvc->segments [csi].dptr = raw_wvc->segments [csi].sptr = ccp;
-                raw_wvc->segments [csi].eptr = raw_wvc->segments [csi].dptr + block_size;
-                raw_wvc->segments [csi++].free_required = 0;
-                corr_bytes -= block_size;
-                ccp += block_size;
-            }
-        }
-
-        if (main_bytes || (corr_data && corr_bytes)) {
-            if (error) strcpy (error, "leftover multiblock data!");
-            raw_close_stream (raw_wv);
-            raw_close_stream (raw_wvc);
-            return NULL;
-        }
+        raw_wv->num_segments = 1;
+        raw_wv->segments = malloc (sizeof (RawSegment) * raw_wv->num_segments);
+        raw_wv->segments [0].dptr = raw_wv->segments [0].sptr = main_data;
+        raw_wv->segments [0].eptr = raw_wv->segments [0].dptr + main_size;
+        raw_wv->segments [0].free_required = 0;
     }
-    else {      // the case of WavPack blocks with headers is much easier...
-        if (main_data) {
-            raw_wv = malloc (sizeof (WavpackRawContext));
-            memset (raw_wv, 0, sizeof (WavpackRawContext));
-            raw_wv->num_segments = 1;
-            raw_wv->segments = malloc (sizeof (RawSegment) * raw_wv->num_segments);
-            raw_wv->segments [0].dptr = raw_wv->segments [0].sptr = main_data;
-            raw_wv->segments [0].eptr = raw_wv->segments [0].dptr + main_size;
-            raw_wv->segments [0].free_required = 0;
-        }
 
-        if (corr_data && corr_size) {
-            raw_wvc = malloc (sizeof (WavpackRawContext));
-            memset (raw_wvc, 0, sizeof (WavpackRawContext));
-            raw_wvc->num_segments = 1;
-            raw_wvc->segments = malloc (sizeof (RawSegment) * raw_wvc->num_segments);
-            raw_wvc->segments [0].dptr = raw_wvc->segments [0].sptr = corr_data;
-            raw_wvc->segments [0].eptr = raw_wvc->segments [0].dptr + corr_size;
-            raw_wvc->segments [0].free_required = 0;
-        }
+    if (corr_data && corr_size) {
+        raw_wvc = malloc (sizeof (WavpackRawContext));
+        memset (raw_wvc, 0, sizeof (WavpackRawContext));
+        raw_wvc->num_segments = 1;
+        raw_wvc->segments = malloc (sizeof (RawSegment) * raw_wvc->num_segments);
+        raw_wvc->segments [0].dptr = raw_wvc->segments [0].sptr = corr_data;
+        raw_wvc->segments [0].eptr = raw_wvc->segments [0].dptr + corr_size;
+        raw_wvc->segments [0].free_required = 0;
     }
 
     return WavpackStreamOpenFileInputEx64 (&raw_reader, raw_wv, raw_wvc, error, flags | OPEN_NO_CHECKSUM, norm_offset);

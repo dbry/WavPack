@@ -154,7 +154,7 @@ AM_CONDITIONAL(ENABLE_MAN, test x$enable_man != xno)
 
 AC_CONFIG_FILES(
 Makefile
-wavpack.pc
+wavpack-stream.pc
 src/Makefile
 include/Makefile
 cli/Makefile

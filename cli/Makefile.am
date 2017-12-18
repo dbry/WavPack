@@ -1,33 +1,33 @@
-bin_PROGRAMS = wavpack wvunpack
+bin_PROGRAMS = wavpack-stream wvunpack-stream
 
-wavpack_SOURCES = wavpack.c riff.c wave64.c caff.c dsdiff.c dsf.c utils.c md5.c
+wavpack_stream_SOURCES = wavpack.c riff.c wave64.c caff.c dsdiff.c dsf.c utils.c md5.c
 if WINDOWS_HOST
-wavpack_SOURCES += win32_unicode_support.c
+wavpack_stream_SOURCES += win32_unicode_support.c
 endif
-wavpack_CFLAGS = $(AM_CFLAGS) $(ICONV_CFLAGS) -I$(top_srcdir)/include
+wavpack_stream_CFLAGS = $(AM_CFLAGS) $(ICONV_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
-wavpack_LDFLAGS = -rpath $(libdir)
+wavpack_stream_LDFLAGS = -rpath $(libdir)
 endif
-wavpack_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack-stream.la $(LIBM) $(ICONV_LIBS)
+wavpack_stream_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack-stream.la $(LIBM) $(ICONV_LIBS)
 
-wvunpack_SOURCES = wvunpack.c riff.c wave64.c caff.c dsdiff.c dsf.c utils.c md5.c
+wvunpack_stream_SOURCES = wvunpack.c riff.c wave64.c caff.c dsdiff.c dsf.c utils.c md5.c
 if WINDOWS_HOST
-wvunpack_SOURCES += win32_unicode_support.c
+wvunpack_stream_SOURCES += win32_unicode_support.c
 endif
-wvunpack_CFLAGS = $(AM_CFLAGS) $(ICONV_CFLAGS) -I$(top_srcdir)/include
+wvunpack_stream_CFLAGS = $(AM_CFLAGS) $(ICONV_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
-wvunpack_LDFLAGS = -rpath $(libdir)
+wvunpack_stream_LDFLAGS = -rpath $(libdir)
 endif
-wvunpack_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack-stream.la $(LIBM) $(ICONV_LIBS)
+wvunpack_stream_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack-stream.la $(LIBM) $(ICONV_LIBS)
 
 if ENABLE_TESTS
-bin_PROGRAMS += wvtest
-wvtest_SOURCES = wvtest.c md5.c
-wvtest_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
+bin_PROGRAMS += wvtest-stream
+wvtest_stream_SOURCES = wvtest.c md5.c
+wvtest_stream_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
-wvtest_LDFLAGS = -rpath $(libdir)
+wvtest_stream_LDFLAGS = -rpath $(libdir)
 endif
-wvtest_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack-stream.la $(LIBM) -lpthread
+wvtest_stream_LDADD = $(AM_LDADD) $(top_builddir)/src/.libs/libwavpack-stream.la $(LIBM) -lpthread
 endif
 
 noinst_HEADERS = \

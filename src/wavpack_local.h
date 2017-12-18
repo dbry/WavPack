@@ -535,16 +535,6 @@ int unpack_cpu_has_feature_x86 (int findex), pack_cpu_has_feature_x86 (int finde
 
 #define CPU_FEATURE_MMX     23
 
-///////////////////////////// pre-4.0 version decoding ////////////////////////////
-// modules: unpack3.c, unpack3_open.c, unpack3_seek.c
-
-WavpackContext *open_file3 (WavpackContext *wpc, char *error);
-int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
-int seek_sample3 (WavpackContext *wpc, uint32_t desired_index);
-uint32_t get_sample_index3 (WavpackContext *wpc);
-void free_stream3 (WavpackContext *wpc);
-int get_version3 (WavpackContext *wpc);
-
 ////////////////////////////// bitstream macros & functions /////////////////////////////
 
 #define bs_is_open(bs) ((bs)->ptr != NULL)

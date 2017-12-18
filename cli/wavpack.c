@@ -63,18 +63,18 @@
 ///////////////////////////// local variable storage //////////////////////////
 
 static const char *sign_on = "\n"
-" WAVPACK  Short Blocks Audio Compressor  %s Version %s\n"
+" WAVPACK-STREAM  Audio Compression Library Demo  %s Version %s\n"
 " Copyright (c) 1998 - 2017 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
-" WARNING: WAVPACK using libwavpack version %s, expected %s (see README)\n\n";
+" WARNING: WAVPACK using libwavpack-stream version %s, expected %s (see README)\n\n";
 
 static const char *usage =
 #if defined (_WIN32)
-" Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
+" Usage:   WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
 "             (default is lossless; infile may contain wildcards: ?,*)\n\n"
 #else
-" Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
+" Usage:   WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
 "             (default is lossless; multiple input files allowed)\n\n"
 #endif
 " Formats: .wav (default, bwf/rf64 okay)  .wv (transcode)\n"
@@ -93,13 +93,13 @@ static const char *usage =
 static const char *help =
 #if defined (_WIN32)
 " Usage:\n"
-"    WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n\n"
+"    WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n\n"
 "    The default operation is lossless. Wildcard characters (*,?) may be included\n"
 "    in the filename and the source file type is automatically determined (see\n"
 "    accepted formats below). Raw PCM may also be used (see --raw-pcm option).\n\n"
 #else
 " Usage:\n"
-"    WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n\n"
+"    WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n\n"
 "    The default operation is lossless. Multiple input files may be specified\n"
 "    and the source file type is automatically determined (see accepted formats\n"
 "    below). Raw PCM data may also be used (see --raw-pcm option).\n\n"
@@ -313,8 +313,8 @@ int main (int argc, char **argv)
                 return 0;
             }
             else if (!strcmp (long_option, "version")) {                // --version
-                printf ("wavpack %s\n", PACKAGE_VERSION);
-                printf ("libwavpack %s\n", WavpackStreamGetLibraryVersionString ());
+                printf ("wavpack-stream %s\n", PACKAGE_VERSION);
+                printf ("libwavpack-stream %s\n", WavpackStreamGetLibraryVersionString ());
                 return 0;
             }
 #ifdef _WIN32

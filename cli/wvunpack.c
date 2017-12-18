@@ -60,22 +60,22 @@
 ///////////////////////////// local variable storage //////////////////////////
 
 static const char *sign_on = "\n"
-" WVUNPACK  Short Blocks Audio Decompressor  %s Version %s\n"
+" WVUNPACK-STREAM  Audio Decompression Library Demo  %s Version %s\n"
 " Copyright (c) 1998 - 2017 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
-" WARNING: WVUNPACK using libwavpack version %s, expected %s (see README)\n\n";
+" WARNING: WVUNPACK using libwavpack-stream version %s, expected %s (see README)\n\n";
 
 static const char *usage =
 #if defined (_WIN32)
-" Usage:   WVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]\n\n"
+" Usage:   WVUNPACK-STREAM [-options] infile[.wv]|- [outfile[.ext]|outpath|-]\n\n"
 "          Wildcard characters (?,*) may be included in the input filename.\n"
 "          Output format and extension come from the source and by default\n"
 "          the entire file is restored (including headers and trailers).\n"
 "          However, this can be overridden to one of the supported formats\n"
 "          listed below (which discard the original headers).\n\n"
 #else
-" Usage:   WVUNPACK [-options] infile[.wv]|- [...] [-o outfile[.ext]|outpath|-]\n\n"
+" Usage:   WVUNPACK-STREAM [-options] infile[.wv]|- [...] [-o outfile[.ext]|outpath|-]\n\n"
 "          Multiple input files may be specified. Output format and extension\n"
 "          come from the source and by default the entire file is restored\n"
 "          (including the original headers and trailers). However, this can\n"
@@ -247,8 +247,8 @@ int main(int argc, char **argv)
                 return 0;
             }
             else if (!strcmp (long_option, "version")) {                // --version
-                printf ("wvunpack %s\n", PACKAGE_VERSION);
-                printf ("libwavpack %s\n", WavpackStreamGetLibraryVersionString ());
+                printf ("wvunpack-stream %s\n", PACKAGE_VERSION);
+                printf ("libwavpack-stream %s\n", WavpackStreamGetLibraryVersionString ());
                 return 0;
             }
 #ifdef _WIN32

@@ -3,11 +3,11 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: wavpack
-Description: wavpack library
+Name: wavpack-stream
+Description: wavpack-stream library
 Version: @PACKAGE_VERSION@
 Requires:
 Conflicts:
-Libs: -L${libdir} -lwavpack
+Libs: -L${libdir} -lwavpack-stream
 Libs.private: @LIBM@
 Cflags: -I${includedir}
