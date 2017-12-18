@@ -2,7 +2,7 @@ language: c
 sudo: false
 dist: trusty
 script:
-  - ./autogen.sh --enable-tests && make && cli/wvtest $WVTEST_ARGS
+  - ./autogen.sh --enable-tests && make && cli/wvtest-stream $WVTEST_ARGS
 compiler:
   - clang
   - gcc
