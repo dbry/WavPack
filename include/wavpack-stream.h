@@ -209,11 +209,11 @@ unsigned char *WavpackStreamGetWrapperData (WavpackContext *wpc);
 void WavpackStreamFreeWrapper (WavpackContext *wpc);
 void WavpackStreamSeekTrailingWrapper (WavpackContext *wpc);
 double WavpackStreamGetProgress (WavpackContext *wpc);
-uint32_t WavpackGetFileSize (WavpackContext *wpc);
-int64_t WavpackGetFileSize64 (WavpackContext *wpc);
-double WavpackGetRatio (WavpackContext *wpc);
-double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc);
-double WavpackGetInstantBitrate (WavpackContext *wpc);
+uint32_t WavpackStreamGetFileSize (WavpackContext *wpc);
+int64_t WavpackStreamGetFileSize64 (WavpackContext *wpc);
+double WavpackStreamGetRatio (WavpackContext *wpc);
+double WavpackStreamGetAverageBitrate (WavpackContext *wpc, int count_wvc);
+double WavpackStreamGetInstantBitrate (WavpackContext *wpc);
 
 WavpackContext *WavpackStreamOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
 void WavpackStreamSetFileInformation (WavpackContext *wpc, char *file_extension, unsigned char file_format);

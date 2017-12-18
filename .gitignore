@@ -10,9 +10,9 @@ aclocal.m4
 autom4te.cache/
 cli/.deps/
 cli/.libs/
-cli/wavpack
-cli/wvgain
-cli/wvunpack
+cli/wavpack-stream
+cli/wvunpack-stream
+cli/wvtest-stream
 compile
 configure
 config.guess
@@ -26,7 +26,7 @@ ltmain.sh
 missing
 src/.deps/
 src/.libs/
-wavpack.pc
+wavpack-stream.pc
 *.wav
 *.wv*
 

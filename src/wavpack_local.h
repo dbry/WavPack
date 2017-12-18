@@ -688,7 +688,7 @@ int restore_weight_nybble (signed char weight);
 
 #define WORD_EOF ((int32_t)(1L << 31))
 
-void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
+void WavpackStreamFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
 
 /////////////////////////// high-level unpacking API and support ////////////////////////////
 // modules: open_utils.c, unpack_utils.c, unpack_seek.c, unpack_floats.c

@@ -7,7 +7,7 @@ endif
 SUBDIRS = src include $(MAYBE_APPS) man
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = wavpack.pc
+pkgconfig_DATA = wavpack-stream.pc
 
 MAINTAINERCLEANFILES = \
 	configure \
