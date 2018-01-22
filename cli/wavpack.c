@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                     Short Blocks Audio Compressor                      //
-//                Copyright (c) 1998 - 2017 David Bryant.                 //
+//                Copyright (c) 1998 - 2018 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -63,26 +63,26 @@
 ///////////////////////////// local variable storage //////////////////////////
 
 static const char *sign_on = "\n"
-" WAVPACK-STREAM  Audio Compression Library Demo  %s Version %s\n"
-" Copyright (c) 1998 - 2017 David Bryant.  All Rights Reserved.\n\n";
+" WAVPACK-STREAM  Streaming Audio Compression Demo  %s Version %s\n"
+" Copyright (c) 1998 - 2018 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WAVPACK using libwavpack-stream version %s, expected %s (see README)\n\n";
 
 static const char *usage =
 #if defined (_WIN32)
-" Usage:   WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
+" Usage:   WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [outfile[.wps]|outpath|-]\n"
 "             (default is lossless; infile may contain wildcards: ?,*)\n\n"
 #else
-" Usage:   WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
+" Usage:   WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wps]|outpath|-]\n"
 "             (default is lossless; multiple input files allowed)\n\n"
 #endif
-" Formats: .wav (default, bwf/rf64 okay)  .wv (transcode)\n"
+" Formats: .wav (default, bwf/rf64 okay)  .wps (transcode)\n"
 "          .w64 (Sony Wave64)             .caf (Core Audio Format)\n"
 "          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n\n"
 " Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
 "                                           n = 24-9600 kbits/second (kbps)\n"
-"          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
+"          -c  = create correction file (.wpsc) for hybrid mode (=lossless)\n"
 "          -f  = fast mode (fast, but some compromise in compression ratio)\n"
 "          -h  = high quality (better compression ratio, but slower)\n"
 "          -v  = verify output file integrity after write (no pipes)\n"
@@ -93,19 +93,19 @@ static const char *usage =
 static const char *help =
 #if defined (_WIN32)
 " Usage:\n"
-"    WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n\n"
+"    WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [outfile[.wps]|outpath|-]\n\n"
 "    The default operation is lossless. Wildcard characters (*,?) may be included\n"
 "    in the filename and the source file type is automatically determined (see\n"
 "    accepted formats below). Raw PCM may also be used (see --raw-pcm option).\n\n"
 #else
 " Usage:\n"
-"    WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n\n"
+"    WAVPACK-STREAM [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wps]|outpath|-]\n\n"
 "    The default operation is lossless. Multiple input files may be specified\n"
 "    and the source file type is automatically determined (see accepted formats\n"
 "    below). Raw PCM data may also be used (see --raw-pcm option).\n\n"
 #endif
 " Input Formats:             .wav (default, includes bwf/rf64 varients)\n"
-"                            .wv  (transcode operation)\n"
+"                            .wps  (transcode operation)\n"
 "                            .caf (Core Audio Format)\n"
 "                            .w64 (Sony Wave64)\n"
 "                            .dff (Philips DSDIFF)\n"
@@ -115,10 +115,10 @@ static const char *help =
 "    -bn                     enable hybrid compression\n"
 "                              n = 2.0 to 23.9 bits/sample, or\n"
 "                              n = 24-9600 kbits/second (kbps)\n"
-"                              add -c to create correction file (.wvc)\n"
+"                              add -c to create correction file (.wpsc)\n"
 "    --blocksize=n           specify block size in samples (1 to 8000)\n"
 "    -c                      hybrid lossless mode (use with -b to create\n"
-"                             correction file (.wvc) in hybrid mode)\n"
+"                             correction file (.wpsc) in hybrid mode)\n"
 "    -cc                     maximum hybrid lossless compression (but degrades\n"
 "                             decode speed and may result in lower quality)\n"
 "    --channel-order=<list>  specify (comma separated) channel order if not\n"
@@ -995,7 +995,7 @@ int main (int argc, char **argv)
             }
 
             if (addext && *outfilename != '-')
-                strcat (outfilename, ".wv");
+                strcat (outfilename, ".wps");
 
             // if "correction" file is desired, generate name for that
 
@@ -1016,7 +1016,7 @@ int main (int argc, char **argv)
                 if (filespec_ext (out2filename))
                     *filespec_ext (out2filename) = '\0';
 
-                strcat (out2filename, ".wvc");
+                strcat (out2filename, ".wpsc");
             }
             else
                 out2filename = NULL;
@@ -1026,7 +1026,7 @@ int main (int argc, char **argv)
                 fflush (stderr);
             }
 
-            if (filespec_ext (matches [file_index]) && !stricmp (filespec_ext (matches [file_index]), ".wv"))
+            if (filespec_ext (matches [file_index]) && !stricmp (filespec_ext (matches [file_index]), ".wps"))
                 result = repack_file (matches [file_index], outfilename, out2filename, &config);
             else
                 result = pack_file (matches [file_index], outfilename, out2filename, &config);
@@ -1625,7 +1625,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
             if (block_buff && !DoSetFilePositionAbsolute (wv_file.file, 0) &&
                 DoReadFile (wv_file.file, block_buff, wv_file.first_block_size, &bcount) &&
-                bcount == wv_file.first_block_size && !strncmp (block_buff, "wvpk", 4)) {
+                bcount == wv_file.first_block_size && !strncmp (block_buff, "wpsb", 4)) {
 
                     // this call will take care of the initial WavPack header and any RIFF header the library made
 
@@ -1651,7 +1651,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
                 if (block_buff && !DoSetFilePositionAbsolute (wvc_file.file, 0) &&
                     DoReadFile (wvc_file.file, block_buff, wvc_file.first_block_size, &bcount) &&
-                    bcount == wvc_file.first_block_size && !strncmp (block_buff, "wvpk", 4)) {
+                    bcount == wvc_file.first_block_size && !strncmp (block_buff, "wpsb", 4)) {
 
                         WavpackStreamUpdateNumSamples (wpc, block_buff);
 
@@ -1815,7 +1815,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
         if (outfilename && *outfilename != '-') {
             file = FN_FIT (outfilename);
-            fext = wvc_file.bytes_written ? " (+.wvc)" : "";
+            fext = wvc_file.bytes_written ? " (+.wpsc)" : "";
             oper = verify_mode ? "created (and verified)" : "created";
         }
         else {
@@ -2667,7 +2667,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
         if (outfilename && *outfilename != '-') {
             file = FN_FIT (outfilename);
-            fext = wvc_file.bytes_written ? " (+.wvc)" : "";
+            fext = wvc_file.bytes_written ? " (+.wpsc)" : "";
             oper = verify_mode ? "created (and verified)" : "created";
         }
         else {

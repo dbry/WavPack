@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                     Short Blocks Audio Compressor                      //
-//                Copyright (c) 1998 - 2017 David Bryant.                 //
+//                Copyright (c) 1998 - 2018 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -60,22 +60,22 @@
 ///////////////////////////// local variable storage //////////////////////////
 
 static const char *sign_on = "\n"
-" WVUNPACK-STREAM  Audio Decompression Library Demo  %s Version %s\n"
-" Copyright (c) 1998 - 2017 David Bryant.  All Rights Reserved.\n\n";
+" WVUNPACK-STREAM  Streaming Audio Decompression Demo  %s Version %s\n"
+" Copyright (c) 1998 - 2018 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVUNPACK using libwavpack-stream version %s, expected %s (see README)\n\n";
 
 static const char *usage =
 #if defined (_WIN32)
-" Usage:   WVUNPACK-STREAM [-options] infile[.wv]|- [outfile[.ext]|outpath|-]\n\n"
+" Usage:   WVUNPACK-STREAM [-options] infile[.wps]|- [outfile[.ext]|outpath|-]\n\n"
 "          Wildcard characters (?,*) may be included in the input filename.\n"
 "          Output format and extension come from the source and by default\n"
 "          the entire file is restored (including headers and trailers).\n"
 "          However, this can be overridden to one of the supported formats\n"
 "          listed below (which discard the original headers).\n\n"
 #else
-" Usage:   WVUNPACK-STREAM [-options] infile[.wv]|- [...] [-o outfile[.ext]|outpath|-]\n\n"
+" Usage:   WVUNPACK-STREAM [-options] infile[.wps]|- [...] [-o outfile[.ext]|outpath|-]\n\n"
 "          Multiple input files may be specified. Output format and extension\n"
 "          come from the source and by default the entire file is restored\n"
 "          (including the original headers and trailers). However, this can\n"
@@ -102,7 +102,7 @@ static const char *usage =
 "          -f[n]  = file info to stdout in machine-parsable format\n"
 "                (optional \"n\" = 1-10 for specific item, otherwise all)\n"
 "          --help = this help display\n"
-"          -i  = ignore .wvc file (forces hybrid lossy decompression)\n"
+"          -i  = ignore .wpsc file (forces hybrid lossy decompression)\n"
 #if defined (_WIN32) || defined (__OS2__)
 "          -l  = run at low priority (for smoother multitasking)\n"
 #endif
@@ -420,7 +420,7 @@ int main(int argc, char **argv)
 
                 if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                     !filespec_ext (matches [num_files]))
-                        strcat (matches [num_files], ".wv");
+                        strcat (matches [num_files], ".wps");
 
                 num_files++;
             }
@@ -445,7 +445,7 @@ int main(int argc, char **argv)
 
                 if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                     !filespec_ext (matches [num_files]))
-                        strcat (matches [num_files], ".wv");
+                        strcat (matches [num_files], ".wps");
 
                 num_files++;
             }
@@ -1147,7 +1147,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         else if (*outfilename == '-') {
             if (!quiet_mode) {
                 fprintf (stderr, "unpacking %s%s to stdout,", *infilename == '-' ?
-                    "stdin" : FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
+                    "stdin" : FN_FIT (infilename), wvc_mode ? " (+.wpsc)" : "");
                 fflush (stderr);
             }
         }
@@ -1161,7 +1161,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
         if (!quiet_mode) {
             fprintf (stderr, "verifying %s%s,", *infilename == '-' ? "stdin" :
-                FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
+                FN_FIT (infilename), wvc_mode ? " (+.wpsc)" : "");
             fflush (stderr);
         }
     }
@@ -1377,7 +1377,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         }
         else {
             file = (*infilename == '-') ? "stdin" : FN_FIT (infilename);
-            fext = wvc_mode ? " (+.wvc)" : "";
+            fext = wvc_mode ? " (+.wpsc)" : "";
             oper = outfilename ? "unpacked" : "verified";
         }
 
@@ -1949,7 +1949,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     fprintf (dst, "\n");
 
     if (name && *name != '-') {
-        fprintf (dst, "file name:         %s%s\n", name, (WavpackStreamGetMode (wpc) & MODE_WVC) ? " (+wvc)" : "");
+        fprintf (dst, "file name:         %s%s\n", name, (WavpackStreamGetMode (wpc) & MODE_WVC) ? " (+wpsc)" : "");
         fprintf (dst, "file size:         %lld bytes\n", (long long) WavpackStreamGetFileSize64 (wpc));
     }
 
@@ -2107,7 +2107,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 // Dump a summary of the file information in a machine-parsable format to the specified file (usually stdout).
 // The items are separated by semi-colons and the line is newline terminated, like in this example:
 //
-// 44100;16;int;2;0x3;9878400;023066a6345773674c0755ee6be54d87;4;0x18a2;Track01.wv
+// 44100;16;int;2;0x3;9878400;023066a6345773674c0755ee6be54d87;4;0x18a2;Track01.wps
 //
 // The fields are, in order:
 //

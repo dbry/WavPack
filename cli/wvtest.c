@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
-//                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2016 David Bryant.                 //
+//                     Short Blocks Audio Compressor                      //
+//                Copyright (c) 1998 - 2018 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -28,8 +28,8 @@
 #endif
 
 static const char *sign_on = "\n"
-" WVTEST-STREAM  Audio Compression Tester/Exerciser  %s Version %s\n"
-" Copyright (c) 2017 David Bryant.  All Rights Reserved.\n\n";
+" WVTEST-STREAM  Streaming Audio Compression Tester  %s Version %s\n"
+" Copyright (c) 2018 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVTEST using libwavpack-stream version %s, expected %s (see README)\n\n";
@@ -247,7 +247,7 @@ int main (argc, argv) int argc; char **argv;
             res = run_test_size_modes (wpconfig_flags | CONFIG_HYBRID_FLAG, test_flags, base_minutes);
             if (res) goto done;
 
-            printf ("\n\n            ****** hybrid lossless (but ignore wvc on decode) ******\n");
+            printf ("\n\n            ****** hybrid lossless (but ignore wpsc on decode) ******\n");
             res = run_test_size_modes (wpconfig_flags | CONFIG_HYBRID_FLAG | CONFIG_CREATE_WVC,
                 test_flags | TEST_FLAG_IGNORE_WVC, base_minutes);
             if (res) goto done;
@@ -532,7 +532,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
                     exit (-1);
                 }
 
-                sprintf (filename, "testfile-%04d.wv", test_number);
+                sprintf (filename, "testfile-%04d.wps", test_number);
 
                 if (((wv_stream.file = fopen (filename, "w+b")) == NULL)) {
                     printf ("can't create file %s!\n", filename);
