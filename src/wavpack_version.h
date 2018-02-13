@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
-//                           **** WAVPACK ****                            //
-//                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2006 Conifer Software.               //
+//                       **** WAVPACK-STREAM ****                         //
+//                      Streaming Audio Compressor                        //
+//                Copyright (c) 1998 - 2018 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////

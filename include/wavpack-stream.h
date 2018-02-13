@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
-//                           **** WAVPACK ****                            //
-//                     Short Blocks Audio Compressor                      //
-//                Copyright (c) 1998 - 2017 David Bryant.                 //
+//                       **** WAVPACK-STREAM ****                         //
+//                      Streaming Audio Compressor                        //
+//                Copyright (c) 1998 - 2018 David Bryant                  //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
