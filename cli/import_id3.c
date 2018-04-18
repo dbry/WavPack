@@ -295,14 +295,17 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
 
 int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used)
 {
-    int res = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, NULL, 0);
+    int res = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, bytes_used, 0);
 
     if (res > 0)
-        return ImportID3v2_syncsafe (wpc, tag_data, tag_size, error, bytes_used, 0);
-    else if (ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, NULL, 1) > 0)
-        return ImportID3v2_syncsafe (wpc, tag_data, tag_size, error, bytes_used, 1);
-    else
-        return res;
+        return wpc ? ImportID3v2_syncsafe (wpc, tag_data, tag_size, error, bytes_used, 0) : res;
+
+    int res_ss = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, bytes_used, 1);
+
+    if (res_ss > 0)
+        return wpc ? ImportID3v2_syncsafe (wpc, tag_data, tag_size, error, bytes_used, 1) : res_ss;
+
+    return res;
 }
 
 // Convert the Unicode wide-format string into a UTF-8 string using no more
