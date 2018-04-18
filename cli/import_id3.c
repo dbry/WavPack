@@ -23,13 +23,31 @@ static struct {
     char *id3_item, *ape_item;
 } text_tag_table [] = {
     { "TALB", "Album" },
-    { "TIT2", "Title" },
     { "TPE1", "Artist" },
+    { "TPE2", "AlbumArtist" },
+    { "TPE3", "Conductor" },
+    { "TIT1", "Grouping" },
+    { "TIT2", "Title" },
+    { "TIT3", "Subtitle" },
+    { "TSST", "DiscSubtitle" },
+    { "TSOA", "AlbumSort" },
+    { "TSOT", "TitleSort" },
+    { "TSO2", "AlbumArtistSort" },
+    { "TSOP", "ArtistSort" },
+    { "TPOS", "Disc" },
+    { "TRCK", "Track" },
     { "TCON", "Genre" },
     { "TYER", "Year" },
-    { "TRCK", "Track" },
     { "TCOM", "Composer" },
-    { "TPE3", "Conductor" }
+    { "TCMP", "Compilation" },
+    { "TENC", "EncodedBy" },
+    { "TEXT", "Lyricist" },
+    { "TCOP", "Copyright" },
+    { "TLAN", "Language" },
+    { "TSRC", "ISRC" },
+    { "TMED", "Media" },
+    { "TMOO", "Mood" },
+    { "TBPM", "BPM" }
 };
 
 #define NUM_TEXT_TAG_ITEMS (sizeof (text_tag_table) / sizeof (text_tag_table [0]))
