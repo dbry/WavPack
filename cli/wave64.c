@@ -53,6 +53,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
     Wave64ChunkHeader chunk_header;
     Wave64FileHeader filehdr;
     WaveHeader WaveHeader;
+    int format_chunk = 0;
     uint32_t bcount;
 
     infilesize = DoGetFileSize (infile);
@@ -103,6 +104,11 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 
         if (!memcmp (chunk_header.ckID, fmt_guid, sizeof (fmt_guid))) {
             int supported = TRUE, format;
+
+            if (format_chunk++) {
+                error_line ("%s is not a valid .W64 file!", infilename);
+                return WAVPACK_SOFT_ERROR;
+            }
 
             chunk_header.ckSize = (chunk_header.ckSize + 7) & ~7L;
 
