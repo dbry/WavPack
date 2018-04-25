@@ -286,7 +286,14 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         else {          // just copy unknown chunks to output file
 
             int bytes_to_copy = (chunk_header.ckSize + 1) & ~1L;
-            char *buff = malloc (bytes_to_copy);
+            char *buff;
+
+            if (bytes_to_copy < 0 || bytes_to_copy > 4194304) {
+                error_line ("%s is not a valid .WAV file!", infilename);
+                return WAVPACK_SOFT_ERROR;
+            }
+
+            buff = malloc (bytes_to_copy);
 
             if (debug_logging_mode)
                 error_line ("extra unknown chunk \"%c%c%c%c\" of %d bytes",
