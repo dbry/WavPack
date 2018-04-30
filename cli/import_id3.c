@@ -16,6 +16,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "wavpack.h"
 
@@ -164,39 +165,46 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
         tag_size -= frame_size;
         tag_data += frame_size;
 
-        if (frame_header [0] == 'T' && strncmp ((char *) frame_header, "TXXX", 4)) {
-            unsigned char *utf8_string = NULL;
+        if (frame_header [0] == 'T') {
+            int txxx_mode = !strncmp ((char *) frame_header, "TXXX", 4), si = 0;
+            unsigned char *utf8_strings [2];
 
             if (frame_body [0] == 0) {
-                int nchars = frame_size - 1;
-                unsigned char *fp = frame_body + 1;
+                unsigned char *fp = frame_body + 1, *fe = frame_body + frame_size;
 
-                utf8_string = malloc ((nchars + 1) * 3);
+                while (si < 2 && fp < fe && *fp) {
+                    utf8_strings [si] = malloc (frame_size * 3);
 
-                for (i = 0; i < nchars; ++i)
-                    if (!(utf8_string [i] = *fp++))
-                        break;
+                    for (i = 0; fp < fe; ++i)
+                        if (!(utf8_strings [si] [i] = *fp++))
+                            break;
 
-                if (i == nchars)
-                    utf8_string [nchars] = 0;
+                    if (fp == fe)
+                        utf8_strings [si] [i] = 0;
 
-                Latin1ToUTF8 (utf8_string, (nchars + 1) * 3);
+                    Latin1ToUTF8 (utf8_strings [si++], frame_size * 3);
+                }
             }
-            else if (frame_body [0] == 1 && frame_size > 2 && frame_body [1] == 0xFF && frame_body [2] == 0xFE) {
-                int nchars = (frame_size - 3) / 2;
-                uint16_t *wide_string = malloc ((nchars + 1) * sizeof (uint16_t));
-                unsigned char *fp = frame_body + 3;
+            else if (frame_body [0] == 1) {
+                unsigned char *fp = frame_body + 1, *fe = frame_body + frame_size - (frame_size & 1);
+                uint16_t *wide_string = malloc (frame_size);
 
-                utf8_string = malloc ((nchars + 1) * 3);
+                while (si < 2 && fp < fe - 2 && fp [0] == 0xFF && fp [1] == 0xFE) {
+                    utf8_strings [si] = malloc (frame_size * 2);
+                    fp += 2;
 
-                for (i = 0; i < nchars; ++i, fp += 2)
-                    if (!(wide_string [i] = fp [0] | (fp [1] << 8)))
-                        break;
+                    for (i = 0; fp < fe; ++i, fp += 2)
+                        if (!(wide_string [i] = fp [0] | (fp [1] << 8))) {
+                            fp += 2;
+                            break;
+                        }
 
-                if (i == nchars)
-                    wide_string [nchars] = 0;
+                    if (fp == fe)
+                        wide_string [i] = 0;
 
-                WideCharToUTF8 (wide_string, utf8_string, (nchars + 1) * 3);
+                    WideCharToUTF8 (wide_string, utf8_strings [si++], frame_size * 2);
+                }
+
                 free (wide_string);
             }
             else {
@@ -204,21 +212,51 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
                 return -1;
             }
 
-            // if we got a text string, look through the table and find an equivalent APEv2 tag item
+            // if we got a text string (or a TXXX and two text strings) store them here
 
-            if (utf8_string) {
-                for (i = 0; i < NUM_TEXT_TAG_ITEMS; ++i)
-                    if (!strncmp ((char *) frame_header, text_tag_table [i].id3_item, 4)) {
-                        if (wpc && !WavpackAppendTagItem (wpc, text_tag_table [i].ape_item, (char *) utf8_string, (int) strlen ((char *) utf8_string))) {
-                            strcpy (error, WavpackGetErrorMessage (wpc));
-                            return -1;
-                        }
+            if (si) {
+                if (txxx_mode && si == 2) {
+                    unsigned char *cptr = utf8_strings [0];
 
-                        items_imported++;
-                        if (bytes_used) *bytes_used += (int) (strlen ((char *) utf8_string) + strlen (text_tag_table [i].ape_item) + 1);
+                    // if all single-byte UTF8, format TXXX description to match case of regular APEv2 descriptions (e.g., Performer)
+
+                    while (*cptr)
+                        if (*cptr & 0x80)
+                            break;
+                        else
+                            cptr++;
+
+                    if (!*cptr && isupper (*utf8_strings [0])) {
+                        cptr = utf8_strings [0];
+
+                        while (*++cptr)
+                            if (isupper (*cptr))
+                                *cptr = tolower (*cptr);
                     }
 
-                free (utf8_string);
+                    if (wpc && !WavpackAppendTagItem (wpc, (char *) utf8_strings [0], (char *) utf8_strings [1], (int) strlen ((char *) utf8_strings [1]))) {
+                        strcpy (error, WavpackGetErrorMessage (wpc));
+                        return -1;
+                    }
+
+                    items_imported++;
+                    if (bytes_used) *bytes_used += (int) (strlen ((char *) utf8_strings [0]) + strlen ((char *) utf8_strings [1]) + 1);
+                }
+                else    // if not TXXX, look up item in the table to find APEv2 item name
+                    for (i = 0; i < NUM_TEXT_TAG_ITEMS; ++i)
+                        if (!strncmp ((char *) frame_header, text_tag_table [i].id3_item, 4)) {
+                            if (wpc && !WavpackAppendTagItem (wpc, text_tag_table [i].ape_item, (char *) utf8_strings [0], (int) strlen ((char *) utf8_strings [0]))) {
+                                strcpy (error, WavpackGetErrorMessage (wpc));
+                                return -1;
+                            }
+
+                            items_imported++;
+                            if (bytes_used) *bytes_used += (int) (strlen ((char *) utf8_strings [0]) + strlen (text_tag_table [i].ape_item) + 1);
+                        }
+
+                do
+                    free (utf8_strings [--si]);
+                while (si);
             }
         }
         else if (!strncmp ((char *) frame_header, "APIC", 4)) {
