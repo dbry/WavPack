@@ -351,6 +351,27 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
 
 int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used)
 {
+    if (bytes_used)
+        *bytes_used = 0;
+
+    // look for the ID3 tag in case it's not first thing in the wrapper (like in WAV or DSDIFF files)
+
+    if (tag_size >= 10) {
+        unsigned char *cp = tag_data, *ce = cp + tag_size;
+
+        while (cp < ce - 10)
+            if (cp [0] == 'I' && cp [1] == 'D' && cp [2] == '3' && cp [3] == 3) {
+                tag_size = ce - cp;
+                tag_data = cp;
+                break;
+            }
+            else
+                cp++;
+
+        if (cp == ce - 10)      // no tag found is NOT an error
+            return 0;
+    }
+
     int res = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, bytes_used, 0);
 
     if (res > 0)
