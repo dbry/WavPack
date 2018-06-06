@@ -2,7 +2,7 @@
 
 Hybrid Lossless Wavefile Compressor
 
-Copyright (c) 1998 - 2017 David Bryant.
+Copyright (c) 1998 - 2018 David Bryant.
 
 All Rights Reserved.
 
@@ -30,6 +30,7 @@ Additional references:
 | `master`       | [![Build Status](https://travis-ci.org/dbry/WavPack.svg?branch=master)](https://travis-ci.org/dbry/WavPack)       |
 | `id3fix`       | [![Build Status](https://travis-ci.org/dbry/WavPack.svg?branch=id3fix)](https://travis-ci.org/dbry/WavPack)       |
 | `short-blocks` | [![Build Status](https://travis-ci.org/dbry/WavPack.svg?branch=short-blocks)](https://travis-ci.org/dbry/WavPack) |
+| `wavpack-stream` | [![Build Status](https://travis-ci.org/dbry/WavPack.svg?branch=wavpack-stream)](https://travis-ci.org/dbry/WavPack) |
 
 Branches [actively built](https://travis-ci.org/dbry/WavPack/branches) by TravisCI.
 
@@ -39,7 +40,7 @@ Branches [actively built](https://travis-ci.org/dbry/WavPack/branches) by Travis
 
 ### Windows
 
-There are solution and project files for Visual Studio 2008, and additional source code to build the [CoolEdit/Audition](https://github.com/dbry/WavPack/tree/master/audition) plugin and the [Winamp](https://github.com/dbry/WavPack/tree/master/winamp) plugin. 
+There are solution and project files for Visual Studio 2008, and additional source code to build the [CoolEdit/Audition](https://github.com/dbry/WavPack/tree/master/audition) plugin and the [Winamp](https://github.com/dbry/WavPack/tree/master/winamp) plugin.
 
 The CoolEdit/Audition plugin provides a good example for using the library to both read and write WavPack files, and the Winamp plugin makes extensive use of APEv2 tag reading and writing.
 
@@ -76,7 +77,7 @@ There is now a CLI program to do a full suite of stress tests for _libwavpack_, 
 
 ## Assembly
 
-Assembly language optimizations are provided for x86 and x86-64 (AMD64) processors (encoding and decoding) and ARMv7 (decoding only). 
+Assembly language optimizations are provided for x86 and x86-64 (AMD64) processors (encoding and decoding) and ARMv7 (decoding only).
 
 The x86 assembly code includes a runtime check for MMX capability, so it will work on legacy i386 processors.
 

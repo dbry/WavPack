@@ -19,7 +19,7 @@ public:
 	int ReleaseInterface(void *ifc);
 	const char *GetTestString();
 	int ServiceNotify(int msg, int param1, int param2);
-	
+
 protected:
 	RECVS_DISPATCH;
 };
@@ -44,10 +44,10 @@ void Wasabi_Init()
 	WASABI_API_SVC->service_register(&albumArtFactory);
 
 	waServiceFactory *sf = (waServiceFactory *)WASABI_API_SVC->service_getServiceByGuid(AgaveConfigGUID);
-	if (sf)	
+	if (sf)
 		AGAVE_API_CONFIG= (api_config *)sf->getInterface();
 	sf = (waServiceFactory *)WASABI_API_SVC->service_getServiceByGuid(memMgrApiServiceGuid);
-	if (sf)	
+	if (sf)
 		WASABI_API_MEMMGR= (api_memmgr *)sf->getInterface();
 }
 
@@ -55,10 +55,10 @@ void Wasabi_Quit()
 {
 	if (WASABI_API_SVC) {
 		waServiceFactory *sf = (waServiceFactory *)WASABI_API_SVC->service_getServiceByGuid(AgaveConfigGUID);
-		if (sf)	
+		if (sf)
 			sf->releaseInterface(AGAVE_API_CONFIG);
 		sf = (waServiceFactory *)WASABI_API_SVC->service_getServiceByGuid(memMgrApiServiceGuid);
-		if (sf)	
+		if (sf)
 			sf->releaseInterface(WASABI_API_MEMMGR);
 
 		WASABI_API_SVC->service_deregister(&albumArtFactory);
@@ -100,7 +100,7 @@ static const wchar_t *scanstr_backW(const wchar_t *str, const wchar_t *toscan, c
 {
 	const wchar_t *s = GetLastCharactercW(str);
 	if (!str[0]) return defval;
-	if (!toscan || !toscan[0]) return defval; 
+	if (!toscan || !toscan[0]) return defval;
 	while (1)
 	{
 		const wchar_t *t = toscan;
@@ -159,7 +159,7 @@ extern "C" int WavPack_DeleteAlbumArt(const wchar_t *filename, const wchar_t *ty
 int WavPack_AlbumArtProvider::DeleteAlbumArt(const wchar_t *filename, const wchar_t *type)
 {
 	return WavPack_DeleteAlbumArt(filename, type);
-	
+
 }
 
 #define CBCLASS WavPack_AlbumArtProvider
@@ -175,7 +175,7 @@ END_DISPATCH;
 static WavPack_AlbumArtProvider albumArtProvider;
 
 // {A558560E-4334-446a-9219-E1F34F518ADE}
-static const GUID wavpack_albumartproviderGUID = 
+static const GUID wavpack_albumartproviderGUID =
 { 0xa558560e, 0x4334, 0x446a, { 0x92, 0x19, 0xe1, 0xf3, 0x4f, 0x51, 0x8a, 0xde } };
 
 

@@ -55,7 +55,7 @@ asmcode segment page 'CODE'
 ;
 ;   rdi         buffer pointer
 ;   rsi         termination buffer pointer
-;   rax,rbx,rdx used in default term to reduce calculation         
+;   rax,rbx,rdx used in default term to reduce calculation
 ;   rbp         decorr_pass pointer
 ;   mm0, mm1    scratch
 ;   mm2         original sample values
@@ -1797,9 +1797,9 @@ limit_loop:
         bsr     ecx, edx                    ; ecx = MSB set in sample (0 - 31)
         lea     eax, [ecx+1]                ; eax = number used bits in sample (1 - 32)
         sub     ecx, 8                      ; ecx = shift right amount (-8 to 23)
-        ror     edx, cl                     ; use rotate to do "signed" shift 
+        ror     edx, cl                     ; use rotate to do "signed" shift
         sal     eax, 8                      ; move nbits to integer portion of log
-        movzx   edx, dl                     ; dl = mantissa, look up log fraction in table 
+        movzx   edx, dl                     ; dl = mantissa, look up log fraction in table
         mov     al, [r8+rdx]                ; eax = combined integer and fraction for full log
         add     edi, eax                    ; add to running sum and compare to limit
         cmp     eax, ebp
@@ -1823,9 +1823,9 @@ no_limit_loop:
         bsr     ecx, edx                    ; ecx = MSB set in sample (0 - 31)
         lea     eax, [ecx+1]                ; eax = number used bits in sample (1 - 32)
         sub     ecx, 8                      ; ecx = shift right amount (-8 to 23)
-        ror     edx, cl                     ; use rotate to do "signed" shift 
+        ror     edx, cl                     ; use rotate to do "signed" shift
         sal     eax, 8                      ; move nbits to integer portion of log
-        movzx   edx, dl                     ; dl = mantissa, look up log fraction in table 
+        movzx   edx, dl                     ; dl = mantissa, look up log fraction in table
         mov     al, [r8+rdx]                ; eax = combined integer and fraction for full log
         add     edi, eax                    ; add to running sum
 L45:    sub     ebx, 1

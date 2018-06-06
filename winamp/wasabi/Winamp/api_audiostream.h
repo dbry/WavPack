@@ -49,7 +49,7 @@ inline size_t api_audiostream::ReadAudio(void *buffer, size_t sizeBytes, int *ki
 	{
 		*errorCode=0;
 		return ReadAudio(buffer, sizeBytes);
-	}	
+	}
 }
 
 inline int api_audiostream::SeekToTimeMs(int millisecs)

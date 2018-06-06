@@ -70,7 +70,7 @@ inline double api_random::GetDouble()
 }
 
 // {CB401CAB-CC10-48f7-ADB7-9D1D24B40E0C}
-static const GUID randomApiGUID = 
+static const GUID randomApiGUID =
 { 0xcb401cab, 0xcc10, 0x48f7, { 0xad, 0xb7, 0x9d, 0x1d, 0x24, 0xb4, 0xe, 0xc } };
 
 

@@ -32,7 +32,7 @@ public:
 
   // this is virtual so it is visible across modules
   virtual int WASABICALL _dispatch(int msg, void *retval, void **params=0, int nparam=0)=0;
-	
+
 
   /* added 22 May 2007. these aren't used yet.  To be used in the future
      in the meantime, don't use negative numbers for your msg values */

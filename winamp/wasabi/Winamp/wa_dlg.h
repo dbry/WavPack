@@ -1,13 +1,13 @@
 /*
 ** Copyright (C) 2003-2008 Nullsoft, Inc.
 **
-** This software is provided 'as-is', without any express or implied warranty. In no event will the authors be held 
-** liable for any damages arising from the use of this software. 
+** This software is provided 'as-is', without any express or implied warranty. In no event will the authors be held
+** liable for any damages arising from the use of this software.
 **
-** Permission is granted to anyone to use this software for any purpose, including commercial applications, and to 
+** Permission is granted to anyone to use this software for any purpose, including commercial applications, and to
 ** alter it and redistribute it freely, subject to the following restrictions:
 **
-**   1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. 
+**   1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software.
 **      If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
 **
 **   2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
@@ -105,7 +105,7 @@ typedef enum _WACURSOR  // used in IPC_GETSKINCURSORS
 	WACURSOR_BTN_CLOSE = 4,		// close
 	WACURSOR_MENU = 	5,			// main menu
 	WACURSOR_TITLEBAR = 6,		// title bar
-	WACURSOR_SONGNAME = 7,		
+	WACURSOR_SONGNAME = 7,
 	WACURSOR_NORMAL = 8,
 	WACURSOR_WINSHADE_BTN_WINSHADE = 9,
 	WACURSOR_WINSHADE_BTN_MINIMIZE = 10,
@@ -140,7 +140,7 @@ void WADlg_DrawChildWindowBorders(HWND hwndDlg, int *tab, int tabsize); // each 
 HBITMAP WADlg_getBitmap();
 
 /// define WA_DLG_IMPLEMENT in one of your source files before including this .h
-// if you are making a media library plugin, you dont need to do this, look at view_ex for 
+// if you are making a media library plugin, you dont need to do this, look at view_ex for
 // an example of how to get the function *'s via an IPC message.
 #ifdef __cplusplus
 }
@@ -158,7 +158,7 @@ static int wadlg_defcolors[WADLG_NUM_COLORS]=
 	RGB(36,36,60),
 	RGB(57,56,66),
 	RGB(255,255,255),
-	RGB(132,148,165),  
+	RGB(132,148,165),
 	RGB(0,0,198),
 	RGB(36*2,36*2,60*2),
 	RGB(255,255,255),
@@ -207,11 +207,11 @@ void WADlg_init(HWND hwndWinamp) // call this on init, or on WM_DISPLAYCHANGE
 		for (int x = 0; x < WADLG_NUM_COLORS; x ++)
 		{
 			int a=GetPixel(tmpDC,48+x*2,0);
-			if (a == CLR_INVALID || a == RGB(0,198,255) || a == defbgcol) 
+			if (a == CLR_INVALID || a == RGB(0,198,255) || a == defbgcol)
 			{
 				//defaults for old skins
 				if (x == WADLG_SELBAR_FGCOLOR || x == WADLG_INACT_SELBAR_FGCOLOR) a=wadlg_colors[WADLG_WNDFG];
-				else if (x == WADLG_SELBAR_BGCOLOR || x == WADLG_INACT_SELBAR_BGCOLOR) 
+				else if (x == WADLG_SELBAR_BGCOLOR || x == WADLG_INACT_SELBAR_BGCOLOR)
 				{
 					a=wadlg_colors[WADLG_SELCOLOR];
 					if (x == WADLG_INACT_SELBAR_BGCOLOR)
@@ -305,10 +305,10 @@ LRESULT WADlg_handleDialogMsgs(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lP
 									  (GetBValue(fg)+GetBValue(bg))/2);
 			}
 			SetTextColor(di->hDC,colour);
-		
+
 			if (di->itemState & ODS_SELECTED) {r.left+=2; r.top+=2;}
 			DrawTextW(di->hDC,wt,-1,&r,DT_VCENTER|DT_SINGLELINE|DT_CENTER);
-	  
+
 			SelectObject(hdc, hbmpOld);
 			DeleteDC(hdc);
 
@@ -323,10 +323,10 @@ LRESULT WADlg_handleDialogMsgs(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lP
 				SelectObject(di->hDC, hpenOld);
 				DeleteObject(hpen);
 			}
-		}	
+		}
 	}
 
-	switch(uMsg) 
+	switch(uMsg)
 	{
 		case WM_CTLCOLORLISTBOX:
 		case WM_CTLCOLORDLG:
@@ -347,7 +347,7 @@ LRESULT WADlg_handleDialogMsgs(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lP
 }
 
 static int RectInRect(RECT *rect1, RECT *rect2)
-{ 
+{
   // this has a bias towards true
 
   // this could probably be optimized a lot
@@ -384,8 +384,8 @@ void WADlg_DrawChildWindowBorders(HWND hwndDlg, int *tab, int tabsize)
 		int a = *tab++;
 		GetWindowRect(GetDlgItem(hwndDlg, a & 0xffff),&r);
 		MapWindowPoints(HWND_DESKTOP, hwndDlg, (LPPOINT)&r, 2);
-    
-		if (RectInRect(&ps.rcPaint,&r)) 
+
+		if (RectInRect(&ps.rcPaint,&r))
 		{
 			if ((a & 0xffff0000) == DCW_SUNKENBORDER)
 			{
@@ -421,7 +421,7 @@ void WADlg_DrawChildWindowBorders(HWND hwndDlg, int *tab, int tabsize)
 	SelectObject(ps.hdc, o);
 	DeleteObject(pen);
 
-	if(hrgn) 
+	if(hrgn)
 	{
 		//erase bkgnd while clipping out our own drawn stuff (for flickerless display)
 		HBRUSH b = CreateSolidBrush(wadlg_colors[WADLG_WNDBG]);

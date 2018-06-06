@@ -2,7 +2,7 @@
 #define __IPC_PE_H
 
 #define IPC_PE_GETCURINDEX        100 // returns current idx
-#define IPC_PE_GETINDEXTOTAL      101 // returns number of items 
+#define IPC_PE_GETINDEXTOTAL      101 // returns number of items
 #define IPC_PE_GETINDEXINFO       102 // (copydata) lpData is of type callbackinfo, callback is called with copydata/fileinfo structure and msg IPC_PE_GETINDEXINFORESULT
 #define IPC_PE_GETINDEXINFORESULT 103 // callback message for IPC_PE_GETINDEXINFO
 #define IPC_PE_DELETEINDEX        104 // lParam = index

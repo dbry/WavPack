@@ -22,7 +22,7 @@ typedef unsigned long FOURCC;
 #ifndef GUID_DEFINED
   #define GUID_DEFINED
 
-  typedef struct _GUID 
+  typedef struct _GUID
 	{
 		unsigned long Data1;
 		unsigned short Data2;

@@ -32,7 +32,7 @@ typedef struct {
   LPARAM lParam;  //lParam that will be sent to winamp's main window
   char *id;       //unique string to identify this command - case insensitive
   HWND wnd;       //set the HWND to send message (or 0 for main winamp window)
-  
+
   int extended[6]; //for future extension - always set to zero!
 } genHotkeysAddStruct;
 
