@@ -4,7 +4,7 @@
 
 
 typedef struct riffspecialdata_t
-{	HANDLE hSpecialData;	
+{	HANDLE hSpecialData;
 	HANDLE hData;			// Actual data handle
 	DWORD  dwSize;			// size of data in handle
 	DWORD  dwExtra;			// optional extra data (usually a count)
@@ -41,7 +41,7 @@ struct play_type {DWORD dwName;
 typedef struct coolquery_tag
 	{char szName[24];
 	 char szCopyright[80];
-	 
+
 	 // rate table, bits are set for modes that can be handled
 	 WORD Quad32;  // Quads are 3-D encoded
 	 WORD Quad16;
@@ -80,7 +80,7 @@ typedef struct coolquery_tag
 
 #define QF_RATEADJUSTABLE		0x001   // if can handle non-standard sample rates
 										// if not, only rates in bit rate table understood
-#define QF_CANSAVE				0x002		  
+#define QF_CANSAVE				0x002
 #define QF_CANLOAD				0x004
 #define QF_UNDERSTANDSALL		0x008   // will read ANYTHING, so it is the last resort if no other
 										// formats match
@@ -113,9 +113,9 @@ typedef struct coolquery_tag
 #define SP_ISBJ  32
 #define SP_ISRF  33
 #define SP_DISP  34
-#define SP_CUE   40 // returns number of cues of size cue_type 
+#define SP_CUE   40 // returns number of cues of size cue_type
 #define SP_LTXT  41 // returns number of adtl texts of size 8 (4,id and 4,len)
 #define SP_NOTE  42 // returns LO=size, HI=number of strings (sz sz sz...)
 #define SP_LABL	 43 // returns LO=size, HI=number of strings (sz sz sz...)
-#define SP_PLST  44 // returns number of playlist entries size play_type 
+#define SP_PLST  44 // returns number of playlist entries size play_type
 */

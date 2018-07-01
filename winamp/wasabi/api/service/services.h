@@ -56,7 +56,7 @@ namespace WaSvc {
     SRCCLASSFACTORY=MK4CC('c','l','f','a'),         // source code class factory
     SRCEDITOR=MK4CC('s','e','d','t'),               // source code editor
 	MP4AUDIODECODER=MK4CC('m','4','a','d'),	// mp4 audio decoder
-	PLAYLISTREADER_WA5=MK4CC('p','l','r','5'),          // playlist reader 
+	PLAYLISTREADER_WA5=MK4CC('p','l','r','5'),          // playlist reader
     PLAYLISTWRITER_WA5=MK4CC('p','l','w','5'),          // playlist writer
 		PLAYLISTHANDLER=MK3CC('p','l','h'),          // playlist handler
 		TAGPROVIDER=MK4CC('t','a','g','z'),				// tag provider (for ATF engine)

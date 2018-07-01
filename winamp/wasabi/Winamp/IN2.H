@@ -20,11 +20,11 @@
 // if you handle any of these yourself (EQ, Replay Gain adjustments), then set these flags accordingly
 #define IN_MODULE_FLAG_EQ 2 // set this if you do your own EQ
 #define IN_MODULE_FLAG_REPLAYGAIN 8 // set this if you adjusted volume for replay gain
-																		// for tracks with no replay gain metadata, you should clear this flag 
+																		// for tracks with no replay gain metadata, you should clear this flag
 																		// UNLESS you handle "non_replaygain" gain adjustment yourself
-#define IN_MODULE_FLAG_REPLAYGAIN_PREAMP 16 // use this if you queried for the replay gain preamp parameter and used it 
+#define IN_MODULE_FLAG_REPLAYGAIN_PREAMP 16 // use this if you queried for the replay gain preamp parameter and used it
 																						// this parameter is new to 5.54
-typedef struct 
+typedef struct
 {
 	int version;				// module type (IN_VER)
 	char *description;			// description of module, with version string
@@ -34,8 +34,8 @@ typedef struct
 
 	char *FileExtensions;		// "mp3\0Layer 3 MPEG\0mp2\0Layer 2 MPEG\0mpg\0Layer 1 MPEG\0"
 								// May be altered from Config, so the user can select what they want
-	
-	int is_seekable;			// is this stream seekable? 
+
+	int is_seekable;			// is this stream seekable?
 	int UsesOutputPlug;			// does this plug-in use the output plug-ins? (musn't ever change, ever :)
 													// note that this has turned into a "flags" field
 													// see IN_MODULE_FLAG_*
@@ -46,13 +46,13 @@ typedef struct
 	void (*Init)();				// called at program init
 	void (*Quit)();				// called at program quit
 
-#define GETFILEINFO_TITLE_LENGTH 2048 
+#define GETFILEINFO_TITLE_LENGTH 2048
 	void (*GetFileInfo)(const in_char *file, in_char *title, int *length_in_ms); // if file == NULL, current playing is used
 
 #define INFOBOX_EDITED 0
 #define INFOBOX_UNCHANGED 1
 	int (*InfoBox)(const in_char *file, HWND hwndParent);
-	
+
 	int (*IsOurFile)(const in_char *fn);	// called before extension checks, to allow detection of mms://, etc
 	// playback stuff
 	int (*Play)(const in_char *fn);		// return zero on success, -1 on file-not-found, some other value on other (stopping winamp) error
@@ -69,7 +69,7 @@ typedef struct
 	// volume stuff
 	void (*SetVolume)(int volume);	// from 0 to 255.. usually just call outMod->SetVolume
 	void (*SetPan)(int pan);	// from -127 to 127.. usually just call outMod->SetPan
-	
+
 	// in-window builtin vis stuff
 
 	void (*SAVSAInit)(int maxlatency_in_ms, int srate);		// call once in Play(). maxlatency_in_ms should be the value returned from outMod->Open()
@@ -78,7 +78,7 @@ typedef struct
 
 
 	// simple vis supplying mode
-	void (*SAAddPCMData)(void *PCMData, int nch, int bps, int timestamp); 
+	void (*SAAddPCMData)(void *PCMData, int nch, int bps, int timestamp);
 											// sets the spec data directly from PCM data
 											// quick and easy way to get vis working :)
 											// needs at least 576 samples :)
@@ -100,19 +100,19 @@ typedef struct
 	int (*VSAAdd)(void *data, int timestamp); // filled in by winamp, called by plug-in
 
 
-	// call this in Play() to tell the vis plug-ins the current output params. 
+	// call this in Play() to tell the vis plug-ins the current output params.
 	void (*VSASetInfo)(int srate, int nch); // <-- Correct (benski, dec 2005).. old declaration had the params backwards
 
 
-	// dsp plug-in processing: 
+	// dsp plug-in processing:
 	// (filled in by winamp, calld by input plug)
 
 	// returns 1 if active (which means that the number of samples returned by dsp_dosamples
 	// could be greater than went in.. Use it to estimate if you'll have enough room in the
 	// output buffer
-	int (*dsp_isactive)(); 
+	int (*dsp_isactive)();
 
-	// returns number of samples to output. This can be as much as twice numsamples. 
+	// returns number of samples to output. This can be as much as twice numsamples.
 	// be sure to allocate enough buffer for samples, then.
 	int (*dsp_dosamples)(short int *samples, int numsamples, int bps, int nch, int srate);
 

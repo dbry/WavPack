@@ -54,7 +54,7 @@
 # provide unwind data for the Windows ABI (the unpack_x64.asm module for
 # MSVC does). The arguments are passed in registers:
 #
-# System V  Windows  
+# System V  Windows
 #   rdi       rcx      struct decorr_pass *dpp
 #   rsi       rdx      int32_t *buffer
 #   edx       r8       int32_t sample_count
@@ -653,7 +653,7 @@ term_minus_3_loop:
         emms
 
         mov     edx, [rdi-4]                # dpp->samples_A [0] = bptr [-1];
-        mov     rax, [rsp] 
+        mov     rax, [rsp]
         mov     [rax+16], edx
         mov     edx, [rdi-8]                # dpp->samples_B [0] = bptr [-2];
         mov     [rax+48], edx
@@ -675,7 +675,7 @@ done:   add     rsp, 8
 #                                    int32_t long_math;
 # arguments on entry:
 #
-# System V  Windows  
+# System V  Windows
 #   rdi       rcx      struct decorr_pass *dpp
 #   rsi       rdx      int32_t *buffer
 #   edx       r8       int32_t sample_count

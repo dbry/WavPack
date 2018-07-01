@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2016 David Bryant.                 //
+//                Copyright (c) 1998 - 2018 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -86,7 +86,7 @@ static int raw_push_back_byte (void *id, int c)
     WavpackRawContext *rcxt = id;
     rcxt->ungetc_char = c;
     rcxt->ungetc_flag = 1;
-    return c; 
+    return c;
 }
 
 static int64_t raw_get_length (void *id)
@@ -199,7 +199,7 @@ WavpackContext *WavpackOpenRawDecoder (
                 raw_close_stream (raw_wv);
                 raw_close_stream (raw_wvc);
                 return NULL;
-            } 
+            }
 
             memset (wphdr, 0, sizeof (WavpackHeader));
             memcpy (wphdr->ckID, "wvpk", 4);
@@ -246,7 +246,7 @@ WavpackContext *WavpackOpenRawDecoder (
                     raw_close_stream (raw_wv);
                     raw_close_stream (raw_wvc);
                     return NULL;
-                } 
+                }
 
                 memset (wphdr, 0, sizeof (WavpackHeader));
                 memcpy (wphdr->ckID, "wvpk", 4);

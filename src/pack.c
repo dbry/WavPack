@@ -482,7 +482,7 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         }
         else if (wpc->block_boundary && sample_count >= (int32_t) wpc->block_boundary * 2) {
             int bc = sample_count / wpc->block_boundary, chans = (flags & MONO_DATA) ? 1 : 2;
-            int res = scan_redundancy (buffer, wpc->block_boundary * chans), i; 
+            int res = scan_redundancy (buffer, wpc->block_boundary * chans), i;
 
             for (i = 1; i < bc; ++i)
                 if (res != scan_redundancy (buffer + (i * wpc->block_boundary * chans),

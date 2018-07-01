@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2016 David Bryant.                 //
+//                Copyright (c) 1998 - 2018 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -463,7 +463,7 @@ static int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 
             if (wpc->config.num_channels < wpc->max_streams)
                 return FALSE;
-    
+
             byteptr += 3;
             mask = *byteptr++;
             mask |= (uint32_t) *byteptr++ << 8;
