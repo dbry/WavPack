@@ -152,7 +152,8 @@ static const char *help =
 "                             and NOT recommended for portable hardware use)\n"
 "    --help                  this extended help display\n"
 "    -i                      ignore length in file header (no pipe output allowed)\n"
-"    --import-id3            import ID3v2 tags from the trailer of DSF files only\n"
+"    --import-id3            attempt to import ID3v2 tags from the trailer of files\n"
+"                             (standard on DSF, optional on WAV and DSDIFF)\n"
 "    -jn                     joint-stereo override (0 = left/right, 1 = mid/side)\n"
 #if defined (_WIN32) || defined (__OS2__)
 "    -l                      run at lower priority for smoother multitasking\n"
@@ -1941,7 +1942,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         // if we're supposed to try to import ID3 tags, check for and do that now
         // (but only error on a bad tag, not just a missing one or one with no applicable items)
 
-        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10 && !strncmp ((char *) buffer, "ID3", 3)) {
+        if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10) {
             int32_t bytes_used, id3_res;
             char error [80];
 
