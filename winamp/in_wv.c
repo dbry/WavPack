@@ -1,6 +1,6 @@
 /*
 ** .WV input plug-in for WavPack
-** Copyright (c) 2000 - 2017, David Bryant, All Rights Reserved
+** Copyright (c) 2000 - 2018, David Bryant, All Rights Reserved
 */
 
 #include <windows.h>
@@ -91,7 +91,7 @@ static const char *InWvLangGuid = "{6DE2E465-690E-4df1-B6E2-2A9B33ED3DBB}";
 static void configure_resources (void)
 {
 	char CheckGuid [64];
-	
+
 	if (!hResources) {
 		hResources = GetModuleHandle ("in_wv.lng");
 
@@ -455,7 +455,7 @@ int play (char *fn)
     else if ((config_bits & (REPLAYGAIN_TRACK | REPLAYGAIN_ALBUM)) &&
         (config_bits & REPLAYGAIN_24BIT))
             curr.output_bits = 24;
- 
+
     if (num_chans > MAX_NCH) {    // don't allow too many channels!
         WavpackCloseFile (curr.wpc);
         return -1;
@@ -798,7 +798,7 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
     memset (curr.error, 0, sizeof (curr.error));
     num_chans = WavpackGetReducedChannels (curr.wpc);
     sample_rate = WavpackGetSampleRate (curr.wpc);
- 
+
     while (!*((int *)b) ) {
 
         if (seek_needed != -1) {
@@ -885,7 +885,7 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
 
     if (config_bits & (REPLAYGAIN_TRACK | REPLAYGAIN_ALBUM))
         open_flags |= OPEN_TAGS;
- 
+
     cnxt->wpc = WavpackOpenFileInput (fn, error, open_flags, 0);
 
     if (!cnxt->wpc) {           // error opening file, just return error
@@ -913,7 +913,7 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
     }
     else
         cnxt->output_bits = *bps;
- 
+
 	if (sample_rate >= 256000) {
 		cnxt->decimation_cnxt = decimation_init (num_chans, 4);
 		sample_rate /= 4;
@@ -931,7 +931,7 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
         *size = (int) actual_size;
     else
         *size = -1;
-  
+
     cnxt->play_gain = calculate_gain (cnxt->wpc, &cnxt->soft_clipping);
 
 #ifdef DEBUG_CONSOLE

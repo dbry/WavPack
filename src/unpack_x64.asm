@@ -629,7 +629,7 @@ term_minus_3_loop:
         emms
 
         mov     edx, [rdi-4]                ; dpp->samples_A [0] = bptr [-1];
-        mov     rax, [rsp] 
+        mov     rax, [rsp]
         mov     [rax+16], edx
         mov     edx, [rdi-8]                ; dpp->samples_B [0] = bptr [-2];
         mov     [rax+48], edx

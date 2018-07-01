@@ -77,7 +77,7 @@
 # provide unwind data for the Windows ABI (the unpack_x64.asm module for
 # MSVC does). The arguments are passed in registers:
 #
-#                             System V  Windows  
+#                             System V  Windows
 #   struct decorr_pass *dpp     rdi       rcx
 #   int32_t *buffer             rsi       rdx
 #   int32_t sample_count        edx       r8d
@@ -86,7 +86,7 @@
 #
 #   rdi         buffer pointer
 #   rsi         termination buffer pointer
-#   rax,rbx,rdx used in default term to reduce calculation         
+#   rax,rbx,rdx used in default term to reduce calculation
 #   rbp         decorr_pass pointer
 #   mm0, mm1    scratch
 #   mm2         original sample values
@@ -548,7 +548,7 @@ bdone:  pslld   mm5, 16                     # sign-extend 16-bit weights back to
 # provide unwind data for the Windows ABI (the unpack_x64.asm module for
 # MSVC does). The arguments are passed in registers:
 #
-#                             System V  Windows  
+#                             System V  Windows
 #   struct decorr_pass *dpp     rdi       rcx
 #   int32_t *in_buffer          rsi       rdx
 #   int32_t *out_buffer         rdx       r8
@@ -1031,7 +1031,7 @@ done:   add     rsp, 8
 # that it does NOT provide unwind data for the Windows ABI (the unpack_x64.asm
 # module for MSVC does). The arguments are passed in registers:
 #
-#                             System V  Windows  
+#                             System V  Windows
 #   int32_t *buffer             rdi       rcx
 #   struct decorr_pass *dpp     rsi       rdx
 #   int32_t num_terms           rdx       r8
@@ -1468,7 +1468,7 @@ mexit:  mov     rax, r8                     # return max magnitude
 # provide unwind data for the Windows ABI (the pack_x64.asm module for
 # MSVC does). The arguments are passed in registers:
 #
-#                             System V  Windows  
+#                             System V  Windows
 #   int32_t *out_buffer         rdi       rcx
 #   int32_t *in_buffer          rsi       rdx
 #   struct decorr_pass *dpp     rdx       r8
@@ -1807,7 +1807,7 @@ noleft: mov     eax, ebx                    # move magnitude to eax for return
 # Note that it does NOT provide unwind data for the Windows ABI (but the
 # unpack_x64.asm module for MSVC does). The arguments are passed in registers:
 #
-#                             System V  Windows  
+#                             System V  Windows
 #   int32_t *samples            rdi       rcx
 #   uint32_t num_samples        esi       rdx
 #   int limit                   edx       r8
@@ -1889,9 +1889,9 @@ limit_loop:
         bsr     ecx, edx                    # ecx = MSB set in sample (0 - 31)
         lea     eax, [ecx+1]                # eax = number used bits in sample (1 - 32)
         sub     ecx, 8                      # ecx = shift right amount (-8 to 23)
-        ror     edx, cl                     # use rotate to do "signed" shift 
+        ror     edx, cl                     # use rotate to do "signed" shift
         shl     eax, 8                      # move nbits to integer portion of log
-        movzx   edx, dl                     # dl = mantissa, look up log fraction in table 
+        movzx   edx, dl                     # dl = mantissa, look up log fraction in table
         mov     al, [r8+rdx]                # eax = combined integer and fraction for full log
         add     edi, eax                    # add to running sum and compare to limit
         cmp     eax, ebp
@@ -1915,9 +1915,9 @@ no_limit_loop:
         bsr     ecx, edx                    # ecx = MSB set in sample (0 - 31)
         lea     eax, [ecx+1]                # eax = number used bits in sample (1 - 32)
         sub     ecx, 8                      # ecx = shift right amount (-8 to 23)
-        ror     edx, cl                     # use rotate to do "signed" shift 
+        ror     edx, cl                     # use rotate to do "signed" shift
         shl     eax, 8                      # move nbits to integer portion of log
-        movzx   edx, dl                     # dl = mantissa, look up log fraction in table 
+        movzx   edx, dl                     # dl = mantissa, look up log fraction in table
         mov     al, [r8+rdx]                # eax = combined integer and fraction for full log
         add     edi, eax                    # add to running sum
 L45:    sub     ebx, 1

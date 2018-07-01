@@ -145,7 +145,7 @@ int load_tag (WavpackContext *wpc)
                 m_tag->tag_begins_file = 1;     // failed ID3v1, so look for APEv2 at beginning of file
                 CLEAR (m_tag->id3_tag);
             }
-    }  
+    }
 }
 
 // Return TRUE is a valid ID3v1 or APEv2 tag has been loaded.

@@ -32,7 +32,7 @@
  * SSAT is not universally available (although on the armv7 I'm testing on
  * it is slightly faster than the shifts).
  *
- * A mono version follows below. 
+ * A mono version follows below.
  */
 
 /*

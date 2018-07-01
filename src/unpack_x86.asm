@@ -52,7 +52,7 @@ asmcode segment page 'CODE'
 ;   rsi         eptr
 ;
 ; on stack (used for terms -1 and -2 only):
-; 
+;
 ;   int32_t delta             DWORD [esp]
 ;
 
@@ -74,7 +74,7 @@ _unpack_decorr_stereo_pass_cont_x86:
 
         add     eax, edi                    ; else add to buffer point to make eptr
         mov     esi, eax
-    
+
         mov     eax, [ebp+8]                ; get term from dpp and vector appropriately
         mov     eax, [eax]
         cmp     eax, 17
