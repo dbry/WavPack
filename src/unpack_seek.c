@@ -22,7 +22,7 @@
 
 static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, int64_t sample);
 
-// Seek to the specifed sample index, returning TRUE on success. Note that
+// Seek to the specified sample index, returning TRUE on success. Note that
 // files generated with version 4.0 or newer will seek almost immediately.
 // Older files can take quite long if required to seek through unplayed
 // portions of the file, but will create a seek map so that reverse seeks

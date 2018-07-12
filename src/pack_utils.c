@@ -130,7 +130,7 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 //
 // The identities are provided in a NULL-terminated string (0x00 is not an allowed
 // channel ID). The Microsoft channels may be provided as well (and will be checked)
-// but it is really only neccessary to provide the "unknown" channels. Any truly
+// but it is really only necessary to provide the "unknown" channels. Any truly
 // unknown channels are indicated with a 0xFF.
 //
 // The channel IDs so far reserved are listed here:

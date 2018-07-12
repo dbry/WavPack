@@ -122,7 +122,7 @@ void PASCAL GetSuggestedSampleType (long *lplSamprate, WORD *lpwBitsPerSample, W
 
 
 //////////////////////////////////////////////////////////////////////////////
-// Open file for output. Because normal WavPack files contain verbatum RIFF //
+// Open file for output. Because normal WavPack files contain verbatim RIFF //
 // headers, we must create them here from scratch.                          //
 //////////////////////////////////////////////////////////////////////////////
 

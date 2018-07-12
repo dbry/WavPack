@@ -45,7 +45,7 @@ typedef struct
 					// (used for seeking)
 
     int (*GetOutputTime)();		// returns played time in MS
-    int (*GetWrittenTime)();		// returns time written in MS (used for synching up vis stuff)
+    int (*GetWrittenTime)();		// returns time written in MS (used for syncing up vis stuff)
 
 } Out_Module;
 
