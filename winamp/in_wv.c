@@ -976,7 +976,7 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_getData (
     }
 
 #ifdef DEBUG_CONSOLE
-    sprintf (error, "Read_getData (%d), actualy read %d\n", len, used);
+    sprintf (error, "Read_getData (%d), actually read %d\n", len, used);
     debug_write (error);
 #endif
 

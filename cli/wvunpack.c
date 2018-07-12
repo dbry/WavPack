@@ -132,7 +132,7 @@ static const char *usage =
 "          --w64 = force output to Sony Wave64 format (extension .w64)\n"
 "          -x \"Field\" = extract specified tag field only to stdout (no audio decode)\n"
 "          -xx \"Field[=file]\" = extract specified tag field to file, optional\n"
-"              filename specification can inlude following replacement codes:\n"
+"              filename specification can include following replacement codes:\n"
 "                %a = audio output filename\n"
 "                %t = tag field name (note: comes from data for binary tags)\n"
 "                %e = extension from binary tag source file, or 'txt' for text tag\n"
@@ -1077,7 +1077,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     if (raw_decode) {                                   // case 1: user specified raw decode
         output_qmode = (input_qmode & QMODE_DSD_AUDIO) ? QMODE_DSD_MSB_FIRST : 0;
     }
-    else if (format_specified) {                        // case 2: user specfied an output format
+    else if (format_specified) {                        // case 2: user specified an output format
         switch (decode_format) {
             case WP_FORMAT_CAF:
                 output_qmode = QMODE_SIGNED_BYTES | (caf_be ? QMODE_BIG_ENDIAN : 0) | (input_qmode & QMODE_REORDERED_CHANS);

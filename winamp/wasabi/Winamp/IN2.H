@@ -36,7 +36,7 @@ typedef struct
 								// May be altered from Config, so the user can select what they want
 	
 	int is_seekable;			// is this stream seekable? 
-	int UsesOutputPlug;			// does this plug-in use the output plug-ins? (musn't ever change, ever :)
+	int UsesOutputPlug;			// does this plug-in use the output plug-ins? (mustn't ever change, ever :)
 													// note that this has turned into a "flags" field
 													// see IN_MODULE_FLAG_*
 
@@ -105,7 +105,7 @@ typedef struct
 
 
 	// dsp plug-in processing: 
-	// (filled in by winamp, calld by input plug)
+	// (filled in by winamp, called by input plug)
 
 	// returns 1 if active (which means that the number of samples returned by dsp_dosamples
 	// could be greater than went in.. Use it to estimate if you'll have enough room in the

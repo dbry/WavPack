@@ -16,7 +16,7 @@ typedef struct
 				// May be altered from Config, so the user can select what they want
 
     int is_seekable;		// is this stream seekable? 
-    int UsesOutputPlug;		// does this plug-in use the output plug-ins? (musn't ever change, ever :)
+    int UsesOutputPlug;		// does this plug-in use the output plug-ins? (mustn't ever change, ever :)
 
     void (*Config)(HWND hwndParent); // configuration dialog
     void (*About)(HWND hwndParent);  // about dialog

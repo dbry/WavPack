@@ -142,7 +142,7 @@ inline int MulDiv(int a, int b, int c)
 
 #else
 #error port me
-// Windows API dependant definitions for non-windows platforms
+// Windows API dependent definitions for non-windows platforms
 
 #define __cdecl
 #define __stdcall
@@ -487,7 +487,7 @@ RGNDATA, *PRGNDATA;
 #define OSPROCESSID int
 #endif
 
-// Ode macro keyworkds
+// Ode macro keywords
 #define DISPATCH_   // makes a method dispatchable, automatically assigns a free ID (requires Interface)
 #define DISPATCH(x) // makes a method dispatchable and specifies its ID (not duplicate check, requires Interface)
 #define NODISPATCH  // prevents a method from being dispatched if the class is marked for dispatching by default

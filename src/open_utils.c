@@ -358,7 +358,7 @@ int unpack_init (WavpackContext *wpc)
 // These functions handle specific metadata types and are called directly
 // during WavPack block parsing by process_metadata() at the bottom.
 
-// This function initialzes the main bitstream for audio samples, which must
+// This function initializes the main bitstream for audio samples, which must
 // be in the "wv" file.
 
 static int init_wv_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
@@ -370,7 +370,7 @@ static int init_wv_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
     return TRUE;
 }
 
-// This function initialzes the "correction" bitstream for audio samples,
+// This function initializes the "correction" bitstream for audio samples,
 // which currently must be in the "wvc" file.
 
 static int init_wvc_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
@@ -382,7 +382,7 @@ static int init_wvc_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
     return TRUE;
 }
 
-// This function initialzes the "extra" bitstream for audio samples which
+// This function initializes the "extra" bitstream for audio samples which
 // contains the information required to losslessly decompress 32-bit float data
 // or integer data that exceeds 24 bits. This bitstream is in the "wv" file
 // for pure lossless data or the "wvc" file for hybrid lossless. This data

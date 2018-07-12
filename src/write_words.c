@@ -569,7 +569,7 @@ int32_t nosend_word (WavpackStream *wps, int32_t value, int chan)
 }
 
 // This function is used to scan some number of samples to set the variables
-// "slow_level" and the "median" array. In pure symetrical encoding mode this
+// "slow_level" and the "median" array. In pure symmetrical encoding mode this
 // would not be needed because these values would simply be continued from the
 // previous block. However, in the -X modes and the 32-bit modes we cannot do
 // this because parameters may change between blocks and the variables might

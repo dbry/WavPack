@@ -11,7 +11,7 @@
 // This module provides a lot of the trivial WavPack API functions and several
 // functions that are common to both reading and writing WavPack files (like
 // WavpackCloseFile()). Functions here are restricted to those that have few
-// external dependancies and this is done so that applications that statically
+// external dependencies and this is done so that applications that statically
 // link to the WavPack library (like the command-line utilities on Windows)
 // do not need to include the entire library image if they only use a subset
 // of it. This module will be loaded for ANY WavPack application.
@@ -40,7 +40,7 @@ const uint32_t sample_rates [] = { 6000, 8000, 9600, 11025, 12000, 16000, 22050,
 // MODE_LOSSLESS:  file is lossless (either pure or hybrid)
 // MODE_HYBRID:  file is hybrid mode (either lossy or lossless)
 // MODE_FLOAT:  audio data is 32-bit ieee floating point
-// MODE_VALID_TAG:  file conatins a valid ID3v1 or APEv2 tag
+// MODE_VALID_TAG:  file contains a valid ID3v1 or APEv2 tag
 // MODE_HIGH:  file was created in "high" mode (information only)
 // MODE_FAST:  file was created in "fast" mode (information only)
 // MODE_EXTRA:  file was created using "extra" mode (information only)
@@ -520,7 +520,7 @@ int WavpackGetReducedChannels (WavpackContext *wpc)
 }
 
 // Free all memory allocated for raw WavPack blocks (for all allocated streams)
-// and free all additonal streams. This does not free the default stream ([0])
+// and free all additional streams. This does not free the default stream ([0])
 // which is always kept around.
 
 void free_streams (WavpackContext *wpc)

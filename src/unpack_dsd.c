@@ -20,7 +20,7 @@
 
 ///////////////////////////// executable code ////////////////////////////////
 
-// This function initialzes the main range-encoded data for DSD audio samples
+// This function initializes the main range-encoded data for DSD audio samples
 
 static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd);
 static int init_dsd_block_high (WavpackStream *wps, WavpackMetadata *wpmd);

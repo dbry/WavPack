@@ -21,7 +21,7 @@
 // This function attempts to load an ID3v1 or APEv2 tag from the specified
 // file into the specified M_Tag structure. The ID3 tag fits in completely,
 // but an APEv2 tag is variable length and so space must be allocated here
-// to accomodate the data, and this will need to be freed later. A return
+// to accommodate the data, and this will need to be freed later. A return
 // value of TRUE indicates a valid tag was found and loaded. Note that the
 // file pointer is undefined when this function exits.
 

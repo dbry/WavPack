@@ -2312,7 +2312,7 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
 
         // if we have reordering to do because this is a CAF channel layout that is not in Microsoft
         // order, then we do the reordering AFTER the MD5 because we will be unreordering them at
-        // decode time, and so we want the MD5 to match the orginal order
+        // decode time, and so we want the MD5 to match the original order
 
         if (new_order && (qmode & QMODE_REORDERED_CHANS))
             reorder_channels (input_buffer, new_order, WavpackGetNumChannels (wpc),
@@ -3196,7 +3196,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 // NULL, then a MD5 sum is calculated on the audio data during the transcoding
 // and stored there at the completion. Note that the md5 requires a conversion
 // to the native data format (endianness and bytes per sample) that is not
-// required overwise.
+// required otherwise.
 
 static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsigned char *md5_digest_source)
 {
