@@ -149,6 +149,7 @@ int WriteWave64Header (FILE *outfile, WavpackContext *wpc, int64_t total_samples
 int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 int WriteDsdiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 int WriteDsfHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
+int WriteAiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 
 static struct {
     char *default_extension, *format_name;
@@ -159,7 +160,8 @@ static struct {
     { "w64", "Sony Wave64",      WriteWave64Header, 8 },
     { "caf", "Apple Core Audio", WriteCaffHeader,   1 },
     { "dff", "Philips DSDIFF",   WriteDsdiffHeader, 2 },
-    { "dsf", "Sony DSF",         WriteDsfHeader,    1 }
+    { "dsf", "Sony DSF",         WriteDsfHeader,    1 },
+    { "aif", "Apple AIF",        WriteAiffHeader,   2 }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
@@ -1127,6 +1129,8 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     }
     else                                                // case 5: unknown format, but wrapper is present and we're doing
         output_qmode = input_qmode;                     //   the whole file, so we don't have to understand the format
+
+    error_line ("input_qmode = %x, output_qmode = %x", input_qmode, output_qmode);
 
     if (skip.value_is_valid) {
         if (skip.value_is_time)

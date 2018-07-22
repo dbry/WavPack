@@ -390,6 +390,7 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 #define WP_FORMAT_CAF   2       // Apple CoreAudio
 #define WP_FORMAT_DFF   3       // Philips DSDIFF
 #define WP_FORMAT_DSF   4       // Sony DSD Format
+#define WP_FORMAT_AIF   5       // Apple AIFF and AIFF-C
 
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
 int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids);

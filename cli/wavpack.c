@@ -235,6 +235,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 
 static struct {
     unsigned char id;
@@ -247,7 +248,8 @@ static struct {
     { WP_FORMAT_W64,  "riff", "w64", ParseWave64HeaderConfig, 8 },
     { WP_FORMAT_CAF,  "caff", "caf", ParseCaffHeaderConfig,   1 },
     { WP_FORMAT_DFF,  "FRM8", "dff", ParseDsdiffHeaderConfig, 2 },
-    { WP_FORMAT_DSF,  "DSD ", "dsf", ParseDsfHeaderConfig,    1 }
+    { WP_FORMAT_DSF,  "DSD ", "dsf", ParseDsfHeaderConfig,    1 },
+    { WP_FORMAT_AIF,  "FORM", "aif", ParseAiffHeaderConfig,   2 }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
@@ -255,7 +257,7 @@ static struct {
 // this global is used to indicate the special "debug" mode where extra debug messages
 // are displayed and all messages are logged to the file \wavpack.log
 
-int debug_logging_mode;
+int debug_logging_mode = 1;
 
 static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
     no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, quantize_round, import_id3,
@@ -1794,6 +1796,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             WavpackCloseFile (wpc);
             return WAVPACK_SOFT_ERROR;
         }
+        else
+            error_line ("%s seems to be good to go, format = %d!", infilename, i);
     }
     else if (raw_pcm_skip_bytes_begin) {          // if raw pcm mode and bytes to skip, do that here
         int bytes_to_skip = raw_pcm_skip_bytes_begin;
@@ -1886,10 +1890,14 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     // pack the audio portion of the file now; calculate md5 if we're writing it to the file or verify mode is active
 
+    error_line ("getting ready to pack...");
+
     if (loc_config.qmode & QMODE_DSD_AUDIO)
         result = pack_dsd_audio (wpc, infile, loc_config.qmode, new_channel_order, ((loc_config.flags & CONFIG_MD5_CHECKSUM) || verify_mode) ? md5_digest : NULL);
     else
         result = pack_audio (wpc, infile, loc_config.qmode, new_channel_order, ((loc_config.flags & CONFIG_MD5_CHECKSUM) || verify_mode) ? md5_digest : NULL);
+
+    error_line ("done packing");
 
     if (new_channel_order)
         free (new_channel_order);

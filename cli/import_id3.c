@@ -21,34 +21,34 @@
 #include "wavpack.h"
 
 static struct {
-    char *id3_item, *ape_item;
+    char *id3_item3, *id3_item, *ape_item;
 } text_tag_table [] = {
-    { "TALB", "Album" },
-    { "TPE1", "Artist" },
-    { "TPE2", "AlbumArtist" },
-    { "TPE3", "Conductor" },
-    { "TIT1", "Grouping" },
-    { "TIT2", "Title" },
-    { "TIT3", "Subtitle" },
-    { "TSST", "DiscSubtitle" },
-    { "TSOA", "AlbumSort" },
-    { "TSOT", "TitleSort" },
-    { "TSO2", "AlbumArtistSort" },
-    { "TSOP", "ArtistSort" },
-    { "TPOS", "Disc" },
-    { "TRCK", "Track" },
-    { "TCON", "Genre" },
-    { "TYER", "Year" },
-    { "TCOM", "Composer" },
-    { "TCMP", "Compilation" },
-    { "TENC", "EncodedBy" },
-    { "TEXT", "Lyricist" },
-    { "TCOP", "Copyright" },
-    { "TLAN", "Language" },
-    { "TSRC", "ISRC" },
-    { "TMED", "Media" },
-    { "TMOO", "Mood" },
-    { "TBPM", "BPM" }
+    { "TAL", "TALB", "Album" },
+    { "TP1", "TPE1", "Artist" },
+    { "TP2", "TPE2", "AlbumArtist" },
+    { "TP3", "TPE3", "Conductor" },
+    { "TT1", "TIT1", "Grouping" },
+    { "TT2", "TIT2", "Title" },
+    { "TT3", "TIT3", "Subtitle" },
+    {  NULL, "TSST", "DiscSubtitle" },
+    {  NULL, "TSOA", "AlbumSort" },
+    {  NULL, "TSOT", "TitleSort" },
+    {  NULL, "TSO2", "AlbumArtistSort" },
+    {  NULL, "TSOP", "ArtistSort" },
+    { "TPA", "TPOS", "Disc" },
+    { "TRK", "TRCK", "Track" },
+    { "TCO", "TCON", "Genre" },
+    { "TYE", "TYER", "Year" },
+    { "TCM", "TCOM", "Composer" },
+    {  NULL, "TCMP", "Compilation" },
+    { "TEN", "TENC", "EncodedBy" },
+    { "TXT", "TEXT", "Lyricist" },
+    { "TCR", "TCOP", "Copyright" },
+    { "TLA", "TLAN", "Language" },
+    { "TRC", "TSRC", "ISRC" },
+    { "TMT", "TMED", "Media" },
+    {  NULL, "TMOO", "Mood" },
+    { "TBP", "TBPM", "BPM" }
 };
 
 #define NUM_TEXT_TAG_ITEMS (sizeof (text_tag_table) / sizeof (text_tag_table [0]))
@@ -56,7 +56,7 @@ static struct {
 static int WideCharToUTF8 (const uint16_t *Wide, unsigned char *pUTF8, int len);
 static void Latin1ToUTF8 (void *string, int len);
 
-// Import specified ID3v2.3 tag. The WavPack context accepts the tag items, and can be
+// Import specified ID3v2.2 tag. The WavPack context accepts the tag items, and can be
 // NULL for doing a dry-run through the tag. If errors occur then a description will be
 // written to "error" (which must be 80 characters) and -1 will be returned. If no
 // errors occur then the number of tag items successfully written will be returned, or
@@ -85,8 +85,8 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
         return -1;
     }
 
-    if (id3_header [3] != 3 || id3_header [4] == 0xFF || (id3_header [5] & 0x1F)) {
-        strcpy (error, "not valid ID3v2.3");
+    if (id3_header [3] != 2 || id3_header [4] == 0xFF || (id3_header [5] & 0x1F)) {
+        strcpy (error, "not valid ID3v2.2");
         return -1;
     }
 
@@ -106,7 +106,7 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
     }
 
     if ((id3_header [6] | id3_header [7] | id3_header [8] | id3_header [9]) & 0x80) {
-        strcpy (error, "not valid ID3v2.3 (bad size)");
+        strcpy (error, "not valid ID3v2.2 (bad size)");
         return -1;
     }
 
@@ -118,7 +118,7 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
     }
 
     while (1) {
-        unsigned char frame_header [10], *frame_body;
+        unsigned char frame_header [6], *frame_body;
         int frame_size, i;
 
         if (tag_size < sizeof (frame_header))
@@ -128,10 +128,10 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
         tag_size -= sizeof (frame_header);
         tag_data += sizeof (frame_header);
 
-        if (!frame_header [0] && !frame_header [1] && !frame_header [2] && !frame_header [3])
+        if (!frame_header [0] && !frame_header [1] && !frame_header [2])
             break;
 
-        for (i = 0; i < 4; ++i)
+        for (i = 0; i < 3; ++i)
             if (frame_header [i] < '0' ||
                 (frame_header [i] > '9' && frame_header [i] < 'A') ||
                 frame_header [i] > 'Z') {
@@ -139,15 +139,15 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
                     return -1;
             }
 
-        if (frame_header [9]) {
-            strcpy (error, "unknown frame_header flag set");
-            return -1;
-        }
+        // if (frame_header [9]) {
+        //     strcpy (error, "unknown frame_header flag set");
+        //     return -1;
+        // }
 
         if (syncsafe)
-            frame_size = frame_header [7] + (frame_header [6] << 7) + (frame_header [5] << 14) + (frame_header [4] << 21);
+            frame_size = frame_header [5] + (frame_header [4] << 7) + (frame_header [3] << 14);
         else
-            frame_size = frame_header [7] + (frame_header [6] << 8) + (frame_header [5] << 16) + (frame_header [4] << 24);
+            frame_size = frame_header [5] + (frame_header [4] << 8) + (frame_header [3] << 16);
 
         if (!frame_size) {
             strcpy (error, "empty frame not allowed");
@@ -166,7 +166,7 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
         tag_data += frame_size;
 
         if (frame_header [0] == 'T') {
-            int txxx_mode = !strncmp ((char *) frame_header, "TXXX", 4), si = 0;
+            int txxx_mode = !strncmp ((char *) frame_header, "TXX", 3), si = 0;
             unsigned char *utf8_strings [2];
 
             if (frame_body [0] == 0) {
@@ -244,7 +244,7 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
                 }
                 else    // if not TXXX, look up item in the table to find APEv2 item name
                     for (i = 0; i < NUM_TEXT_TAG_ITEMS; ++i)
-                        if (!strncmp ((char *) frame_header, text_tag_table [i].id3_item, 4)) {
+                        if (text_tag_table [i].id3_item3 && !strncmp ((char *) frame_header, text_tag_table [i].id3_item3, 3)) {
                             if (wpc && !WavpackAppendTagItem (wpc, text_tag_table [i].ape_item, (char *) utf8_strings [0], (int) strlen ((char *) utf8_strings [0]))) {
                                 strcpy (error, WavpackGetErrorMessage (wpc));
                                 return -1;
@@ -259,21 +259,28 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
                 while (si);
             }
         }
-        else if (!strncmp ((char *) frame_header, "APIC", 4)) {
-            if (frame_body [0] == 0) {
-                char *mime_type, *description, *extension, *item = NULL;
+        else if (!strncmp ((char *) frame_header, "PIC", 3)) {
+            if (frame_body [0] == 0 || frame_body [0] == 1) {
+                char *mime_type, *extension, *item = NULL;
                 unsigned char *frame_ptr = frame_body + 1;
                 int frame_bytes = frame_size - 1;
                 unsigned char picture_type;
 
-                mime_type = (char *) frame_ptr;
+                // while (frame_bytes-- && *frame_ptr++);
 
-                while (frame_bytes-- && *frame_ptr++);
+                // if (frame_bytes < 0) {
+                //     strcpy (error, "unterminated picture mime type");
+                //     return -1;
+                // }
 
-                if (frame_bytes < 0) {
-                    strcpy (error, "unterminated picture mime type");
+                if (frame_bytes < 3) {
+                    strcpy (error, "no image format");
                     return -1;
                 }
+
+                mime_type = (char *) frame_ptr;
+                frame_bytes -= 3;
+                frame_ptr += 3;
 
                 if (frame_bytes == 0) {
                     strcpy (error, "no picture type");
@@ -283,13 +290,16 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
                 picture_type = *frame_ptr++;
                 frame_bytes--;
 
-                description = (char *) frame_ptr;
+                if (frame_body [0] == 0) {
+                    char *description = (char *) frame_ptr;
 
-                while (frame_bytes-- && *frame_ptr++);
+                    while (frame_bytes-- && *frame_ptr++);
+                }
+                else {
+                    uint16_t *description = (uint16_t *) frame_ptr;
 
-                if (frame_bytes < 0) {
-                    strcpy (error, "unterminated picture description");
-                    return -1;
+                    while (frame_bytes >= 2 && *description++) frame_bytes -= 2;
+                    frame_ptr = (unsigned char *) description;
                 }
 
                 if (frame_bytes < 2) {
@@ -297,10 +307,14 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
                     return -1;
                 }
 
-                if (strstr (mime_type, "jpeg") || strstr (mime_type, "JPEG"))
+                if (!strncmp (mime_type, "JPG", 3))
                     extension = ".jpg";
-                else if (strstr (mime_type, "png") || strstr (mime_type, "PNG"))
+                else if (!strncmp (mime_type, "PNG", 3))
                     extension = ".png";
+                // if (strstr (mime_type, "jpeg") || strstr (mime_type, "JPEG"))
+                //     extension = ".jpg";
+                // else if (strstr (mime_type, "png") || strstr (mime_type, "PNG"))
+                //     extension = ".png";
                 else if (frame_ptr [0] == 0xFF && frame_ptr [1] == 0xD8)
                     extension = ".jpg";
                 else if (frame_ptr [0] == 0x89 && frame_ptr [1] == 0x50)
@@ -338,7 +352,7 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
                 }
             }
             else {
-                strcpy (error, "unhandled APIC character encoding");
+                sprintf (error, "unhandled PIC character encoding, %02x", frame_body [0]);
                 return -1;
             }
         }
@@ -360,7 +374,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
         unsigned char *cp = tag_data, *ce = cp + tag_size;
 
         while (cp < ce - 10)
-            if (cp [0] == 'I' && cp [1] == 'D' && cp [2] == '3' && cp [3] == 3) {
+            if (cp [0] == 'I' && cp [1] == 'D' && cp [2] == '3' && cp [3] == 2) {
                 tag_size = ce - cp;
                 tag_data = cp;
                 break;
