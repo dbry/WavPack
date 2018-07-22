@@ -950,7 +950,7 @@ unpack_cpu_has_feature_x86:
         pop     eax                         # and pop back into eax
         xor     eax, [esp]                  # compare to original pushed eflags
         popfd                               # restore original eflags
-        and     eax, 0x200000               # eax = 1 if eflags ID bit was changable
+        and     eax, 0x200000               # eax = 1 if eflags ID bit was changeable
         jz      oldcpu                      # return zero if CPUID is not available (wow!)
 
         push    ebx                         # we must save ebx

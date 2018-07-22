@@ -9,7 +9,7 @@
 // wave64.c
 
 // This module is a helper to the WavPack command-line programs to support Sony's
-// Wave64 WAV file varient. Note that unlike the WAV/RF64 version, this does not
+// Wave64 WAV file variant. Note that unlike the WAV/RF64 version, this does not
 // fall back to conventional WAV in the < 4GB case.
 
 #include <string.h>

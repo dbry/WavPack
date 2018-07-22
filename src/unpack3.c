@@ -11,7 +11,7 @@
 // This module provides unpacking for WavPack files prior to version 4.0,
 // not including "raw" files. As these modes are all obsolete and are no
 // longer written, this code will not be fully documented other than the
-// global functions. However, full documenation is provided in the version
+// global functions. However, full documentation is provided in the version
 // 3.97 source code. Note that this module does only the low-level sample
 // unpacking; the actual opening of the file (and obtaining information
 // from it) is handled in the unpack3_open.c module.

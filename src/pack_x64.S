@@ -67,7 +67,7 @@
 # decorr_pass structure contains separate arrays for each channel while the
 # MMX code wants there to be a single array of dual samples. The fix for
 # this is to convert the data in the arrays on entry and exit, and this is
-# made easy by the fact that the 8 MMX regsiters hold exactly the required
+# made easy by the fact that the 8 MMX registers hold exactly the required
 # amount of data (64 bytes)!
 #
 # This version has entry points for both the System V ABI and the Windows
@@ -527,7 +527,7 @@ bdone:  pslld   mm5, 16                     # sign-extend 16-bit weights back to
 #   int32_t *out_buffer,
 #   int32_t sample_count);
 #
-# It performs a single pass of stereo decorrelation, transfering from the
+# It performs a single pass of stereo decorrelation, transferring from the
 # input buffer to the output buffer. Note that this version of the function
 # requires that the up to 8 previous (depending on dpp->term) stereo samples
 # are visible and correct. In other words, it ignores the "samples_*"
@@ -1011,7 +1011,7 @@ done:   add     rsp, 8
 # they are to be used somewhere else. The magnitude of the output samples is
 # accumulated and returned (see scan_max_magnitude() for more details). By
 # using the overflow detection of the multiply instruction, this detects
-# when the "long_math" varient is required.
+# when the "long_math" variant is required.
 #
 # For the fastest possible operation with the four "common" decorrelation
 # filters (i.e, fast, normal, high and very high) this function can be
@@ -1374,7 +1374,7 @@ nxterm: mov     edx, [rbp]
 domult: mov     eax, [rbp+8]
         mov     edx, eax
         imul    eax, ebx
-        jo      multov                      # on overflow, jump to use 64-bit imul varient
+        jo      multov                      # on overflow, jump to use 64-bit imul variant
         sar     eax, 10
         sbb     ecx, eax
         je      2f
@@ -1450,7 +1450,7 @@ mexit:  mov     rax, r8                     # return max magnitude
 #                             struct decorr_pass *dpp,
 #                             int32_t sample_count);
 #
-# It performs a single pass of mono decorrelation, transfering from the
+# It performs a single pass of mono decorrelation, transferring from the
 # input buffer to the output buffer. Note that this version of the function
 # requires that the up to 8 previous (depending on dpp->term) mono samples
 # are visible and correct. In other words, it ignores the "samples_*"
@@ -1459,7 +1459,7 @@ mexit:  mov     rax, r8                     # return max magnitude
 # samples to the decorr_pass structure before returning.
 #
 # By using the overflow detection of the multiply instruction, it detects
-# when the "long_math" varient is required and automatically does it.
+# when the "long_math" variant is required and automatically does it.
 #
 # This version has entry points for both the System V ABI and the Windows
 # X64 ABI. It does not use the "red zone" or the "shadow area"; it saves the

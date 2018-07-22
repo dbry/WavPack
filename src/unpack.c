@@ -52,7 +52,7 @@ extern void DECORR_MONO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int
 ///////////////////////////// executable code ////////////////////////////////
 
 // This monster actually unpacks the WavPack bitstream(s) into the specified
-// buffer as 32-bit integers or floats (depending on orignal data). Lossy
+// buffer as 32-bit integers or floats (depending on original data). Lossy
 // samples will be clipped to their original limits (i.e. 8-bit samples are
 // clipped to -128/+127) but are still returned in longs. It is up to the
 // caller to potentially reformat this for the final output including any
