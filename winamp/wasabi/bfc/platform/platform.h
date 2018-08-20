@@ -142,7 +142,7 @@ inline int MulDiv(int a, int b, int c)
 
 #else
 #error port me
-// Windows API dependant definitions for non-windows platforms
+// Windows API dependent definitions for non-windows platforms
 
 #define __cdecl
 #define __stdcall

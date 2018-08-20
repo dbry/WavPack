@@ -140,7 +140,7 @@ void WADlg_DrawChildWindowBorders(HWND hwndDlg, int *tab, int tabsize); // each 
 HBITMAP WADlg_getBitmap();
 
 /// define WA_DLG_IMPLEMENT in one of your source files before including this .h
-// if you are making a media library plugin, you dont need to do this, look at view_ex for 
+// if you are making a media library plugin, you don't need to do this, look at view_ex for 
 // an example of how to get the function *'s via an IPC message.
 #ifdef __cplusplus
 }
