@@ -276,9 +276,10 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         else if (!strncmp (caf_chunk_header.mChunkType, "chan", 4)) {
             CAFChannelLayout *caf_channel_layout;
 
-            if (caf_chunk_header.mChunkSize < sizeof (CAFChannelLayout) || caf_chunk_header.mChunkSize > 1024) {
-                error_line ("this .CAF file has an invalid 'chan' chunk!");
-                return WAVPACK_SOFT_ERROR;
+            if (caf_chunk_header.mChunkSize < 0 || caf_chunk_header.mChunkSize > 1024 ||
+                caf_chunk_header.mChunkSize < sizeof (CAFChannelLayout)) {
+                    error_line ("this .CAF file has an invalid 'chan' chunk!");
+                    return WAVPACK_SOFT_ERROR;
             }
 
             if (debug_logging_mode)
