@@ -188,7 +188,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                     cptr += sizeof (dff_chunk_header);
                     WavpackBigEndianToNative (&dff_chunk_header, DFFChunkHeaderFormat);
 
-                    if (eptr - cptr >= dff_chunk_header.ckDataSize) {
+                    if (dff_chunk_header.ckDataSize > 0 && dff_chunk_header.ckDataSize <= eptr - cptr) {
                         if (!strncmp (dff_chunk_header.ckID, "FS  ", 4) && dff_chunk_header.ckDataSize == 4) {
                             memcpy (&sampleRate, cptr, sizeof (sampleRate));
                             WavpackBigEndianToNative (&sampleRate, "L");
