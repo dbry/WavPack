@@ -122,6 +122,7 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
     if (format_chunk.ckSize != sizeof (DSFFormatChunk) || format_chunk.formatVersion != 1 ||
         format_chunk.formatID != 0 || format_chunk.blockSize != DSF_BLOCKSIZE || format_chunk.reserved ||
         (format_chunk.bitsPerSample != 1 && format_chunk.bitsPerSample != 8) ||
+        format_chunk.numChannels < 1 || format_chunk.numChannels > 6 ||
         format_chunk.chanType < 1 || format_chunk.chanType > NUM_CHAN_TYPES) {
             error_line ("%s is not a valid .DSF file!", infilename);
             return WAVPACK_SOFT_ERROR;

@@ -204,6 +204,12 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 
                             chansSpecified = (int)(dff_chunk_header.ckDataSize - sizeof (numChannels)) / 4;
 
+                            if (numChannels < chansSpecified || numChannels < 1) {
+                                error_line ("%s is not a valid .DFF file!", infilename);
+                                free (prop_chunk);
+                                return WAVPACK_SOFT_ERROR;
+                            }
+
                             while (chansSpecified--) {
                                 if (!strncmp (cptr, "SLFT", 4) || !strncmp (cptr, "MLFT", 4))
                                     chanMask |= 0x1;
