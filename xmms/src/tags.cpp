@@ -196,7 +196,7 @@ ReadID3Tag(FILE * fp, ape_tag * Tag)
     if (genre >= sizeof(GenreList) / sizeof(int))
         genre = 12;
     tag_insert(Tag->genre, GenreList[genre], 30, 32, false);
-    sprintf(tag, "%u", tag[126]);
+    sprintf(tag, "%d", tag[126]);
     tag_insert(Tag->track, tag, 30, 32, false);
     free(buff);
     return 1;

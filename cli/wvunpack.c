@@ -2303,14 +2303,14 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
                 if (trailer_data [i] >= 0x20 && trailer_data [i] <= 0x7f)
                     trailer_name [i] = trailer_data [i];
 
-            fprintf (dst, "file wrapper:      %d + %d bytes (%s, %s)\n",
+            fprintf (dst, "file wrapper:      %u + %u bytes (%s, %s)\n",
                 header_bytes, trailer_bytes, header_name, trailer_name);
         }
         else if (header_bytes)
-            fprintf (dst, "file wrapper:      %d byte %s header\n",
+            fprintf (dst, "file wrapper:      %u byte %s header\n",
                 header_bytes, header_name);
         else if (trailer_bytes)
-            fprintf (dst, "file wrapper:      %d byte trailer only\n",
+            fprintf (dst, "file wrapper:      %u byte trailer only\n",
                 trailer_bytes);
         else
             fprintf (dst, "file wrapper:      none stored\n");
@@ -2421,7 +2421,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 // 6. number of samples (missing if unknown)
 // 7. md5sum (technically is hex, but not prefixed with "0x", might be missing)
 // 8. encoder version (basically this will always be 4 or 5, but there are some old files out there)
-// 9. encoding mode (in hex because it's a bitfield, always prefixed with "0x") 
+// 9. encoding mode (in hex because it's a bitfield, always prefixed with "0x")
 // 10. filename (if available)
 
 static void dump_file_item (WavpackContext *wpc, char *str, int item_id);

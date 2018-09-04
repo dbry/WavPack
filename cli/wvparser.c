@@ -158,7 +158,7 @@ int main ()
 	}
 
 	if (bcount)
-	    printf ("\nunknown data skipped, %d bytes\n", bcount);
+	    printf ("\nunknown data skipped, %u bytes\n", bcount);
 
         if (((wphdr.flags & SRATE_MASK) >> SRATE_LSB) == 15) {
             if (sample_rate != 44100)
@@ -174,13 +174,13 @@ int main ()
             printf ("\n");
 
 	if (wphdr.block_samples) {
-	    printf ("%s audio block, version 0x%03x, %d samples in %d bytes, time = %.2f-%.2f\n",
+	    printf ("%s audio block, version 0x%03x, %u samples in %u bytes, time = %.2f-%.2f\n",
                 (wphdr.flags & MONO_FLAG) ? "mono" : "stereo", wphdr.version, wphdr.block_samples, wphdr.ckSize + 8,
                 (double) wphdr.block_index / sample_rate, (double) (wphdr.block_index + wphdr.block_samples - 1) / sample_rate);
 
             // now show information from the "flags" field of the header
 
-            printf ("samples are %d bits in %d bytes, shifted %d bits, sample rate = %d\n",
+            printf ("samples are %d bits in %d bytes, shifted %d bits, sample rate = %u\n",
                 (int)((wphdr.flags & MAG_MASK) >> MAG_LSB) + 1,
                 (wphdr.flags & BYTES_STORED) + 1,
                 (int)(wphdr.flags & SHIFT_MASK) >> SHIFT_LSB,
@@ -211,7 +211,7 @@ int main ()
             printf ("flags: %s\n", flags_list);
         }
         else
-            printf ("non-audio block of %d bytes, version 0x%03x\n", wphdr.ckSize + 8, wphdr.version);
+            printf ("non-audio block of %u bytes, version 0x%03x\n", wphdr.ckSize + 8, wphdr.version);
 
 	// read and parse the actual block data (which is entirely composed of "meta" blocks)
 
@@ -249,7 +249,7 @@ int main ()
 		block_count++;
 
 		if (wphdr.flags & FINAL_BLOCK)
-		    printf ("multichannel: %d channels in %d blocks, %d bytes total\n",
+		    printf ("multichannel: %d channels in %d blocks, %u bytes total\n",
 			channel_count, block_count, total_bytes);
 	    }
 	}

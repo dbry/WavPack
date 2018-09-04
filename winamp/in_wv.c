@@ -1868,7 +1868,7 @@ int WavPack_GetAlbumArt(const wchar_t *filename, const wchar_t *type, void **bit
 			memmove (buffer, buffer + i + 1, *len);
 			retval = 0;
 #ifdef DEBUG_CONSOLE
-			sprintf (error, "WavPack_GetAlbumArt (\"%s\", %d) success!\n", wide2char (*mime_type), *len);
+			sprintf (error, "WavPack_GetAlbumArt (\"%s\", %lu) success!\n", wide2char (*mime_type), (unsigned long) *len);
 			debug_write (error);
 #endif
 		}
