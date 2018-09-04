@@ -154,12 +154,12 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
             return -1;
         }
 
-        frame_body = malloc (frame_size + 4);
-
         if (frame_size > tag_size) {
             strcpy (error, "can't read frame body");
             return -1;
         }
+
+        frame_body = malloc (frame_size + 4);
 
         memcpy (frame_body, tag_data, frame_size);
         tag_size -= frame_size;
