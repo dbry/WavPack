@@ -156,7 +156,7 @@ WavpackContext *WavpackOpenRawDecoder (
         }
 
         while (main_bytes >= 12) {
-            WavpackHeader *wphdr = malloc (sizeof (WavpackHeader));
+            WavpackHeader *wphdr;
 
             if (!msi) {
                 block_samples = *mcp++;
@@ -201,6 +201,7 @@ WavpackContext *WavpackOpenRawDecoder (
                 return NULL;
             }
 
+            wphdr = malloc (sizeof (WavpackHeader));
             memset (wphdr, 0, sizeof (WavpackHeader));
             memcpy (wphdr->ckID, "wvpk", 4);
             wphdr->ckSize = sizeof (WavpackHeader) - 8 + block_size;
@@ -223,8 +224,6 @@ WavpackContext *WavpackOpenRawDecoder (
             mcp += block_size;
 
             if (corr_data && corr_bytes >= 4) {
-                wphdr = malloc (sizeof (WavpackHeader));
-
                 crc = *ccp++;
                 crc += *ccp++ << 8;
                 crc += *ccp++ << 16;
@@ -248,6 +247,7 @@ WavpackContext *WavpackOpenRawDecoder (
                     return NULL;
                 }
 
+                wphdr = malloc (sizeof (WavpackHeader));
                 memset (wphdr, 0, sizeof (WavpackHeader));
                 memcpy (wphdr->ckID, "wvpk", 4);
                 wphdr->ckSize = sizeof (WavpackHeader) - 8 + block_size;

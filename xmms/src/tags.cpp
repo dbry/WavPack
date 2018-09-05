@@ -178,10 +178,14 @@ ReadID3Tag(FILE * fp, ape_tag * Tag)
     *(Tag->track) = '\0';
     *(Tag->year) = '\0';
 
-    if (fseek(fp, -128L, SEEK_END) != 0)
+    if (fseek(fp, -128L, SEEK_END) != 0) {
+        free (buff);
         return 0;
-    if (fread(buff, 1, 128, fp) != 128)
+    }
+    if (fread(buff, 1, 128, fp) != 128) {
+        free (buff);
         return 0;
+    }
     tag = buff;
     tag_insert(Tag->title, (tag + 3), 30, 32, false);
     tag_insert(Tag->artist, (tag + 33), 30, 32, false);
@@ -192,7 +196,7 @@ ReadID3Tag(FILE * fp, ape_tag * Tag)
     if (genre >= sizeof(GenreList) / sizeof(int))
         genre = 12;
     tag_insert(Tag->genre, GenreList[genre], 30, 32, false);
-    sprintf(tag, "%u", tag[126]);
+    sprintf(tag, "%d", tag[126]);
     tag_insert(Tag->track, tag, 30, 32, false);
     free(buff);
     return 1;
@@ -336,7 +340,7 @@ DeleteTag(char *filename)
     }
 
 
-    if (dellength > -1)         //if TAG was found, delete it 
+    if (dellength > -1)         //if TAG was found, delete it
     {
         fd = open(filename, O_RDWR);
         res = ftruncate(fd, (off_t) (filelength - dellength));

@@ -521,6 +521,8 @@ int main(int argc, char **argv)
             }
         }
 
+        free (track_peaks);
+        free (track_gains);
         free (matches);
     }
     else {
