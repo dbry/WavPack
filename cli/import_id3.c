@@ -351,6 +351,8 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
 
 int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used)
 {
+    int res, res_ss;
+
     if (bytes_used)
         *bytes_used = 0;
 
@@ -361,7 +363,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
 
         while (cp < ce - 10)
             if (cp [0] == 'I' && cp [1] == 'D' && cp [2] == '3' && cp [3] == 3) {
-                tag_size = ce - cp;
+                tag_size = (int)(ce - cp);
                 tag_data = cp;
                 break;
             }
@@ -372,12 +374,12 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
             return 0;
     }
 
-    int res = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, bytes_used, 0);
+    res = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, bytes_used, 0);
 
     if (res > 0)
         return wpc ? ImportID3v2_syncsafe (wpc, tag_data, tag_size, error, bytes_used, 0) : res;
 
-    int res_ss = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, bytes_used, 1);
+    res_ss = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, bytes_used, 1);
 
     if (res_ss > 0)
         return wpc ? ImportID3v2_syncsafe (wpc, tag_data, tag_size, error, bytes_used, 1) : res_ss;
