@@ -66,6 +66,9 @@ static uint32_t __inline read_code (Bitstream *bs, uint32_t maxcode);
 
 int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
 {
+    #ifndef __cplusplus
+    register
+    #endif
     struct entropy_data *c = wps->w.c + chan;
     uint32_t ones_count, low, mid, high;
     int32_t value;
