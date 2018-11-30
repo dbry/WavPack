@@ -247,7 +247,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
         return NULL;
     }
 
-    if (wv_id != stdin && (flags & OPEN_WVC)) {
+    if (*infilename != '-' && (flags & OPEN_WVC)) {
         char *in2filename = malloc (strlen (infilename) + 10);
 
         strcpy (in2filename, infilename);
