@@ -195,6 +195,11 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     int num_chans = config->num_channels;
     int i;
 
+    if (!config->sample_rate) {
+        strcpy (wpc->error_message, "sample rate cannot be zero!");
+        return FALSE;
+    }
+
     wpc->stream_version = (config->flags & CONFIG_COMPATIBLE_WRITE) ? CUR_STREAM_VERS : MAX_STREAM_VERS;
 
     if ((config->qmode & QMODE_DSD_AUDIO) && config->bytes_per_sample == 1 && config->bits_per_sample == 8) {
