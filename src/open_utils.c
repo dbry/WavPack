@@ -1258,13 +1258,13 @@ int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum)
 #endif
 
             if (meta_bc == 4) {
-                if (*dp++ != (csum & 0xff) || *dp++ != ((csum >> 8) & 0xff) || *dp++ != ((csum >> 16) & 0xff) || *dp++ != ((csum >> 24) & 0xff))
+                if (*dp != (csum & 0xff) || dp[1] != ((csum >> 8) & 0xff) || dp[2] != ((csum >> 16) & 0xff) || dp[3] != ((csum >> 24) & 0xff))
                     return FALSE;
             }
             else {
                 csum ^= csum >> 16;
 
-                if (*dp++ != (csum & 0xff) || *dp++ != ((csum >> 8) & 0xff))
+                if (*dp != (csum & 0xff) || dp[1] != ((csum >> 8) & 0xff))
                     return FALSE;
             }
 
