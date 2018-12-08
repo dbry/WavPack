@@ -22,7 +22,7 @@
     #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x86
     #define DECORR_STEREO_PASS_CONT_AVAILABLE unpack_cpu_has_feature_x86(CPU_FEATURE_MMX)
     #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x86
-#elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__))
+#elif defined(OPT_ASM_X64) && (defined (_WIN64) || defined(__CYGWIN__) || defined(__MINGW64__) || defined(__midipix__))
     #define DECORR_STEREO_PASS_CONT unpack_decorr_stereo_pass_cont_x64win
     #define DECORR_STEREO_PASS_CONT_AVAILABLE 1
     #define DECORR_MONO_PASS_CONT unpack_decorr_mono_pass_cont_x64win

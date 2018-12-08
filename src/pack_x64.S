@@ -1939,3 +1939,46 @@ normal_exit:
         .section .note.GNU-stack,"",@progbits
 #endif
 
+#ifdef __midipix__
+	.section .got$log2buffer_x64win,"r"
+	.global __imp_log2buffer_x64win
+__imp_log2buffer_x64win:
+	.quad	log2buffer_x64win
+	.linkonce discard
+
+	.section .got$pack_decorr_mono_pass_cont_x64win,"r"
+	.global __imp_pack_decorr_mono_pass_cont_x64win
+__imp_pack_decorr_mono_pass_cont_x64win:
+	.quad	pack_decorr_mono_pass_cont_x64win
+	.linkonce discard
+
+	.section .got$pack_decorr_stereo_pass_cont_x64win,"r"
+	.global __imp_pack_decorr_stereo_pass_cont_x64win
+__imp_pack_decorr_stereo_pass_cont_x64win:
+	.quad	pack_decorr_stereo_pass_cont_x64win
+	.linkonce discard
+
+	.section .got$pack_decorr_stereo_pass_cont_rev_x64win,"r"
+	.global __imp_pack_decorr_stereo_pass_cont_rev_x64win
+__imp_pack_decorr_stereo_pass_cont_rev_x64win:
+	.quad	pack_decorr_stereo_pass_cont_rev_x64win
+	.linkonce discard
+
+	.section .got$pack_decorr_stereo_pass_x64win,"r"
+	.global __imp_pack_decorr_stereo_pass_x64win
+__imp_pack_decorr_stereo_pass_x64win:
+	.quad	pack_decorr_stereo_pass_x64win
+	.linkonce discard
+
+	.section .got$scan_max_magnitude_x64win,"r"
+	.global __imp_scan_max_magnitude_x64win
+__imp_scan_max_magnitude_x64win:
+	.quad scan_max_magnitude_x64win
+	.linkonce discard
+
+	.section .got$pack_decorr_mono_buffer_x64win,"r"
+	.global __imp_pack_decorr_mono_buffer_x64win
+__imp_pack_decorr_mono_buffer_x64win:
+	.quad pack_decorr_mono_buffer_x64win
+	.linkonce discard
+#endif
