@@ -955,3 +955,16 @@ mono_done:
         .section .note.GNU-stack,"",@progbits
 #endif
 
+#ifdef __midipix__
+	.section .got$unpack_decorr_mono_pass_cont_x64win,"r"
+	.global __imp_unpack_decorr_mono_pass_cont_x64win
+__imp_unpack_decorr_mono_pass_cont_x64win:
+	.quad	unpack_decorr_mono_pass_cont_x64win
+	.linkonce discard
+
+	.section .got$unpack_decorr_stereo_pass_cont_x64win,"r"
+	.global __imp_unpack_decorr_stereo_pass_cont_x64win
+__imp_unpack_decorr_stereo_pass_cont_x64win:
+	.quad	unpack_decorr_stereo_pass_cont_x64win
+	.linkonce discard
+#endif
