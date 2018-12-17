@@ -46,3 +46,30 @@ Debug/
 
 *.exe
 
+#
+# CMake ignores
+#
+
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+/*[Bb]uild*/
+
+#
+# Visual Studio ignores
+#
+
+.vs/
+CMakeSettings.json
+
+#
+# Visual Studio Code ignores
+#
+
+.vscode/
