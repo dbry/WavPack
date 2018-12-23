@@ -280,7 +280,7 @@ typedef int (*WavpackBlockOutput)(void *id, void *data, int32_t bcount);
 
 //////////////////////////// function prototypes /////////////////////////////
 
-typedef void WavpackContext;
+typedef struct WavpackContext WavpackContext;
 
 #ifdef __cplusplus
 extern "C" {
