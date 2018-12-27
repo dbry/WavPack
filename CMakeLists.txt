@@ -11,14 +11,13 @@ if(CMAKE_ASM_COMPILER)
   enable_language(ASM)
 endif()
 
-check_language(ASM_MASM)
-if(CMAKE_ASM_MASM_COMPILER)
+if(MSVC)
   enable_language(ASM_MASM)
-endif()
-
-check_language(ASM-ATT)
-if(CMAKE_ASM-ATT_COMPILER)
-  enable_language(ASM-ATT)
+else()
+  check_language(ASM-ATT)
+  if(CMAKE_ASM-ATT_COMPILER)
+    enable_language(ASM-ATT)
+  endif()
 endif()
 
 
