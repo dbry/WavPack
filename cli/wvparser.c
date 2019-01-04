@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2018 David Bryant.                 //
+//                Copyright (c) 1998 - 2019 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -132,7 +132,7 @@ static int verify_wavpack_block (unsigned char *buffer);
 
 static const char *sign_on = "\n"
 " WVPARSER  WavPack Audio File Parser Test Filter  Version 1.00\n"
-" Copyright (c) 1998 - 2018 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2019 David Bryant.  All Rights Reserved.\n\n";
 
 int main ()
 {
