@@ -180,7 +180,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 
             if (!strncmp (prop_chunk, "SND ", 4)) {
                 char *cptr = prop_chunk + 4, *eptr = prop_chunk + dff_chunk_header.ckDataSize;
-                uint16_t numChannels, chansSpecified, chanMask = 0;
+                uint16_t numChannels = 0, chansSpecified, chanMask = 0;
                 uint32_t sampleRate;
 
                 while (eptr - cptr >= sizeof (dff_chunk_header)) {
@@ -204,7 +204,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 
                             chansSpecified = (int)(dff_chunk_header.ckDataSize - sizeof (numChannels)) / 4;
 
-                            if (numChannels < chansSpecified || numChannels < 1) {
+                            if (numChannels < chansSpecified || numChannels < 1 || numChannels > 256) {
                                 error_line ("%s is not a valid .DFF file!", infilename);
                                 free (prop_chunk);
                                 return WAVPACK_SOFT_ERROR;
@@ -279,6 +279,12 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             free (prop_chunk);
         }
         else if (!strncmp (dff_chunk_header.ckID, "DSD ", 4)) {
+
+            if (!config->num_channels) {
+                error_line ("%s is not a valid .DFF file!", infilename);
+                return WAVPACK_SOFT_ERROR;
+            }
+
             total_samples = dff_chunk_header.ckDataSize / config->num_channels;
             break;
         }
