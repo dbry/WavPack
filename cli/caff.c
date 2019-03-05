@@ -152,7 +152,7 @@ static struct {
 
 int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
 {
-    uint32_t chan_chunk = 0, channel_layout = 0, bcount;
+    uint32_t chan_chunk = 0, desc_chunk = 0, channel_layout = 0, bcount;
     unsigned char *channel_identities = NULL;
     unsigned char *channel_reorder = NULL;
     int64_t total_samples = 0, infilesize;
@@ -218,6 +218,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             }
 
             WavpackBigEndianToNative (&caf_audio_format, CAFAudioFormatFormat);
+            desc_chunk = 1;
 
             if (debug_logging_mode) {
                 char formatstr [5];
@@ -458,7 +459,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         else if (!strncmp (caf_chunk_header.mChunkType, "data", 4)) {     // on the data chunk, get size and exit loop
             uint32_t mEditCount;
 
-            if (!DoReadFile (infile, &mEditCount, sizeof (mEditCount), &bcount) ||
+            if (!desc_chunk || !DoReadFile (infile, &mEditCount, sizeof (mEditCount), &bcount) ||
                 bcount != sizeof (mEditCount)) {
                     error_line ("%s is not a valid .CAF file!", infilename);
                     return WAVPACK_SOFT_ERROR;
