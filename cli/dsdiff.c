@@ -181,7 +181,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             if (!strncmp (prop_chunk, "SND ", 4)) {
                 char *cptr = prop_chunk + 4, *eptr = prop_chunk + dff_chunk_header.ckDataSize;
                 uint16_t numChannels = 0, chansSpecified, chanMask = 0;
-                uint32_t sampleRate;
+                uint32_t sampleRate = 0;
 
                 while (eptr - cptr >= sizeof (dff_chunk_header)) {
                     memcpy (&dff_chunk_header, cptr, sizeof (dff_chunk_header));
@@ -280,7 +280,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
         }
         else if (!strncmp (dff_chunk_header.ckID, "DSD ", 4)) {
 
-            if (!config->num_channels) {
+            if (!config->num_channels || !config->sample_rate) {
                 error_line ("%s is not a valid .DFF file!", infilename);
                 return WAVPACK_SOFT_ERROR;
             }
