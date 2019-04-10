@@ -40,6 +40,7 @@ static struct {
     { "TCON", "Genre" },
     { "TYER", "Year" },
     { "TCOM", "Composer" },
+    { "TPUB", "Publisher" },
     { "TCMP", "Compilation" },
     { "TENC", "EncodedBy" },
     { "TEXT", "Lyricist" },
