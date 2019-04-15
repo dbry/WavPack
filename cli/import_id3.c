@@ -262,7 +262,7 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
         }
         else if (!strncmp ((char *) frame_header, "APIC", 4)) {
             if (frame_body [0] == 0) {
-                char *mime_type, *description, *extension, *item = NULL;
+                char *mime_type, *extension, *item = NULL;
                 unsigned char *frame_ptr = frame_body + 1;
                 int frame_bytes = frame_size - 1;
                 unsigned char picture_type;
@@ -283,8 +283,6 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
 
                 picture_type = *frame_ptr++;
                 frame_bytes--;
-
-                description = (char *) frame_ptr;
 
                 while (frame_bytes-- && *frame_ptr++);
 

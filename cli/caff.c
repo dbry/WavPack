@@ -592,7 +592,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
     // format and write the CAF File Header
 
-    strncpy (caf_file_header.mFileType, "caff", sizeof (caf_file_header.mFileType));
+    memcpy (caf_file_header.mFileType, "caff", sizeof (caf_file_header.mFileType));
     caf_file_header.mFileVersion = 1;
     caf_file_header.mFileFlags = 0;
     WavpackNativeToBigEndian (&caf_file_header, CAFFileHeaderFormat);
@@ -603,7 +603,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
     // format and write the Audio Description Chunk
 
-    strncpy (caf_desc_chunk_header.mChunkType, "desc", sizeof (caf_desc_chunk_header.mChunkType));
+    memcpy (caf_desc_chunk_header.mChunkType, "desc", sizeof (caf_desc_chunk_header.mChunkType));
     caf_desc_chunk_header.mChunkSize = sizeof (caf_audio_format);
     WavpackNativeToBigEndian (&caf_desc_chunk_header, CAFChunkHeaderFormat);
 
@@ -612,7 +612,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
             return FALSE;
 
     caf_audio_format.mSampleRate = (double) sample_rate;
-    strncpy (caf_audio_format.mFormatID, "lpcm", sizeof (caf_audio_format.mFormatID));
+    memcpy (caf_audio_format.mFormatID, "lpcm", sizeof (caf_audio_format.mFormatID));
     caf_audio_format.mFormatFlags = float_norm_exp ? CAF_FORMAT_FLOAT : 0;
 
     if (!(qmode & QMODE_BIG_ENDIAN))
@@ -646,7 +646,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
         if ((channel_layout_tag & 0xff0000) || (bits == num_channels && !(qmode & QMODE_REORDERED_CHANS))) {
 
-            strncpy (caf_chan_chunk_header.mChunkType, "chan", sizeof (caf_chan_chunk_header.mChunkType));
+            memcpy (caf_chan_chunk_header.mChunkType, "chan", sizeof (caf_chan_chunk_header.mChunkType));
             caf_chan_chunk_header.mChunkSize = sizeof (caf_channel_layout);
             WavpackNativeToBigEndian (&caf_chan_chunk_header, CAFChunkHeaderFormat);
 
@@ -696,7 +696,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
                 }
             }
 
-            strncpy (caf_chan_chunk_header.mChunkType, "chan", sizeof (caf_chan_chunk_header.mChunkType));
+            memcpy (caf_chan_chunk_header.mChunkType, "chan", sizeof (caf_chan_chunk_header.mChunkType));
             caf_chan_chunk_header.mChunkSize = sizeof (caf_channel_layout) + sizeof (caf_channel_description) * num_channels;
             WavpackNativeToBigEndian (&caf_chan_chunk_header, CAFChunkHeaderFormat);
 
@@ -739,7 +739,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
     // format and write the Audio Data Chunk
 
-    strncpy (caf_data_chunk_header.mChunkType, "data", sizeof (caf_data_chunk_header.mChunkType));
+    memcpy (caf_data_chunk_header.mChunkType, "data", sizeof (caf_data_chunk_header.mChunkType));
 
     if (total_samples == -1)
         caf_data_chunk_header.mChunkSize = -1;

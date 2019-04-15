@@ -411,7 +411,7 @@ static int append_ape_tag_item (WavpackContext *wpc, const char *item, const cha
     int isize = (int) strlen (item);
 
     if (!m_tag->ape_tag_hdr.ID [0]) {
-        strncpy (m_tag->ape_tag_hdr.ID, "APETAGEX", sizeof (m_tag->ape_tag_hdr.ID));
+        memcpy (m_tag->ape_tag_hdr.ID, "APETAGEX", sizeof (m_tag->ape_tag_hdr.ID));
         m_tag->ape_tag_hdr.version = 2000;
         m_tag->ape_tag_hdr.length = sizeof (m_tag->ape_tag_hdr);
         m_tag->ape_tag_hdr.item_count = 0;

@@ -842,24 +842,24 @@ static int create_riff_header (WavpackContext *wpc, int64_t total_samples, void 
         wavhdr.GUID [13] = 0x71;
     }
 
-    strncpy (riffhdr.ckID, do_rf64 ? "RF64" : "RIFF", sizeof (riffhdr.ckID));
-    strncpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
+    memcpy (riffhdr.ckID, do_rf64 ? "RF64" : "RIFF", sizeof (riffhdr.ckID));
+    memcpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
     total_riff_bytes = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + total_data_bytes + wpc->riff_trailer_bytes;
     if (do_rf64) total_riff_bytes += sizeof (ds64hdr) + sizeof (ds64_chunk);
     if (write_junk) total_riff_bytes += sizeof (junkchunk);
-    strncpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
-    strncpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
+    memcpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
+    memcpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
     fmthdr.ckSize = wavhdrsize;
 
     if (write_junk) {
         CLEAR (junkchunk);
-        strncpy (junkchunk.ckID, "junk", sizeof (junkchunk.ckID));
+        memcpy (junkchunk.ckID, "junk", sizeof (junkchunk.ckID));
         junkchunk.ckSize = sizeof (junkchunk) - 8;
         WavpackNativeToLittleEndian (&junkchunk, ChunkHeaderFormat);
     }
 
     if (do_rf64) {
-        strncpy (ds64hdr.ckID, "ds64", sizeof (ds64hdr.ckID));
+        memcpy (ds64hdr.ckID, "ds64", sizeof (ds64hdr.ckID));
         ds64hdr.ckSize = sizeof (ds64_chunk);
         CLEAR (ds64_chunk);
         ds64_chunk.riffSize64 = total_riff_bytes;

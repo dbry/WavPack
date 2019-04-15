@@ -390,25 +390,25 @@ int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
         wavhdr.GUID [13] = 0x71;
     }
 
-    strncpy (riffhdr.ckID, do_rf64 ? "RF64" : "RIFF", sizeof (riffhdr.ckID));
-    strncpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
+    memcpy (riffhdr.ckID, do_rf64 ? "RF64" : "RIFF", sizeof (riffhdr.ckID));
+    memcpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
     total_riff_bytes = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + ((total_data_bytes + 1) & ~(int64_t)1);
     if (do_rf64) total_riff_bytes += sizeof (ds64hdr) + sizeof (ds64_chunk);
     total_riff_bytes += table_length * sizeof (CS64Chunk);
     if (write_junk) total_riff_bytes += sizeof (junkchunk);
-    strncpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
-    strncpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
+    memcpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
+    memcpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
     fmthdr.ckSize = wavhdrsize;
 
     if (write_junk) {
         CLEAR (junkchunk);
-        strncpy (junkchunk.ckID, "junk", sizeof (junkchunk.ckID));
+        memcpy (junkchunk.ckID, "junk", sizeof (junkchunk.ckID));
         junkchunk.ckSize = sizeof (junkchunk) - 8;
         WavpackNativeToLittleEndian (&junkchunk, ChunkHeaderFormat);
     }
 
     if (do_rf64) {
-        strncpy (ds64hdr.ckID, "ds64", sizeof (ds64hdr.ckID));
+        memcpy (ds64hdr.ckID, "ds64", sizeof (ds64hdr.ckID));
         ds64hdr.ckSize = sizeof (ds64_chunk) + (table_length * sizeof (CS64Chunk));
         CLEAR (ds64_chunk);
         ds64_chunk.riffSize64 = total_riff_bytes;
@@ -428,7 +428,7 @@ int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     // this "table" is just a dummy placeholder for testing (normally not written)
 
     if (table_length) {
-        strncpy (cs64_chunk.ckID, "dmmy", sizeof (cs64_chunk.ckID));
+        memcpy (cs64_chunk.ckID, "dmmy", sizeof (cs64_chunk.ckID));
         cs64_chunk.chunkSize64 = 12345678;
         WavpackNativeToLittleEndian (&cs64_chunk, CS64ChunkFormat);
     }
