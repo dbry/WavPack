@@ -7,6 +7,7 @@ libwavpack_la_SOURCES = \
 	extra1.c \
 	extra2.c \
 	open_utils.c \
+	open_memfile.c \
 	open_filename.c \
 	open_legacy.c \
 	open_raw.c \

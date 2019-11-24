@@ -293,6 +293,11 @@ WavpackContext *WavpackOpenRawDecoder (
     void *corr_data, int32_t corr_size,
     int16_t version, char *error, int flags, int norm_offset);
 
+WavpackContext *WavpackOpenMemoryFile (
+    void *main_data, size_t main_size,
+    void *corr_data, size_t corr_size,
+    char *error, int flags, int norm_offset);
+
 WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInputEx (WavpackStreamReader *reader, void *wv_id, void *wvc_id, char *error, int flags, int norm_offset);
 WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int flags, int norm_offset);
