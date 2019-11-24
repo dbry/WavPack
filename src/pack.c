@@ -1685,7 +1685,7 @@ static void bs_open_write (Bitstream *bs, void *buffer_start, void *buffer_end)
 {
     bs->error = bs->sr = bs->bc = 0;
     bs->ptr = bs->buf = buffer_start;
-    bs->end = buffer_end;
+    bs->end = (void *)(sizeof(*bs->ptr)*((uintptr_t)buffer_end/sizeof(*bs->ptr)));
     bs->wrap = bs_write;
 }
 
