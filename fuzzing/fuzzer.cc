@@ -16,6 +16,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     ofstream myFile ("/tmp/data.bin", ios::out | ios::binary);
     
     myFile.write ((char*)data, size);
+    myFile.close ();
     char error [80];
     WavpackContext *wpc = WavpackOpenFileInput ("/tmp/data.bin", error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
 
@@ -26,7 +27,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     MD5_CTX md5_global, md5_local;
     unsigned char *chunked_md5;
 
-    if (!wpc) return 1;
+    if (!wpc) {
+        remove ("/tmp/data.bin");
+        return 1;
+    }
 
     num_chans = WavpackGetNumChannels (wpc);
     total_samples = WavpackGetNumSamples64 (wpc);
@@ -34,6 +38,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     qmode = WavpackGetQualifyMode (wpc);
 
     WavpackCloseFile (wpc);
+    remove ("/tmp/data.bin");
 
     return 0;
 }
