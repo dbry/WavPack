@@ -200,6 +200,11 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         return FALSE;
     }
 
+    if (!num_chans) {
+        strcpy (wpc->error_message, "channel count cannot be zero!");
+        return FALSE;
+    }
+
     wpc->stream_version = (config->flags & CONFIG_COMPATIBLE_WRITE) ? CUR_STREAM_VERS : MAX_STREAM_VERS;
 
     if ((config->qmode & QMODE_DSD_AUDIO) && config->bytes_per_sample == 1 && config->bits_per_sample == 8) {
@@ -258,12 +263,28 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
 
     if (!(flags & DSD_FLAG)) {
         if (config->float_norm_exp) {
+            if (config->bytes_per_sample != 4 || config->bits_per_sample != 32) {
+                strcpy (wpc->error_message, "incorrect bits/bytes configuration for float data!");
+                return FALSE;
+            }
+
             wpc->config.float_norm_exp = config->float_norm_exp;
             wpc->config.flags |= CONFIG_FLOAT_DATA;
             flags |= FLOAT_DATA;
         }
-        else
+        else {
+            if (config->bytes_per_sample < 1 || config->bytes_per_sample > 4) {
+                strcpy (wpc->error_message, "invalid bytes per sample!");
+                return FALSE;
+            }
+
+            if (config->bits_per_sample < 1 || config->bits_per_sample > config->bytes_per_sample * 8) {
+                strcpy (wpc->error_message, "invalid bits per sample!");
+                return FALSE;
+            }
+
             flags |= ((config->bytes_per_sample * 8) - config->bits_per_sample) << SHIFT_LSB;
+        }
 
         if (config->flags & CONFIG_HYBRID_FLAG) {
             flags |= HYBRID_FLAG | HYBRID_BITRATE | HYBRID_BALANCE;
@@ -927,6 +948,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
         max_blocksize += max_blocksize >> 2;    // otherwise 25% margin for everything else
 
     max_blocksize += wpc->metabytes + 1024;     // finally, add metadata & another 1K margin
+    max_blocksize += max_blocksize & 1;         // and make sure it's even so we detect overflow
 
     out2buff = (wpc->wvc_flag) ? malloc (max_blocksize) : NULL;
     out2end = out2buff + max_blocksize;
