@@ -549,31 +549,7 @@ void free_streams (WavpackContext *wpc)
         }
 
 #ifdef ENABLE_DSD
-        if (wpc->streams [si]->dsd.probabilities) {
-            free (wpc->streams [si]->dsd.probabilities);
-            wpc->streams [si]->dsd.probabilities = NULL;
-        }
-
-        if (wpc->streams [si]->dsd.summed_probabilities) {
-            free (wpc->streams [si]->dsd.summed_probabilities);
-            wpc->streams [si]->dsd.summed_probabilities = NULL;
-        }
-
-        if (wpc->streams [si]->dsd.value_lookup) {
-            int i;
-
-            for (i = 0; i < wpc->streams [si]->dsd.history_bins; ++i)
-                if (wpc->streams [si]->dsd.value_lookup [i])
-                    free (wpc->streams [si]->dsd.value_lookup [i]);
-
-            free (wpc->streams [si]->dsd.value_lookup);
-            wpc->streams [si]->dsd.value_lookup = NULL;
-        }
-
-        if (wpc->streams [si]->dsd.ptable) {
-            free (wpc->streams [si]->dsd.ptable);
-            wpc->streams [si]->dsd.ptable = NULL;
-        }
+        free_dsd_tables (wpc->streams [si]);
 #endif
 
         if (si) {
@@ -584,6 +560,34 @@ void free_streams (WavpackContext *wpc)
     }
 
     wpc->current_stream = 0;
+}
+
+void free_dsd_tables (WavpackStream *wps)
+{
+    if (wps->dsd.probabilities) {
+        free (wps->dsd.probabilities);
+        wps->dsd.probabilities = NULL;
+    }
+
+    if (wps->dsd.summed_probabilities) {
+        free (wps->dsd.summed_probabilities);
+        wps->dsd.summed_probabilities = NULL;
+    }
+
+    if (wps->dsd.lookup_buffer) {
+        free (wps->dsd.lookup_buffer);
+        wps->dsd.lookup_buffer = NULL;
+    }
+
+    if (wps->dsd.value_lookup) {
+        free (wps->dsd.value_lookup);
+        wps->dsd.value_lookup = NULL;
+    }
+
+    if (wps->dsd.ptable) {
+        free (wps->dsd.ptable);
+        wps->dsd.ptable = NULL;
+    }
 }
 
 void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp)

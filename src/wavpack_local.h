@@ -211,6 +211,14 @@ typedef struct bs {
 #define MAX_NTERMS 16
 #define MAX_TERM 8
 
+// DSD-specific definitions
+
+#define MAX_HISTORY_BITS    5       // maximum number of history bits in DSD "fast" mode
+                                    // note that 5 history bits requires 32 history bins
+#define MAX_BYTES_PER_BIN   1280    // maximum bytes for the value lookup array (per bin)
+                                    //  such that the total storage per bin = 2K (also
+                                    //  counting probabilities and summed_probabilities)
+
 // Note that this structure is directly accessed in assembly files, so modify with care
 
 struct decorr_pass {
@@ -269,7 +277,7 @@ typedef struct {
     const WavpackDecorrSpec *decorr_specs;
 
     struct {
-        unsigned char *byteptr, *endptr, (*probabilities) [256], **value_lookup, mode, ready;
+        unsigned char *byteptr, *endptr, (*probabilities) [256], *lookup_buffer, **value_lookup, mode, ready;
         int history_bins, p0, p1;
         int16_t (*summed_probabilities) [256];
         uint32_t low, high, value;
@@ -674,6 +682,7 @@ void WavpackBigEndianToNative (void *data, char *format);
 void WavpackNativeToBigEndian (void *data, char *format);
 
 void install_close_callback (WavpackContext *wpc, void cb_func (void *wpc));
+void free_dsd_tables (WavpackStream *wps);
 void free_streams (WavpackContext *wpc);
 
 /////////////////////////////////// tag utilities ////////////////////////////////////
