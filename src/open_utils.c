@@ -177,6 +177,11 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             return WavpackCloseFile (wpc);
         }
 
+        if (!wps->wphdr.block_samples) {    // free blockbuff if we're going to loop again
+            free (wps->blockbuff);
+            wps->blockbuff = NULL;
+        }
+
         wps->init_done = TRUE;
     }
 
