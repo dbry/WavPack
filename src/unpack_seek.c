@@ -85,6 +85,12 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
         wpc->reader->set_pos_abs (wpc->wv_in, wpc->filepos);
         wpc->reader->read_bytes (wpc->wv_in, &wps->wphdr, sizeof (WavpackHeader));
         WavpackLittleEndianToNative (&wps->wphdr, WavpackHeaderFormat);
+
+        if ((wps->wphdr.ckSize & 1) || wps->wphdr.ckSize < 24 || wps->wphdr.ckSize >= 1024 * 1024) {
+            free_streams (wpc);
+            return FALSE;
+        }
+
         wps->blockbuff = (unsigned char *)malloc (wps->wphdr.ckSize + 8);
         memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
@@ -109,6 +115,12 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
             wpc->reader->set_pos_abs (wpc->wvc_in, wpc->file2pos);
             wpc->reader->read_bytes (wpc->wvc_in, &wps->wphdr, sizeof (WavpackHeader));
             WavpackLittleEndianToNative (&wps->wphdr, WavpackHeaderFormat);
+
+            if ((wps->wphdr.ckSize & 1) || wps->wphdr.ckSize < 24 || wps->wphdr.ckSize >= 1024 * 1024) {
+                free_streams (wpc);
+                return FALSE;
+            }
+
             wps->block2buff = (unsigned char *)malloc (wps->wphdr.ckSize + 8);
             memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
 
@@ -260,7 +272,7 @@ static int64_t find_header (WavpackStreamReader64 *reader, void *id, int64_t fil
 
         if (sp < ep) {
             bleft = (int)(ep - sp);
-            memcpy (buffer, sp, bleft);
+            memmove (buffer, sp, bleft);
             ep -= (sp - buffer);
             sp = buffer;
         }
