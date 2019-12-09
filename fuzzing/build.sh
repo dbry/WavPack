@@ -17,8 +17,7 @@
 
 # build project
 # e.g.
-./autogen.sh
-./configure
+./autogen.sh --disable-apps
 make
 
 # build fuzzers
