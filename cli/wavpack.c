@@ -2016,7 +2016,39 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 DoReadFile (wv_file.file, block_buff, wv_file.first_block_size, &bcount) &&
                 bcount == wv_file.first_block_size && !strncmp (block_buff, "wvpk", 4)) {
 
+                    // If we got the RIFF header from the source file, we try to update it here if it's a simple
+                    // header (not RF64) and the audio data length is appropriate. Note that this means we're no
+                    // longer strictly lossless, but the user essentially told us the length in the header was
+                    // wrong, so we're fixing it.
+
+                    if (!(loc_config.qmode & (QMODE_NO_STORE_WRAPPER | QMODE_RAW_PCM)) && WavpackGetWrapperLocation (block_buff, NULL)) {
+                        uint32_t wrapper_size;
+                        unsigned char *wrapper_location = WavpackGetWrapperLocation (block_buff, &wrapper_size);
+                        int64_t data_size = WavpackGetSampleIndex64 (wpc) * WavpackGetNumChannels (wpc) * WavpackGetBytesPerSample (wpc);
+                        ChunkHeader chunk_header;
+
+                        memcpy (&chunk_header, wrapper_location, sizeof (ChunkHeader));
+
+                        if (data_size <= 0xff000000 && !strncmp (chunk_header.ckID, "RIFF", 4)) {
+                            chunk_header.ckSize = wrapper_size + data_size - 8;
+                            WavpackNativeToLittleEndian (&chunk_header, ChunkHeaderFormat);
+                            memcpy (wrapper_location, &chunk_header, sizeof (ChunkHeader));
+                            memcpy (&chunk_header, wrapper_location + wrapper_size - sizeof (ChunkHeader), sizeof (ChunkHeader));
+
+                            if (!strncmp (chunk_header.ckID, "data", 4)) {
+                                chunk_header.ckSize = data_size;
+                                WavpackNativeToLittleEndian (&chunk_header, ChunkHeaderFormat);
+                            }
+
+                            memcpy (wrapper_location + wrapper_size - sizeof (ChunkHeader), &chunk_header, sizeof (ChunkHeader));
+                            error_line ("updated RIFF header with actual size");
+                        }
+                        else
+                            error_line ("non-RIFF header or size too big (%llx) for RIFF!!", data_size);
+                    }
+
                     // this call will take care of the initial WavPack header and any RIFF header the library made
+                    // (and also make sure the block checksum is correct)
 
                     WavpackUpdateNumSamples (wpc, block_buff);
 
