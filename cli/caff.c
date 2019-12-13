@@ -473,8 +473,13 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             if ((config->qmode & QMODE_IGNORE_LENGTH) || caf_chunk_header.mChunkSize == -1) {
                 config->qmode |= QMODE_IGNORE_LENGTH;
 
-                if (infilesize && DoGetFilePosition (infile) != -1)
+                if (infilesize && DoGetFilePosition (infile) != -1) {
                     total_samples = (infilesize - DoGetFilePosition (infile)) / caf_audio_format.mBytesPerPacket;
+
+                    if ((infilesize - DoGetFilePosition (infile)) % caf_audio_format.mBytesPerPacket)
+                        error_line ("warning: audio length does not divide evenly, %d bytes will be discarded!",
+                            (int)((infilesize - DoGetFilePosition (infile)) % caf_audio_format.mBytesPerPacket));
+                }
                 else
                     total_samples = -1;
             }

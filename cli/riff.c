@@ -259,8 +259,13 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             }
 
             if (config->qmode & QMODE_IGNORE_LENGTH) {
-                if (infilesize && DoGetFilePosition (infile) != -1)
+                if (infilesize && DoGetFilePosition (infile) != -1) {
                     total_samples = (infilesize - DoGetFilePosition (infile)) / WaveHeader.BlockAlign;
+
+                    if ((infilesize - DoGetFilePosition (infile)) % WaveHeader.BlockAlign)
+                        error_line ("warning: audio length does not divide evenly, %d bytes will be discarded!",
+                            (int)((infilesize - DoGetFilePosition (infile)) % WaveHeader.BlockAlign));
+                }
                 else
                     total_samples = -1;
             }
