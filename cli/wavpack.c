@@ -2041,10 +2041,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                             }
 
                             memcpy (wrapper_location + wrapper_size - sizeof (ChunkHeader), &chunk_header, sizeof (ChunkHeader));
-                            error_line ("updated RIFF header with actual size");
                         }
-                        else
-                            error_line ("non-RIFF header or size too big (%llx) for RIFF!!", data_size);
                     }
 
                     // this call will take care of the initial WavPack header and any RIFF header the library made
