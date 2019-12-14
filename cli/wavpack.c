@@ -2030,13 +2030,13 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                         memcpy (&chunk_header, wrapper_location, sizeof (ChunkHeader));
 
                         if (data_size <= 0xff000000 && !strncmp (chunk_header.ckID, "RIFF", 4)) {
-                            chunk_header.ckSize = wrapper_size + data_size - 8;
+                            chunk_header.ckSize = (uint32_t) (wrapper_size + data_size - 8);
                             WavpackNativeToLittleEndian (&chunk_header, ChunkHeaderFormat);
                             memcpy (wrapper_location, &chunk_header, sizeof (ChunkHeader));
                             memcpy (&chunk_header, wrapper_location + wrapper_size - sizeof (ChunkHeader), sizeof (ChunkHeader));
 
                             if (!strncmp (chunk_header.ckID, "data", 4)) {
-                                chunk_header.ckSize = data_size;
+                                chunk_header.ckSize = (uint32_t) data_size;
                                 WavpackNativeToLittleEndian (&chunk_header, ChunkHeaderFormat);
                             }
 

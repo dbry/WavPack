@@ -386,23 +386,23 @@
 				>
 			</File>
 			<File
-				RelativePath="..\cli\caff.c"
+				RelativePath="..\cli\caff_write.c"
 				>
 			</File>
 			<File
-				RelativePath="..\cli\riff.c"
+				RelativePath="..\cli\riff_write.c"
 				>
 			</File>
 			<File
-				RelativePath="..\cli\wave64.c"
+				RelativePath="..\cli\wave64_write.c"
 				>
 			</File>
 			<File
-				RelativePath="..\cli\dsdiff.c"
+				RelativePath="..\cli\dsdiff_write.c"
 				>
 			</File>
 			<File
-				RelativePath="..\cli\dsf.c"
+				RelativePath="..\cli\dsf_write.c"
 				>
 			</File>
 			<File
