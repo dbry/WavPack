@@ -29,7 +29,7 @@
 
 static const char *sign_on = "\n"
 " WVTEST  libwavpack Tester/Exerciser for WavPack  %s Version %s\n"
-" Copyright (c) 2018 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2019 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVTEST using libwavpack version %s, expected %s (see README)\n\n";

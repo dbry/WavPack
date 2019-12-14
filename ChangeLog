@@ -1,3 +1,116 @@
+2019-12-12  David Bryant  <david@wavpack.com>
+
+  * cli/riff.c, cli/wave64.c, cli/caff.c:
+    -i option: display warning when dropping PCM samples from end of file
+
+2019-12-11  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c:
+    fix a WAV header if user specified -i (to ignore length) and we can make it valid
+
+2019-12-08  David Bryant  <david@wavpack.com>
+
+  * fuzzing/fuzzer.cc, fuzzing/fuzzer_seed_corpus.zip, etc...:
+    add fuzzing directory with corpus and other files for oss-fuzz
+
+2019-12-08  David Bryant  <david@wavpack.com>
+
+  * src/open_utils.c:
+    fix possible memory leak on opening corrupted files
+
+2019-12-08  David Bryant  <david@wavpack.com>
+
+  * src/common_utils.c, src/pack_dsd.c, src/unpack_dsd.c, src/wavpack_local.h:
+    - fix potential memory leak when seeking in DSD files
+    - simplify DSD fast mode lookup buffer allocations
+
+2019-12-08  David Bryant  <david@wavpack.com>
+
+  * src/unpack.c, src/unpack_dsd.c, src/unpack_seek.c:
+    seeking fixes:
+    - fix crash during seek to corrupted block
+    - check header size before malloc()
+    - fix overlapping memcpy()
+
+2019-11-30  David Bryant  <david@wavpack.com>
+
+  * src/pack.c:
+    - provide more configuration sanity checks to aid application debugging
+    - force max_blocksize even so bitstream buffer overflow detection works
+
+2019-04-09  David Bryant  <david@wavpack.com>
+
+  * cli/import_id3.c:
+    issue #69: add TPUB (Publisher) to accepted ID3v2 tag fields
+
+2019-03-05  David Bryant  <david@wavpack.com>
+
+  * cli/wave64.c:
+    issue #68: clear WaveHeader at start to prevent uninitialized read
+
+2019-03-05  David Bryant  <david@wavpack.com>
+
+  * cli/dsdiff.c:
+    issue #67: make sure sample rate is specified and non-zero in DFF files
+
+2019-03-04  David Bryant  <david@wavpack.com>
+
+  * cli/caff.c:
+    issue #66: make sure CAF files have a "desc" chunk
+
+2019-03-02  David Bryant  <david@wavpack.com>
+
+  * cli/dsdiff.c:
+    issue #65: makre sure DSDIFF files have a valid channel count
+
+2018-12-23  evpobr  <evpobr@gmail.com>
+
+  * include/wavpack.h src/wavpack_local.h:
+    remove duplication so that wavpack_local.h can include wavpack.h
+
+2018-12-16  evpobr  <evpobr@gmail.com>
+
+  * Makefile.am, CMakeLists.txt
+    add CMake project
+
+2018-12-09  orbea  <orbea@fredslev.dk>
+
+  * cli/Makefile.am:
+    fix command-line builds with slibtool
+
+2018-12-08  Ørjan Malde <foxyred333@gmail.com>
+
+  * src/extra[12].c, src/pack.c, src/pack_x64.S, src/unpack.c, src/unpack_x64.S, src/wavpack_local.h:
+    x64 ASM support for midipix
+
+2018-11-29  David Bryant  <david@wavpack.com>
+
+  * src/pack_utils.c:
+    issue #53: error on zero sample rate
+    - CVE-2018-19840
+
+2018-11-29  David Bryant  <david@wavpack.com>
+
+  * src/open_utils.c:
+    issue #54: fix potential out-of-bounds heap read
+    - CVE-2018-19841
+
+2018-11-29  David Bryant  <david@wavpack.com>
+
+  * src/open_filename.c:
+    Windows only: use wvc file when verifying encode when source is stdin
+
+2018-09-03  Mike Tzou  <Chocobo1@users.noreply.github.com>
+
+  * cli/import_id3.c, cli/wvgain.c, cli/open_raw.c, cli/wvparser.c, cli/wvunpack.c, winamp/in_wv.c:
+    printf() format specifiers
+    memory leaks
+
+2018-08-26  David Bryant  <david@wavpack.com>
+
+  * cli/dsdiff.c, cli/dsf.c, cli/caff.c:
+    issue #41 issue #42 issue #43: sanitize input files to prevent crashes
+
 2018-06-02  David Bryant  <david@wavpack.com>
 
   * src/unpack_armv7.S:
@@ -9,6 +122,7 @@
     allow ID3v2.3 tag import from any file type (not just DSF)
 
 2018-04-29  David Bryant  <david@wavpack.com>
+
   * cli/import_id3.c:
     handle ID3v2.3 TXXX tags using description for APEv2 item name (w/ case formatting)
 
