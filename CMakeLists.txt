@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(WavPack VERSION 5.1.0)
+project(WavPack VERSION 5.2.0)
 
 # Languages
 
@@ -378,11 +378,11 @@ if(WAVPACK_BUILD_PROGRAMS)
 
 	add_executable(wvunpack
 		cli/wvunpack.c
-		cli/riff.c
-		cli/wave64.c
-		cli/caff.c
-		cli/dsdiff.c
-		cli/dsf.c
+		cli/riff_write.c
+		cli/wave64_write.c
+		cli/caff_write.c
+		cli/dsdiff_write.c
+		cli/dsf_write.c
 		cli/utils.c
 		cli/md5.c
 		$<$<BOOL:${WIN32}>:cli/win32_unicode_support.h>

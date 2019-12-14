@@ -1,3 +1,8 @@
+2019-12-13  David Bryant  <david@wavpack.com>
+
+  * cli/riff[_write].c, cli/wave64[_write].c, cli/caff[_write].c, cli/dsf[_write].c, cli/dsdiff[_write].c:
+    split header readers & writers so that wvunpack doesn't link libwavpack encoder
+
 2019-12-12  David Bryant  <david@wavpack.com>
 
   * cli/riff.c, cli/wave64.c, cli/caff.c:
