@@ -2183,6 +2183,10 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         strcpy (modes, "quad");
     else if (num_channels == 6 && channel_mask == 0x3f)
         strcpy (modes, "5.1 surround");
+    else if (num_channels == 6 && channel_mask == 0x60f)
+        strcpy (modes, "5.1 surround side");
+    else if (num_channels == 8 && channel_mask == 0x63f)
+        strcpy (modes, "7.1 surround");
     else if (num_channels == 8 && channel_mask == 0x6000003f)
         strcpy (modes, "5.1 + stereo");
     else {

@@ -1,3 +1,8 @@
+2019-12-14  David Bryant  <david@wavpack.com>
+
+  * cli/wvunpack.c
+    -s option: add "5.1 surround side" and "7.1 surround" to reported channel configurations
+
 2019-12-13  David Bryant  <david@wavpack.com>
 
   * cli/riff[_write].c, cli/wave64[_write].c, cli/caff[_write].c, cli/dsf[_write].c, cli/dsdiff[_write].c:
