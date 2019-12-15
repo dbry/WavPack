@@ -1,3 +1,28 @@
+                     ---------------------------------
+                     Release 5.2.0 - December 15, 2019
+                     ---------------------------------
+
+ WavPack Library Source Code - 5.2.0
+ wavpack.exe (command-line encoder) - 5.2.0
+ wvunpack.exe (command-line decoder) - 5.2.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.2.0
+ wvtag.exe (command-line tagging utility) - 5.2.0
+ ----------------------------------------------------
+  fixed: potential security issues including the following CVEs:
+         CVE-2018-19840 CVE-2018-19841 CVE-2018-10536
+         CVE-2018-10537 CVE-2018-10538 CVE-2018-10539
+         CVE-2018-10540 CVE-2018-7254  CVE-2018-7253
+         CVE-2018-6767
+  added: support for CMake, Travis CI, and Google's OSS-fuzz
+  fixed: use correction file for encode verify (pipe input, Windows)
+  fixed: correct WAV header with actual length (pipe input, -i option)
+  fixed: thumb interworking and not needing v6 architecture (ARM asm)
+  added: handle more ID3v2.3 tag items and from all file types
+  fixed: coredump on Sparc64 (changed MD5 implementation)
+  fixed: handle invalid ID3v2.3 tags from sacd-ripper
+  fixed: several corner-case memory leaks
+
+
                       --------------------------------
                       Release 5.1.0 - January 18, 2017
                       --------------------------------

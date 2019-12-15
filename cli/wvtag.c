@@ -95,7 +95,7 @@ static const char *help =
 "    -d \"Field\"            delete specified metadata item (text or binary)\n"
 "    -h or --help          this help display\n"
 "    --import-id3          import ID3v2 tags from the trailer of original file\n"
-"                           (default for DSF files, optional for other formats,"
+"                           (default for DSF files, optional for other formats,\n"
 "                            add --allow-huge-tags option for > 1 MB images)\n"
 "    -l or --list          list all tag items (done last)\n"
 #ifdef _WIN32
