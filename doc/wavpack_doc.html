@@ -458,19 +458,21 @@ a:hover {
 					the wav headers that they provide (foobar's clienc and CDex are examples). In these
 					cases use this option to force WavPack to ignore the header and accept the actual
 					length. Because WavPack must seek to the beginning of the file to write the correct
-					length, this option cannot be used with piped output.
+					length, this option cannot be used with piped output. <b>Only use this option when it's
+					really needed; using with a valid header will cause any trailing metadata to be
+					interpreted as audio.</b>
 				</p>
 
 				<p>
-					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF files only</tt></b>
+					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF and other files</tt></b>
 				</p>
 				<p>
 					Sony's DSF file format specifies that these files may contain an ID3v2 tag at the end. WavPack
      considers this a trailing "wrapper" and stores it in the WavPack file as such so that the DSF
      file can be restored verbatim. However, stored this way it is not easily accessible for
      reading (and it is certainly not writable) because WavPack uses APEv2 (or, sometimes, ID3v1) tags
-     for metadata. This option causes any trailing ID3v2.3 tag in the DSF file to be scanned and all
-     applicable items imported into the APEv2 tag, including cover art.
+     for metadata. This option causes any trailing ID3v2.3 tag in the DSF file (or other file type) to be
+     scanned and all applicable items imported into the APEv2 tag, including cover art.
     </p>
 				<p>
      Note that if over 1 MB of image data is present, then the <b>--allow-huge-tags</b> option must
@@ -1265,15 +1267,15 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF files only</tt></b>
+					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF and other files</tt></b>
 				</p>
 				<p>
 					Sony's DSF file format specifies that these files may contain an ID3v2 tag at the end. WavPack
      considers this a trailing "wrapper" and stores it in the WavPack file as such so that the DSF
      file can be restored verbatim. However, stored this way it is not easily accessible for
      reading (and it is certainly not writable) because WavPack uses APEv2 (or, sometimes, ID3v1) tags
-     for metadata. This option causes any trailing ID3v2.3 tag in the DSF file to be scanned and all
-     applicable items imported into the APEv2 tag, including cover art.
+     for metadata. This option causes any trailing ID3v2.3 tag in the DSF file (or other file type) to be
+     scanned and all applicable items imported into the APEv2 tag, including cover art.
     </p>
     <p>
      Note that if over 1 MB of image data is present, then the <b>--allow-huge-tags</b> option must be included

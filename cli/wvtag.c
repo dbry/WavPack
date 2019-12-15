@@ -94,8 +94,9 @@ static const char *help =
 "    --clean or --clear    clean all items from tag (done first)\n"
 "    -d \"Field\"            delete specified metadata item (text or binary)\n"
 "    -h or --help          this help display\n"
-"    --import-id3          import ID3v2 tags from the trailer of DSF files only\n"
-"                           (add --allow-huge-tags option for > 1 MB images)\n"
+"    --import-id3          import ID3v2 tags from the trailer of original file\n"
+"                           (default for DSF files, optional for other formats,"
+"                            add --allow-huge-tags option for > 1 MB images)\n"
 "    -l or --list          list all tag items (done last)\n"
 #ifdef _WIN32
 "    --no-utf8-convert     assume tag values read from files are already UTF-8,\n"
