@@ -59,6 +59,9 @@ AC_FUNC_FSEEKO
 # Check if cross-compiling on mingw
 AC_MINGW32
 
+AC_ARG_ENABLE([libcrypto],
+    AS_HELP_STRING([--enable-libcrypto], [use libcrypto MD5 if available (breaks Mac build)]))
+
 AC_ARG_ENABLE([apps],
     AS_HELP_STRING([--disable-apps], [build only libwavpack (removes ICONV dependency)]))
 
@@ -112,7 +115,8 @@ fi
 AC_SUBST(ICONV_LIBS)
 AC_SUBST(ICONV)
 fi
-AC_CHECK_LIB([crypto],[MD5_Init])
+AS_IF([test "x$enable_libcrypto" = "xyes"],
+    [AC_CHECK_LIB([crypto],[MD5_Init])])
 fi
 
 AC_MSG_CHECKING([if we are building for a Windows host])

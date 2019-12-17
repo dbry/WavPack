@@ -23,7 +23,7 @@
  * See md5.c for more information.
  */
 
-#if defined HAVE_LIBCRYPTO && !defined __APPLE__
+#ifdef HAVE_LIBCRYPTO
 #include <openssl/md5.h>
 #elif !defined(_MD5_H)
 #define _MD5_H
