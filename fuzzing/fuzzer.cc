@@ -199,7 +199,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     WavpackCloseFile (wpc);
 
 exit:
-    if (!(times_called & 0x3FF))
+    if (!(times_called | 0x3FF))
         printf ("LLVMFuzzerTestOneInput(): %lld calls, %lld opens, %lld seeks, %lld samples, %lld text & %lld binary tags\n",
             times_called, opens, seeks, samples_decoded, text_tags, binary_tags);
 
