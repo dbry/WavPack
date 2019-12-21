@@ -119,6 +119,9 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
         else
             i = get_words_lossless (wps, buffer, sample_count);
 
+        if (i != sample_count)
+            goto get_word_eof;
+
 #ifdef DECORR_MONO_PASS_CONT
         if (sample_count < 16)
             for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
@@ -172,6 +175,9 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
         }
         else
             i = get_words_lossless (wps, buffer, sample_count);
+
+        if (i != sample_count)
+            goto get_word_eof;
 
 #ifdef DECORR_STEREO_PASS_CONT
         if (sample_count < 16 || !DECORR_STEREO_PASS_CONT_AVAILABLE) {
@@ -449,6 +455,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
     else
         i = 0;  /* this line can't execute, but suppresses compiler warning */
 
+get_word_eof:
     if (i != sample_count) {
         memset (buffer, 0, sample_count * (flags & MONO_FLAG ? 4 : 8));
         wps->mute_error = TRUE;
