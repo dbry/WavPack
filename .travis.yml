@@ -26,4 +26,4 @@ before_install:
   - if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then brew update && brew install docbook docbook-xsl libxml2 openssl; fi
 script:
   - if [[ "${BUILD_SYSTEM}" == "cmake" ]]; then mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON && cmake --build . && cpack -G ZIP && ctest -V; fi
-  - if [[ "${BUILD_SYSTEM}" == "autotools" ]]; then ./autogen.sh --enable-tests && make && cli/wvtest --exhaustive --short --no-extras; fi
+  - if [[ "${BUILD_SYSTEM}" == "autotools" ]]; then ./build-regressors.sh && ./run-regressors.sh; fi
