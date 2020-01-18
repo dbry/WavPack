@@ -51,7 +51,7 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values)
             }
         }
         else {
-            *values <<= wps->float_shift;
+            *(uint32_t*)values <<= wps->float_shift;
 
             if (*values < 0) {
                 *values = -*values;
@@ -70,7 +70,7 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values)
                 if (exp)
                     while (!(*values & 0x800000) && --exp) {
                         shift_count++;
-                        *values <<= 1;
+                        *(uint32_t*)values <<= 1;
                     }
 
                 if (shift_count) {
@@ -102,7 +102,7 @@ static void float_values_nowvx (WavpackStream *wps, int32_t *values, int32_t num
         f32 outval = 0;
 
         if (*values) {
-            *values <<= wps->float_shift;
+            *(uint32_t*)values <<= wps->float_shift;
 
             if (*values < 0) {
                 *values = -*values;
@@ -118,11 +118,11 @@ static void float_values_nowvx (WavpackStream *wps, int32_t *values, int32_t num
             else if (exp) {
                 while (!(*values & 0x800000) && --exp) {
                     shift_count++;
-                    *values <<= 1;
+                    *(uint32_t*)values <<= 1;
                 }
 
                 if (shift_count && (wps->float_flags & FLOAT_SHIFT_ONES))
-                    *values |= ((1 << shift_count) - 1);
+                    *values |= ((1U << shift_count) - 1);
             }
 
             set_mantissa (outval, *values);

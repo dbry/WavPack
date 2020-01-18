@@ -189,7 +189,7 @@ int WavpackDeleteTagItem (WavpackContext *wpc, const char *item)
         for (i = 0; i < m_tag->ape_tag_hdr.item_count && q - p > 8; ++i) {
             int vsize, isize;
 
-            vsize = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 8;   // skip flags because we don't need them
+            vsize = p[0] + (p[1] << 8) + (p[2] << 16) + ((uint32_t) p[3] << 24); p += 8;   // skip flags because we don't need them
             for (isize = 0; p + isize < q && p[isize]; ++isize);
 
             if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
@@ -240,8 +240,8 @@ static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int si
     for (i = 0; i < m_tag->ape_tag_hdr.item_count && q - p > 8; ++i) {
         int vsize, flags, isize;
 
-        vsize = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
-        flags = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
+        vsize = p[0] + (p[1] << 8) + (p[2] << 16) + ((uint32_t) p[3] << 24); p += 4;
+        flags = p[0] + (p[1] << 8) + (p[2] << 16) + ((uint32_t) p[3] << 24); p += 4;
         for (isize = 0; p + isize < q && p[isize]; ++isize);
 
         if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
@@ -331,8 +331,8 @@ static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int si
     for (i = 0; i < m_tag->ape_tag_hdr.item_count && index >= 0 && q - p > 8; ++i) {
         int vsize, flags, isize;
 
-        vsize = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
-        flags = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24); p += 4;
+        vsize = p[0] + (p[1] << 8) + (p[2] << 16) + ((uint32_t) p[3] << 24); p += 4;
+        flags = p[0] + (p[1] << 8) + (p[2] << 16) + ((uint32_t) p[3] << 24); p += 4;
         for (isize = 0; p + isize < q && p[isize]; ++isize);
 
         if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)

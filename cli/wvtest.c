@@ -1354,7 +1354,7 @@ static void float_to_integer_samples (float *samples, int num_samples, int bits)
         else
             isample = floor (*samples * scalar);
 
-        *(int32_t *)samples = isample << ishift;
+        *(int32_t *)samples = (uint32_t) isample << ishift;
         samples++;
     } 
 }
@@ -1381,10 +1381,7 @@ static void float_to_32bit_integer_samples (float *samples, int num_samples)
                 tzeros++;
 
             while (tzeros--)
-                if (frandom() > 0.5)
-                    isample = (isample << 1) + 1;
-                else
-                    isample <<= 1;
+                isample = ((unsigned int) isample << 1) + ((frandom() > 0.5) ? 1 : 0);
         }
 
         *(int32_t *)samples = isample;
