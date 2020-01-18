@@ -676,6 +676,6 @@ if(BUILD_TESTING AND (NOT WIN32))
             Threads::Threads
             $<$<BOOL:${HAVE_LIBM}>:m>
     )
-    add_test(NAME wvtest COMMAND $<TARGET_FILE:wvtest> --default --short --no-speeds --no-extras)
+    add_test(NAME wvtest COMMAND $<TARGET_FILE:wvtest> --exhaustive --short --no-extras)
 
 endif()

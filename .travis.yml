@@ -25,9 +25,6 @@ matrix:
 before_install:
   - if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then brew update && brew install docbook docbook-xsl libxml2 openssl; fi
 script:
-  - echo "TRAVIS_OS_NAME =" ${TRAVIS_OS_NAME}
-  - echo "CC_FOR_BUILD =" ${CC_FOR_BUILD}
-  - echo "BUILD_SYSTEM =" ${BUILD_SYSTEM}
   - if [[ "${BUILD_SYSTEM}" == "cmake" ]]; then mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON && cmake --build . && cpack -G ZIP && ctest -V; fi
   - if [[ "${BUILD_SYSTEM}" == "autotools" && "${TRAVIS_OS_NAME}" == "linux" && "${CC_FOR_BUILD}" == "clang" ]]; then ./build-regressors.sh && ./run-regressors.sh; fi
-  - if [[ "${BUILD_SYSTEM}" == "autotools" && ( "${TRAVIS_OS_NAME}" != "linux" || "${CC_FOR_BUILD}" != "clang" ) ]]; then ./autogen.sh --enable-tests && make && cli/wvtest --default --short --no-extras --no-speeds; fi
+  - if [[ "${BUILD_SYSTEM}" == "autotools" && ( "${TRAVIS_OS_NAME}" != "linux" || "${CC_FOR_BUILD}" != "clang" ) ]]; then ./autogen.sh --enable-tests && make && cli/wvtest --exhaustive --short --no-extras; fi
