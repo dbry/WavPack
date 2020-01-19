@@ -347,7 +347,7 @@ int32_t wp_exp2s (int log)
     if ((log >>= 8) <= 9)
         return value >> (9 - log);
     else
-        return value << (log - 9);
+        return value << ((log - 9) & 0x1f);
 }
 
 // These two functions convert internal weights (which are normally +/-1024)

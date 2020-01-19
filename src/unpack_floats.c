@@ -51,7 +51,7 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values)
             }
         }
         else {
-            *(uint32_t*)values <<= wps->float_shift;
+            *(uint32_t*)values <<= (wps->float_shift & 0x1f);
 
             if (*values < 0) {
                 *values = -*values;
@@ -73,13 +73,13 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values)
                         *(uint32_t*)values <<= 1;
                     }
 
-                if (shift_count) {
+                if (shift_count &= 0x1f) {
                     if ((wps->float_flags & FLOAT_SHIFT_ONES) ||
                         ((wps->float_flags & FLOAT_SHIFT_SAME) && getbit (&wps->wvxbits)))
-                            *values |= ((1 << shift_count) - 1);
+                            *values |= ((1U << shift_count) - 1);
                     else if (wps->float_flags & FLOAT_SHIFT_SENT) {
                         getbits (&temp, shift_count, &wps->wvxbits);
-                        *values |= temp & ((1 << shift_count) - 1);
+                        *values |= temp & ((1U << shift_count) - 1);
                     }
                 }
 
@@ -102,7 +102,7 @@ static void float_values_nowvx (WavpackStream *wps, int32_t *values, int32_t num
         f32 outval = 0;
 
         if (*values) {
-            *(uint32_t*)values <<= wps->float_shift;
+            *(uint32_t*)values <<= (wps->float_shift & 0x1f);
 
             if (*values < 0) {
                 *values = -*values;
@@ -121,7 +121,7 @@ static void float_values_nowvx (WavpackStream *wps, int32_t *values, int32_t num
                     *(uint32_t*)values <<= 1;
                 }
 
-                if (shift_count && (wps->float_flags & FLOAT_SHIFT_ONES))
+                if ((shift_count &= 0x1f) && (wps->float_flags & FLOAT_SHIFT_ONES))
                     *values |= ((1U << shift_count) - 1);
             }
 

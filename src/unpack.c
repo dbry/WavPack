@@ -698,9 +698,9 @@ static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample
 
     if (flags & INT32_DATA) {
         uint32_t count = (flags & MONO_DATA) ? sample_count : sample_count * 2;
-        int sent_bits = wps->int32_sent_bits, zeros = wps->int32_zeros;
-        int ones = wps->int32_ones, dups = wps->int32_dups;
-        uint32_t data, mask = (1 << sent_bits) - 1;
+        int sent_bits = wps->int32_sent_bits & 0x1f, zeros = wps->int32_zeros & 0x1f;
+        int ones = wps->int32_ones & 0x1f, dups = wps->int32_dups & 0x1f;
+        uint32_t data, mask = (1U << sent_bits) - 1;
         int32_t *dptr = buffer;
 
         if (bs_is_open (&wps->wvxbits)) {
@@ -753,6 +753,8 @@ static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample
         else
             shift += zeros + sent_bits + ones + dups;
     }
+
+    shift &= 0x1f;
 
     if (lossy_flag) {
         int32_t min_value, max_value, min_shifted, max_shifted;
