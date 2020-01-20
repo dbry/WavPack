@@ -23,7 +23,7 @@ make
 # build fuzzers
 # e.g.
 $CXX $CXXFLAGS -std=c++11 -I$SRC/wavpack/include -I$SRC/wavpack/cli \
-     $SRC/wavpack/fuzzing/fuzzer.c -o $OUT/fuzzer \
+     $SRC/wavpack/fuzzing/fuzzer.cc -o $OUT/fuzzer \
      $LIB_FUZZING_ENGINE $SRC/wavpack/src/.libs/libwavpack.a
 
 # add seed corpus
