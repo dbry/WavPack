@@ -62,8 +62,8 @@ typedef int32_t f32;
 #define get_sign(f)         (((f) >> 31) & 0x1)
 
 #define set_mantissa(f,v)   (f) ^= (((f) ^ (v)) & 0x7fffff)
-#define set_exponent(f,v)   (f) ^= (((f) ^ ((v) << 23)) & 0x7f800000)
-#define set_sign(f,v)       (f) ^= (((f) ^ ((v) << 31)) & 0x80000000)
+#define set_exponent(f,v)   (f) ^= (((f) ^ ((uint32_t)(v) << 23)) & 0x7f800000)
+#define set_sign(f,v)       (f) ^= (((f) ^ ((uint32_t)(v) << 31)) & 0x80000000)
 
 #include <stdio.h>
 
@@ -244,7 +244,8 @@ struct words_data {
 };
 
 typedef struct {
-    int32_t value, filter0, filter1, filter2, filter3, filter4, filter5, filter6, factor, byte;
+    int32_t value, filter0, filter1, filter2, filter3, filter4, filter5, filter6, factor;
+    unsigned int byte;
 } DSDfilters;
 
 typedef struct {
@@ -460,7 +461,7 @@ uint32_t bs_close_read (Bitstream *bs);
 #define getbits(value, nbits, bs) do { \
     while ((nbits) > (bs)->bc) { \
         if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
-        (bs)->sr |= (int32_t)*((bs)->ptr) << (bs)->bc; \
+        (bs)->sr |= (uint32_t)*((bs)->ptr) << (bs)->bc; \
         (bs)->bc += sizeof (*((bs)->ptr)) * 8; \
     } \
     *(value) = (bs)->sr; \
@@ -474,7 +475,7 @@ uint32_t bs_close_read (Bitstream *bs);
     } \
 } while (0)
 
-#define putbit(bit, bs) do { if (bit) (bs)->sr |= (1 << (bs)->bc); \
+#define putbit(bit, bs) do { if (bit) (bs)->sr |= (1U << (bs)->bc); \
     if (++((bs)->bc) == sizeof (*((bs)->ptr)) * 8) { \
         *((bs)->ptr) = (bs)->sr; \
         (bs)->sr = (bs)->bc = 0; \
@@ -488,7 +489,7 @@ uint32_t bs_close_read (Bitstream *bs);
         if (++((bs)->ptr) == (bs)->end) (bs)->wrap (bs); \
     }} while (0)
 
-#define putbit_1(bs) do { (bs)->sr |= (1 << (bs)->bc); \
+#define putbit_1(bs) do { (bs)->sr |= (1U << (bs)->bc); \
     if (++((bs)->bc) == sizeof (*((bs)->ptr)) * 8) { \
         *((bs)->ptr) = (bs)->sr; \
         (bs)->sr = (bs)->bc = 0; \
@@ -496,7 +497,7 @@ uint32_t bs_close_read (Bitstream *bs);
     }} while (0)
 
 #define putbits(value, nbits, bs) do { \
-    (bs)->sr |= (int32_t)(value) << (bs)->bc; \
+    (bs)->sr |= (uint32_t)(value) << (bs)->bc; \
     if (((bs)->bc += (nbits)) >= sizeof (*((bs)->ptr)) * 8) \
         do { \
             *((bs)->ptr) = (bs)->sr; \
@@ -588,7 +589,7 @@ uint32_t LOG2BUFFER (int32_t *samples, uint32_t num_samples, int limit);
 signed char store_weight (int weight);
 int restore_weight (signed char weight);
 
-#define WORD_EOF ((int32_t)(1L << 31))
+#define WORD_EOF ((int32_t)(1U << 31))
 
 void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp);
 

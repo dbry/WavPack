@@ -6,7 +6,9 @@
 
 #include "wavpack.h"
 
+#ifdef __cplusplus
 using namespace std;
+#endif
 
 #define BUF_SAMPLES 1024
 
@@ -119,7 +121,12 @@ static WavpackStreamReader64 raw_reader = {
 
 static long long debug_log_mask = -1;
 
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+#ifdef __cplusplus
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+#else
+int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+#endif
+{
     static long long times_called, opens, seeks, tag_writes, samples_decoded, text_tags, binary_tags;
     int flags = OPEN_TAGS | OPEN_EDIT_TAGS | OPEN_WRAPPER | OPEN_DSD_AS_PCM | OPEN_NO_CHECKSUM | OPEN_NORMALIZE;
     WavpackRawContext raw_wv;

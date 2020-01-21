@@ -4,9 +4,10 @@
 
 cc=${1:-"clang"}
 
-# delete any previously build checkers
+# delete any previously build checkers and copy the fuzzer to C
 
 rm check-address check-memory check-undefined
+cp fuzzing/fuzzer.cc fuzzing/fuzzer.c
 
 # build the address sanitizer first
 
@@ -39,4 +40,5 @@ else
 fi
 
 echo all three regression testers built without errors
+rm fuzzing/fuzzer.c
 make clean
