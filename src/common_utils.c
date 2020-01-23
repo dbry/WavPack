@@ -241,7 +241,7 @@ double WavpackGetRatio (WavpackContext *wpc)
 
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc)
 {
-    if (wpc && wpc->total_samples != -1 && wpc->filelen) {
+    if (wpc && wpc->total_samples != -1 && wpc->filelen && WavpackGetSampleRate (wpc)) {
         double output_time = (double) wpc->total_samples / WavpackGetSampleRate (wpc);
         double input_size = (double) wpc->filelen + (count_wvc ? wpc->file2len : 0);
 
@@ -262,7 +262,7 @@ double WavpackGetInstantBitrate (WavpackContext *wpc)
     if (wpc && wpc->stream3)
         return WavpackGetAverageBitrate (wpc, TRUE);
 
-    if (wpc && wpc->streams && wpc->streams [0] && wpc->streams [0]->wphdr.block_samples) {
+    if (wpc && wpc->streams && wpc->streams [0] && wpc->streams [0]->wphdr.block_samples && WavpackGetSampleRate (wpc)) {
         double output_time = (double) wpc->streams [0]->wphdr.block_samples / WavpackGetSampleRate (wpc);
         double input_size = 0;
         int si;
