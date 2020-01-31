@@ -1,3 +1,8 @@
+2020-31-01  David Bryant  <david@wavpack.com>
+
+  * cli/import_id3.c
+    fix trailing garbage characters on imported ID3v2 TXXX tags
+
 2019-12-14  David Bryant  <david@wavpack.com>
 
   * cli/wvunpack.c
