@@ -148,7 +148,7 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
     lb_ptr = wps->dsd.lookup_buffer = (unsigned char *)malloc (wps->dsd.history_bins * MAX_BYTES_PER_BIN);
     wps->dsd.value_lookup = (unsigned char **)malloc (sizeof (*wps->dsd.value_lookup) * wps->dsd.history_bins);
     memset (wps->dsd.value_lookup, 0, sizeof (*wps->dsd.value_lookup) * wps->dsd.history_bins);
-    wps->dsd.summed_probabilities = (int16_t (*)[256])malloc (sizeof (*wps->dsd.summed_probabilities) * wps->dsd.history_bins);
+    wps->dsd.summed_probabilities = (uint16_t (*)[256])malloc (sizeof (*wps->dsd.summed_probabilities) * wps->dsd.history_bins);
     wps->dsd.probabilities = (unsigned char (*)[256])malloc (sizeof (*wps->dsd.probabilities) * wps->dsd.history_bins);
 
     max_probability = *wps->dsd.byteptr++;
