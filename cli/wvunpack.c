@@ -1000,6 +1000,8 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int parameter);
 static void unreorder_channels (int32_t *data, unsigned char *order, int num_chans, int num_samples);
 
+#define USE_MEMFILE
+
 static int unpack_file (char *infilename, char *outfilename, int add_extension)
 {
     int64_t skip_sample_index = 0, until_samples_total = 0, total_unpacked_samples = 0;
@@ -1046,7 +1048,30 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     else
         open_flags |= OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
 
+#ifdef USE_MEMFILE
+    {
+        FILE *file = fopen (infilename, "rb");
+        size_t filesize;
+        void *memfile;
+
+        if (!file) {
+            printf ("unpack_file(): error opening input file \"%s\"\n", infilename);
+            return -1;
+        }
+
+        filesize = DoGetFileSize (file);
+        memfile = malloc (filesize);
+
+        if (!memfile || !fread (memfile, filesize, 1, file)) {
+            printf ("unpack_file(): error reading input file \"%s\"\n", infilename);
+            return -1;
+        }
+
+        wpc = WavpackOpenMemoryFile (memfile, filesize, NULL, 0, error, open_flags, 0);
+    }
+#else
     wpc = WavpackOpenFileInput (infilename, error, open_flags, 0);
+#endif
 
     if (!wpc) {
         error_line (error);

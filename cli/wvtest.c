@@ -288,10 +288,12 @@ done:
 // actually verify that every sample decoded is correct. For each test run, we decode the entire
 // file 4 times over, on average.
 
+#define USE_MEMFILE
+
 static int seeking_test (char *filename, uint32_t test_count)
 {
     char error [80];
-    WavpackContext *wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+    WavpackContext *wpc;
     int64_t min_chunk_size = 256, total_samples, sample_count = 0;
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
@@ -299,6 +301,32 @@ static int seeking_test (char *filename, uint32_t test_count)
     unsigned char md5_initial [16], md5_stored [16];
     MD5_CTX md5_global, md5_local;
     unsigned char *chunked_md5;
+
+#ifdef USE_MEMFILE
+    size_t filesize;
+    void *memfile;
+
+    {
+        FILE *file = fopen (filename, "rb");
+
+        if (!file) {
+            printf ("seeking_test(): error opening input file \"%s\"\n", filename);
+            return -1;
+        }
+
+        filesize = DoGetFileSize (file);
+        memfile = malloc (filesize);
+
+        if (!fread (memfile, filesize, 1, file)) {
+            printf ("seeking_test(): error reading input file \"%s\"\n", filename);
+            return -1;
+        }
+
+        wpc = WavpackOpenMemoryFile (memfile, filesize, NULL, 0, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+    }
+#else
+    wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+#endif
 
     printf ("\n-------------------- file: %s %s--------------------\n",
         filename, (WavpackGetMode (wpc) & MODE_WVC) ? "(+wvc) " : "");
@@ -418,7 +446,11 @@ static int seeking_test (char *filename, uint32_t test_count)
 
         if (frandom() < 0.5) {
             WavpackCloseFile (wpc);
+#ifdef USE_MEMFILE
+            wpc = WavpackOpenMemoryFile (memfile, filesize, NULL, 0, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+#else
             wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+#endif
 
             if (!wpc) {
                 printf ("seeking_test(): error \"%s\" reopening input file \"%s\"\n", error, filename);
