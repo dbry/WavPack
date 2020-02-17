@@ -164,6 +164,7 @@ add_library(wavpack
     src/extra2.c
     src/open_utils.c
     src/open_filename.c
+    src/open_memfile.c
     src/open_legacy.c
     src/open_raw.c
     src/pack.c
@@ -662,6 +663,7 @@ if(BUILD_TESTING AND (NOT WIN32))
 
     add_executable(wvtest
         cli/wvtest.c
+        cli/utils.c
         cli/md5.c
         $<$<BOOL:${WIN32}>:cli/win32_unicode_support.h>
         $<$<BOOL:${WIN32}>:cli/win32_unicode_support.c>
