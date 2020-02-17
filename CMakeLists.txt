@@ -298,6 +298,7 @@ set(WAVPACK_EXPORT_SYMBOLS
     WavpackOpenFileInputEx64
     WavpackOpenFileOutput
     WavpackOpenRawDecoder
+    WavpackOpenMemoryFile
     WavpackPackInit
     WavpackPackSamples
     WavpackSeekSample
