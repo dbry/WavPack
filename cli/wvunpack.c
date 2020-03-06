@@ -2528,15 +2528,15 @@ static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
 
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fname)
 {
+    const char *sanitized_tag_item = filespec_name ((char *) tag_item) ? filespec_name ((char *) tag_item) : tag_item;
+
     if (WavpackGetMode (wpc) & MODE_VALID_TAG) {
         if (WavpackGetTagItem (wpc, tag_item, NULL, 0)) {
             int value_len = WavpackGetTagItem (wpc, tag_item, NULL, 0);
             char *value;
 
-            if (fname) {
-                strcpy (fname, tag_item);
-                strcat (fname, ".txt");
-            }
+            if (fname)
+                snprintf (fname, 256, "%s.txt", sanitized_tag_item);
 
             if (!value_len || !dst)
                 return value_len;
@@ -2575,12 +2575,12 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
                     }
 
                     if (fname) {
-                        if (i < 256)
-                            strcpy (fname, value);
-                        else {
-                            strcpy (fname, tag_item);
-                            strcat (fname, ".bin");
-                        }
+                        char *sanitized_tag_value = filespec_name (value) ? filespec_name (value) : value;
+
+                        if (strlen (sanitized_tag_value) < 256)
+                            strcpy (fname, sanitized_tag_value);
+                        else
+                            snprintf (fname, 256, "%s.bin", sanitized_tag_item);
                     }
 
                     break;
