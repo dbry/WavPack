@@ -131,15 +131,25 @@ static void parse_wavpack_block (unsigned char *block_data);
 static int verify_wavpack_block (unsigned char *buffer);
 
 static const char *sign_on = "\n"
-" WVPARSER  WavPack Audio File Parser Test Filter  Version 1.00\n"
-" Copyright (c) 1998 - 2019 David Bryant.  All Rights Reserved.\n\n";
+" WVPARSER  WavPack Audio File Parser Test Filter  Version 1.10\n"
+" Copyright (c) 1998 - 2020 David Bryant.  All Rights Reserved.\n\n";
 
-int main ()
+int main (int argc, char **argv)
 {
     uint32_t bcount, total_bytes, sample_rate, first_sample, last_sample = -1L;
     int channel_count, block_count;
     char flags_list [256];
+    FILE *outfile = NULL;
     WavpackHeader wphdr;
+
+    if (argc > 1) {
+        outfile = fopen (argv [1], "wb");
+
+        if (!outfile) {
+            fprintf (stderr, "can't open file '%s'!\n", argv [1]);
+            return 1;
+        }
+    }
 
 #ifdef _WIN32
     setmode (fileno (stdin), O_BINARY);
@@ -165,8 +175,12 @@ int main ()
                 printf ("\nwarning: unknown sample rate...using 44100 default\n");
             sample_rate = 44100;
         }
-        else
+        else {
             sample_rate = sample_rates [(wphdr.flags & SRATE_MASK) >> SRATE_LSB];
+
+            if (wphdr.flags & DSD_FLAG)
+                sample_rate *= 4;       // most common multiplier (DSD64), but could be wrong
+        }
 
         // basic summary of the block
 
@@ -180,7 +194,7 @@ int main ()
 
             // now show information from the "flags" field of the header
 
-            printf ("samples are %d bits in %d bytes, shifted %d bits, sample rate = %u\n",
+            printf ("samples are %d bits in %d bytes, shifted %d bits, sample rate = %u Hz\n",
                 (int)((wphdr.flags & MAG_MASK) >> MAG_LSB) + 1,
                 (wphdr.flags & BYTES_STORED) + 1,
                 (int)(wphdr.flags & SHIFT_MASK) >> SHIFT_LSB,
@@ -221,6 +235,10 @@ int main ()
 
             memcpy (block_buff, &wphdr, sizeof (WavpackHeader));
 	    read_bytes (block_buff + sizeof (WavpackHeader), block_size - sizeof (WavpackHeader));
+
+            if (outfile)    // add condition here if desired to select only certain blocks be written
+                fwrite (block_buff, block_size, 1, outfile);
+
             parse_wavpack_block (block_buff);
 	    free (block_buff);
 	}
@@ -254,6 +272,9 @@ int main ()
 	    }
 	}
     }
+
+    if (outfile)
+        fclose (outfile);
 
     return 0;
 }
