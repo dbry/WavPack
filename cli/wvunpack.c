@@ -2612,9 +2612,10 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
 
                         if (strlen (sanitized_tag_value) < 256)
                             strcpy (fname, sanitized_tag_value);
-                        else
+                        else {
                             snprintf (fname, 256, "%s.bin", sanitized_tag_item);
                             fname [255] = 0;
+                        }
                     }
 
                     break;
