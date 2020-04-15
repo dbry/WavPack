@@ -1,3 +1,8 @@
+2020-04-14  David Bryant  <david@wavpack.com>
+
+  * cli/wvunpack.c, cli/wvtag.c:
+    use _snprintf() on Windows and make sure output is NULL terminated
+
 2020-04-13  David Bryant  <david@wavpack.com>
 
   * cli/wavpack.c, cli/wvunpack.c, cli/wvgain.c, cli/wvtag.c, cli/wvtest.c:

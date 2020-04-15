@@ -56,6 +56,7 @@
 #define rename(o,n) rename_utf8(o,n)
 #define fopen(f,m) fopen_utf8(f,m)
 #define strdup(x) _strdup(x)
+#define snprintf _snprintf
 #endif
 
 ///////////////////////////// local variable storage //////////////////////////
@@ -2554,7 +2555,7 @@ static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
 // The "fname" parameter can optionally be set to a character array that will accept the suggested
 // filename. This is formed by the tag item name with the extension ".txt" for text fields; for
 // binary fields this is supplied by convention as a NULL terminated string at the beginning of the
-// data, so this is returned. The string should have 256 characters available.
+// data, so this is returned. The string should have 256 bytes available (for 255 chars + NULL).
 
 static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FILE *dst, char *fname)
 {
@@ -2565,8 +2566,10 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
             int value_len = WavpackGetTagItem (wpc, tag_item, NULL, 0);
             char *value;
 
-            if (fname)
+            if (fname) {
                 snprintf (fname, 256, "%s.txt", sanitized_tag_item);
+                fname [255] = 0;
+            }
 
             if (!value_len || !dst)
                 return value_len;
@@ -2611,6 +2614,7 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
                             strcpy (fname, sanitized_tag_value);
                         else
                             snprintf (fname, 256, "%s.bin", sanitized_tag_item);
+                            fname [255] = 0;
                     }
 
                     break;
