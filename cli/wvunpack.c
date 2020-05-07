@@ -583,13 +583,16 @@ int main(int argc, char **argv)
         fflush (stderr);
     }
 
+    if (error_count) {
+        fprintf (stderr, "\ntype 'wvunpack' for short help or 'wvunpack --help' for full help\n");
+        fflush (stderr);
+        return 1;
+    }
+
     if (!num_files) {
         printf ("%s", usage);
         return 1;
     }
-
-    if (error_count)
-        return 1;
 
     setup_break ();
 
