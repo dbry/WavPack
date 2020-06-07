@@ -57,6 +57,7 @@
 #define fopen(f,m) fopen_utf8(f,m)
 #define strdup(x) _strdup(x)
 #define snprintf _snprintf
+#define fileno _fileno
 #endif
 
 ///////////////////////////// local variable storage //////////////////////////
@@ -1050,7 +1051,7 @@ static uint32_t read_next_header (FILE *infile, WavpackHeader *wphdr)
 
     while (1) {
 	if (sp < ep) {
-	    bleft = ep - sp;
+	    bleft = (int)(ep - sp);
 	    memmove (buffer, sp, bleft);
 	}
 	else
@@ -1072,7 +1073,7 @@ static uint32_t read_next_header (FILE *infile, WavpackHeader *wphdr)
 	while (sp < ep && *sp != 'w')
 	    sp++;
 
-	if ((bytes_skipped += sp - buffer) > 1024 * 1024)
+	if ((bytes_skipped += (uint32_t)(sp - buffer)) > 1024 * 1024)
 	    return -1;
     }
 }
@@ -1425,7 +1426,7 @@ static int quick_verify_file (char *infilename, int verbose)
 #endif
 
     if (!quiet_mode) {
-        char *file, *fext, *oper;
+        char *file, *fext;
 
         file = (*infilename == '-') ? "stdin" : FN_FIT (infilename);
         fext = wvc_mode ? " (+.wvc)" : "";
