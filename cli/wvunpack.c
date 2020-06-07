@@ -92,6 +92,7 @@ static const char *usage =
 "          -s  = display summary information only to stdout (no audio decode)\n"
 "          -ss = display super summary (including tags) to stdout (no decode)\n"
 "          -v  = verify source data only (no output file created)\n"
+"          -vv = quick verify (no output, version 5+ files only)\n"
 "          --help = complete help\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -158,6 +159,8 @@ static const char *help =
 "                           (adding '+' makes sample/time relative to '--skip'\n"
 "                            point; adding '-' makes sample/time relative to end)\n"
 "    -v                    verify source data only (no output file created)\n"
+"    -vv                   quick verify (no output, version 5+ files only)\n"
+"    -vvv                  quick verify verbose (for debugging)\n"
 "    --version             write the version to stdout\n"
 "    -w or --wav           force output to Microsoft RIFF/RF64 (extension .wav)\n"
 "    --w64                 force output to Sony Wave64 format (extension .w64)\n"
@@ -223,6 +226,7 @@ static int pause_mode;
 static void add_tag_extraction_to_list (char *spec);
 static void parse_sample_time_index (struct sample_time_index *dst, char *src);
 static int unpack_file (char *infilename, char *outfilename, int add_extension);
+static int quick_verify_file (char *infilename, int verbose);
 static void display_progress (double file_progress);
 
 #ifdef _WIN32
@@ -394,7 +398,7 @@ int main(int argc, char **argv)
                         break;
 
                     case 'V': case 'v':
-                        verify_only = 1;
+                        ++verify_only;
                         break;
 
                     case 'F': case 'f':
@@ -550,6 +554,11 @@ int main(int argc, char **argv)
 
     if (verify_only && outfilename) {
         error_line ("outfile specification and verify mode are incompatible!");
+        ++error_count;
+    }
+
+    if (verify_only > 1 && calc_md5) {
+        error_line ("can't calculate MD5s in quick verify mode!");
         ++error_count;
     }
 
@@ -796,7 +805,17 @@ int main(int argc, char **argv)
                 fflush (stderr);
             }
 
-            result = unpack_file (matches [file_index], verify_only ? NULL : outfilename, add_extension);
+            if (verify_only > 1) {
+                result = quick_verify_file (matches [file_index], verify_only > 2);
+
+                // quick_verify_file() returns hard error to mean file cannot be quickly verified
+                // because it has no block checksums, so fall back to standard slow verify
+
+                if (result == WAVPACK_HARD_ERROR)
+                    result = unpack_file (matches [file_index], NULL, 0);
+            }
+            else
+                result = unpack_file (matches [file_index], verify_only ? NULL : outfilename, add_extension);
 
             if (result != WAVPACK_NO_ERROR)
                 ++error_count;
@@ -1015,6 +1034,406 @@ static FILE *open_output_file (char *filename, char **tempfilename)
         error_line ("can't create file %s!", *tempfilename ? *tempfilename : filename);
 
     return retval;
+}
+
+// Read from current file position until a valid 32-byte WavPack 4+ header is
+// found and read into the specified pointer. The number of bytes skipped is
+// returned. If no WavPack header is found within 1 meg, then a -1 is returned
+// to indicate the error. No additional bytes are read past the header and it
+// is returned in the processor's native endian mode. Seeking is not required.
+
+static uint32_t read_next_header (FILE *infile, WavpackHeader *wphdr)
+{
+    unsigned char buffer [sizeof (*wphdr)], *sp = buffer + sizeof (*wphdr), *ep = sp;
+    uint32_t bytes_skipped = 0;
+    int bleft;
+
+    while (1) {
+	if (sp < ep) {
+	    bleft = ep - sp;
+	    memmove (buffer, sp, bleft);
+	}
+	else
+	    bleft = 0;
+
+	if (fread (buffer + bleft, 1, sizeof (*wphdr) - bleft, infile) != (int32_t) sizeof (*wphdr) - bleft)
+	    return -1;
+
+	sp = buffer;
+
+	if (*sp++ == 'w' && *sp == 'v' && *++sp == 'p' && *++sp == 'k' &&
+            !(*++sp & 1) && sp [2] < 16 && !sp [3] && (sp [2] || sp [1] || *sp >= 24) && sp [5] == 4 &&
+            sp [4] >= (MIN_STREAM_VERS & 0xff) && sp [4] <= (MAX_STREAM_VERS & 0xff) && sp [18] < 3 && !sp [19]) {
+		memcpy (wphdr, buffer, sizeof (*wphdr));
+		WavpackLittleEndianToNative (wphdr, WavpackHeaderFormat);
+		return bytes_skipped;
+	    }
+
+	while (sp < ep && *sp != 'w')
+	    sp++;
+
+	if ((bytes_skipped += sp - buffer) > 1024 * 1024)
+	    return -1;
+    }
+}
+
+// Quickly verify specified file using only block checksums and simple continuity checks. Avoids
+// decoding audio, or even opening the file with libwavpack. A return value of WAVPACK_HARD_ERROR
+// indicates that the file does not contain block checksums (introduced with WavPack 5) and so can
+// only be verified by actually decoding audio. A return value of WAVPACK_SOFT_ERROR indicates at
+// least one error was detected. The "verbose" parameter can be used to enable extra messaging for
+// debugging purposes.
+
+static int quick_verify_file (char *infilename, int verbose)
+{
+    int64_t file_size, block_index, bytes_read = 0, total_samples = 0;
+    int block_errors = 0, continuity_errors = 0, missing_checksums = 0, truncated = 0;
+    int block_errors_c = 0, continuity_errors_c = 0, missing_checksums_c = 0, truncated_c = 0;
+    int num_channels = 0, chan_index = 0, wvc_mode = 0, block_samples;
+    FILE *(*fopen_func)(const char *, const char *) = fopen;
+    double dtime, progress = -1.0;
+    WavpackHeader wphdr, wphdr_c;
+    unsigned char *block_buffer;
+    FILE *infile, *infile_c;
+    uint32_t bytes_skipped;
+
+#ifdef _WIN32
+    struct __timeb64 time1, time2;
+#else
+    struct timeval time1, time2;
+    struct timezone timez;
+#endif
+
+#ifdef _WIN32
+    fopen_func = fopen_utf8;
+#endif
+
+    if (*infilename == '-') {
+        infile = stdin;
+#ifdef _WIN32
+        _setmode (fileno (stdin), O_BINARY);
+#endif
+#ifdef __OS2__
+        setmode (fileno (stdin), O_BINARY);
+#endif
+    }
+    else
+        infile = fopen_func (infilename, "rb");
+
+    if (!infile) {
+        error_line ("quick verify: can't open file!");
+        return WAVPACK_SOFT_ERROR;
+    }
+
+    file_size = DoGetFileSize (infile);
+    bytes_skipped = read_next_header (infile, &wphdr);
+
+    if (bytes_skipped == (uint32_t) -1) {
+        fclose (infile);
+        error_line ("quick verify: not a valid WavPack file!");
+        return WAVPACK_SOFT_ERROR;
+    }
+
+    bytes_read = sizeof (wphdr) + bytes_skipped;
+
+    // Legacy files without block checksums can't really be verified quickly. If they're a
+    // a regular file we can retry with the regular verify, otherwise it's just a failure.
+
+    if (!(wphdr.flags & HAS_CHECKSUM)) {
+        if (*infilename == '-') {
+            fclose (infile);
+            error_line ("quick verify: legacy files cannot be quickly verified!");
+            return WAVPACK_SOFT_ERROR;
+        }
+        else {
+            fclose (infile);
+            if (verbose) error_line ("quick verify: legacy file, switching to regular verify!");
+            return WAVPACK_HARD_ERROR;
+        }
+    }
+
+    // check for and open any correction file
+
+    if ((wphdr.flags & HYBRID_FLAG) && infile != stdin && !ignore_wvc) {
+        char *infilename_c = malloc (strlen (infilename) + 10);
+
+        strcpy (infilename_c, infilename);
+        strcat (infilename_c, "c");
+        infile_c = fopen_func (infilename_c, "rb");
+        free (infilename_c);
+
+        if (infile_c) {
+            wvc_mode = 1;
+            file_size += DoGetFileSize (infile_c);
+            bytes_skipped = read_next_header (infile_c, &wphdr_c);
+
+            if (bytes_skipped == (uint32_t) -1) {
+                fclose (infile); fclose (infile_c);
+                error_line ("quick verify: not a valid WavPack correction file!");
+                return WAVPACK_SOFT_ERROR;
+            }
+
+            bytes_read += sizeof (wphdr_c) + bytes_skipped;
+
+            if (!(wphdr_c.flags & HAS_CHECKSUM)) {
+                fclose (infile); fclose (infile_c);
+                if (verbose) error_line ("quick verify: legacy correction file, switching to regular verify!");
+                return WAVPACK_HARD_ERROR;
+            }
+
+            if (verbose) error_line ("quick verify: correction file found");
+        }
+    }
+
+    if (!quiet_mode) {
+        fprintf (stderr, "verifying %s%s,", *infilename == '-' ? "stdin" :
+            FN_FIT (infilename), wvc_mode ? " (+.wvc)" : "");
+        fflush (stderr);
+    }
+
+#if defined(_WIN32)
+    _ftime64 (&time1);
+#else
+    gettimeofday(&time1,&timez);
+#endif
+
+    while (1) {
+
+        // the continuity checks only apply to blocks with audio samples
+
+        if (wphdr.block_samples) {
+
+            // the first block with samples (indicated by total_samples == 0) has special significance
+
+            if (!total_samples) {
+                block_index = GET_BLOCK_INDEX (wphdr);
+
+                if (block_index) {
+                    if (verbose) error_line ("quick verify warning: file block index doesn't start at zero");
+                    total_samples = -1;
+                }
+                else {
+                    total_samples = GET_TOTAL_SAMPLES (wphdr);
+
+                    if (total_samples == -1 && verbose)
+                        error_line ("quick verify warning: file duration unknown");
+                }
+            }
+
+            if (block_index != GET_BLOCK_INDEX (wphdr)) {
+                block_index = GET_BLOCK_INDEX (wphdr);
+                continuity_errors++;
+            }
+
+            if (wphdr.flags & INITIAL_BLOCK) {
+                block_samples = wphdr.block_samples;
+                chan_index = 0;
+            }
+            else if (wphdr.block_samples != block_samples)
+                continuity_errors++;
+        }
+
+        // read the body of the block and use libwavpack to parse it and verify its checksum
+
+        block_buffer = malloc (sizeof (wphdr) + wphdr.ckSize - 24);
+        memcpy (block_buffer, &wphdr, sizeof (wphdr));
+
+        if (!fread (block_buffer + sizeof (wphdr), wphdr.ckSize - 24, 1, infile)) {
+            if (verbose) error_line ("quick verify error:%sfile is truncated!\n", wvc_mode ? " main " : " ");
+            free (block_buffer);
+            truncated = 1;
+            break;
+        }
+
+        bytes_read += wphdr.ckSize - 24;
+
+        // this is the libwavpack call that actually verifies the block's checksum
+
+        if (!WavpackVerifySingleBlock (block_buffer, 1))
+            block_errors++;
+
+        free (block_buffer);
+
+        // more stuff that only applies to blocks with audio...
+
+        if (wphdr.block_samples) {
+
+            // handle checking the corresponding correction file block here
+
+            if (wvc_mode && !truncated_c) {
+                unsigned char *block_buffer_c;
+                int got_match = 0;
+
+                while (!got_match && GET_BLOCK_INDEX (wphdr_c) <= GET_BLOCK_INDEX (wphdr)) {
+
+                    if (GET_BLOCK_INDEX (wphdr_c) == GET_BLOCK_INDEX (wphdr)) {
+                        if (wphdr_c.block_samples == wphdr.block_samples &&
+                            wphdr_c.flags == wphdr.flags)
+                                got_match = 1;
+                            else
+                                break;
+                    }
+
+                    block_buffer_c = malloc (sizeof (wphdr_c) + wphdr_c.ckSize - 24);
+                    memcpy (block_buffer_c, &wphdr_c, sizeof (wphdr_c));
+
+                    if (!fread (block_buffer_c + sizeof (wphdr_c), wphdr_c.ckSize - 24, 1, infile_c)) {
+                        if (verbose) error_line ("quick verify error: correction file is truncated!");
+                        free (block_buffer_c);
+                        truncated_c = 1;
+                        break;
+                    }
+
+                    bytes_read += wphdr_c.ckSize - 24;
+
+                    if (!WavpackVerifySingleBlock (block_buffer_c, 1))
+                        block_errors_c++;
+
+                    bytes_skipped = read_next_header (infile_c, &wphdr_c);
+
+                    if (bytes_skipped == (uint32_t) -1)
+                        break;
+
+                    bytes_read += sizeof (wphdr_c) + bytes_skipped;
+
+                    if (!(wphdr_c.flags & HAS_CHECKSUM))
+                        missing_checksums_c++;
+
+                    if (bytes_skipped && verbose)
+                        error_line ("quick verify warning: %u bytes skipped in correction file", bytes_skipped);
+                }
+
+                if (!got_match)
+                    continuity_errors_c++;
+            }
+
+            chan_index += (wphdr.flags & MONO_FLAG) ? 1 : 2;
+
+            // on the final block make sure we got all required channels, and get ready for the next sequence
+
+            if (wphdr.flags & FINAL_BLOCK) {
+                if (num_channels) {
+                    if (num_channels != chan_index) {
+                        if (verbose) error_line ("quick verify error: channel count changed %d --> %d", num_channels, chan_index);
+                        num_channels = chan_index;
+                        continuity_errors++;
+                    }
+                }
+                else {
+                    num_channels = chan_index;
+                    if (verbose) error_line ("quick verify: channel count = %d", num_channels);
+                }
+
+                block_index += block_samples;
+                chan_index = 0;
+            }
+        }
+
+        // all done with that block, so read the next header
+
+        bytes_skipped = read_next_header (infile, &wphdr);
+
+        if (bytes_skipped == (uint32_t) -1)
+            break;
+
+        bytes_read += sizeof (wphdr) + bytes_skipped;
+
+        // while all blocks should ideally have checksums, beta versions might not have
+        // appended them to non-audio blocks, so we can ignore those cases for now
+
+        if (wphdr.block_samples && !(wphdr.flags & HAS_CHECKSUM))
+            missing_checksums++;
+
+        if (bytes_skipped && verbose)
+            error_line ("quick verify warning: %u bytes skipped", bytes_skipped);
+
+        if (check_break ()) {
+#if defined(_WIN32)
+            fprintf (stderr, "^C\n");
+#else
+            fprintf (stderr, "\n");
+#endif
+            fflush (stderr);
+            fclose (infile);
+            if (wvc_mode) fclose (infile_c);
+            return WAVPACK_SOFT_ERROR;
+        }
+
+        if (file_size && progress != floor ((double) bytes_read / file_size * 100.0 + 0.5)) {
+            int nobs = progress == -1.0;
+
+            progress = (double) bytes_read / file_size;
+            display_progress (progress);
+            progress = floor (progress * 100.0 + 0.5);
+
+            if (!quiet_mode) {
+                fprintf (stderr, "%s%3d%% done...",
+                    nobs ? " " : "\b\b\b\b\b\b\b\b\b\b\b\b", (int) progress);
+                fflush (stderr);
+            }
+        }
+    }
+
+    // all done, so close the files and report the results
+
+    if (wvc_mode) fclose (infile_c);
+    fclose (infile);
+
+    if (truncated || block_errors || continuity_errors || missing_checksums ||
+        truncated_c || block_errors_c || continuity_errors_c || missing_checksums_c) {
+            int total_errors_c = truncated_c + block_errors_c + continuity_errors_c + missing_checksums_c;
+            int total_errors = truncated + block_errors + continuity_errors + missing_checksums;
+
+            if (verbose) {
+                if (total_errors - truncated)
+                    error_line ("quick verify%serrors: %d missing checksums, %d bad blocks, %d discontinuities!",
+                        wvc_mode ? " [main] " : " ", missing_checksums, block_errors, continuity_errors);
+
+                if (total_errors_c - truncated_c)
+                    error_line ("quick verify [correction] errors: %d missing checksums, %d bad blocks, %d discontinuities!",
+                        missing_checksums_c, block_errors_c, continuity_errors_c);
+            }
+            else {
+                if (wvc_mode && !total_errors)
+                    error_line ("quick verify: %d errors detected in correction file, main file okay!", total_errors_c);
+                else if (wvc_mode)
+                    error_line ("quick verify: %d errors detected in main and correction files!", total_errors + total_errors_c);
+                else
+                    error_line ("quick verify: %d errors detected!", total_errors);
+            }
+
+            return WAVPACK_SOFT_ERROR;
+    }
+
+    if (total_samples != -1 && total_samples != block_index) {
+        if (total_samples < block_index)
+            error_line ("quick verify: WavPack file contains %lld extra samples!", block_samples - total_samples);
+        else
+            error_line ("quick verify: WavPack file is missing %lld samples!", total_samples - block_samples);
+
+        return WAVPACK_SOFT_ERROR;
+    }
+
+#if defined(_WIN32)
+    _ftime64 (&time2);
+    dtime = time2.time + time2.millitm / 1000.0;
+    dtime -= time1.time + time1.millitm / 1000.0;
+#else
+    gettimeofday(&time2,&timez);
+    dtime = time2.tv_sec + time2.tv_usec / 1000000.0;
+    dtime -= time1.tv_sec + time1.tv_usec / 1000000.0;
+#endif
+
+    if (!quiet_mode) {
+        char *file, *fext, *oper;
+
+        file = (*infilename == '-') ? "stdin" : FN_FIT (infilename);
+        fext = wvc_mode ? " (+.wvc)" : "";
+
+        error_line ("quickly verified %s%s in %.2f secs", file, fext, dtime);
+    }
+
+    return WAVPACK_NO_ERROR;
 }
 
 // Unpack the specified WavPack input file into the specified output file name.
