@@ -475,11 +475,13 @@ int WavpackGetChannelMask (WavpackContext *wpc)
 // Return the normalization value for floating point data (valid only
 // if floating point data is present). A value of 127 indicates that
 // the floating point range is +/- 1.0. Higher values indicate a
-// larger floating point range.
+// larger floating point range. Note that if the client specified
+// OPEN_NORMALIZE we return the normalized value (i.e., 127 + offset)
+// rather than what's in the file (which isn't really relevant).
 
 int WavpackGetFloatNormExp (WavpackContext *wpc)
 {
-    return wpc->config.float_norm_exp;
+    return (wpc->open_flags & OPEN_NORMALIZE) ? 127 + wpc->norm_offset : wpc->config.float_norm_exp;
 }
 
 // Returns the actual number of valid bits per sample contained in the

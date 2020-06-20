@@ -64,7 +64,7 @@ int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     int wavhdrsize = 16;
 
     if (format == 3 && WavpackGetFloatNormExp (wpc) != 127) {
-        error_line ("can't create valid RIFF wav header for non-normalized floating data!");
+        error_line ("invalid float data for WAV, use --normalize-floats and omit MD5 check!");
         return FALSE;
     }
 

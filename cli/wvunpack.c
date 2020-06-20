@@ -140,6 +140,8 @@ static const char *help =
 #endif
 "    -m                    calculate and display MD5 signature; verify if lossless\n"
 "    -n                    no audio decoding (use with -xx to extract tags only)\n"
+"    --normalize-floats    normalize float audio to +/-1.0 if it isn't already\n"
+"                           (rarely the case, but alters audio and fails MD5)\n"
 #ifdef _WIN32
 "    --no-utf8-convert     leave tag items in UTF-8 when extracting to files\n"
 "    --pause               pause before exiting (if console window disappears)\n"
@@ -204,7 +206,7 @@ static struct {
 
 int debug_logging_mode;
 
-static int overwrite_all, delete_source, raw_decode, no_utf8_convert, no_audio_decode, file_info,
+static int overwrite_all, delete_source, raw_decode, normalize_floats, no_utf8_convert, no_audio_decode, file_info,
     summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, decode_format, format_specified, caf_be, set_console_title;
 
 static int num_files, file_index, outbuf_k;
@@ -305,6 +307,8 @@ int main(int argc, char **argv)
             else if (!strcmp (long_option, "pause"))                    // --pause
                 pause_mode = 1;
 #endif
+            else if (!strcmp (long_option, "normalize-floats"))         // --normalize-floats
+                normalize_floats = 1;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
             else if (!strncmp (long_option, "skip", 4)) {               // --skip
@@ -1482,6 +1486,9 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     open_flags |= OPEN_FILE_UTF8;
 #endif
 
+    if (normalize_floats)
+        open_flags |= OPEN_NORMALIZE;
+
     if ((outfilename && !raw_decode && !blind_decode && !format_specified &&
         !skip.value_is_valid && !until.value_is_valid) || summary > 1)
             open_flags |= OPEN_WRAPPER;
@@ -1738,10 +1745,12 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     total_unpacked_samples = until_samples_total;
 
-    if (output_qmode & QMODE_DSD_AUDIO)
-        result = unpack_dsd_audio (wpc, outfile, output_qmode, calc_md5 ? md5_unpacked : NULL, &total_unpacked_samples);
-    else
-        result = unpack_audio (wpc, outfile, output_qmode, calc_md5 ? md5_unpacked : NULL, &total_unpacked_samples);
+    if (result == WAVPACK_NO_ERROR) {
+        if (output_qmode & QMODE_DSD_AUDIO)
+            result = unpack_dsd_audio (wpc, outfile, output_qmode, calc_md5 ? md5_unpacked : NULL, &total_unpacked_samples);
+        else
+            result = unpack_audio (wpc, outfile, output_qmode, calc_md5 ? md5_unpacked : NULL, &total_unpacked_samples);
+    }
 
     // if the file format has chunk alignment requirements, and our data chunk does not align, write padding bytes here
 

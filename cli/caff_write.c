@@ -95,7 +95,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     int num_identified_chans, i;
 
     if (float_norm_exp && float_norm_exp != 127) {
-        error_line ("can't create valid CAFF header for non-normalized floating data!");
+        error_line ("invalid float data for CAFF, use --normalize-floats and omit MD5 check!");
         free (channel_identities);
         return FALSE;
     }

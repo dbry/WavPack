@@ -225,6 +225,8 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                         config->float_norm_exp = 127 + 23;
                     else if (WaveHeader.BitsPerSample == 32)
                         config->float_norm_exp = 127 + 15;
+
+                    config->bits_per_sample = 32;   // make sure this is correct in Adobe modes
             }
 
             if (debug_logging_mode) {
