@@ -1726,6 +1726,21 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
                 created_riff_header = TRUE;
         }
         else if (WavpackGetWrapperBytes (wpc)) {
+
+            // This is a total hack to correct the Adobe-specific WAV header to properly indicate a normalized float file
+
+            if (normalize_floats && (WavpackGetMode (wpc) & MODE_FLOAT) && WavpackGetWrapperBytes (wpc) >= 44 &&
+                !strncmp (WavpackGetWrapperData (wpc), "RIFF", 4) && !strncmp (WavpackGetWrapperData (wpc) + 8, "WAVEfmt ", 8) &&
+                WavpackGetWrapperData (wpc) [20] == 1) {
+
+                    WavpackGetWrapperData (wpc) [20] = 3;           // set FormatTag to 3 (IEEE float)
+
+                    if (WavpackGetWrapperData (wpc) [34] == 24)     // if BitsPerSample is 24, change to 32
+                        WavpackGetWrapperData (wpc) [34] = 32;
+
+                    error_line ("corrected Adobe-specific header to properly indicate a normalized float file");
+            }
+
             if (!DoWriteFile (outfile, WavpackGetWrapperData (wpc), WavpackGetWrapperBytes (wpc), &bcount) ||
                 bcount != WavpackGetWrapperBytes (wpc)) {
                     error_line ("can't write .WAV data, disk probably full!");
