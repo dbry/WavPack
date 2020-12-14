@@ -656,10 +656,16 @@ static int read_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
 
 static int read_wrapper_data (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
+    unsigned char *tmpbuf;
     if ((wpc->open_flags & OPEN_WRAPPER) && wpc->wrapper_bytes < MAX_WRAPPER_BYTES && wpmd->byte_length) {
-        wpc->wrapper_data = (unsigned char *)realloc (wpc->wrapper_data, wpc->wrapper_bytes + wpmd->byte_length);
-	if (!wpc->wrapper_data)
+        tmpbuf = (unsigned char *)realloc (wpc->wrapper_data, wpc->wrapper_bytes + wpmd->byte_length);
+	if (!tmpbuf){
+            free(wpc->wrapper_data);
 	    return FALSE;
+	}
+        else {
+            wpc->wrapper_data = tmpbuf;
+	}
         memcpy (wpc->wrapper_data + wpc->wrapper_bytes, wpmd->data, wpmd->byte_length);
         wpc->wrapper_bytes += wpmd->byte_length;
     }
@@ -1067,6 +1073,7 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
     uint32_t blocks = 0, audio_blocks = 0;
     void *id = wpc->wv_in;
     WavpackHeader wphdr;
+    unsigned char *tmpbuf;
 
     restore_pos = reader->get_pos (id);    // we restore file position when done
 
@@ -1173,12 +1180,16 @@ static int seek_eof_information (WavpackContext *wpc, int64_t *final_index, int 
             meta_id &= ID_UNIQUE;
 
             if (get_wrapper && (meta_id == ID_RIFF_TRAILER || (alt_types && meta_id == ID_ALT_TRAILER)) && meta_bc) {
-                wpc->wrapper_data = (unsigned char *)realloc (wpc->wrapper_data, wpc->wrapper_bytes + meta_bc);
+                tmpbuf = (unsigned char *)realloc (wpc->wrapper_data, wpc->wrapper_bytes + meta_bc);
 
-                if (!wpc->wrapper_data) {
+                if (!tmpbuf) {
+                    free(wpc->wrapper_data);
                     reader->set_pos_abs (id, restore_pos);
                     return FALSE;
                 }
+                else {
+                    wpc->wrapper_data = tmpbuf;
+		}
 
                 if (reader->read_bytes (id, wpc->wrapper_data + wpc->wrapper_bytes, meta_bc) == meta_bc)
                     wpc->wrapper_bytes += meta_size;
