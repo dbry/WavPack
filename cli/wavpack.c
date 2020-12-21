@@ -1737,6 +1737,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         error_line ("can't create file %s!", use_tempfiles ? outfilename_temp : outfilename);
         DoCloseHandle (infile);
         WavpackCloseFile (wpc);
+        free (outfilename_temp);
         free (out2filename_temp);
         return WAVPACK_SOFT_ERROR;
     }
@@ -1770,6 +1771,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
             WavpackCloseFile (wpc);
+            free (outfilename_temp);
             free (out2filename_temp);
             return WAVPACK_SOFT_ERROR;
         }
@@ -1786,6 +1788,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     DoCloseHandle (wv_file.file);
                     DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
                     WavpackCloseFile (wpc);
+                    free (outfilename_temp);
                     free (out2filename_temp);
                     return WAVPACK_SOFT_ERROR;
                 }
@@ -1800,6 +1803,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
             WavpackCloseFile (wpc);
+            free (outfilename_temp);
             free (out2filename_temp);
             return WAVPACK_SOFT_ERROR;
         }
@@ -1823,6 +1827,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
             WavpackCloseFile (wpc);
+            free (outfilename_temp)
             free (out2filename_temp);
             return WAVPACK_SOFT_ERROR;
         }
@@ -1855,6 +1860,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 DoCloseHandle (wv_file.file);
                 DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
                 WavpackCloseFile (wpc);
+                free (outfilename_temp);
                 free (out2filename_temp);
                 return WAVPACK_SOFT_ERROR;
             }
@@ -1891,6 +1897,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
             WavpackCloseFile (wpc);
+            free (outfilename_temp);
             free (out2filename_temp);
             return WAVPACK_SOFT_ERROR;
         }
@@ -2139,6 +2146,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoDeleteFile (use_tempfiles ? out2filename_temp : out2filename);
 
         WavpackCloseFile (wpc);
+        free (outfilename_temp);
         free (out2filename_temp);
         return result;
     }
