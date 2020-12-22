@@ -1827,7 +1827,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
             WavpackCloseFile (wpc);
-            free (outfilename_temp)
+            free (outfilename_temp);
             free (out2filename_temp);
             return WAVPACK_SOFT_ERROR;
         }
