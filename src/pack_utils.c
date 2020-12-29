@@ -195,8 +195,8 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     int num_chans = config->num_channels;
     int i;
 
-    if (!config->sample_rate) {
-        strcpy (wpc->error_message, "sample rate cannot be zero!");
+    if (config->sample_rate <= 0) {
+        strcpy (wpc->error_message, "sample rate cannot be zero or negative!");
         return FALSE;
     }
 
