@@ -200,8 +200,13 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         return FALSE;
     }
 
-    if (!num_chans) {
-        strcpy (wpc->error_message, "channel count cannot be zero!");
+    if (num_chans <= 0 || num_chans > NEW_MAX_STREAMS * 2) {
+        strcpy (wpc->error_message, "invalid channel count!");
+        return FALSE;
+    }
+
+    if (config->block_samples && (config->block_samples < 16 || config->block_samples > 131072)) {
+        strcpy (wpc->error_message, "invalid custom block samples!");
         return FALSE;
     }
 
@@ -523,7 +528,7 @@ int WavpackPackInit (WavpackContext *wpc)
         if (wpc->config.num_channels == 1)
             wpc->block_samples *= 2;
 
-        while (wpc->block_samples > 12000 && wpc->block_samples * wpc->config.num_channels > 300000)
+        while (wpc->block_samples > 12000 && (int64_t) wpc->block_samples * wpc->config.num_channels > 300000)
             wpc->block_samples /= 2;
     }
     else {
@@ -534,10 +539,10 @@ int WavpackPackInit (WavpackContext *wpc)
 
         wpc->block_samples = wpc->config.sample_rate / divisor;
 
-        while (wpc->block_samples > 12000 && wpc->block_samples * wpc->config.num_channels > 75000)
+        while (wpc->block_samples > 12000 && (int64_t) wpc->block_samples * wpc->config.num_channels > 75000)
             wpc->block_samples /= 2;
 
-        while (wpc->block_samples * wpc->config.num_channels < 20000)
+        while ((int64_t) wpc->block_samples * wpc->config.num_channels < 20000)
             wpc->block_samples *= 2;
     }
 
