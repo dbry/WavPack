@@ -38,6 +38,7 @@ Release/
 Debug/
 *.ncb
 *.user
+*.filters
 *.suo
 
 #
