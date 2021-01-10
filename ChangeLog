@@ -1,3 +1,48 @@
+2021-01-04  David Bryant  <david@wavpack.com>
+
+  * wavpack.sln, *.vcxproj files
+    update Visual Studio project files to 2019 version
+
+2020-12-31  David Bryant  <david@wavpack.com>
+
+  * configure.ac
+    disable assembly code for ARM64 (which does not exist yet) for Apple silicon build
+
+2020-12-29  David Bryant  <david@wavpack.com>
+
+  * src/pack_utils.c
+    - issue #91: fix integer overflows resulting in buffer overruns (CVE-2020-35738)
+    - sanitize configuration parameters better (improves clarity and aids debugging)
+
+2020-12-22  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c:
+    fix memory leaks when errors are encountered creating WavPack files
+
+2020-06-06  David Bryant  <david@wavpack.com>
+
+  * src/common_utils.c:
+    always have WavpackGetFloatNormExp() report normalized audio when OPEN_NORMALIZE
+    is specified in open call (which makes more sense than reporting what's in file)
+
+2020-06-06  David Bryant  <david@wavpack.com>
+
+  * cli/caff_write.c, cli/riff.c, cli/riff_write.c, cli/wave64_write.c, cli/wvunpack.c
+    - add --normalize-floats switch to enable writing Adobe floating-point files to
+      standard formats that don't support un-normalized audio
+    - stop ignoring errors when writing audio file headers
+    - stop refusing to encode files in Adobe 24.0 format
+
+2020-06-06  David Bryant  <david@wavpack.com>
+
+  * cli/wvunpack.c:
+    add quick verify command (-vv) that relies on block checksums instead of decoding audio
+
+2020-05-07  David Bryant  <david@wavpack.com>
+
+  * cli/wvunpack.c:
+    display "help" options on command-line errors
+
 2020-04-14  David Bryant  <david@wavpack.com>
 
   * cli/wvunpack.c, cli/wvtag.c:

@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: wvunpack
 .\"    Author: Sebastian Dröge <slomo@debian.org>
-.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 2020-04-13
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 2021-01-10
 .\"    Manual: WavPack Executable Programs
-.\"    Source: WavPack 5.3.0
+.\"    Source: WavPack 5.4.0
 .\"  Language: English
 .\"
-.TH "WVUNPACK" "1" "2020\-04\-13" "WavPack 5\&.3\&.0" "WavPack Executable Programs"
+.TH "WVUNPACK" "1" "2021\-01\-10" "WavPack 5\&.4\&.0" "WavPack Executable Programs"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -232,6 +232,11 @@ no audio decoding (use with
 to extract tags only)
 .RE
 .PP
+\fB\-\-normalize\-floats\fR
+.RS 4
+normalize float audio to +/\-1\&.0 if it isn\*(Aqt already (rarely the case, but alters audio and fails MD5)
+.RE
+.PP
 \fB\-\-no\-utf8\-convert\fR
 .RS 4
 leave extracted text tags in UTF\-8 encoding during extraction or display
@@ -297,6 +302,11 @@ EOF
 \fB\-v\fR
 .RS 4
 verify source data only (no output file created)
+.RE
+.PP
+\fB\-vv\fR
+.RS 4
+quick verify (no output, version 5+ files only)
 .RE
 .PP
 \fB\-\-version\fR
@@ -375,5 +385,5 @@ Updates
 .br
 Copyright \(co 2005 Sebastian Dröge
 .br
-Copyright \(co 2020 David Bryant
+Copyright \(co 2021 David Bryant
 .br

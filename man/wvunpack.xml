@@ -21,16 +21,16 @@
       <holder>Sebastian Dröge</holder>
     </copyright>
     <copyright>
-      <year>2020</year>
+      <year>2021</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2020-04-13</date>
+    <date>2021-01-10</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvunpack</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">5.3.0</refmiscinfo>
+    <refmiscinfo class="version">5.4.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
@@ -166,6 +166,10 @@
           <listitem> <para>no audio decoding (use with <option>-xx</option> to extract tags only)</para> </listitem>
         </varlistentry>
         <varlistentry>
+          <term> <option>--normalize-floats</option> </term>
+          <listitem> <para>normalize float audio to +/-1.0 if it isn't already (rarely the case, but alters audio and fails MD5)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
           <term> <option>--no-utf8-convert</option> </term>
           <listitem> <para>leave extracted text tags in UTF-8 encoding during extraction or display</para> </listitem>
         </varlistentry>
@@ -221,6 +225,10 @@
         <varlistentry>
           <term> <option>-v</option> </term>
           <listitem> <para>verify source data only (no output file created)</para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>-vv</option> </term>
+          <listitem> <para>quick verify (no output, version 5+ files only)</para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>--version</option> </term>
