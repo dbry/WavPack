@@ -11,6 +11,8 @@
   fixed: potential security issue CVE-2020-35738
   fixed: disable A32 asm code when building for Apple silicon
   fixed: issues with Adobe-style floating-point WAV files
+  added: -vv option to wvunpack to quickly verify using just
+         block checksums (ideal for detecting corrupted files)
   added: --normalize-floats option to wvunpack for correctly
          exporting un-normalized floating-point files
   updated: Visual Studio 2019 for Windows builds
