@@ -507,7 +507,7 @@ static int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 
 static int read_channel_identities (WavpackContext *wpc, WavpackMetadata *wpmd)
 {
-    unsigned char *idents = wpmd->data;
+    unsigned char *idents = (unsigned char *)wpmd->data;
     int i;
 
     if (!wpmd->data || !wpmd->byte_length)
@@ -823,8 +823,9 @@ static void bs_read (Bitstream *bs);
 static void bs_open_read (Bitstream *bs, void *buffer_start, void *buffer_end)
 {
     bs->error = bs->sr = bs->bc = 0;
-    bs->ptr = (bs->buf = buffer_start) - 1;
-    bs->end = buffer_end;
+    bs->buf = (uint16_t *)buffer_start;
+    bs->ptr = bs->buf - 1;
+    bs->end = (uint16_t *)buffer_end;
     bs->wrap = bs_read;
 }
 
