@@ -1,6 +1,6 @@
 /*
 ** .WV input plug-in for WavPack
-** Copyright (c) 2000 - 2018, David Bryant, All Rights Reserved
+** Copyright (c) 2000 - present, David Bryant, All Rights Reserved
 */
 
 #include <windows.h>
