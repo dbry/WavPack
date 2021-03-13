@@ -435,7 +435,7 @@ void error_line (char *error, ...)
 
     error_msg [0] = '\r';
     va_start (argptr, error);
-    vsprintf (error_msg + 1, error, argptr);
+    vsnprintf (error_msg + 1, sizeof (error_msg) - 1, error, argptr);
     va_end (argptr);
     fputs (error_msg, stderr);
     finish_line ();
@@ -479,7 +479,7 @@ void error_line (char *error, ...)
 
     error_msg [0] = '\r';
     va_start (argptr, error);
-    vsprintf (error_msg + 1, error, argptr);
+    vsnprintf (error_msg + 1, sizeof (error_msg) - 1, error, argptr);
     va_end (argptr);
     fputs (error_msg, stderr);
     finish_line ();

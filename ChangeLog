@@ -1,3 +1,8 @@
+2021-03-12  David Bryant  <david@wavpack.com>
+
+  * cli/utils.c
+    issue #99: stack buffer overflow in command-line programs with pathological filename
+
 2021-01-04  David Bryant  <david@wavpack.com>
 
   * wavpack.sln, *.vcxproj files
