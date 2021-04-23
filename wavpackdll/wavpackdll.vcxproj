@@ -153,6 +153,8 @@
       <AdditionalOptions>/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode
 /export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples
 /export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem
+/export:WavpackGetEncodedNoise
+
 /export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput
 /export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples
 /export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum
@@ -208,6 +210,8 @@
       <AdditionalOptions>/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode
 /export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples
 /export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem
+/export:WavpackGetEncodedNoise
+
 /export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput
 /export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples
 /export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum
@@ -225,7 +229,6 @@
 /export:WavpackBigEndianToNative /export:WavpackNativeToBigEndian
 /export:WavpackLittleEndianToNative /export:WavpackNativeToLittleEndian
 /export:WavpackGetLibraryVersion /export:WavpackGetLibraryVersionString
-/export:WavpackGetEncodedNoise
 
 /export:WavpackOpenRawDecoder /export:WavpackOpenFileInputEx64
 /export:WavpackGetNumSamples64 /export:WavpackGetSampleIndex64
