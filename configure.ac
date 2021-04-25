@@ -2,7 +2,7 @@
 
 AC_INIT(wavpack, 5.4.0, bryant@wavpack.com)
 AC_CONFIG_SRCDIR([src/pack.c])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([serial-tests])
 AM_MAINTAINER_MODE
 
 LIBWAVPACK_MAJOR=5
@@ -148,11 +148,6 @@ AC_ARG_ENABLE([rpath],
 
 AM_CONDITIONAL([ENABLE_RPATH], [test "x$enable_rpath" = "xyes"])
 
-AC_ARG_ENABLE([tests],
-    AS_HELP_STRING([--enable-tests], [build libwavpack test program (requires Pthreads)]))
-
-AM_CONDITIONAL([ENABLE_TESTS], [test "x$enable_tests" = "xyes"])
-
 AC_ARG_ENABLE([asm],
     [AS_HELP_STRING([--disable-asm], [disable assembly optimizations])],,
     [enable_asm=check])
@@ -216,6 +211,10 @@ fi
 
 AM_CONDITIONAL(ENABLE_MAN, test x$enable_man != xno)
 
+AC_CONFIG_LINKS([
+  cli/all-tests:cli/all-tests
+  cli/fast-tests:cli/fast-tests
+])
 AC_CONFIG_FILES(
 Makefile
 wavpack.pc
