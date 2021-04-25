@@ -1,11 +1,13 @@
-man_MANS = wavpack.1 wvgain.1 wvunpack.1 wvtag.1
+dist_man_MANS = wavpack.1 wvgain.1 wvunpack.1 wvtag.1
 
 if ENABLE_MAN
-%.1: %.xml
+.xml.1:
 	$(XSLTPROC) -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+
+SUFFIXES = .1 .xml
 endif
 
-EXTRA_DIST = $(man_MANS) $(patsubst %.1,%.xml,$(man_MANS))
+EXTRA_DIST = wavpack.xml wvgain.xml wvunpack.xml wvtag.xml
 
 MAINTAINERCLEANFILES = \
 	$(man_MANS) \
