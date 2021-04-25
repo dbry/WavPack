@@ -40,15 +40,16 @@ wvtag_LDFLAGS = -rpath $(libdir)
 endif
 wvtag_LDADD = $(AM_LDADD) $(top_builddir)/src/libwavpack.la $(LIBM) $(ICONV_LIBS)
 
-if ENABLE_TESTS
-bin_PROGRAMS += wvtest
+check_PROGRAMS = wvtest
 wvtest_SOURCES = wvtest.c md5.c
 wvtest_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 wvtest_LDFLAGS = -rpath $(libdir)
 endif
 wvtest_LDADD = $(AM_LDADD) $(top_builddir)/src/libwavpack.la $(LIBM) -lpthread
-endif
+
+TESTS = fast-tests
+TESTS_ENVIRONMENT = $(SHELL)
 
 noinst_HEADERS = \
 	win32_unicode_support.h \
