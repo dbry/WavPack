@@ -21,7 +21,9 @@ MAINTAINERCLEANFILES = \
 	missing \
 	install-sh
 
-EXTRA_DIST = README.md doc/*.pdf doc/*.html doc/*.css \
+EXTRA_DIST = README.md \
+	doc/WavPack5FileFormat.pdf doc/WavPack5LibraryDoc.pdf doc/WavPack5PortingGuide.pdf \
+	doc/wavpack_doc.html doc/style.css \
 	CMakeLists.txt cmake/CheckCLinkerFlag.cmake cmake/modules/FindIconv.cmake \
 	cmake/TestLargeFiles.cmake
 
