@@ -1,5 +1,3 @@
-AUTOMAKE_OPTIONS = foreign
-
 if ENABLE_APPS
   MAYBE_APPS = cli
 endif
