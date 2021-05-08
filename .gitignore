@@ -7,16 +7,20 @@
 Makefile
 Makefile.in
 aclocal.m4
+ar-lib
 autom4te.cache/
 cli/.deps/
 cli/.libs/
 cli/wavpack
 cli/wvgain
+cli/wvtag
+cli/wvtest
 cli/wvunpack
 compile
 configure
 config.guess
 config.log
+config.rpath
 config.status
 config.sub
 depcomp
@@ -27,6 +31,7 @@ missing
 src/.deps/
 src/.libs/
 wavpack.pc
+wavpack*.tar.xz
 *.wav
 *.wv*
 
