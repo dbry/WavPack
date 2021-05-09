@@ -167,9 +167,5 @@ AC_CONFIG_LINKS([
 AC_CONFIG_FILES([
   Makefile
   wavpack.pc
-  src/Makefile
-  include/Makefile
-  cli/Makefile
-  man/Makefile
 ])
 AC_OUTPUT
