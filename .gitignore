@@ -4,12 +4,14 @@
 
 *.o
 *.l[ao]
+.deps/
 Makefile
 Makefile.in
 aclocal.m4
 ar-lib
 autom4te.cache/
 cli/.deps/
+cli/.dirstamp
 cli/.libs/
 cli/wavpack
 cli/wvgain
@@ -17,18 +19,19 @@ cli/wvtag
 cli/wvtest
 cli/wvunpack
 compile
-configure
 config.guess
 config.log
 config.rpath
 config.status
 config.sub
+configure
 depcomp
 install-sh
 libtool
 ltmain.sh
 missing
 src/.deps/
+src/.dirstamp
 src/.libs/
 wavpack.pc
 wavpack*.tar.xz
