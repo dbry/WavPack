@@ -55,7 +55,15 @@ AC_ARG_ENABLE([apps],
   [AS_HELP_STRING([--disable-apps], [build only libwavpack (removes ICONV dependency)])])
 AM_CONDITIONAL([ENABLE_APPS], [test "x${enable_apps}" != "xno"])
 
-AS_IF([test "x${enable_apps}" != "xno"], [
+AC_MSG_CHECKING([if we are building for a Windows host])
+AS_CASE([${host_os}],
+  [*mingw*], [windows_host=yes],
+  [windows_host=no])
+AC_MSG_RESULT([${windows_host}])
+
+AM_CONDITIONAL([WINDOWS_HOST], [test "x${windows_host}" = "xyes"])
+
+AS_IF([test "x${enable_apps}" != "xno" -a "x${windows_host}" != "xyes"], [
   AM_ICONV
   AS_IF([test "x${am_cv_func_iconv}" != "xyes"], [
     AC_MSG_ERROR([iconv is required for apps, use --disable-apps to build only libwavpack])
@@ -65,14 +73,6 @@ AS_IF([test "x${enable_apps}" != "xno"], [
 AS_IF([test "x${enable_libcrypto}" = "xyes"], [
   AC_CHECK_LIB([crypto],[MD5_Init])
 ])
-
-AC_MSG_CHECKING([if we are building for a Windows host])
-AS_CASE([${host_os}],
-  [*mingw*], [windows_host=yes],
-  [windows_host=no])
-AC_MSG_RESULT([${windows_host}])
-
-AM_CONDITIONAL([WINDOWS_HOST], [test "x${windows_host}" = "xyes"])
 
 AC_ARG_ENABLE([legacy],
   [AS_HELP_STRING([--enable-legacy], [decode legacy (< 4.0) WavPack files])])
