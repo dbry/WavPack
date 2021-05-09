@@ -617,26 +617,28 @@ void WavpackFloatNormalize (int32_t *values, int32_t num_values, int delta_exp)
 void WavpackLittleEndianToNative (void *data, char *format)
 {
     unsigned char *cp = (unsigned char *) data;
-    int64_t temp;
+    int64_t temp64;
+    int32_t temp32;
+    int16_t temp16;
 
     while (*format) {
         switch (*format) {
             case 'D':
-                temp = cp [0] + ((int64_t) cp [1] << 8) + ((int64_t) cp [2] << 16) + ((int64_t) cp [3] << 24) +
+                temp64 = cp [0] + ((int64_t) cp [1] << 8) + ((int64_t) cp [2] << 16) + ((int64_t) cp [3] << 24) +
                     ((int64_t) cp [4] << 32) + ((int64_t) cp [5] << 40) + ((int64_t) cp [6] << 48) + ((uint64_t) cp [7] << 56);
-                * (int64_t *) cp = temp;
+                memcpy (cp, &temp64, 8);
                 cp += 8;
                 break;
 
             case 'L':
-                temp = cp [0] + ((int32_t) cp [1] << 8) + ((int32_t) cp [2] << 16) + ((int64_t) cp [3] << 24);
-                * (int32_t *) cp = (int32_t) temp;
+                temp32 = cp [0] + ((int32_t) cp [1] << 8) + ((int32_t) cp [2] << 16) + ((int64_t) cp [3] << 24);
+                memcpy (cp, &temp32, 4);
                 cp += 4;
                 break;
 
             case 'S':
-                temp = cp [0] + (cp [1] << 8);
-                * (int16_t *) cp = (int16_t) temp;
+                temp16 = cp [0] + (cp [1] << 8);
+                memcpy (cp, &temp16, 2);
                 cp += 2;
                 break;
 
@@ -654,34 +656,36 @@ void WavpackLittleEndianToNative (void *data, char *format)
 void WavpackNativeToLittleEndian (void *data, char *format)
 {
     unsigned char *cp = (unsigned char *) data;
-    int64_t temp;
+    int64_t temp64;
+    int32_t temp32;
+    int16_t temp16;
 
     while (*format) {
         switch (*format) {
             case 'D':
-                temp = * (int64_t *) cp;
-                *cp++ = (unsigned char) temp;
-                *cp++ = (unsigned char) (temp >> 8);
-                *cp++ = (unsigned char) (temp >> 16);
-                *cp++ = (unsigned char) (temp >> 24);
-                *cp++ = (unsigned char) (temp >> 32);
-                *cp++ = (unsigned char) (temp >> 40);
-                *cp++ = (unsigned char) (temp >> 48);
-                *cp++ = (unsigned char) (temp >> 56);
+                memcpy (&temp64, cp, sizeof (temp64));
+                *cp++ = (unsigned char) temp64;
+                *cp++ = (unsigned char) (temp64 >> 8);
+                *cp++ = (unsigned char) (temp64 >> 16);
+                *cp++ = (unsigned char) (temp64 >> 24);
+                *cp++ = (unsigned char) (temp64 >> 32);
+                *cp++ = (unsigned char) (temp64 >> 40);
+                *cp++ = (unsigned char) (temp64 >> 48);
+                *cp++ = (unsigned char) (temp64 >> 56);
                 break;
 
             case 'L':
-                temp = * (int32_t *) cp;
-                *cp++ = (unsigned char) temp;
-                *cp++ = (unsigned char) (temp >> 8);
-                *cp++ = (unsigned char) (temp >> 16);
-                *cp++ = (unsigned char) (temp >> 24);
+                memcpy (&temp32, cp, sizeof (temp32));
+                *cp++ = (unsigned char) temp32;
+                *cp++ = (unsigned char) (temp32 >> 8);
+                *cp++ = (unsigned char) (temp32 >> 16);
+                *cp++ = (unsigned char) (temp32 >> 24);
                 break;
 
             case 'S':
-                temp = * (int16_t *) cp;
-                *cp++ = (unsigned char) temp;
-                *cp++ = (unsigned char) (temp >> 8);
+                memcpy (&temp16, cp, sizeof (temp16));
+                *cp++ = (unsigned char) temp16;
+                *cp++ = (unsigned char) (temp16 >> 8);
                 break;
 
             default:
@@ -698,26 +702,28 @@ void WavpackNativeToLittleEndian (void *data, char *format)
 void WavpackBigEndianToNative (void *data, char *format)
 {
     unsigned char *cp = (unsigned char *) data;
-    int64_t temp;
+    int64_t temp64;
+    int32_t temp32;
+    int16_t temp16;
 
     while (*format) {
         switch (*format) {
             case 'D':
-                temp = cp [7] + ((int64_t) cp [6] << 8) + ((int64_t) cp [5] << 16) + ((int64_t) cp [4] << 24) +
+                temp64 = cp [7] + ((int64_t) cp [6] << 8) + ((int64_t) cp [5] << 16) + ((int64_t) cp [4] << 24) +
                     ((int64_t) cp [3] << 32) + ((int64_t) cp [2] << 40) + ((int64_t) cp [1] << 48) + ((uint64_t) cp [0] << 56);
-                * (int64_t *) cp = temp;
+                memcpy (cp, &temp64, 8);
                 cp += 8;
                 break;
 
             case 'L':
-                temp = cp [3] + ((int32_t) cp [2] << 8) + ((int32_t) cp [1] << 16) + ((int64_t) cp [0] << 24);
-                * (int32_t *) cp = (int32_t) temp;
+                temp32 = cp [3] + ((int32_t) cp [2] << 8) + ((int32_t) cp [1] << 16) + ((int64_t) cp [0] << 24);
+                memcpy (cp, &temp32, 4);
                 cp += 4;
                 break;
 
             case 'S':
-                temp = cp [1] + (cp [0] << 8);
-                * (int16_t *) cp = (int16_t) temp;
+                temp16 = cp [1] + (cp [0] << 8);
+                memcpy (cp, &temp16, 2);
                 cp += 2;
                 break;
 
@@ -735,34 +741,36 @@ void WavpackBigEndianToNative (void *data, char *format)
 void WavpackNativeToBigEndian (void *data, char *format)
 {
     unsigned char *cp = (unsigned char *) data;
-    int64_t temp;
+    int64_t temp64;
+    int32_t temp32;
+    int16_t temp16;
 
     while (*format) {
         switch (*format) {
             case 'D':
-                temp = * (int64_t *) cp;
-                *cp++ = (unsigned char) (temp >> 56);
-                *cp++ = (unsigned char) (temp >> 48);
-                *cp++ = (unsigned char) (temp >> 40);
-                *cp++ = (unsigned char) (temp >> 32);
-                *cp++ = (unsigned char) (temp >> 24);
-                *cp++ = (unsigned char) (temp >> 16);
-                *cp++ = (unsigned char) (temp >> 8);
-                *cp++ = (unsigned char) temp;
+                memcpy (&temp64, cp, sizeof (temp64));
+                *cp++ = (unsigned char) (temp64 >> 56);
+                *cp++ = (unsigned char) (temp64 >> 48);
+                *cp++ = (unsigned char) (temp64 >> 40);
+                *cp++ = (unsigned char) (temp64 >> 32);
+                *cp++ = (unsigned char) (temp64 >> 24);
+                *cp++ = (unsigned char) (temp64 >> 16);
+                *cp++ = (unsigned char) (temp64 >> 8);
+                *cp++ = (unsigned char) temp64;
                 break;
 
             case 'L':
-                temp = * (int32_t *) cp;
-                *cp++ = (unsigned char) (temp >> 24);
-                *cp++ = (unsigned char) (temp >> 16);
-                *cp++ = (unsigned char) (temp >> 8);
-                *cp++ = (unsigned char) temp;
+                memcpy (&temp32, cp, sizeof (temp32));
+                *cp++ = (unsigned char) (temp32 >> 24);
+                *cp++ = (unsigned char) (temp32 >> 16);
+                *cp++ = (unsigned char) (temp32 >> 8);
+                *cp++ = (unsigned char) temp32;
                 break;
 
             case 'S':
-                temp = * (int16_t *) cp;
-                *cp++ = (unsigned char) (temp >> 8);
-                *cp++ = (unsigned char) temp;
+                memcpy (&temp16, cp, sizeof (temp16));
+                *cp++ = (unsigned char) (temp16 >> 8);
+                *cp++ = (unsigned char) temp16;
                 break;
 
             default:

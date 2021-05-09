@@ -1,13 +1,13 @@
 language: c
 sudo: false
-dist: trusty
+dist: focal
 compiler:
   - clang
   - gcc
 os:
   - linux
   - osx
-osx_image: xcode11
+osx_image: xcode12
 addons:
   apt:
     packages:
