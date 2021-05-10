@@ -17,8 +17,8 @@
 
 # build project
 # e.g.
-./autogen.sh --disable-apps
-CFLAGS="$CFLAGS -fno-sanitize=signed-integer-overflow" ./configure --disable-apps
+./autogen.sh --disable-apps --disable-shared --enable-static
+CFLAGS="$CFLAGS -fno-sanitize=signed-integer-overflow" ./configure --disable-apps --disable-shared --enable-static
 CFLAGS="$CFLAGS -fno-sanitize=signed-integer-overflow" make
 
 # build fuzzers
