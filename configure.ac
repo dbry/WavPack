@@ -63,7 +63,7 @@ AC_MSG_RESULT([${windows_host}])
 
 AM_CONDITIONAL([WINDOWS_HOST], [test "x${windows_host}" = "xyes"])
 
-AS_IF([test "x${enable_apps}" != "xno" -a "x${windows_host}" != "xyes"], [
+AS_IF([test "x${enable_apps}" != "xno" && test "x${windows_host}" != "xyes"], [
   AM_ICONV
   AS_IF([test "x${am_cv_func_iconv}" != "xyes"], [
     AC_MSG_ERROR([iconv is required for apps, use --disable-apps to build only libwavpack])
