@@ -202,14 +202,28 @@ target_include_directories(wavpack
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    PRIVATE
-        $<$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>:${OPENSSL_INCLUDE_DIR}>
 )
 target_link_libraries(wavpack
     PRIVATE
         $<$<BOOL:${HAVE_LIBM}>:m>
-        $<$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>:${OPENSSL_CRYPTO_LIBRARY}>
 )
+
+if(CMAKE_VERSION VERSION_LESS 3.4)
+    target_include_directories(wavpack
+        PRIVATE
+            $<$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>:${OPENSSL_INCLUDE_DIR}>
+    )
+    target_link_libraries(wavpack
+        PRIVATE
+            $<$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>:${OPENSSL_CRYPTO_LIBRARY}>
+    )
+else()
+    target_link_libraries(wavpack
+        PRIVATE
+            $<$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>:OpenSSL::Crypto>
+    )
+endif()
+
 target_compile_definitions(wavpack
     PRIVATE
         $<$<BOOL:${WAVPACK_ENABLE_LEGACY}>:ENABLE_LEGACY>
