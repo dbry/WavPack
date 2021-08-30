@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
-//                           **** WAVPACK ****                            //
+//                        **** WAVPACK-KINOO ****                         //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2020 David Bryant.                 //
+//                Copyright (c) 1998 - 2021 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -64,24 +64,24 @@
 ///////////////////////////// local variable storage //////////////////////////
 
 static const char *sign_on = "\n"
-" WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2020 David Bryant.  All Rights Reserved.\n\n";
+" WAVPACK-KINOO  Hybrid Lossless Audio Compressor  %s Version %s\n"
+" Copyright (c) 1998 - 2021 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
-" WARNING: WAVPACK using libwavpack version %s, expected %s (see README)\n\n";
+" WARNING: WAVPACK-KINOO using libwavpack version %s, expected %s (see README)\n\n";
 
 static const char *usage =
 #if defined (_WIN32)
-" Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
-"             (default is lossless; infile may contain wildcards: ?,*)\n\n"
+" Usage:   WAVPACK-KINOO [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
+"             (default is 4-bit lossy; infile may contain wildcards: ?,*)\n\n"
 #else
-" Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
-"             (default is lossless; multiple input files allowed)\n\n"
+" Usage:   WAVPACK-KINOO [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
+"             (default is 4-bit lossy; multiple input files allowed)\n\n"
 #endif
-" Utils:   WAVPACK:  create or transcode WavPack files\n"
-"          WVUNPACK: unpack or verify existing WavPack files\n"
-"          WVGAIN:   apply ReplayGain to WavPack files\n"
-"          WVTAG:    apply or edit metadata tags on WavPack files\n\n"
+" Utils:   WAVPACK-KINOO:  create or transcode WavPack files for Kinoo\n"
+"          WVUNPACK:       unpack or verify existing WavPack files\n"
+"          WVGAIN:         apply ReplayGain to WavPack files\n"
+"          WVTAG:          apply or edit metadata tags on WavPack files\n\n"
 " Formats: .wav (default, bwf/rf64 okay)  .wv (transcode, with tags)\n"
 "          .w64 (Sony Wave64)             .caf (Core Audio Format)\n"
 "          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n\n"
@@ -90,6 +90,7 @@ static const char *usage =
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
 "          -f  = fast mode (fast, but some compromise in compression ratio)\n"
 "          -h  = high quality (better compression ratio, but slower)\n"
+"          --lossless = lossless compression (overrides lossy/hybrid)\n"
 #ifdef _WIN32
 "          --pause = pause before exiting (if console window disappears)\n"
 #else
@@ -103,21 +104,21 @@ static const char *usage =
 static const char *help =
 #if defined (_WIN32)
 " Usage:\n"
-"    WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n\n"
+"    WAVPACK-KINOO [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n\n"
 "    The default operation is lossless. Wildcard characters (*,?) may be included\n"
 "    in the filename and the source file type is automatically determined (see\n"
 "    accepted formats below). Raw PCM may also be used (see --raw-pcm option).\n\n"
 #else
 " Usage:\n"
-"    WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n\n"
+"    WAVPACK-KINOO [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n\n"
 "    The default operation is lossless. Multiple input files may be specified\n"
 "    and the source file type is automatically determined (see accepted formats\n"
 "    below). Raw PCM data may also be used (see --raw-pcm option).\n\n"
 #endif
-" All Utilities:             WAVPACK:  create or transcode WavPack files\n"
-"                            WVUNPACK: unpack or verify existing WavPack files\n"
-"                            WVGAIN:   apply ReplayGain to WavPack files\n"
-"                            WVTAG:    apply or edit metadata tags on WavPack files\n\n"
+" All Utilities:             WAVPACK-KINOO:  create or transcode WavPack files for Kinoo\n"
+"                            WVUNPACK:       unpack or verify existing WavPack files\n"
+"                            WVGAIN:         apply ReplayGain to WavPack files\n"
+"                            WVTAG:          apply or edit metadata tags on WavPack files\n\n"
 " Input Formats:             .wav (default, includes bwf/rf64 varients)\n"
 "                            .wv  (transcode operation, tags copied)\n"
 "                            .caf (Core Audio Format)\n"
@@ -163,6 +164,7 @@ static const char *help =
 #if defined (_WIN32) || defined (__OS2__)
 "    -l                      run at lower priority for smoother multitasking\n"
 #endif
+"    --lossless              lossless compression (overrides lossy/hybrid)\n"
 "    -m                      compute & store MD5 signature of raw audio data\n"
 "    --merge-blocks          merge consecutive blocks with equal redundancy\n"
 "                             (used with --blocksize option and is useful for\n"
@@ -186,8 +188,8 @@ static const char *help =
 "                             (common use would be --pre-quantize=20 for 24-bit or\n"
 "                             float material recorded with typical converters)\n"
 "    -q                      quiet (keep console output to a minimum)\n"
-"    -r                      remove file headers (file-appropriate headers\n"
-"                             will be regenerated during unpacking)\n"
+"    -r                      remove file headers (Kinoo default, file-appropriate\n"
+"                             headers will be regenerated during unpacking)\n"
 "    --raw-pcm               input data is raw pcm (default is 44100 Hz, 16-bit\n"
 "                             signed, 2-channels, little-endian)\n"
 "    --raw-pcm=sr,bps[f|s|u],nch,[le|be]\n"
@@ -286,6 +288,8 @@ static struct tag_item {
 static int pause_mode;
 #endif
 
+static int kinoo_mode = 1;
+
 /////////////////////////// local function declarations ///////////////////////
 
 static FILE *wild_fopen (char *filename, const char *mode);
@@ -351,6 +355,16 @@ int main (int argc, char **argv)
 
     CLEAR (config);
 
+    if (kinoo_mode) {           // for Kinoo mode, set some specific settings by default
+        config.flags |= CONFIG_EXTRA_MODE;
+        config.xmode = 6;
+
+        config.flags |= CONFIG_HYBRID_FLAG;
+        config.bitrate = 4.0;
+
+        config.qmode |= QMODE_NO_STORE_WRAPPER;
+    }
+
     // loop through command-line arguments
 
     while (--argc)
@@ -366,7 +380,7 @@ int main (int argc, char **argv)
                 return 0;
             }
             else if (!strcmp (long_option, "version")) {                // --version
-                printf ("wavpack %s\n", PACKAGE_VERSION);
+                printf ("wavpack-kinoo %s\n", PACKAGE_VERSION);
                 printf ("libwavpack %s\n", WavpackGetLibraryVersionString ());
                 return 0;
             }
@@ -379,6 +393,10 @@ int main (int argc, char **argv)
             else if (!strcmp (long_option, "dns")) {                    // --dns
                 error_line ("warning: --dns deprecated, use --use-dns");
                 ++error_count;
+            }
+            else if (!strcmp (long_option, "lossless")) {               // --lossless
+                config.flags &= ~CONFIG_HYBRID_FLAG;
+                config.bitrate = 0;
             }
             else if (!strcmp (long_option, "use-dns"))                  // --use-dns
                 config.flags |= CONFIG_DYNAMIC_SHAPING;
@@ -1823,6 +1841,37 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
         if (bytes_to_skip) {
             error_line ("can't read file %s!", infilename);
+            DoCloseHandle (infile);
+            DoCloseHandle (wv_file.file);
+            DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
+            WavpackCloseFile (wpc);
+            free (outfilename_temp);
+            free (out2filename_temp);
+            return WAVPACK_SOFT_ERROR;
+        }
+    }
+
+    // if Kinoo mode, check for correct file characteristics
+
+    if (kinoo_mode) {
+        int valid_kinoo = 1;
+
+        if (loc_config.sample_rate != 22050) {
+            error_line ("file %s has sample rate of %d Hz, must be 22050 Hz!", infilename, loc_config.sample_rate);
+            valid_kinoo = 0;
+        }
+
+        if (loc_config.num_channels != 1) {
+            error_line ("file %s has %d channels, must be just 1 (mono)!", infilename, loc_config.num_channels);
+            valid_kinoo = 0;
+        }
+
+        if (loc_config.bits_per_sample != 16) {
+            error_line ("file %s is %d-bit, must be 16-bit!", infilename, loc_config.bits_per_sample);
+            valid_kinoo = 0;
+        }
+
+        if (!valid_kinoo) {
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
