@@ -35,8 +35,18 @@ MAINTAINERCLEANFILES = \
 ########
 
 if ENABLE_APPS
-bin_PROGRAMS = cli/wavpack cli/wvunpack cli/wvgain cli/wvtag
+bin_PROGRAMS = cli/wavpack-kinoo cli/wavpack cli/wvunpack cli/wvgain cli/wvtag
 endif
+
+cli_wavpack_kinoo_SOURCES = cli/wavpack-kinoo.c cli/riff.c cli/wave64.c cli/caff.c cli/dsdiff.c cli/dsf.c cli/utils.c cli/md5.c cli/import_id3.c
+if WINDOWS_HOST
+cli_wavpack_kinoo_SOURCES += cli/win32_unicode_support.c
+endif
+cli_wavpack_kinoo_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
+if ENABLE_RPATH
+cli_wavpack_kinoo_LDFLAGS = -rpath $(libdir)
+endif
+cli_wavpack_kinoo_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
 
 cli_wavpack_SOURCES = cli/wavpack.c cli/riff.c cli/wave64.c cli/caff.c cli/dsdiff.c cli/dsf.c cli/utils.c cli/md5.c cli/import_id3.c
 if WINDOWS_HOST
