@@ -1856,8 +1856,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     if (kinoo_mode) {
         int valid_kinoo = 1;
 
-        if (loc_config.sample_rate != 22050) {
-            error_line ("file %s has sample rate of %d Hz, must be 22050 Hz!", infilename, loc_config.sample_rate);
+        if (loc_config.sample_rate != 16000) {
+            error_line ("file %s has sample rate of %d Hz, must be 16000 Hz!", infilename, loc_config.sample_rate);
             valid_kinoo = 0;
         }
 
