@@ -278,6 +278,12 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
             }
 
             total_samples = dff_chunk_header.ckDataSize / config->num_channels;
+
+            if (total_samples <= 0 || total_samples > MAX_WAVPACK_SAMPLES) {
+                error_line ("%s is not a valid .DFF file!", infilename);
+                return WAVPACK_SOFT_ERROR;
+            }
+
             break;
         }
         else {          // just copy unknown chunks to output file
