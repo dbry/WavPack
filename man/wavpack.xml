@@ -70,12 +70,12 @@
         <itemizedlist mark='bullet'>
         <listitem>
         <para>
-          Microsoft RIFF, extension <quote>.wav</quote>, includes <acronym>BWF</acronym> and <acronym>RF64</acronym> varients
+          Microsoft RIFF, extension <quote>.wav</quote>, includes <acronym>BWF</acronym> and <acronym>RF64</acronym> variants
         </para>
         </listitem>
         <listitem>
         <para>
-          WavPack, extension <quote>.wv</quote>, trancode operation, tags copied
+          WavPack, extension <quote>.wv</quote>, transcode operation, tags copied
         </para>
         </listitem>
         <listitem>

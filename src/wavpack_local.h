@@ -325,7 +325,7 @@ struct WavpackContext {
 
 // These macros implement the weight application and update operations
 // that are at the heart of the decorrelation loops. Note that there are
-// sometimes two and even three versions of each macro. Theses should be
+// sometimes two and even three versions of each macro. These should be
 // equivalent and produce identical results, but some may perform better
 // or worse on a given architecture.
 

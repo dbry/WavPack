@@ -118,7 +118,7 @@ static const char *help =
 "                            WVUNPACK: unpack or verify existing WavPack files\n"
 "                            WVGAIN:   apply ReplayGain to WavPack files\n"
 "                            WVTAG:    apply or edit metadata tags on WavPack files\n\n"
-" Input Formats:             .wav (default, includes bwf/rf64 varients)\n"
+" Input Formats:             .wav (default, includes bwf/rf64 variants)\n"
 "                            .wv  (transcode operation, tags copied)\n"
 "                            .caf (Core Audio Format)\n"
 "                            .w64 (Sony Wave64)\n"

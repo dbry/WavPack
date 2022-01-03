@@ -211,7 +211,7 @@ typedef struct {
 #define CONFIG_DYNAMIC_SHAPING  0x20000 // dynamic noise shaping
 #define CONFIG_CREATE_EXE       0x40000 // create executable
 #define CONFIG_CREATE_WVC       0x80000 // create correction file
-#define CONFIG_OPTIMIZE_WVC     0x100000 // maximize bybrid compression
+#define CONFIG_OPTIMIZE_WVC     0x100000 // maximize hybrid compression
 #define CONFIG_COMPATIBLE_WRITE 0x400000 // write files for decoders < 4.3
 #define CONFIG_CALC_NOISE       0x800000 // calc noise in hybrid mode
 #define CONFIG_EXTRA_MODE       0x2000000 // extra processing mode
@@ -387,7 +387,7 @@ int WavpackWriteTag (WavpackContext *wpc);
 WavpackContext *WavpackOpenFileOutput (WavpackBlockOutput blockout, void *wv_id, void *wvc_id);
 void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsigned char file_format);
 
-#define WP_FORMAT_WAV   0       // Microsoft RIFF, including BWF and RF64 varients
+#define WP_FORMAT_WAV   0       // Microsoft RIFF, including BWF and RF64 variants
 #define WP_FORMAT_W64   1       // Sony Wave64
 #define WP_FORMAT_CAF   2       // Apple CoreAudio
 #define WP_FORMAT_DFF   3       // Philips DSDIFF

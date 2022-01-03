@@ -31,7 +31,7 @@
 // can be optionally normalized to +/-1.0 by using the appropriate flag
 // in the call to WavpackOpenFileInput ()). The actual number of samples
 // unpacked is returned, which should be equal to the number requested unless
-// the end of fle is encountered or an error occurs. After all samples have
+// the end of file is encountered or an error occurs. After all samples have
 // been unpacked then 0 will be returned.
 
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples)

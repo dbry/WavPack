@@ -358,7 +358,7 @@ int unpack_init (WavpackContext *wpc)
     return TRUE;
 }
 
-//////////////////////////////// matadata handlers ///////////////////////////////
+//////////////////////////////// metadata handlers ///////////////////////////////
 
 // These functions handle specific metadata types and are called directly
 // during WavPack block parsing by process_metadata() at the bottom.
@@ -829,7 +829,7 @@ static void bs_open_read (Bitstream *bs, void *buffer_start, void *buffer_end)
 }
 
 // This function is only called from the getbit() and getbits() macros when
-// the BitStream has been exhausted and more data is required. Sinve these
+// the BitStream has been exhausted and more data is required. Since these
 // bistreams no longer access files, this function simple sets an error and
 // resets the buffer.
 
