@@ -2,7 +2,7 @@
 
 Hybrid Lossless Wavefile Compressor
 
-Copyright (c) 1998 - 2020 David Bryant.
+Copyright (c) 1998 - 2022 David Bryant.
 
 All Rights Reserved.
 
