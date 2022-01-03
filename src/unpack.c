@@ -43,7 +43,7 @@ extern void DECORR_MONO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int
 
 // This flag provides the functionality of terminating the decoding and muting
 // the output when a lossy sample appears to be corrupt. This is automatic
-// for lossless files because a corrupt sample is unambigious, but for lossy
+// for lossless files because a corrupt sample is unambiguous, but for lossy
 // data it might be possible for this to falsely trigger (although I have never
 // seen it).
 

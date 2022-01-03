@@ -115,7 +115,7 @@ int WavpackGetMode (WavpackContext *wpc)
 // and DSD files. Except for indicating the presence of DSD data, these
 // bits are meant to simply indicate the format of the data in the original
 // source file and do NOT indicate how the library will return the data to
-// the appication (which is always the same). This means that in general an
+// the application (which is always the same). This means that in general an
 // application that simply wants to play or process the audio data need not
 // be concerned about these. If the file is DSD audio, then either of the
 // QMDOE_DSD_LSB_FIRST or QMODE_DSD_MSB_FIRST bits will be set (but the
@@ -311,7 +311,7 @@ uint32_t WavpackGetChannelLayout (WavpackContext *wpc, unsigned char *reorder)
 // This function provides the identities of ALL the channels in the file, including the
 // standard Microsoft channels (which come first, in order, and are numbered 1-18) and also
 // any non-Microsoft channels (which can be in any order and have values from 33-254). The
-// value 0x00 is invalid and 0xFF indicates an "unknown" or "unnassigned" channel. The
+// value 0x00 is invalid and 0xFF indicates an "unknown" or "unassigned" channel. The
 // string is NULL terminated so the caller must supply enough space for the number
 // of channels indicated by WavpackGetNumChannels(), plus one.
 //

@@ -455,7 +455,7 @@ a:hover {
 				</p>
 				<p>
 					Some programs that pipe data to encoders do not always give the correct length in
-					the wav headers that they provide (foobar's clienc and CDex are examples). In these
+					the wav headers that they provide (foobar's client and CDex are examples). In these
 					cases use this option to force WavPack to ignore the header and accept the actual
 					length. Because WavPack must seek to the beginning of the file to write the correct
 					length, this option cannot be used with piped output. <b>Only use this option when it's
@@ -523,7 +523,7 @@ a:hover {
      for various reasons, this is not always the same as the number of bits present. In some
      situations there can be many redundant bits, as for example in the output of the
      lossyWAV program or the output of software HDCD decoders. In these cases it may be
-     advantagous to use a specific block size (or simply a small block size), but WavPack
+     advantageous to use a specific block size (or simply a small block size), but WavPack
      does not work very well with very small block sizes because of its relatively large
      block header.
     </p>
@@ -966,7 +966,7 @@ a:hover {
 					files that are normalized to a different range, specifically those created from certain Cool Edit
 					or Adobe Audition versions. If it is desired to export such files to a standard PCM format (or a
 					normalized raw file) then include this option. Note that since the audio will be scaled, the
-					operation will no longer be strictly lossless and so the option for verifiying the MD5 checksum
+					operation will no longer be strictly lossless and so the option for verifying the MD5 checksum
 					should not be used.
     </p>
 
@@ -1058,8 +1058,8 @@ a:hover {
 				</p>
 				<p>
 					This option allows the user to verify the integrity of WavPack files (including 
-					any correction file). Note that this option not only verfies that a WavPack file 
-					has not been corrupted since creation, but it also verfies that the audio data 
+					any correction file). Note that this option not only verifies that a WavPack file 
+					has not been corrupted since creation, but it also verifies that the audio data 
 					is being unpacked exactly as intended (even in the lossy mode). Therefore, it can 
 					also detect algorithm errors, incompatible implementations of the encoder or 
 					decoder, and even faulty processor hardware.
@@ -1509,7 +1509,7 @@ a:hover {
      range of 24/96 sources. It accomplishes this by moving most of the quantization noise up
      above the audible audio band using first-order noise shaping in much the same way that DSD
      does. In fact, at normally loud listening levels, the added quantization noise remains
-     completely inaudble, <i>even without the masking effect of the material itself!</i> While
+     completely inaudible, <i>even without the masking effect of the material itself!</i> While
      1024 kbps may seem high at first, keep in mind that this is right in the range of some
      losslessly compressed CD-quality music, and is approximately 1/3 of the bitrate required to
      losslessly compress the same 24/96 material! 

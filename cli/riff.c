@@ -9,7 +9,7 @@
 // riff.c
 
 // This module is a helper to the WavPack command-line programs to support WAV files
-// (both MS standard and rf64 varients).
+// (both MS standard and rf64 variants).
 
 #include <string.h>
 #include <stdlib.h>
