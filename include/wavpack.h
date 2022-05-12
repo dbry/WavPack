@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2020 David Bryant.                 //
+//                Copyright (c) 1998 - 2022 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -145,6 +145,15 @@ typedef struct {
 
 #define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
 #define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
+
+#define WAVPACK_MAX_CHANS       4096    // max channels handled by WavPack format & library
+
+// This sets the maximum number of channels that the current WavPack CLI applications
+// accept. It's somewhat arbitrary because the actual WavPack format and library can
+// handle up to 4096 channels. However, anything beyond 256 channels is obviously
+// a niche case and is not well tested, so this lower limit is defined for now.
+
+#define WAVPACK_MAX_CLI_CHANS   256
 
 // These are the mask bit definitions for the metadata chunk id byte (see format.txt)
 

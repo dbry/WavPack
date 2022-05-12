@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2019 David Bryant.                 //
+//                Copyright (c) 1998 - 2022 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -196,7 +196,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 
                             chansSpecified = (int)(dff_chunk_header.ckDataSize - sizeof (numChannels)) / 4;
 
-                            if (numChannels < chansSpecified || numChannels < 1 || numChannels > 256) {
+                            if (numChannels < chansSpecified || numChannels < 1 || numChannels > WAVPACK_MAX_CLI_CHANS) {
                                 error_line ("%s is not a valid .DFF file!", infilename);
                                 free (prop_chunk);
                                 return WAVPACK_SOFT_ERROR;

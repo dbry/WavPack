@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2020 David Bryant.                 //
+//                Copyright (c) 1998 - 2022 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -453,7 +453,7 @@ int main (int argc, char **argv)
                 }
                 else if (params [0] < 1 || params [0] > 1000000000 ||
                     params [1] < 1 || params [1] > 32 || (fp && params [1] != 32) ||
-                    params [2] < 1 || params [2] > 256) {
+                    params [2] < 1 || params [2] > WAVPACK_MAX_CLI_CHANS) {
                         error_line ("argument range error in raw PCM specification!");
                         ++error_count;
                 }
