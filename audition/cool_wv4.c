@@ -673,7 +673,7 @@ void PASCAL CloseFilterInput (HANDLE hInput)
 }
 
 
-static BOOL CALLBACK WavPackDlgProc (HWND, UINT, WPARAM, LPARAM);
+static INT_PTR CALLBACK WavPackDlgProc (HWND, UINT, WPARAM, LPARAM);
 static int std_bitrate (int bitrate);
 
 // these variables are use to communicate with the dialog routines
@@ -807,7 +807,7 @@ DWORD PASCAL FilterGetOptions (HWND hWnd, HINSTANCE hInst, long lSamprate, WORD 
 // the return value indicates whether the user chose OK or CANCEL.          //
 //////////////////////////////////////////////////////////////////////////////
 
-static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     char str [160];
     int i;
@@ -833,7 +833,7 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
             for (i = iMinBitrate; i <= iMinBitrate * 6; ++i)
                 if (i == iMinBitrate || std_bitrate (i)) {
                     sprintf (str, "%d", i);
-                    SendDlgItemMessage (hDlg, IDC_BITRATE, CB_ADDSTRING, 0, (long) str);
+                    SendDlgItemMessage (hDlg, IDC_BITRATE, CB_ADDSTRING, 0, (LPARAM) str);
                 }
 
             sprintf (str, "%d", iCurrentBitrate);
