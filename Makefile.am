@@ -14,7 +14,8 @@ EXTRA_DIST = \
 	CMakeLists.txt \
 	cmake/CheckCLinkerFlag.cmake \
 	cmake/modules/FindIconv.cmake \
-	cmake/TestLargeFiles.cmake
+	cmake/TestLargeFiles.cmake \
+	wavpackdll/wavpackdll.rc
 
 MAINTAINERCLEANFILES = \
 	aclocal.m4 \
