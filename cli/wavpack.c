@@ -2895,7 +2895,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             result = WAVPACK_SOFT_ERROR;
         }
 
-        if (WavpackGetNumSamples64 (outfile) != total_samples) {
+        if (WavpackGetSampleIndex64 (outfile) != total_samples) {
             error_line ("incorrect number of samples read from source file!");
             result = WAVPACK_SOFT_ERROR;
         }
