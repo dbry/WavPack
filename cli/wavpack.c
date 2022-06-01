@@ -2495,7 +2495,7 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
         uint32_t bytes_to_read, bytes_read = 0;
         int32_t sample_count;
 
-        if ((qmode & QMODE_DSD_IN_BLOCKS) || samples_remaining > DSD_BLOCKSIZE)
+        if ((qmode & (QMODE_DSD_IN_BLOCKS | QMODE_IGNORE_LENGTH)) || samples_remaining > DSD_BLOCKSIZE)
             bytes_to_read = DSD_BLOCKSIZE * num_channels;
         else
             bytes_to_read = (uint32_t) samples_remaining * num_channels;
