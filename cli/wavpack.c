@@ -317,32 +317,56 @@ int main (int argc, char **argv)
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
 #endif
-    int error_count = 0, tag_next_arg = 0, output_spec = 0;
+    int error_count = 0, tag_next_arg = 0, output_spec = 0, argc_fn = 0;
     char *outfilename = NULL, *out2filename = NULL;
+    char selfname [PATH_MAX];
+    char **argv_fn = NULL;
     char **matches = NULL;
     WavpackConfig config;
-    int result, i;
+    int result, argi, i;
 
 #if defined(_WIN32)
-    char selfname [MAX_PATH];
-
-    if (GetModuleFileName (NULL, selfname, sizeof (selfname)) && filespec_name (selfname) &&
-        _strupr (filespec_name (selfname)) && strstr (filespec_name (selfname), "DEBUG"))
-            debug_logging_mode = TRUE;
-
-    strcpy (selfname, *argv);
-#else
-    if (filespec_name (*argv) &&
-        (strstr (filespec_name (*argv), "ebug") || strstr (filespec_name (*argv), "DEBUG")))
-            debug_logging_mode = TRUE;
+    if (!GetModuleFileName (NULL, selfname, sizeof (selfname)))
 #endif
+    strncpy (selfname, *argv, sizeof (selfname));
+
+    if (filespec_name (selfname)) {
+        char *filename = filespec_name (selfname);
+        char *open_brace;
+
+        if (strstr (filename, "ebug") || strstr (filename, "DEBUG"))
+            debug_logging_mode = TRUE;
+
+        while (strchr (filename, '{')) {
+            char *open_brace = strchr (filename, '{');
+            char *close_brace = strchr (open_brace, '}');
+
+            if (!close_brace)
+                break;
+
+            if (close_brace - open_brace > 1) {
+                int option_len = close_brace - open_brace - 1;
+                char *option = malloc (option_len + 1);
+
+                argv_fn = realloc (argv_fn, sizeof (char *) * ++argc_fn);
+                memcpy (option, open_brace + 1, option_len);
+                argv_fn [argc_fn - 1] = option;
+                option [option_len] = 0;
+
+                if (debug_logging_mode)
+                    error_line ("file arg %d: %s", argc_fn, option);
+            }
+
+            filename = close_brace;
+        }
+    }
 
     if (debug_logging_mode) {
         char **argv_t = argv;
         int argc_t = argc;
 
         while (--argc_t)
-            error_line ("arg %d: %s", argc - argc_t, *++argv_t);
+            error_line ("cli arg %d: %s", argc - argc_t, *++argv_t);
     }
 
 #if defined (_WIN32)
@@ -353,9 +377,16 @@ int main (int argc, char **argv)
 
     // loop through command-line arguments
 
-    while (--argc)
-        if (**++argv == '-' && (*argv)[1] == '-' && (*argv)[2]) {
-            char *long_option = *argv + 2, *long_param = long_option;
+    for (argi = 0; argi < argc + argc_fn - 1; ++argi) {
+        char *argcp;
+
+        if (argi < argc_fn)
+            argcp = argv_fn [argi];
+        else
+            argcp = argv [argi - argc_fn + 1];
+
+        if (argcp [0] == '-' && argcp [1] == '-' && argcp [2]) {
+            char *long_option = argcp + 2, *long_param = long_option;
 
             while (*long_param)
                 if (*long_param++ == '=')
@@ -577,12 +608,12 @@ int main (int argc, char **argv)
             }
         }
 #if defined (_WIN32)
-        else if ((**argv == '-' || **argv == '/') && (*argv)[1])
+        else if ((argcp [0] == '-' || argcp [0] == '/') && argcp [1])
 #else
-        else if ((**argv == '-') && (*argv)[1])
+        else if (argcp [0] == '-' && argcp [1])
 #endif
-            while (*++*argv)
-                switch (**argv) {
+            while (*++argcp)
+                switch (*argcp) {
 
                     case 'Y': case 'y':
                         overwrite_all = 1;
@@ -601,7 +632,7 @@ int main (int argc, char **argv)
                         break;
 
                     case 'X': case 'x':
-                        config.xmode = strtol (++*argv, argv, 10);
+                        config.xmode = strtol (++argcp, &argcp, 10);
 
                         if (config.xmode < 0 || config.xmode > 6) {
                             error_line ("extra mode only goes from 1 to 6!");
@@ -610,7 +641,7 @@ int main (int argc, char **argv)
                         else
                             config.flags |= CONFIG_EXTRA_MODE;
 
-                        --*argv;
+                        --argcp;
                         break;
 
                     case 'F': case 'f':
@@ -658,8 +689,8 @@ int main (int argc, char **argv)
                         break;
 
                     case 'Z': case 'z':
-                        set_console_title = strtol (++*argv, argv, 10);
-                        --*argv;
+                        set_console_title = strtol (++argcp, &argcp, 10);
+                        --argcp;
                         break;
 
                     case 'M': case 'm':
@@ -680,8 +711,8 @@ int main (int argc, char **argv)
 
                     case 'B': case 'b':
                         config.flags |= CONFIG_HYBRID_FLAG;
-                        config.bitrate = (float) strtod (++*argv, argv);
-                        --*argv;
+                        config.bitrate = (float) strtod (++argcp, &argcp);
+                        --argcp;
 
                         if (config.bitrate < 2.0 || config.bitrate > 9600.0) {
                             error_line ("hybrid spec must be 2.0 to 9600!");
@@ -694,7 +725,7 @@ int main (int argc, char **argv)
                         break;
 
                     case 'J': case 'j':
-                        switch (strtol (++*argv, argv, 10)) {
+                        switch (strtol (++argcp, &argcp, 10)) {
 
                             case 0:
                                 config.flags |= CONFIG_JOINT_OVERRIDE;
@@ -710,11 +741,11 @@ int main (int argc, char **argv)
                                 ++error_count;
                         }
 
-                        --*argv;
+                        --argcp;
                         break;
 
                     case 'S': case 's':
-                        config.shaping_weight = (float) strtod (++*argv, argv);
+                        config.shaping_weight = (float) strtod (++argcp, &argcp);
 
                         if (!config.shaping_weight) {
                             config.flags |= CONFIG_SHAPE_OVERRIDE;
@@ -727,7 +758,7 @@ int main (int argc, char **argv)
                             ++error_count;
                         }
 
-                        --*argv;
+                        --argcp;
                         break;
 
                     case 'W': case 'w':
@@ -739,7 +770,7 @@ int main (int argc, char **argv)
                         break;
 
                     default:
-                        error_line ("illegal option: %c !", **argv);
+                        error_line ("illegal option: %c !", *argcp);
                         ++error_count;
                 }
         else if (tag_next_arg) {
@@ -748,29 +779,29 @@ int main (int argc, char **argv)
             // check for and allow "encoder" or "settings" without a value and create
             // an appropriate value for them (otherwise missing value is an error)
 
-            if (!stricmp (*argv, "encoder")) {
+            if (!stricmp (argcp, "encoder")) {
                 char *tag_arg = malloc (80);
-                sprintf (tag_arg, "%s=WavPack %s", *argv, PACKAGE_VERSION);
-                *argv = tag_arg;
+                sprintf (tag_arg, "%s=WavPack %s", argcp, PACKAGE_VERSION);
+                argcp = tag_arg;
             }
-            else if (!stricmp (*argv, "settings")) {
+            else if (!stricmp (argcp, "settings")) {
                 char settings [256], *tag_arg;
 
                 make_settings_string (settings, &config);
                 tag_arg = malloc (strlen (settings) + 16);
-                sprintf (tag_arg, "%s=%s", *argv, settings);
-                *argv = tag_arg;
+                sprintf (tag_arg, "%s=%s", argcp, settings);
+                argcp = tag_arg;
             }
 
-            cp = strchr (*argv, '=');
+            cp = strchr (argcp, '=');
 
-            if (cp && cp > *argv) {
+            if (cp && cp > argcp) {
                 int i = num_tag_items;
 
                 tag_items = realloc (tag_items, ++num_tag_items * sizeof (*tag_items));
-                tag_items [i].item = malloc (cp - *argv + 1);
-                memcpy (tag_items [i].item, *argv, cp - *argv);
-                tag_items [i].item [cp - *argv] = 0;
+                tag_items [i].item = malloc (cp - argcp + 1);
+                memcpy (tag_items [i].item, argcp, cp - argcp);
+                tag_items [i].item [cp - argcp] = 0;
                 tag_items [i].vsize = (int) strlen (cp + 1);
                 tag_items [i].value = malloc (tag_items [i].vsize + 1);
                 strcpy (tag_items [i].value, cp + 1);
@@ -778,7 +809,7 @@ int main (int argc, char **argv)
                 tag_items [i].ext = NULL;
             }
             else {
-                error_line ("error in tag spec: %s !", *argv);
+                error_line ("error in tag spec: %s !", argcp);
                 ++error_count;
             }
 
@@ -787,8 +818,8 @@ int main (int argc, char **argv)
 #if defined (_WIN32)
         else if (!num_files) {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
-            matches [num_files] = malloc (strlen (*argv) + 10);
-            strcpy (matches [num_files], *argv);
+            matches [num_files] = malloc (strlen (argcp) + 10);
+            strcpy (matches [num_files], argcp);
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
@@ -797,27 +828,27 @@ int main (int argc, char **argv)
             num_files++;
         }
         else if (!outfilename) {
-            outfilename = malloc (strlen (*argv) + PATH_MAX);
-            strcpy (outfilename, *argv);
+            outfilename = malloc (strlen (argcp) + PATH_MAX);
+            strcpy (outfilename, argcp);
         }
         else if (!out2filename) {
-            out2filename = malloc (strlen (*argv) + PATH_MAX);
-            strcpy (out2filename, *argv);
+            out2filename = malloc (strlen (argcp) + PATH_MAX);
+            strcpy (out2filename, argcp);
         }
         else {
-            error_line ("extra unknown argument: %s !", *argv);
+            error_line ("extra unknown argument: %s !", argcp);
             ++error_count;
         }
 #else
         else if (output_spec) {
-            outfilename = malloc (strlen (*argv) + PATH_MAX);
-            strcpy (outfilename, *argv);
+            outfilename = malloc (strlen (argcp) + PATH_MAX);
+            strcpy (outfilename, argcp);
             output_spec = 0;
         }
         else {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
-            matches [num_files] = malloc (strlen (*argv) + 10);
-            strcpy (matches [num_files], *argv);
+            matches [num_files] = malloc (strlen (argcp) + 10);
+            strcpy (matches [num_files], argcp);
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
@@ -826,6 +857,11 @@ int main (int argc, char **argv)
             num_files++;
         }
 #endif
+        if (argi < argc_fn)
+            free (argv_fn [argi]);
+    }
+
+    free (argv_fn);
 
     setup_break ();     // set up console and detect ^C and ^Break
 
@@ -1337,23 +1373,9 @@ int main(int argc, char **argv)
 {
     int ret = -1, argc_utf8 = -1;
     char **argv_utf8 = NULL;
-    char **argv_copy = NULL;
 
     init_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
-
-    // we have to make a copy of the argv pointer array because the command parser
-    // sometimes modifies them, which is problematic when it comes time to free them
-
-    if (argc_utf8 && argv_utf8) {
-        argv_copy = malloc (sizeof (char*) * argc_utf8);
-        memcpy (argv_copy, argv_utf8, sizeof (char*) * argc_utf8);
-    }
-
-    ret = wavpack_main(argc_utf8, argv_copy);
-
-    if (argv_copy)
-        free (argv_copy);
-
+    ret = wavpack_main(argc_utf8, argv_utf8);
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
 
     if (pause_mode) {
