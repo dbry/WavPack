@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2006 Conifer Software.               //
+//                Copyright (c) 1998 - 2022 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -36,6 +36,11 @@
 #define fprintf fprintf_utf8
 #define fputs fputs_utf8
 #define remove(f) unlink_utf8(f)
+#endif
+
+#ifdef __MINGW32__              // mingw32's _ftelli64() and _fseeki64() are defective
+#define _ftelli64 ftello64
+#define _fseeki64 fseeko64
 #endif
 
 #ifdef _WIN32
