@@ -170,6 +170,7 @@ static const char *help =
 "                             decoded HDCD files)\n"
 "    -n                      calculate average and peak quantization noise\n"
 "                             (for hybrid mode only, reference fullscale sine)\n"
+"    --no-overwrite          never overwrite existing files (and don't ask)\n"
 #ifdef _WIN32
 "    --no-utf8-convert       assume tag values read from files are already UTF-8,\n"
 "                             don't attempt to convert from local encoding\n"
@@ -262,7 +263,7 @@ static struct {
 
 int debug_logging_mode;
 
-static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
+static int overwrite_all, no_overwrite, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
     no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, quantize_round, import_id3,
     raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end;
 
@@ -423,6 +424,8 @@ int main (int argc, char **argv)
                 import_id3 = 1;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
+            else if (!strcmp (long_option, "no-overwrite"))             // --no-overwrite
+                no_overwrite = 1;
             else if (!strcmp (long_option, "allow-huge-tags"))          // --allow-huge-tags
                 allow_huge_tags = 1;
             else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
@@ -869,6 +872,11 @@ int main (int argc, char **argv)
 
     if (output_spec) {
         error_line ("no output filename or path specified with -o option!");
+        ++error_count;
+    }
+
+    if (overwrite_all && no_overwrite) {
+        error_line ("overwrite all and no overwrite and mutually exclusive!");
         ++error_count;
     }
 
@@ -1630,6 +1638,13 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         DoCloseHandle (wv_file.file);
 
         if (res == 1) {
+            if (no_overwrite) {
+                error_line ("not overwriting %s", FN_FIT (outfilename));
+                DoCloseHandle (infile);
+                WavpackCloseFile (wpc);
+                return WAVPACK_SOFT_ERROR;
+            }
+
             use_tempfiles = 1;
 
             if (!overwrite_all) {
@@ -1658,6 +1673,13 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         DoCloseHandle (wvc_file.file);
 
         if (res == 1) {
+            if (no_overwrite) {
+                error_line ("not overwriting %s", FN_FIT (outfilename));
+                DoCloseHandle (infile);
+                WavpackCloseFile (wpc);
+                return WAVPACK_SOFT_ERROR;
+            }
+
             fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
             fflush (stderr);
 
@@ -2706,6 +2728,13 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         DoCloseHandle (wv_file.file);
         use_tempfiles = 1;
 
+        if (no_overwrite) {
+            error_line ("not overwriting %s", FN_FIT (outfilename));
+            WavpackCloseFile (infile);
+            WavpackCloseFile (outfile);
+            return WAVPACK_SOFT_ERROR;
+        }
+
         if (!overwrite_all) {
             if (output_lossless)
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
@@ -2731,6 +2760,14 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     if (out2filename && !overwrite_all && (wvc_file.file = fopen (out2filename, "rb")) != NULL) {
         DoCloseHandle (wvc_file.file);
+
+        if (no_overwrite) {
+            error_line ("not overwriting %s", FN_FIT (outfilename));
+            WavpackCloseFile (infile);
+            WavpackCloseFile (outfile);
+            return WAVPACK_SOFT_ERROR;
+        }
+
         fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
         fflush (stderr);
 
