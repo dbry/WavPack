@@ -818,6 +818,10 @@ int main (int argc, char **argv)
 
             tag_next_arg = 0;
         }
+        else if (argi < argc_fn) {
+            error_line ("invalid use of filename-embedded args: %s !", argcp);
+            ++error_count;
+        }
 #if defined (_WIN32)
         else if (!num_files) {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
