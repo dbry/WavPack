@@ -498,8 +498,10 @@ typedef struct {
 typedef struct {
     int32_t conv_tables [HISTORY_BYTES] [256];
     DecimationChannel *chans;
-    int num_channels;
+    int num_channels, reset;
 } DecimationContext;
+
+static void extrapolate_pcm (int32_t *samples, int samples_to_extrapolate, int samples_visible, int num_channels);
 
 void *decimate_dsd_init (int num_channels)
 {
@@ -557,19 +559,22 @@ void decimate_dsd_reset (void *decimate_context)
     for (chan = 0; chan < context->num_channels; ++chan)
         for (i = 0; i < HISTORY_BYTES; ++i)
             context->chans [chan].delay [i] = 0x55;
+
+    context->reset = 1;
 }
 
 void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples)
 {
     DecimationContext *context = (DecimationContext *) decimate_context;
-    int chan = 0;
+    int chan = 0, scount = num_samples;
+    int32_t *samptr = samples;
 
     if (!context)
         return;
 
-    while (num_samples) {
+    while (scount) {
         DecimationChannel *sp = context->chans + chan;
-        int sum = 0;
+        int32_t sum = 0;
 
 #if (HISTORY_BYTES == 10)
         sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
@@ -581,7 +586,7 @@ void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples
         sum += context->conv_tables [6] [sp->delay [6] = sp->delay [7]];
         sum += context->conv_tables [7] [sp->delay [7] = sp->delay [8]];
         sum += context->conv_tables [8] [sp->delay [8] = sp->delay [9]];
-        sum += context->conv_tables [9] [sp->delay [9] = *samples];
+        sum += context->conv_tables [9] [sp->delay [9] = *samptr];
 #elif (HISTORY_BYTES == 7)
         sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
         sum += context->conv_tables [1] [sp->delay [1] = sp->delay [2]];
@@ -589,22 +594,74 @@ void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples
         sum += context->conv_tables [3] [sp->delay [3] = sp->delay [4]];
         sum += context->conv_tables [4] [sp->delay [4] = sp->delay [5]];
         sum += context->conv_tables [5] [sp->delay [5] = sp->delay [6]];
-        sum += context->conv_tables [6] [sp->delay [6] = *samples];
+        sum += context->conv_tables [6] [sp->delay [6] = *samptr];
 #else
         int i;
 
         for (i = 0; i < HISTORY_BYTES-1; ++i)
             sum += context->conv_tables [i] [sp->delay [i] = sp->delay [i+1]];
 
-        sum += context->conv_tables [i] [sp->delay [i] = *samples];
+        sum += context->conv_tables [i] [sp->delay [i] = *samptr];
 #endif
 
-        *samples++ = sum >> 4;
+        *samptr++ = (sum + 8) >> 4;
 
         if (++chan == context->num_channels) {
-            num_samples--;
+            scount--;
             chan = 0;
         }
+    }
+
+    if (context->reset) {
+        extrapolate_pcm (samples, HISTORY_BYTES - 1, num_samples, context->num_channels);
+        context->reset = 0;
+    }
+}
+
+// This function is used to linearly extrapolate some samples at the beginning of the first
+// decoded frame because we don't have the previous DSD data to prefill the decimation filter.
+// Currently we only extrapolate at the beginning of the file because we have an implicit
+// delay in the decimation. It might be better, but more complicated, to have zero delay in
+// the decimation and split the extrapolated samples between the beginning and end of the
+// file.
+
+static void extrapolate_pcm (int32_t *samples, int samples_to_extrapolate, int samples_visible, int num_channels)
+{
+    int scount = num_channels, min_period = 5, max_period = 10;
+
+    if (samples_visible < samples_to_extrapolate + min_period * 2)
+        return;
+
+    if (samples_visible < samples_to_extrapolate + max_period * 2)
+        max_period = (samples_visible - samples_to_extrapolate) / 2;
+
+    while (scount--) {
+        float left_value_ave = 0.0, right_value_ave = 0.0, slope;
+        int period, i;
+
+        for (period = min_period; period <= max_period; ++period) {
+            float left_ratio = (samples_to_extrapolate + period / 2.0) / period, right_ratio = (period / 2.0) / period;
+            int32_t *sam1 = samples + samples_to_extrapolate * num_channels, *sam2 = sam1 + period * num_channels;
+            float ave1 = 0.0, ave2 = 0.0, slope;
+            int i;
+
+            for (i = 0; i < period; ++i) {
+                ave1 += (float) sam1 [i * num_channels] / period;
+                ave2 += (float) sam2 [i * num_channels] / period;
+            }
+
+            left_value_ave += ave1 + (ave1 - ave2) * left_ratio;
+            right_value_ave += ave1 + (ave1 - ave2) * right_ratio;
+        }
+
+        right_value_ave /= (max_period - min_period + 1);
+        left_value_ave /= (max_period - min_period + 1);
+        slope = (right_value_ave - left_value_ave) / (samples_to_extrapolate - 1);
+
+        for (i = 0; i < samples_to_extrapolate; ++i)
+            samples [i * num_channels] = left_value_ave + i * slope;
+
+        samples++;
     }
 }
 
