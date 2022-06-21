@@ -2070,13 +2070,22 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
-    // At this point we're done writing to the output files. However, in some
-    // situations we might have to back up and re-write the initial block. Currently
-    // the only case is if we're ignoring length or reading raw pcm data from stdin
-    // (which sets the ignore-length flag); otherwise it's an error.
+    // At this point we're done writing to the output files. If the number of samples converted
+    // did not match the number we were expecting, and the "ignore length" option was NOT specified,
+    // then that's an error.
 
-    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples64 (wpc) != WavpackGetSampleIndex64 (wpc)) {
-        if (loc_config.qmode & QMODE_IGNORE_LENGTH) {
+    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples64 (wpc) != WavpackGetSampleIndex64 (wpc) &&
+        !(loc_config.qmode & QMODE_IGNORE_LENGTH)) {
+            error_line ("couldn't read all samples; specify '-i' to ignore length in header");
+            result = WAVPACK_SOFT_ERROR;
+        }
+
+    // If we're ignoring the length in the header, or we were not able to determine the length of
+    // a "raw" file in advance, then we'll need to back up and read the first frame written and
+    // update the length stored there and potentially fix the header stored from the source file.
+
+    if (result == WAVPACK_NO_ERROR &&
+        ((loc_config.qmode & QMODE_IGNORE_LENGTH) || WavpackGetNumSamples64 (wpc) == -1)) {
             char *block_buff = malloc (wv_file.first_block_size);
 
             if (block_buff && !DoSetFilePositionAbsolute (wv_file.file, 0) &&
@@ -2105,9 +2114,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                             if (!strncmp (chunk_header.ckID, "data", 4)) {
                                 chunk_header.ckSize = (uint32_t) data_size;
                                 WavpackNativeToLittleEndian (&chunk_header, ChunkHeaderFormat);
+                                memcpy (wrapper_location + wrapper_size - sizeof (ChunkHeader), &chunk_header, sizeof (ChunkHeader));
                             }
-
-                            memcpy (wrapper_location + wrapper_size - sizeof (ChunkHeader), &chunk_header, sizeof (ChunkHeader));
                         }
                     }
 
@@ -2155,11 +2163,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 if (block_buff)
                     free (block_buff);
             }
-        }
-        else {
-            error_line ("couldn't read all samples, file may be corrupt!!");
-            result = WAVPACK_SOFT_ERROR;
-        }
     }
 
     // at this point we're completely done with the files, so close 'em whether there

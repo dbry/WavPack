@@ -62,7 +62,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
     infilesize = DoGetFileSize (infile);
 
     if (!is_rf64 && infilesize >= 4294967296LL && !(config->qmode & QMODE_IGNORE_LENGTH)) {
-        error_line ("can't handle .WAV files larger than 4 GB (non-standard)!");
+        error_line ("can't handle .WAV files > 4 GB, specify '-i' to ignore length");
         return WAVPACK_SOFT_ERROR;
     }
 
