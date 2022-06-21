@@ -640,9 +640,9 @@ static void extrapolate_pcm (int32_t *samples, int samples_to_extrapolate, int s
         int period, i;
 
         for (period = min_period; period <= max_period; ++period) {
-            float left_ratio = (samples_to_extrapolate + period / 2.0) / period, right_ratio = (period / 2.0) / period;
+            float left_ratio = (samples_to_extrapolate + period / 2.0F) / period, right_ratio = (period / 2.0F) / period;
             int32_t *sam1 = samples + samples_to_extrapolate * num_channels, *sam2 = sam1 + period * num_channels;
-            float ave1 = 0.0, ave2 = 0.0, slope;
+            float ave1 = 0.0, ave2 = 0.0;
             int i;
 
             for (i = 0; i < period; ++i) {
@@ -659,7 +659,7 @@ static void extrapolate_pcm (int32_t *samples, int samples_to_extrapolate, int s
         slope = (right_value_ave - left_value_ave) / (samples_to_extrapolate - 1);
 
         for (i = 0; i < samples_to_extrapolate; ++i)
-            samples [i * num_channels] = left_value_ave + i * slope;
+            samples [i * num_channels] = (int32_t) (left_value_ave + i * slope + 0.5);
 
         samples++;
     }

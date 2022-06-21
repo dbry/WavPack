@@ -333,7 +333,6 @@ int main (int argc, char **argv)
 
     if (filespec_name (selfname)) {
         char *filename = filespec_name (selfname);
-        char *open_brace;
 
         if (strstr (filename, "ebug") || strstr (filename, "DEBUG"))
             debug_logging_mode = TRUE;
@@ -346,7 +345,7 @@ int main (int argc, char **argv)
                 break;
 
             if (close_brace - open_brace > 1) {
-                int option_len = close_brace - open_brace - 1;
+                int option_len = (int)(close_brace - open_brace) - 1;
                 char *option = malloc (option_len + 1);
 
                 argv_fn = realloc (argv_fn, sizeof (char *) * ++argc_fn);
