@@ -105,6 +105,12 @@ static const char *help =
 "          the entire file is restored (including headers and trailers).\n"
 "          However, this can be overridden to one of the supported formats\n"
 "          listed below (which discard the original headers).\n\n"
+"          If multiple input files are specified (using wildcards) and the output\n"
+"          file is specified as stdout (-), then the output from all the files is\n"
+"          concatenated. This can be utilized as an easy way to concatenate WavPack\n"
+"          files (assuming the output is subsequently piped into WAVPACK), but it\n"
+"          only makes sense with raw output (--raw) to avoid headers being\n"
+"          interleaved with the audio data\n\n"
 #else
 " Usage:   WVUNPACK [-options] infile[.wv]|- [...] [-o outfile[.ext]|outpath|-]\n\n"
 "          Multiple input files may be specified. Output format and extension\n"
@@ -112,6 +118,11 @@ static const char *help =
 "          (including the original headers and trailers). However, this can\n"
 "          be overridden to one of the supported formats listed below (which\n"
 "          also causes the original headers to be discarded).\n\n"
+"          If multiple input files are specified with piped output (-o -), then\n"
+"          the output from all the files is concatenated. This can be utilized\n"
+"          as an easy way to concatenate WavPack files (assuming the output is\n"
+"          subsequently piped into WAVPACK), but only makes sense with raw output\n"
+"          (--raw) to avoid headers being interleaved with the audio data.\n\n"
 #endif
 " Formats: Microsoft RIFF:   'wav', force with -w or --wav, makes RF64 if > 4 GB\n"
 "          Sony Wave64:      'w64', force with --w64\n"
@@ -150,7 +161,8 @@ static const char *help =
 "    -o FILENAME | PATH    specify output filename or path\n"
 #endif
 "    -q                    quiet (keep console output to a minimum)\n"
-"    -r or --raw           force raw audio decode (results in .raw extension)\n"
+"    -r or --raw           force raw audio decode (PCM or DSD, gives .raw extension)\n"
+"    --raw-pcm             same as -r or --raw, except DSD files --> 24-bit PCM\n"
 "    -s                    display summary info only to stdout (no audio decode)\n"
 "    -ss                   display super summary (with tags) to stdout (no decode)\n"
 "    --skip=[-][sample|hh:mm:ss.ss]\n"
@@ -206,7 +218,7 @@ static struct {
 
 int debug_logging_mode;
 
-static int overwrite_all, delete_source, raw_decode, normalize_floats, no_utf8_convert, no_audio_decode, file_info,
+static int overwrite_all, delete_source, raw_decode, raw_pcm, normalize_floats, no_utf8_convert, no_audio_decode, file_info,
     summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, decode_format, format_specified, caf_be, set_console_title;
 
 static int num_files, file_index, outbuf_k;
@@ -351,6 +363,8 @@ int main(int argc, char **argv)
                 decode_format = WP_FORMAT_WAV;
                 format_specified = 1;
             }
+            else if (!strcmp (long_option, "raw-pcm"))                  // --raw-pcm
+                raw_pcm = raw_decode = 1;
             else if (!strcmp (long_option, "raw"))                      // --raw
                 raw_decode = 1;
             else {
@@ -553,12 +567,12 @@ int main(int argc, char **argv)
     }
 
     if (raw_decode && format_specified) {
-        error_line ("-r (raw decode) and -w (wav header) modes are incompatible!");
+        error_line ("-r (raw decode) and specifying a format (like -w) are incompatible!");
         ++error_count;
     }
 
-    if (verify_only && outfilename) {
-        error_line ("outfile specification and verify mode are incompatible!");
+    if (verify_only && (format_specified || outfilename)) {
+        error_line ("specifying output file or format and verify mode are incompatible!");
         ++error_count;
     }
 
@@ -578,8 +592,13 @@ int main(int argc, char **argv)
         }
     }
 
-    if ((summary || tag_extract_stdout) && (num_tag_extractions || outfilename || verify_only || delete_source || format_specified || raw_decode)) {
-        error_line ("can't display summary information or extract a tag to stdout and do anything else!");
+    if ((summary || file_info) && (num_tag_extractions || outfilename || verify_only || delete_source || format_specified)) {
+        error_line ("can't display file information and do anything else!");
+        ++error_count;
+    }
+
+    if (tag_extract_stdout && (num_tag_extractions || outfilename || verify_only || delete_source || format_specified || raw_decode)) {
+        error_line ("can't extract a tag to stdout and do anything else!");
         ++error_count;
     }
 
@@ -1502,7 +1521,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     if (summary > 1 || num_tag_extractions || tag_extract_stdout)
         open_flags |= OPEN_TAGS;
 
-    if (format_specified && decode_format != WP_FORMAT_DFF && decode_format != WP_FORMAT_DSF)
+    if ((format_specified && decode_format != WP_FORMAT_DFF && decode_format != WP_FORMAT_DSF) || raw_pcm)
         open_flags |= OPEN_DSD_AS_PCM | OPEN_ALT_TYPES;
     else
         open_flags |= OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
@@ -1536,7 +1555,10 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     // decoder.
 
     if (raw_decode) {                                   // case 1: user specified raw decode
-        output_qmode = (input_qmode & QMODE_DSD_AUDIO) ? QMODE_DSD_MSB_FIRST : 0;
+        if ((input_qmode & QMODE_DSD_AUDIO) && !raw_pcm)
+            output_qmode = QMODE_DSD_MSB_FIRST;
+        else
+            output_qmode = 0;
     }
     else if (format_specified) {                        // case 2: user specified an output format
         switch (decode_format) {
@@ -2629,7 +2651,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
         fprintf (dst, "file size:         %lld bytes\n", (long long) WavpackGetFileSize64 (wpc));
     }
 
-    if (WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO)
+    if ((WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO) && !raw_pcm)
         fprintf (dst, "source:            1-bit DSD at %u Hz\n", WavpackGetNativeSampleRate (wpc));
     else
         fprintf (dst, "source:            %d-bit %s at %u Hz\n", WavpackGetBitsPerSample (wpc),
@@ -2927,11 +2949,11 @@ static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
 
     switch (item_id) {
         case 1:
-            sprintf (str + strlen (str), "%d", WavpackGetNativeSampleRate (wpc));
+            sprintf (str + strlen (str), "%d", raw_pcm ? WavpackGetSampleRate (wpc) : WavpackGetNativeSampleRate (wpc));
             break;
 
         case 2:
-            sprintf (str + strlen (str), "%d", (WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO) ? 1 : WavpackGetBitsPerSample (wpc));
+            sprintf (str + strlen (str), "%d", ((WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO) && !raw_pcm) ? 1 : WavpackGetBitsPerSample (wpc));
             break;
 
         case 3:
