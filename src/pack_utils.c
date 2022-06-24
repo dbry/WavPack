@@ -200,6 +200,11 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         return FALSE;
     }
 
+    if (!total_samples || total_samples > MAX_WAVPACK_SAMPLES || total_samples < -1) {
+        strcpy (wpc->error_message, "invalid total sample count!");
+        return FALSE;
+    }
+
     if (num_chans <= 0 || num_chans > WAVPACK_MAX_CHANS) {
         strcpy (wpc->error_message, "invalid channel count!");
         return FALSE;
