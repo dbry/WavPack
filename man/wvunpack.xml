@@ -21,16 +21,16 @@
       <holder>Sebastian Dröge</holder>
     </copyright>
     <copyright>
-      <year>2021</year>
+      <year>2022</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2021-01-10</date>
+    <date>2022-06-23</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvunpack</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">5.4.0</refmiscinfo>
+    <refmiscinfo class="version">5.5.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
@@ -63,6 +63,12 @@
       export to one of the alternate file formats listed below, but in that case the information in the original headers and
       trailers will be lost (even if the alternate format is the same as the source format). WavPack files are generally created
       with the <command>wavpack</command> program.
+    </para>
+    <para>
+      If multiple input files are specified with piped output (<quote>-o -</quote>), then the output from all the files is
+      concatenated. This can be utilized as an easy way to concatenate WavPack files (assuming the output is subsequently piped
+      into <command>wavpack</command>), but only makes sense with raw output (<option>--raw</option>) to avoid headers being
+      interleaved with the audio data.
     </para>
     <refsect2>
       <title>OUTPUT FILE FORMATS</title>
@@ -187,6 +193,13 @@
           <term> <option>--raw</option> </term>
           <listitem> <para>
             force raw <acronym>PCM</acronym> or <acronym>DSD</acronym> audio decode by skipping headers &amp; trailers, results in <filename>source-name.raw</filename>
+          </para> </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term> <option>--raw-pcm</option> </term>
+          <listitem> <para>
+            similar to <option>-r</option> and <option>--raw</option> above except that <acronym>DSD</acronym> audio will be converted to 24-bit
+            <acronym>PCM</acronym> (8x decimation)
           </para> </listitem>
         </varlistentry>
         <varlistentry>

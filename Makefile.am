@@ -105,7 +105,7 @@ pkginclude_HEADERS = include/wavpack.h
 ########
 if ENABLE_MAN
 .xml.1:
-	$(XSLTPROC) -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+	$(XSLTPROC) -nonet -o man/ http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
 SUFFIXES = .1 .xml
 endif

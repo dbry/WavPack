@@ -2,12 +2,12 @@
 .\"     Title: wvunpack
 .\"    Author: Sebastian Dröge <slomo@debian.org>
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 2021-01-10
+.\"      Date: 2022-06-23
 .\"    Manual: WavPack Executable Programs
-.\"    Source: WavPack 5.4.0
+.\"    Source: WavPack 5.5.0
 .\"  Language: English
 .\"
-.TH "WVUNPACK" "1" "2021\-01\-10" "WavPack 5\&.4\&.0" "WavPack Executable Programs"
+.TH "WVUNPACK" "1" "2022\-06\-23" "WavPack 5\&.5\&.0" "WavPack Executable Programs"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -51,6 +51,9 @@ may be specified with
 \(lq\-\(rq\&. It is also possible to export to one of the alternate file formats listed below, but in that case the information in the original headers and trailers will be lost (even if the alternate format is the same as the source format)\&. WavPack files are generally created with the
 \fBwavpack\fR
 program\&.
+.PP
+If multiple input files are specified with piped output (\(lq\-o \-\(rq), then the output from all the files is concatenated\&. This can be utilized as an easy way to concatenate WavPack files (assuming the output is subsequently piped into
+\fBwavpack\fR), but only makes sense with raw output (\fB\-\-raw\fR) to avoid headers being interleaved with the audio data\&.
 .SS "OUTPUT FILE FORMATS"
 .sp
 .RS 4
@@ -262,6 +265,19 @@ audio decode by skipping headers & trailers, results in
 source\-name\&.raw
 .RE
 .PP
+\fB\-\-raw\-pcm\fR
+.RS 4
+similar to
+\fB\-r\fR
+and
+\fB\-\-raw\fR
+above except that
+DSD
+audio will be converted to 24\-bit
+PCM
+(8x decimation)
+.RE
+.PP
 \fB\-s\fR
 .RS 4
 do not decode audio but simply display summary information about WavPack file to
@@ -385,5 +401,5 @@ Updates
 .br
 Copyright \(co 2005 Sebastian Dröge
 .br
-Copyright \(co 2021 David Bryant
+Copyright \(co 2022 David Bryant
 .br

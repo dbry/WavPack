@@ -11,16 +11,16 @@
       <contrib>Author</contrib>
     </author>
     <copyright>
-      <year>2021</year>
+      <year>2022</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2021-01-10</date>
+    <date>2022-06-23</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvtag</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">5.4.0</refmiscinfo>
+    <refmiscinfo class="version">5.5.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
