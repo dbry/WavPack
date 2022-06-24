@@ -268,7 +268,7 @@ int main(int argc, char **argv)
 #endif
     int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, c_count = 0, x_count = 0;
     char outpath, **matches = NULL, *outfilename = NULL;
-    int result;
+    int use_stdin = 0, use_stdout = 0, result;
 
 #if defined(_WIN32)
     char selfname [MAX_PATH];
@@ -518,6 +518,7 @@ int main(int argc, char **argv)
                 matches = realloc (matches, (num_files + 1) * sizeof (*matches));
                 matches [num_files] = malloc (strlen (*argv) + 10);
                 strcpy (matches [num_files], *argv);
+                use_stdin |= (**argv == '-');
 
                 if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                     !filespec_ext (matches [num_files]))
@@ -528,6 +529,7 @@ int main(int argc, char **argv)
             else if (!outfilename) {
                 outfilename = malloc (strlen (*argv) + PATH_MAX);
                 strcpy (outfilename, *argv);
+                use_stdout = (**argv == '-');
             }
             else {
                 error_line ("extra unknown argument: %s !", *argv);
@@ -537,12 +539,14 @@ int main(int argc, char **argv)
             else if (output_spec) {
                 outfilename = malloc (strlen (*argv) + PATH_MAX);
                 strcpy (outfilename, *argv);
+                use_stdout = (**argv == '-');
                 output_spec = 0;
             }
             else {
                 matches = realloc (matches, (num_files + 1) * sizeof (*matches));
                 matches [num_files] = malloc (strlen (*argv) + 10);
                 strcpy (matches [num_files], *argv);
+                use_stdin |= (**argv == '-');
 
                 if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                     !filespec_ext (matches [num_files]))
@@ -560,6 +564,16 @@ int main(int argc, char **argv)
         error_line ("no output filename or path specified with -o option!");
         ++error_count;
     }
+
+#ifndef _WIN32
+    if (use_stdin && num_files > 1) {
+        error_line ("when stdin is used for input, it must be the only file!");
+        ++error_count;
+    }
+#endif
+
+    if (use_stdin && !outfilename)  // for stdin source, no output specification implies stdout
+        use_stdout = 1;
 
     if (delete_source && (verify_only || skip.value_is_valid || until.value_is_valid)) {
         error_line ("can't delete in verify mode or when --skip or --until are used!");
@@ -602,7 +616,7 @@ int main(int argc, char **argv)
         ++error_count;
     }
 
-    if ((tag_extract_stdout || num_tag_extractions) && outfilename && *outfilename == '-') {
+    if ((tag_extract_stdout || num_tag_extractions) && use_stdout) {
         error_line ("can't extract tags when unpacking audio to stdout!");
         ++error_count;
     }

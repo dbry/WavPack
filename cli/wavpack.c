@@ -156,7 +156,8 @@ static const char *help =
 "    -hh                     very high quality (best compression, but slowest\n"
 "                             and NOT recommended for portable hardware use)\n"
 "    --help                  this extended help display\n"
-"    -i                      ignore length in file header (no pipe output allowed)\n"
+"    -i                      parse header for audio format but ignore length in\n"
+"                             header and just assume everything to EOF is audio\n"
 "    --import-id3            attempt to import ID3v2 tags from the trailer of files\n"
 "                             (standard on DSF, optional on WAV and DSDIFF)\n"
 "    -jn                     joint-stereo override (0 = left/right, 1 = mid/side)\n"
@@ -187,8 +188,8 @@ static const char *help =
 "                             (common use would be --pre-quantize=20 for 24-bit or\n"
 "                             float material recorded with typical converters)\n"
 "    -q                      quiet (keep console output to a minimum)\n"
-"    -r                      remove file headers (file-appropriate headers\n"
-"                             will be regenerated during unpacking)\n"
+"    -r                      parse headers for audio information but do not store in\n"
+"                             WavPack file (minimum header regenerated on unpack)\n"
 "    --raw-pcm               input data is raw pcm (default is 44100 Hz, 16-bit\n"
 "                             signed, 2-channels, little-endian)\n"
 "    --raw-pcm=sr,bps[f|s|u],nch,[le|be]\n"
@@ -318,7 +319,7 @@ int main (int argc, char **argv)
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
 #endif
-    int error_count = 0, tag_next_arg = 0, output_spec = 0, argc_fn = 0;
+    int error_count = 0, tag_next_arg = 0, output_spec = 0, argc_fn = 0, use_stdin = 0, use_stdout = 0;
     char *outfilename = NULL, *out2filename = NULL;
     char selfname [PATH_MAX];
     char **argv_fn = NULL;
@@ -826,6 +827,7 @@ int main (int argc, char **argv)
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
             matches [num_files] = malloc (strlen (argcp) + 10);
             strcpy (matches [num_files], argcp);
+            use_stdin |= (*argcp == '-');
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
@@ -836,6 +838,7 @@ int main (int argc, char **argv)
         else if (!outfilename) {
             outfilename = malloc (strlen (argcp) + PATH_MAX);
             strcpy (outfilename, argcp);
+            use_stdout = (*argcp == '-');
         }
         else if (!out2filename) {
             out2filename = malloc (strlen (argcp) + PATH_MAX);
@@ -849,12 +852,14 @@ int main (int argc, char **argv)
         else if (output_spec) {
             outfilename = malloc (strlen (argcp) + PATH_MAX);
             strcpy (outfilename, argcp);
+            use_stdout = (*argcp == '-');
             output_spec = 0;
         }
         else {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
             matches [num_files] = malloc (strlen (argcp) + 10);
             strcpy (matches [num_files], argcp);
+            use_stdin |= (*argcp == '-');
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
@@ -878,6 +883,16 @@ int main (int argc, char **argv)
         ++error_count;
     }
 
+#ifndef _WIN32
+    if (use_stdin && num_files > 1) {
+        error_line ("when stdin is used for input, it must be the only file!");
+        ++error_count;
+    }
+#endif
+
+    if (use_stdin && !outfilename)  // for stdin source, no output specification implies stdout
+        use_stdout = 1;
+
     if (overwrite_all && no_overwrite) {
         error_line ("overwrite all and no overwrite and mutually exclusive!");
         ++error_count;
@@ -893,18 +908,23 @@ int main (int argc, char **argv)
         ++error_count;
     }
 
-    if ((config.qmode & QMODE_IGNORE_LENGTH) && outfilename && *outfilename == '-') {
-        error_line ("can't ignore length in header when using stdout!");
+    if ((config.qmode & QMODE_IGNORE_LENGTH) && use_stdin && use_stdout) {
+        error_line ("can't ignore length in header when both input and output are pipes!");
         ++error_count;
     }
 
-    if (verify_mode && outfilename && *outfilename == '-') {
+    if ((config.qmode & QMODE_RAW_PCM) && use_stdin && use_stdout) {
+        error_line ("can't process raw PCM when both input and output are pipes!");
+        ++error_count;
+    }
+
+    if (verify_mode && use_stdout) {
         error_line ("can't verify output file when using stdout!");
         ++error_count;
     }
 
     if (config.flags & CONFIG_HYBRID_FLAG) {
-        if ((config.flags & CONFIG_CREATE_WVC) && outfilename && *outfilename == '-') {
+        if ((config.flags & CONFIG_CREATE_WVC) && use_stdout) {
             error_line ("can't create correction file when using stdout!");
             ++error_count;
         }
