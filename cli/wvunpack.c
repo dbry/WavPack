@@ -267,29 +267,50 @@ int main(int argc, char **argv)
     _wildcard (&argc, &argv);
 #endif
     int verify_only = 0, error_count = 0, add_extension = 0, output_spec = 0, c_count = 0, x_count = 0;
-    char outpath, **matches = NULL, *outfilename = NULL;
-    int use_stdin = 0, use_stdout = 0, result;
+    char outpath, **matches = NULL, *outfilename = NULL, **argv_fn = NULL, selfname [PATH_MAX];
+    int use_stdin = 0, use_stdout = 0, argc_fn = 0, argi, result;
 
 #if defined(_WIN32)
-    char selfname [MAX_PATH];
-
-    if (GetModuleFileName (NULL, selfname, sizeof (selfname)) && filespec_name (selfname) &&
-        _strupr (filespec_name (selfname)) && strstr (filespec_name (selfname), "DEBUG"))
-            debug_logging_mode = TRUE;
-
-    strcpy (selfname, *argv);
-#else
-    if (filespec_name (*argv) &&
-        (strstr (filespec_name (*argv), "ebug") || strstr (filespec_name (*argv), "DEBUG")))
-            debug_logging_mode = TRUE;
+    if (!GetModuleFileName (NULL, selfname, sizeof (selfname)))
 #endif
+    strncpy (selfname, *argv, sizeof (selfname));
+
+    if (filespec_name (selfname)) {
+        char *filename = filespec_name (selfname);
+
+        if (strstr (filename, "ebug") || strstr (filename, "DEBUG"))
+            debug_logging_mode = TRUE;
+
+        while (strchr (filename, '{')) {
+            char *open_brace = strchr (filename, '{');
+            char *close_brace = strchr (open_brace, '}');
+
+            if (!close_brace)
+                break;
+
+            if (close_brace - open_brace > 1) {
+                int option_len = (int)(close_brace - open_brace) - 1;
+                char *option = malloc (option_len + 1);
+
+                argv_fn = realloc (argv_fn, sizeof (char *) * ++argc_fn);
+                memcpy (option, open_brace + 1, option_len);
+                argv_fn [argc_fn - 1] = option;
+                option [option_len] = 0;
+
+                if (debug_logging_mode)
+                    error_line ("file arg %d: %s", argc_fn, option);
+            }
+
+            filename = close_brace;
+        }
+    }
 
     if (debug_logging_mode) {
         char **argv_t = argv;
         int argc_t = argc;
 
         while (--argc_t)
-            error_line ("arg %d: %s", argc - argc_t, *++argv_t);
+            error_line ("cli arg %d: %s", argc - argc_t, *++argv_t);
     }
 
 #if defined (_WIN32)
@@ -298,9 +319,16 @@ int main(int argc, char **argv)
 
     // loop through command-line arguments
 
-    while (--argc) {
-        if (**++argv == '-' && (*argv)[1] == '-' && (*argv)[2]) {
-            char *long_option = *argv + 2, *long_param = long_option;
+    for (argi = 0; argi < argc + argc_fn - 1; ++argi) {
+        char *argcp;
+
+        if (argi < argc_fn)
+            argcp = argv_fn [argi];
+        else
+            argcp = argv [argi - argc_fn + 1];
+
+        if (argcp [0] == '-' && argcp [1] == '-' && argcp [2]) {
+            char *long_option = argcp + 2, *long_param = long_option;
 
             while (*long_param)
                 if (*long_param++ == '=')
@@ -373,12 +401,12 @@ int main(int argc, char **argv)
             }
         }
 #if defined (_WIN32)
-        else if ((**argv == '-' || **argv == '/') && (*argv)[1])
+        else if ((argcp [0] == '-' || argcp [0] == '/') && argcp [1])
 #else
-        else if ((**argv == '-') && (*argv)[1])
+        else if (argcp [0] == '-' && argcp [1])
 #endif
-            while (*++*argv)
-                switch (**argv) {
+            while (*++argcp)
+                switch (*argcp) {
                     case 'Y': case 'y':
                         overwrite_all = 1;
                         break;
@@ -421,7 +449,7 @@ int main(int argc, char **argv)
                         break;
 
                     case 'F': case 'f':
-                        file_info = (char) strtol (++*argv, argv, 10);
+                        file_info = (char) strtol (++argcp, &argcp, 10);
 
                         if (file_info < 0 || file_info > 10) {
                             error_line ("-f option must be 1-10, or omit (or 0) for all!");
@@ -432,7 +460,7 @@ int main(int argc, char **argv)
                             file_info++;
                         }
 
-                        --*argv;
+                        --argcp;
                         break;
 
                     case 'S': case 's':
@@ -441,12 +469,12 @@ int main(int argc, char **argv)
                         break;
 
                     case 'K': case 'k':
-                        outbuf_k = strtol (++*argv, argv, 10);
+                        outbuf_k = strtol (++argcp, &argcp, 10);
 
                         if (outbuf_k < 1 || outbuf_k > 16384)       // range-check for reasonable values
                             outbuf_k = 0;
 
-                        --*argv;
+                        --argcp;
                         break;
 
                     case 'M': case 'm':
@@ -475,13 +503,13 @@ int main(int argc, char **argv)
                         break;
 
                     case 'Z': case 'z':
-                        set_console_title = (char) strtol (++*argv, argv, 10);
-                        --*argv;
+                        set_console_title = (char) strtol (++argcp, &argcp, 10);
+                        --argcp;
                         break;
 
                     case 'X': case 'x':
                         if (++x_count == 3) {
-                            error_line ("illegal option: %s !", *argv);
+                            error_line ("illegal option: %s !", argcp);
                             ++error_count;
                             x_count = 0;
                         }
@@ -493,7 +521,7 @@ int main(int argc, char **argv)
                         break;
 
                     default:
-                        error_line ("illegal option: %c !", **argv);
+                        error_line ("illegal option: %c !", *argcp);
                         ++error_count;
                 }
         else {
@@ -504,21 +532,21 @@ int main(int argc, char **argv)
                         ++error_count;
                     }
                     else {
-                        tag_extract_stdout = *argv;
+                        tag_extract_stdout = argcp;
                         no_audio_decode = 1;
                     }
                 }
                 else if (x_count == 2)
-                    add_tag_extraction_to_list (*argv);
+                    add_tag_extraction_to_list (argcp);
 
                 x_count = 0;
             }
 #if defined (_WIN32)
             else if (!num_files) {
                 matches = realloc (matches, (num_files + 1) * sizeof (*matches));
-                matches [num_files] = malloc (strlen (*argv) + 10);
-                strcpy (matches [num_files], *argv);
-                use_stdin |= (**argv == '-');
+                matches [num_files] = malloc (strlen (argcp) + 10);
+                strcpy (matches [num_files], argcp);
+                use_stdin |= (*argcp == '-');
 
                 if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                     !filespec_ext (matches [num_files]))
@@ -527,26 +555,26 @@ int main(int argc, char **argv)
                 num_files++;
             }
             else if (!outfilename) {
-                outfilename = malloc (strlen (*argv) + PATH_MAX);
-                strcpy (outfilename, *argv);
-                use_stdout = (**argv == '-');
+                outfilename = malloc (strlen (argcp) + PATH_MAX);
+                strcpy (outfilename, argcp);
+                use_stdout = (*argcp == '-');
             }
             else {
-                error_line ("extra unknown argument: %s !", *argv);
+                error_line ("extra unknown argument: %s !", argcp);
                 ++error_count;
             }
 #else
             else if (output_spec) {
-                outfilename = malloc (strlen (*argv) + PATH_MAX);
-                strcpy (outfilename, *argv);
-                use_stdout = (**argv == '-');
+                outfilename = malloc (strlen (argcp) + PATH_MAX);
+                strcpy (outfilename, argcp);
+                use_stdout = (*argcp == '-');
                 output_spec = 0;
             }
             else {
                 matches = realloc (matches, (num_files + 1) * sizeof (*matches));
-                matches [num_files] = malloc (strlen (*argv) + 10);
-                strcpy (matches [num_files], *argv);
-                use_stdin |= (**argv == '-');
+                matches [num_files] = malloc (strlen (argcp) + 10);
+                strcpy (matches [num_files], argcp);
+                use_stdin |= (*argcp == '-');
 
                 if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                     !filespec_ext (matches [num_files]))
@@ -556,7 +584,12 @@ int main(int argc, char **argv)
             }
 #endif
         }
+
+        if (argi < argc_fn)
+            free (argv_fn [argi]);
     }
+
+    free (argv_fn);
 
    // check for various command-line argument problems
 
@@ -910,23 +943,9 @@ int main(int argc, char **argv)
 {
     int ret = -1, argc_utf8 = -1;
     char **argv_utf8 = NULL;
-    char **argv_copy = NULL;
 
     init_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
-
-    // we have to make a copy of the argv pointer array because the command parser
-    // sometimes modifies them, which is problematic when it comes time to free them
-
-    if (argc_utf8 && argv_utf8) {
-        argv_copy = malloc (sizeof (char*) * argc_utf8);
-        memcpy (argv_copy, argv_utf8, sizeof (char*) * argc_utf8);
-    }
-
-    ret = wvunpack_main(argc_utf8, argv_copy);
-
-    if (argv_copy)
-        free (argv_copy);
-
+    ret = wvunpack_main(argc_utf8, argv_utf8);
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
 
     if (pause_mode) {
