@@ -41,6 +41,7 @@ char *filespec_ext (char *filespec), *filespec_path (char *filespec);
 char *filespec_name (char *filespec), *filespec_wild (char *filespec);
 void error_line (char *error, ...);
 void setup_break (void), finish_line (void);
+void do_pause_mode (void);
 int check_break (void);
 char yna (void);
 

@@ -88,6 +88,9 @@ static const char *usage =
 " Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
 "                                           n = 24-9600 kbits/second (kbps)\n"
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
+#ifdef _WIN32
+"          --drop = drag-and-drop (multiple infiles only, no outfile spec)\n"
+#endif
 "          -f  = fast mode (fast, but some compromise in compression ratio)\n"
 "          -h  = high quality (better compression ratio, but slower)\n"
 #ifdef _WIN32
@@ -149,6 +152,9 @@ static const char *help =
 "    --cross-decorr          use cross-channel correlation in hybrid mode (on by\n"
 "                             default in lossless mode and with -cc option)\n"
 "    -d                      delete source file if successful (use with caution!)\n"
+#ifdef _WIN32
+"    --drop                  drag-and-drop (multiple infiles only, no outfile spec)\n"
+#endif
 "    -f                      fast mode (faster encode and decode, but some\n"
 "                             compromise in compression ratio)\n"
 "    -h                      high quality (better compression ratio, but slower\n"
@@ -285,7 +291,7 @@ static struct tag_item {
 } *tag_items;
 
 #if defined (_WIN32)
-static int pause_mode;
+static int pause_mode, drop_mode;
 #endif
 
 /////////////////////////// local function declarations ///////////////////////
@@ -405,6 +411,8 @@ int main (int argc, char **argv)
 #ifdef _WIN32
             else if (!strcmp (long_option, "pause"))                    // --pause
                 pause_mode = 1;
+            else if (!strcmp (long_option, "drop"))                     // --drop
+                drop_mode = 1;
 #endif
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 error_line ("warning: --optimize-mono deprecated, now enabled by default");
@@ -823,7 +831,7 @@ int main (int argc, char **argv)
             ++error_count;
         }
 #if defined (_WIN32)
-        else if (!num_files) {
+        else if (drop_mode || !num_files) {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
             matches [num_files] = malloc (strlen (argcp) + 10);
             strcpy (matches [num_files], argcp);
@@ -1408,15 +1416,7 @@ int main(int argc, char **argv)
     init_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
     ret = wavpack_main(argc_utf8, argv_utf8);
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
-
-    if (pause_mode) {
-        fprintf (stderr, "\nPress any key to continue . . . ");
-        fflush (stderr);
-        while (!_kbhit ());
-        _getch ();
-        fprintf (stderr, "\n");
-    }
-
+    if (pause_mode) do_pause_mode ();
     return ret;
 }
 

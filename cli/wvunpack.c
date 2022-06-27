@@ -83,10 +83,12 @@ static const char *usage =
 "          Raw PCM or DSD:   'raw', force with -r or --raw, little-endian\n"
 "          Philips DSDIFF:   'dff', force with --dsdiff or --dff\n"
 "          Sony DSF:         'dsf', force with --dsf\n\n"
-" Options: -m  = calculate and display MD5 signature; verify if lossless\n"
 #ifdef _WIN32
+" Options  --drop = drag-and-drop (multiple infiles only, no outfile spec)\n"
+"          -m  = calculate and display MD5 signature; verify if lossless\n"
 "          --pause = pause before exiting (if console window disappears)\n"
 #else
+" Options: -m  = calculate and display MD5 signature; verify if lossless\n"
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
 "          -q  = quiet (keep console output to a minimum)\n"
@@ -141,6 +143,9 @@ static const char *help =
 "    -d                    delete source file if successful (use with caution!)\n"
 "    --dff or --dsdiff     force output to Philips DSDIFF (DSD audio only,\n"
 "                           extension .dff)\n"
+#ifdef _WIN32
+"    --drop                drag-and-drop (multiple infiles only, no outfile spec)\n"
+#endif
 "    --dsf                 force output to Sony DSF (DSD audio only, extension .dsf)\n"
 "    -f[n]                 file info to stdout in machine-parsable format\n"
 "                           (optional \"n\" = 1-10 for specific item, otherwise all)\n"
@@ -233,7 +238,7 @@ static char **tag_extractions;      // extract multiple tags to named files
 static int num_tag_extractions;
 
 #ifdef _WIN32
-static int pause_mode;
+static int pause_mode, drop_mode;
 #endif
 
 /////////////////////////// local function declarations ///////////////////////
@@ -346,6 +351,8 @@ int main(int argc, char **argv)
 #ifdef _WIN32
             else if (!strcmp (long_option, "pause"))                    // --pause
                 pause_mode = 1;
+            else if (!strcmp (long_option, "drop"))                     // --drop
+                drop_mode = 1;
 #endif
             else if (!strcmp (long_option, "normalize-floats"))         // --normalize-floats
                 normalize_floats = 1;
@@ -524,6 +531,10 @@ int main(int argc, char **argv)
                         error_line ("illegal option: %c !", *argcp);
                         ++error_count;
                 }
+        else if (argi < argc_fn) {
+            error_line ("invalid use of filename-embedded args: %s !", argcp);
+            ++error_count;
+        }
         else {
             if (x_count) {
                 if (x_count == 1) {
@@ -542,7 +553,7 @@ int main(int argc, char **argv)
                 x_count = 0;
             }
 #if defined (_WIN32)
-            else if (!num_files) {
+            else if (drop_mode || !num_files) {
                 matches = realloc (matches, (num_files + 1) * sizeof (*matches));
                 matches [num_files] = malloc (strlen (argcp) + 10);
                 strcpy (matches [num_files], argcp);
@@ -947,15 +958,7 @@ int main(int argc, char **argv)
     init_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
     ret = wvunpack_main(argc_utf8, argv_utf8);
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
-
-    if (pause_mode) {
-        fprintf (stderr, "\nPress any key to continue . . . ");
-        fflush (stderr);
-        while (!_kbhit ());
-        _getch ();
-        fprintf (stderr, "\n");
-    }
-
+    if (pause_mode) do_pause_mode ();
     return ret;
 }
 
