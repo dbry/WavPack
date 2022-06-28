@@ -73,6 +73,7 @@ static const char *version_warning = "\n"
 static const char *usage =
 #if defined (_WIN32)
 " Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
+"          WAVPACK --drop [-options] infile[.wav]|infile.ext [...]\n"
 "             (default is lossless; infile may contain wildcards: ?,*)\n\n"
 #else
 " Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
@@ -106,7 +107,8 @@ static const char *usage =
 static const char *help =
 #if defined (_WIN32)
 " Usage:\n"
-"    WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n\n"
+"    WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
+"    WAVPACK --drop [-options] infile[.wav]|infile.ext [...]\n\n"
 "    The default operation is lossless. Wildcard characters (*,?) may be included\n"
 "    in the filename and the source file type is automatically determined (see\n"
 "    accepted formats below). Raw PCM may also be used (see --raw-pcm option).\n\n"

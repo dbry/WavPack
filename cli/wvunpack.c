@@ -72,6 +72,7 @@ static const char *version_warning = "\n"
 static const char *usage =
 #if defined (_WIN32)
 " Usage:   WVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]\n"
+"          WVUNPACK --drop [-options] infile[.wv] [...]\n"
 "           (default is restore original file, infile may contain wildcards: ?,*)\n\n"
 #else
 " Usage:   WVUNPACK [-options] infile[.wv]|- [...] [-o outfile[.ext]|outpath|-]\n"
@@ -101,7 +102,8 @@ static const char *usage =
 
 static const char *help =
 #if defined (_WIN32)
-" Usage:   WVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]\n\n"
+" Usage:   WVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]\n"
+"          WVUNPACK --drop [-options] infile[.wv] [...]\n\n"
 "          Wildcard characters (?,*) may be included in the input filename.\n"
 "          Output format and extension come from the source and by default\n"
 "          the entire file is restored (including headers and trailers).\n"
