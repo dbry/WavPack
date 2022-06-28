@@ -609,12 +609,10 @@ int main(int argc, char **argv)
         ++error_count;
     }
 
-#ifndef _WIN32
     if (use_stdin && num_files > 1) {
         error_line ("when stdin is used for input, it must be the only file!");
         ++error_count;
     }
-#endif
 
     if (use_stdin && !outfilename)  // for stdin source, no output specification implies stdout
         use_stdout = 1;

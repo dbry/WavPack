@@ -643,23 +643,31 @@ int main (int argc, char **argv)
                         break;
 
                     case 'X': case 'x':
-                        config.xmode = strtol (++argcp, &argcp, 10);
+                        if (isdigit (*++argcp))
+                            config.xmode = strtol (argcp, &argcp, 10);
+                        else
+                            config.xmode = 1;   // 'x' with no value specified = 1
 
                         if (config.xmode < 0 || config.xmode > 6) {
-                            error_line ("extra mode only goes from 1 to 6!");
+                            error_line ("extra mode only goes from 0 to 6!");
                             ++error_count;
                         }
-                        else
+                        else if (config.xmode)
                             config.flags |= CONFIG_EXTRA_MODE;
+                        else
+                            config.flags &= ~CONFIG_EXTRA_MODE;
 
                         --argcp;
                         break;
 
                     case 'F': case 'f':
+                        config.flags &= ~(CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG);
                         config.flags |= CONFIG_FAST_FLAG;
                         break;
 
                     case 'H': case 'h':
+                        config.flags &= ~CONFIG_FAST_FLAG;
+
                         if (config.flags & CONFIG_HIGH_FLAG)
                             config.flags |= CONFIG_VERY_HIGH_FLAG;
                         else
@@ -891,12 +899,10 @@ int main (int argc, char **argv)
         ++error_count;
     }
 
-#ifndef _WIN32
     if (use_stdin && num_files > 1) {
         error_line ("when stdin is used for input, it must be the only file!");
         ++error_count;
     }
-#endif
 
     if (use_stdin && !outfilename)  // for stdin source, no output specification implies stdout
         use_stdout = 1;
@@ -911,18 +917,13 @@ int main (int argc, char **argv)
         ++error_count;
     }
 
-    if (!(~config.flags & (CONFIG_HIGH_FLAG | CONFIG_FAST_FLAG))) {
-        error_line ("high and fast modes are mutually exclusive!");
+    if ((config.qmode & QMODE_IGNORE_LENGTH) && use_stdin && use_stdout && !overwrite_all) {
+        error_line ("can't ignore length in header when both input and output are pipes, '-y' to override");
         ++error_count;
     }
 
-    if ((config.qmode & QMODE_IGNORE_LENGTH) && use_stdin && use_stdout) {
-        error_line ("can't ignore length in header when both input and output are pipes!");
-        ++error_count;
-    }
-
-    if ((config.qmode & QMODE_RAW_PCM) && use_stdin && use_stdout) {
-        error_line ("can't process raw PCM when both input and output are pipes!");
+    if ((config.qmode & QMODE_RAW_PCM) && use_stdin && use_stdout && !overwrite_all) {
+        error_line ("can't process raw PCM when both input and output are pipes, '-y' to override");
         ++error_count;
     }
 
