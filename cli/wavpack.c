@@ -453,7 +453,8 @@ int main (int argc, char **argv)
 
                 error_line ("raw_pcm_skip = %d, %d bytes", raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end);
             }
-            else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
+            else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm & --raw-pcm-ex
+                int extended = !strncmp (long_option, "raw-pcm-ex", 10);
                 int params [] = { 44100, 16, 2 };
                 int pi, fp = 0, be = 0, us = 0, s = 0;
 
@@ -497,7 +498,7 @@ int main (int argc, char **argv)
                 }
                 else if (params [0] < 1 || params [0] > 1000000000 ||
                     params [1] < 1 || params [1] > 32 || (fp && params [1] != 32) ||
-                    params [2] < 1 || params [2] > WAVPACK_MAX_CLI_CHANS) {
+                    params [2] < 1 || params [2] > (extended ? WAVPACK_MAX_CHANS : WAVPACK_MAX_CLI_CHANS)) {
                         error_line ("argument range error in raw PCM specification!");
                         ++error_count;
                 }
