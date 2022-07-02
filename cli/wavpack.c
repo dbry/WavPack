@@ -162,7 +162,7 @@ static const char *help =
 "    -h                      high quality (better compression ratio, but slower\n"
 "                             encode and decode than default mode)\n"
 "    -hh                     very high quality (best compression, but slowest\n"
-"                             and NOT recommended for portable hardware use)\n"
+"                             and not recommended for vintage hardware use)\n"
 "    --help                  this extended help display\n"
 "    -i                      parse header for audio format but ignore length in\n"
 "                             header and just assume everything to EOF is audio\n"
@@ -2109,6 +2109,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     if (result == WAVPACK_NO_ERROR &&
         ((loc_config.qmode & QMODE_IGNORE_LENGTH) || WavpackGetNumSamples64 (wpc) == -1)) {
             char *block_buff = malloc (wv_file.first_block_size);
+            int update_error = 0;
 
             if (block_buff && !DoSetFilePositionAbsolute (wv_file.file, 0) &&
                 DoReadFile (wv_file.file, block_buff, wv_file.first_block_size, &bcount) &&
@@ -2148,20 +2149,16 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
                     if (DoSetFilePositionAbsolute (wv_file.file, 0) ||
                         !DoWriteFile (wv_file.file, block_buff, wv_file.first_block_size, &bcount) ||
-                        bcount != wv_file.first_block_size) {
-                            error_line ("couldn't update WavPack header with actual length!!");
-                            result = WAVPACK_SOFT_ERROR;
-                    }
+                        bcount != wv_file.first_block_size)
+                            update_error = 1;
             }
-            else {
-                error_line ("couldn't update WavPack header with actual length!!");
-                result = WAVPACK_SOFT_ERROR;
-            }
+            else
+                update_error = 1;
 
             if (block_buff)
                 free (block_buff);
 
-            if (result == WAVPACK_NO_ERROR && wvc_file.file) {
+            if (!update_error && wvc_file.file) {
                 block_buff = malloc (wvc_file.first_block_size);
 
                 if (block_buff && !DoSetFilePositionAbsolute (wvc_file.file, 0) &&
@@ -2172,18 +2169,26 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
                         if (DoSetFilePositionAbsolute (wvc_file.file, 0) ||
                             !DoWriteFile (wvc_file.file, block_buff, wvc_file.first_block_size, &bcount) ||
-                            bcount != wvc_file.first_block_size) {
-                                error_line ("couldn't update WavPack header with actual length!!");
-                                result = WAVPACK_SOFT_ERROR;
-                        }
+                            bcount != wvc_file.first_block_size)
+                                update_error = 1;
                 }
-                else {
-                    error_line ("couldn't update WavPack header with actual length!!");
-                    result = WAVPACK_SOFT_ERROR;
-                }
+                else
+                    update_error = 1;
 
                 if (block_buff)
                     free (block_buff);
+            }
+
+            // If we're writing to stdout then we really shouldn't be too surprised that we can't rewrite the
+            // header, and we can't delete the output file either, so let them off with a warning this time.
+
+            if (update_error) {
+                if (*outfilename != '-') {
+                    error_line ("couldn't update WavPack header with actual length!!");
+                    result = WAVPACK_SOFT_ERROR;
+                }
+                else
+                    error_line ("warning: couldn't update WavPack header with actual length!");
             }
     }
 
