@@ -94,6 +94,7 @@ static const char *usage =
 #endif
 "          -f  = fast mode (fast, but some compromise in compression ratio)\n"
 "          -h  = high quality (better compression ratio, but slower)\n"
+"          -m  = compute & store MD5 signature of raw audio data\n"
 #ifdef _WIN32
 "          --pause = pause before exiting (if console window disappears)\n"
 #else
@@ -111,13 +112,13 @@ static const char *help =
 "    WAVPACK --drop [-options] infile[.wav]|infile.ext [...]\n\n"
 "    The default operation is lossless. Wildcard characters (*,?) may be included\n"
 "    in the filename and the source file type is automatically determined (see\n"
-"    accepted formats below). Raw PCM may also be used (see --raw-pcm option).\n\n"
+"    accepted formats below). Raw PCM or DSD may also be used (see --raw-pcm option).\n\n"
 #else
 " Usage:\n"
 "    WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n\n"
 "    The default operation is lossless. Multiple input files may be specified\n"
 "    and the source file type is automatically determined (see accepted formats\n"
-"    below). Raw PCM data may also be used (see --raw-pcm option).\n\n"
+"    below). Raw PCM or DSD data may also be used (see --raw-pcm option).\n\n"
 #endif
 " All Utilities:             WAVPACK:  create or transcode WavPack files\n"
 "                            WVUNPACK: unpack or verify existing WavPack files\n"
@@ -159,8 +160,9 @@ static const char *help =
 #endif
 "    -f                      fast mode (faster encode and decode, but some\n"
 "                             compromise in compression ratio)\n"
-"    -h                      high quality (better compression ratio, but slower\n"
-"                             encode and decode than default mode)\n"
+"    -g                      general/normal mode (cancels -f and -h options)\n"
+"    -h                      high quality (better compression ratio, but slightly\n"
+"                             slower encode and decode than normal mode)\n"
 "    -hh                     very high quality (best compression, but slowest\n"
 "                             and not recommended for vintage hardware use)\n"
 "    --help                  this extended help display\n"
@@ -226,7 +228,8 @@ static const char *help =
 "                            write the specified binary metadata file to APEv2\n"
 "                             tag, normally used for cover art with the specified\n"
 "                             field name \"Cover Art (Front)\"\n"
-"    -x[n]                   extra encode processing (optional n = 1 to 6, 1=default)\n"
+"    -x[n]                   extra encode processing (optional n = 0 to 6, 1=default)\n"
+"                             -x0 no extra processing (fastest encode speed)\n"
 "                             -x1 to -x3 to choose best of predefined filters\n"
 "                             -x4 to -x6 to generate custom filters (very slow!)\n"
 "    -y                      yes to all warnings (use with caution!)\n"
@@ -666,6 +669,10 @@ int main (int argc, char **argv)
                     case 'F': case 'f':
                         config.flags &= ~(CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG);
                         config.flags |= CONFIG_FAST_FLAG;
+                        break;
+
+                    case 'G': case 'g':
+                        config.flags &= ~(CONFIG_FAST_FLAG | CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG);
                         break;
 
                     case 'H': case 'h':
