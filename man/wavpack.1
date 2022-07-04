@@ -198,14 +198,19 @@ delete source file if successful (use with caution!)
 fast mode (fast, but some compromise in compression ratio)
 .RE
 .PP
+\fB\-g\fR
+.RS 4
+general/normal mode, cancels previously specified \-f and \-h options
+.RE
+.PP
 \fB\-h\fR
 .RS 4
-high quality (better compression ratio, but slower encode and decode than default mode)
+high quality (better compression ratio, but slightly slower encode and decode than normal mode)
 .RE
 .PP
 \fB\-hh\fR
 .RS 4
-very high quality (best compression, but slowest and NOT recommended for use on portable playback devices)
+very high quality (best compression, but slowest and NOT recommended for use on vintage playback devices)
 .RE
 .PP
 \fB\-\-help\fR
@@ -376,7 +381,7 @@ write the specified binary metadata file to APEv2 tag, normally used for cover a
 .PP
 \fB\-x[\fR\fB\fIn\fR\fR\fB]\fR
 .RS 4
-extra encode processing (optional n = 1 to 6, 1=default), \-x1 to \-x3 to choose best of predefined filters, \-x4 to \-x6 to generate custom filters (very slow!)
+extra encode processing (optional n = 0 to 6, 1=default), \-x0 for no extra processing, \-x1 to \-x3 to choose best of predefined filters, \-x4 to \-x6 to generate custom filters (very slow!)
 .RE
 .PP
 \fB\-y\fR

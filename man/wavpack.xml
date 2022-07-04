@@ -157,12 +157,16 @@
           <listitem> <para>fast mode (fast, but some compromise in compression ratio)</para> </listitem>
         </varlistentry>
         <varlistentry>
+          <term> <option>-g</option> </term>
+          <listitem> <para>general/normal mode, cancels previously specified -f and -h options</para> </listitem>
+        </varlistentry>
+        <varlistentry>
           <term> <option>-h</option> </term>
-          <listitem> <para>high quality (better compression ratio, but slower encode and decode than default mode)</para> </listitem>
+          <listitem> <para>high quality (better compression ratio, but slightly slower encode and decode than normal mode)</para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>-hh</option> </term>
-          <listitem> <para>very high quality (best compression, but slowest and NOT recommended for use on portable playback devices)</para> </listitem>
+          <listitem> <para>very high quality (best compression, but slowest and NOT recommended for use on vintage playback devices)</para> </listitem>
         </varlistentry>
         <varlistentry>
           <term> <option>--help</option> </term>
@@ -309,8 +313,8 @@
         <varlistentry>
           <term> <option>-x[<replaceable>n</replaceable>]</option> </term>
           <listitem> <para>
-            extra encode processing (optional n = 1 to 6, 1=default), -x1 to -x3 to choose best of predefined filters,
-            -x4 to -x6 to generate custom filters (very slow!)
+            extra encode processing (optional n = 0 to 6, 1=default), -x0 for no extra processing,
+            -x1 to -x3 to choose best of predefined filters, -x4 to -x6 to generate custom filters (very slow!)
           </para> </listitem>
         </varlistentry>
         <varlistentry>

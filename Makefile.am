@@ -1,12 +1,12 @@
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = wavpack.pc
 
-dist_doc_data = README.md
-dist_pdf_data = \
+dist_doc_DATA = README.md
+dist_pdf_DATA = \
 	doc/WavPack5FileFormat.pdf \
 	doc/WavPack5LibraryDoc.pdf \
 	doc/WavPack5PortingGuide.pdf
-dist_html_data = \
+dist_html_DATA = \
 	doc/wavpack_doc.html \
 	doc/style.css
 

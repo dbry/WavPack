@@ -1,3 +1,19 @@
+                       ----------------------------
+                       Release 5.5.0 - July 4, 2022
+                       ----------------------------
+
+  fixed: CVE-2021-44269 (encoding crafted DSD file triggers OOB read crash)
+  fixed: very long filenames cause stack-overflow crash in all CLI programs
+  fixed: the length stored in WAV headers not always corrected when using -i
+  fixed: attempting to encode raw DSD audio from stdin sometimes causes crash
+  fixed: DSD to PCM decimation: small clicks between tracks and tiny DC offset
+  added: accepting brace-delimited options in the wavpack executable filename
+  added: "--drop" option to Windows executables for multi-file "drag-and-drop"
+  added" "--raw-pcm" option to wvunpack executable (does DSD --> 24-bit PCM)
+  added: "--no-overwrite" option to wavpack executable (to resume sessions)
+  improved: build system clean-up including switch to non-recursive "make"
+
+
                      --------------------------------
                      Release 5.4.0 - January 10, 2021
                      --------------------------------
