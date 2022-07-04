@@ -961,7 +961,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples)
     max_blocksize += max_blocksize & 1;         // and make sure it's even so we detect overflow
 
     out2buff = (wpc->wvc_flag) ? malloc (max_blocksize) : NULL;
-    out2end = out2buff + max_blocksize;
+    out2end = (wpc->wvc_flag) ? out2buff + max_blocksize : NULL;
     outbuff = malloc (max_blocksize);
     outend = outbuff + max_blocksize;
 
