@@ -41,8 +41,7 @@ AM_PROG_AS
 LT_INIT([win32-dll disable-static])
 
 dnl Checks for libraries.
-AC_CHECK_LIBM
-AC_SUBST([LIBM])
+LT_LIB_M
 
 dnl Check for large files support
 AC_SYS_LARGEFILE
