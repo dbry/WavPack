@@ -2,6 +2,12 @@
                        Release 5.5.0 - July 4, 2022
                        ----------------------------
 
+ WavPack Library Source Code - 5.5.0
+ wavpack.exe (command-line encoder) - 5.5.0
+ wvunpack.exe (command-line decoder) - 5.5.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.5.0
+ wvtag.exe (command-line tagging utility) - 5.5.0
+ ----------------------------------------------------
   fixed: CVE-2021-44269 (encoding crafted DSD file triggers OOB read crash)
   fixed: very long filenames cause stack-overflow crash in all CLI programs
   fixed: the length stored in WAV headers not always corrected when using -i
