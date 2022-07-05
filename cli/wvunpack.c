@@ -846,6 +846,8 @@ int main(int argc, char **argv)
     // if we found any files to process, this is where we start
 
     if (num_files) {
+        char *tmp_filename = NULL;
+
         if (outfilename && *outfilename != '-') {
             outpath = (filespec_path (outfilename) != NULL);
 
@@ -907,8 +909,10 @@ int main(int argc, char **argv)
 
             // clean up in preparation for potentially another file
 
-            if (outpath)
-                *filespec_name (outfilename) = '\0';
+            tmp_filename = filespec_name(outfilename);
+
+            if (outpath && tmp_filename)
+                *tmp_filename = '\0';
             else if (*outfilename != '-') {
                 free (outfilename);
                 outfilename = NULL;
