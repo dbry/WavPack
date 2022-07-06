@@ -907,8 +907,10 @@ int main(int argc, char **argv)
 
             // clean up in preparation for potentially another file
 
-            if (outpath)
-                *filespec_name (outfilename) = '\0';
+            if (outpath) {
+                if (filespec_name (outfilename))
+                    *filespec_name (outfilename) = '\0';
+            }
             else if (*outfilename != '-') {
                 free (outfilename);
                 outfilename = NULL;

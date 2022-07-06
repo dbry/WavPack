@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "wavpack_local.h"
 
@@ -796,8 +797,13 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
 
         case ID_ALT_EXTENSION:
             if (wpmd->byte_length && wpmd->byte_length < sizeof (wpc->file_extension)) {
-                memcpy (wpc->file_extension, wpmd->data, wpmd->byte_length);
-                wpc->file_extension [wpmd->byte_length] = 0;
+                int i, j;
+
+                for (i = j = 0; i < wpmd->byte_length; ++i)
+                    if (isalnum (((char *) wpmd->data) [i]))
+                        wpc->file_extension [j++] = ((char *) wpmd->data) [i];
+
+                wpc->file_extension [j] = 0;
             }
 
             return TRUE;

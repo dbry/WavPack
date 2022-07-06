@@ -1,3 +1,8 @@
+2022-07-05  David Bryant <david@wavpack.com>
+
+  * cli/wvunpack.c, src/open_utils.c:
+    issue #121: fix NULL deference in wvunpack.c and sanitize custom extensions
+
 2022-07-03  David Bryant <david@wavpack.com>
 
   * src/pack_utils.c:
