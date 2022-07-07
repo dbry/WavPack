@@ -1,5 +1,5 @@
                        ----------------------------
-                       Release 5.5.0 - July 4, 2022
+                       Release 5.5.0 - July 7, 2022
                        ----------------------------
 
  WavPack Library Source Code - 5.5.0
@@ -13,6 +13,8 @@
   fixed: the length stored in WAV headers not always corrected when using -i
   fixed: attempting to encode raw DSD audio from stdin sometimes causes crash
   fixed: DSD to PCM decimation: small clicks between tracks and tiny DC offset
+  fixed: length update in library-generated WAV headers on big-endian machines
+  fixed: sanitize custom extensions read from WavPack files to be alphanumeric
   added: accepting brace-delimited options in the wavpack executable filename
   added: "--drop" option to Windows executables for multi-file "drag-and-drop"
   added" "--raw-pcm" option to wvunpack executable (does DSD --> 24-bit PCM)

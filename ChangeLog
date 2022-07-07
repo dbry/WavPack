@@ -1,3 +1,8 @@
+2022-07-07  David Bryant <david@wavpack.com>
+
+  * src/pack_utils.c:
+    fix length update in library-generated WAV headers on big-endian machines
+
 2022-07-05  David Bryant <david@wavpack.com>
 
   * cli/wvunpack.c, src/open_utils.c:
