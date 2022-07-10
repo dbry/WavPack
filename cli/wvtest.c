@@ -960,7 +960,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         pthread_join (pthread, &term_value);
 
         if (term_value) {
-            printf ("decode_thread() returned error %lld\n", (long long) term_value);
+            printf ("decode_thread() returned error\n");
             return 1;
         }
     }
