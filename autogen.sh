@@ -11,4 +11,6 @@ test -f "config.rpath" || cp /usr/share/gettext/config.rpath . 2>/dev/null || to
 autoreconf -v --install || exit 1
 cd $ORIGDIR || exit $?
 
-$srcdir/configure --enable-maintainer-mode --enable-man "$@"
+if test -z "$NOCONFIGURE"; then
+    $srcdir/configure --enable-maintainer-mode --enable-man "$@"
+fi
