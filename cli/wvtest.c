@@ -352,14 +352,17 @@ static int seeking_test (char *filename, uint32_t test_count)
             if (!samples)
                 break;
 
+            if ((sample_count += samples) > total_samples) {
+                printf ("seeking_test(): sample count is not correct!\n");
+                return -1;
+            }
+
             store_samples (decoded_samples, decoded_samples, qmode, bps, samples * num_chans);
             MD5_Update (&md5_global, (unsigned char *) decoded_samples, bps * samples * num_chans);
 
             MD5_Init (&md5_local);
             MD5_Update (&md5_local, (unsigned char *) decoded_samples, bps * samples * num_chans);
             MD5_Final (chunked_md5 + chunk_count * 16, &md5_local);
-
-            sample_count += samples;
             chunk_count++;
         }
 
