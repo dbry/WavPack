@@ -2680,7 +2680,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
     uint32_t channel_mask = (uint32_t) WavpackGetChannelMask (wpc);
     int num_channels = WavpackGetNumChannels (wpc);
     unsigned char md5_sum [16];
-    char modes [80];
+    char modes [160];
 
     fprintf (dst, "\n");
 
