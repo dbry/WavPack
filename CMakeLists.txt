@@ -589,19 +589,19 @@ set_package_properties(LibXslt PROPERTIES
 
 add_feature_info(BUILD_SHARED_LIBS BUILD_SHARED_LIBS "Build shared library.")
 add_feature_info(BUILD_TESTING BUILD_TESTING "Build tests.")
-add_feature_info(ENABLE_LEGACY WAVPACK_ENABLE_LEGACY "Decode legacy (< 4.0) WavPack files.")
-add_feature_info(ENABLE_DSD WAVPACK_ENABLE_DSD "Enable support for WavPack DSD files.")
-add_feature_info(INSTALL_CMAKE_MODULE WAVPACK_INSTALL_CMAKE_MODULE "Generate and install CMake package configuration module.")
+add_feature_info(WAVPACK_ENABLE_LEGACY WAVPACK_ENABLE_LEGACY "Decode legacy (< 4.0) WavPack files.")
+add_feature_info(WAVPACK_ENABLE_DSD WAVPACK_ENABLE_DSD "Enable support for WavPack DSD files.")
+add_feature_info(WAVPACK_INSTALL_CMAKE_MODULE WAVPACK_INSTALL_CMAKE_MODULE "Generate and install CMake package configuration module.")
 
 
-add_feature_info(ENABLE_ASM WAVPACK_ENABLE_ASM "Enable assembly optimizations.")
-add_feature_info(ENABLE_LIBCRYPTO WAVPACK_ENABLE_LIBCRYPTO "Use OpenSSL::Crypto library.")
-add_feature_info(BUILD_PROGRAMS WAVPACK_BUILD_PROGRAMS "Build programs.")
-add_feature_info(BUILD_COOLEDIT_PLUGIN WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin.")
-add_feature_info(BUILD_WINAMP_PLUGIN WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin.")
-add_feature_info(BUILD_DOCS WAVPACK_BUILD_DOCS "Build documentation.")
-add_feature_info(INSTALL_DOCS WAVPACK_INSTALL_DOCS "Install documentation.")
-add_feature_info(INSTALL_PKGCONFIG_MODULE WAVPACK_INSTALL_PKGCONFIG_MODULE "Generate and install wavpack.pc.")
+add_feature_info(WAVPACK_ENABLE_ASM WAVPACK_ENABLE_ASM "Enable assembly optimizations.")
+add_feature_info(WAVPACK_ENABLE_LIBCRYPTO WAVPACK_ENABLE_LIBCRYPTO "Use OpenSSL::Crypto library.")
+add_feature_info(WAVPACK_BUILD_PROGRAMS WAVPACK_BUILD_PROGRAMS "Build programs.")
+add_feature_info(WAVPACK_BUILD_COOLEDIT_PLUGIN WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin.")
+add_feature_info(WAVPACK_BUILD_WINAMP_PLUGIN WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin.")
+add_feature_info(WAVPACK_BUILD_DOCS WAVPACK_BUILD_DOCS "Build documentation.")
+add_feature_info(WAVPACK_INSTALL_DOCS WAVPACK_INSTALL_DOCS "Install documentation.")
+add_feature_info(WAVPACK_INSTALL_PKGCONFIG_MODULE WAVPACK_INSTALL_PKGCONFIG_MODULE "Generate and install wavpack.pc.")
 
 feature_summary(WHAT ALL)
 
