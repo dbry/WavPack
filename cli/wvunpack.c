@@ -1633,9 +1633,9 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         output_qmode = input_qmode;
 
         if (outfilename) {
-            if (decode_format == WP_FORMAT_DFF)         // "raw" files are either WAV (for PCM) or DFF (for DSD), but we store
+            if (output_format == WP_FORMAT_DFF)         // "raw" files are either WAV (for PCM) or DFF (for DSD), but we store
                 output_qmode = QMODE_DSD_MSB_FIRST;     // the raw "qmode" in the file as well (for some future use perhaps?),
-            else if (decode_format == WP_FORMAT_WAV)    // but we DON'T want to honor that when generating WAV or DFF files
+            else if (output_format == WP_FORMAT_WAV)    // but we DON'T want to honor that when generating WAV or DFF files
                 output_qmode = 0;                       // because then they would be corrupt (e.g., big-endian WAV files)
         }
     }
