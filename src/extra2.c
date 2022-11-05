@@ -50,8 +50,8 @@
 #endif
 
 #ifdef PACK_DECORR_STEREO_PASS_CONT
-    void PACK_DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
-    void PACK_DECORR_STEREO_PASS_CONT_REV (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
+    void ASMCALL PACK_DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
+    void ASMCALL PACK_DECORR_STEREO_PASS_CONT_REV (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
 #endif
 
 typedef struct {
