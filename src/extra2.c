@@ -393,7 +393,7 @@ static void recurse_stereo (WavpackContext *wpc, WavpackExtraInfo *info, int dep
     if (branches < 1 || depth + 1 == info->nterms)
         branches = 1;
 
-    CLEAR (term_bits);
+    CLEARA (term_bits);
     samples = info->sampleptrs [depth];
     outsamples = info->sampleptrs [depth + 1];
 
@@ -647,7 +647,8 @@ static void stereo_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
 
     scan_word (wps, rptr, wps->wphdr.block_samples, -1);
     cnt = wps->wphdr.block_samples;
-    CLEAR (error);
+    error [0] = 0;
+    error [1] = 0;
 
     if (wps->wphdr.flags & HYBRID_SHAPE) {
         while (cnt--) {
@@ -743,7 +744,7 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
             force_ts = 1;
     }
 
-    CLEAR (save_decorr_passes);
+    CLEARA (save_decorr_passes);
     temp_buffer [0] = malloc (buf_size);
     temp_buffer [1] = malloc (buf_size);
     best_buffer = malloc (buf_size);
@@ -815,7 +816,7 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
             else
                 memcpy (temp_buffer [0], noisy_buffer ? noisy_buffer : samples, buf_size);
 
-            CLEAR (save_decorr_passes);
+            CLEARA (save_decorr_passes);
 
             for (j = 0; j < nterms; ++j) {
                 CLEAR (temp_decorr_pass);

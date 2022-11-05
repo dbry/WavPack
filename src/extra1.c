@@ -234,7 +234,7 @@ static void recurse_mono (WavpackContext *wpc, WavpackExtraInfo *info, int depth
     if (branches < 1 || depth + 1 == info->nterms)
         branches = 1;
 
-    CLEAR (term_bits);
+    CLEARA (term_bits);
     samples = info->sampleptrs [depth];
     outsamples = info->sampleptrs [depth + 1];
 
@@ -553,7 +553,7 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
     log_limit = 0;
 #endif
 
-    CLEAR (save_decorr_passes);
+    CLEARA (save_decorr_passes);
     temp_buffer [0] = malloc (buf_size);
     temp_buffer [1] = malloc (buf_size);
     best_buffer = malloc (buf_size);
@@ -608,7 +608,7 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
 
         while (1) {
         memcpy (temp_buffer [0], noisy_buffer ? noisy_buffer : samples, buf_size);
-        CLEAR (save_decorr_passes);
+        CLEARA (save_decorr_passes);
 
         for (j = 0; j < nterms; ++j) {
             CLEAR (temp_decorr_pass);

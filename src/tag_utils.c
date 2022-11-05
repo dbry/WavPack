@@ -523,7 +523,7 @@ static int write_tag_reader (WavpackContext *wpc)
 
     if (result && tag_size < -m_tag->tag_file_pos && !wpc->reader->truncate_here) {
         int nullcnt = (int) (-m_tag->tag_file_pos - tag_size);
-        char zero [1] = { 0 };
+        char zero = 0;
 
         while (nullcnt--)
             wpc->reader->write_bytes (wpc->wv_in, &zero, 1);

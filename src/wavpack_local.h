@@ -317,6 +317,7 @@ struct WavpackContext {
 //////////////////////// function prototypes and macros //////////////////////
 
 #define CLEAR(destin) memset (&destin, 0, sizeof (destin));
+#define CLEARA(destin) memset (destin, 0, sizeof (destin)); /* for arrays */
 
 //////////////////////////////// decorrelation //////////////////////////////
 // modules: pack.c, unpack.c, unpack_floats.c, extra1.c, extra2.c
