@@ -973,13 +973,13 @@ void send_general_metadata (WavpackContext *wpc)
     #define SCAN_MAX_MAGNITUDE scan_max_magnitude
 #endif
 
-uint32_t DECORR_MONO_BUFFER (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count);
+uint32_t ASMCALL DECORR_MONO_BUFFER (int32_t *buffer, struct decorr_pass *decorr_passes, int32_t num_terms, int32_t sample_count);
 
 #ifdef OPT_ASM_X86
 void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
-void pack_decorr_stereo_pass_x86 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
+void ASMCALL pack_decorr_stereo_pass_x86 (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 uint32_t scan_max_magnitude (int32_t *values, int32_t num_values);
-uint32_t scan_max_magnitude_x86 (int32_t *values, int32_t num_values);
+uint32_t ASMCALL scan_max_magnitude_x86 (int32_t *values, int32_t num_values);
 #else
 void DECORR_STEREO_PASS (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 uint32_t SCAN_MAX_MAGNITUDE (int32_t *values, int32_t num_values);

@@ -43,7 +43,7 @@
 #endif
 
 #ifdef PACK_DECORR_MONO_PASS_CONT
-    void PACK_DECORR_MONO_PASS_CONT (int32_t *out_buffer, int32_t *in_buffer,  struct decorr_pass *dpp, int32_t sample_count);
+    void ASMCALL PACK_DECORR_MONO_PASS_CONT (int32_t *out_buffer, int32_t *in_buffer,  struct decorr_pass *dpp, int32_t sample_count);
 #endif
 
 typedef struct {

@@ -26,6 +26,12 @@
 #define FASTCALL
 #endif
 
+#if defined(__WATCOMC__) && defined(OPT_ASM_X86)
+#define ASMCALL __cdecl
+#else
+#define ASMCALL
+#endif
+
 #if defined(_WIN32) || \
     (defined(BYTE_ORDER) && defined(LITTLE_ENDIAN) && (BYTE_ORDER == LITTLE_ENDIAN)) || \
     (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
@@ -411,7 +417,8 @@ void decimate_dsd_destroy (void *decimate_context);
 
 ///////////////////////////////// CPU feature detection ////////////////////////////////
 
-int unpack_cpu_has_feature_x86 (int findex), pack_cpu_has_feature_x86 (int findex);
+int ASMCALL unpack_cpu_has_feature_x86 (int findex);
+int ASMCALL pack_cpu_has_feature_x86 (int findex);
 
 #define CPU_FEATURE_MMX     23
 
@@ -565,7 +572,7 @@ int FASTCALL wp_log2 (uint32_t avalue);
 #define LOG2BUFFER log2buffer
 #endif
 
-uint32_t LOG2BUFFER (int32_t *samples, uint32_t num_samples, int limit);
+uint32_t ASMCALL LOG2BUFFER (int32_t *samples, uint32_t num_samples, int limit);
 
 signed char store_weight (int weight);
 int restore_weight (signed char weight);
