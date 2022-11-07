@@ -599,7 +599,7 @@ static void generate_format_string (WavpackContext *wpc, char *string, int maxle
 static int UTF8ToWideChar (const unsigned char *pUTF8, unsigned short *pWide);
 static int WideCharToUTF8 (const unsigned short *Wide, unsigned char *pUTF8, int len);
 static void AnsiToUTF8 (char *string, int len);
-static UTF8ToAnsi (char *string, int len);
+static void UTF8ToAnsi (char *string, int len);
 
 int infoDlg (char *fn, HWND hwnd)
 {
@@ -2165,7 +2165,7 @@ static void AnsiToUTF8 (char *string, int len)
 // resulting string will not fit in the specified buffer size then it is
 // truncated.
 
-static UTF8ToAnsi (char *string, int len)
+static void UTF8ToAnsi (char *string, int len)
 {
     int max_chars = (int) strlen (string);
     unsigned short *temp = malloc ((max_chars + 1) * 2);
