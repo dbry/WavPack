@@ -28,6 +28,7 @@
 // (which is okay because they are probably UTF-8 anyway).
 
 #ifdef _WIN32
+#define _WIN32_WINNT 0x0500 /* for GetFileSizeEx() */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <io.h>
@@ -118,9 +119,7 @@ static int64_t get_length (void *id)
     if (fHandle == INVALID_HANDLE_VALUE)
         return 0;
 
-    Size.u.LowPart = GetFileSize(fHandle, &Size.u.HighPart);
-
-    if (Size.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
+    if (!GetFileSizeEx(fHandle, &Size))
         return 0;
 
     return (int64_t)Size.QuadPart;
