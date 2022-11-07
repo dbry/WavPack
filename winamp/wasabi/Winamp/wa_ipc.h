@@ -21,7 +21,7 @@
 
 #include <windows.h>
 #include <stddef.h>
-#if (_MSC_VER <= 1200)
+#if defined(_MSC_VER) && (_MSC_VER <= 1200)
 typedef int intptr_t;
 #endif
 /*

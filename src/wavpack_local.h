@@ -15,7 +15,13 @@
 
 #if defined(_WIN32)
 #define strdup(x) _strdup(x)
+#ifndef FASTCALL
+#if defined(_M_IX86) || defined(__i386__)
 #define FASTCALL __fastcall
+#else /* !x86: */
+#define FASTCALL
+#endif
+#endif /* FASTCALL */
 #else
 #define FASTCALL
 #endif

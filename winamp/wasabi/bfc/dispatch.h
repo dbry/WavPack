@@ -3,7 +3,7 @@
 #include "platform/types.h"
 #include "platform/guid.h"
 
-#ifdef WIN32
+#ifdef _MSC_VER
 #ifndef NOVTABLE
 #define NOVTABLE __declspec(novtable)
 #endif
