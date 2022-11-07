@@ -50,7 +50,7 @@ static struct wpcnxt {
     float play_gain;        // playback gain (for replaygain support)
     int soft_clipping;      // soft clipping active for playback
     int output_bits;        // 16, 24, or 32 bits / sample
-    long sample_buffer[576*MAX_NCH*4];  // sample buffer
+    int32_t sample_buffer[576*MAX_NCH*4];  // sample buffer
     float error [MAX_NCH];  // error term for noise shaping
     char lastfn[MAX_PATH];  // filename stored for comparisons only
     wchar_t w_lastfn[MAX_PATH];// w_filename stored for comparisons only
@@ -426,7 +426,7 @@ int play (char *fn)
     int num_chans, sample_rate;
     char error [128];
     int maxlatency;
-    int thread_id;
+    DWORD thread_id;
     int open_flags;
 
 #ifdef DEBUG_CONSOLE
@@ -927,7 +927,7 @@ __declspec (dllexport) intptr_t winampGetExtendedRead_open (
 	if (cnxt->decimation_cnxt)
 		actual_size /= 4;
 
-    if (actual_size < 2147483648)
+    if (actual_size <= 2147483647)
         *size = (int) actual_size;
     else
         *size = -1;
@@ -1041,7 +1041,7 @@ static int read_samples (struct wpcnxt *cnxt, int num_samples)
         if (!(WavpackGetMode (cnxt->wpc) & MODE_FLOAT)) {
             float scaler = (float) (1.0 / ((unsigned long) 1 << (WavpackGetBytesPerSample (cnxt->wpc) * 8 - 1)));
             float *fptr = (float *) cnxt->sample_buffer;
-            long *lptr = cnxt->sample_buffer;
+            int32_t *lptr = cnxt->sample_buffer;
             int cnt = tsamples;
 
             while (cnt--)
@@ -1431,7 +1431,7 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
         return retval;
 
     if (!_stricmp (metadata, "length")) {   /* even if no file, return a 1 and write "0" */
-        swprintf (ret, retlen, L"%d", 0);
+        _snwprintf (ret, retlen, L"%d", 0);
         retval = 1;
     }
 
@@ -1483,15 +1483,15 @@ __declspec (dllexport) int winampGetExtendedFileInfoW (wchar_t *filename, char *
         }
     }
     else if (!_stricmp (metadata, "length")) {
-        swprintf (ret, retlen, L"%lld", (long long int)(WavpackGetNumSamples64 (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
+        _snwprintf (ret, retlen, L"%lld", (long long int)(WavpackGetNumSamples64 (info.wpc) * 1000.0 / WavpackGetSampleRate (info.wpc)));
         retval = 1;
     }
     else if (!_stricmp (metadata, "lossless")) {
-        swprintf (ret, retlen, L"%d", (WavpackGetMode (info.wpc) & MODE_LOSSLESS) ? 1 : 0);
+        _snwprintf (ret, retlen, L"%d", (WavpackGetMode (info.wpc) & MODE_LOSSLESS) ? 1 : 0);
         retval = 1;
     }
     else if (!_stricmp (metadata, "numsamples")) {
-        swprintf (ret, retlen, L"%lld", WavpackGetNumSamples64 (info.wpc));
+        _snwprintf (ret, retlen, L"%lld", WavpackGetNumSamples64 (info.wpc));
         retval = 1;
     }
     else if (WavpackGetTagItem (info.wpc, metadata, res, sizeof (res))) {

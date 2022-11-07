@@ -148,7 +148,7 @@ endif()
 
 cmake_dependent_option(WAVPACK_ENABLE_ASM "Enable assembly optimizations" ON "HAVE_ASM OR HAVE_MASM" OFF)
 cmake_dependent_option(WAVPACK_ENABLE_LIBCRYPTO "Use OpenSSL::Crypto library" ON "OPENSSL_FOUND" OFF)
-cmake_dependent_option(WAVPACK_BUILD_PROGRAMS "Build programs" ON "Iconv_FOUND" OFF)
+cmake_dependent_option(WAVPACK_BUILD_PROGRAMS "Build programs" ON "WIN32 OR Iconv_FOUND" OFF)
 cmake_dependent_option(WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin" ON "WIN32" OFF)
 cmake_dependent_option(WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin" ON "WIN32" OFF)
 cmake_dependent_option(BUILD_TESTING "Build tests" ON "NOT WIN32" OFF)
@@ -360,7 +360,7 @@ else()
         list(APPEND FILE_CONTENTS "local: *\; }\;")
         file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/libwavpack.map ${FILE_CONTENTS})
         if(CMAKE_VERSION VERSION_LESS 3.13)
-            set_target_properties(wavpack PROPERTIES LINK_FLAGS "-Wl,--version-script='${CMAKE_CURRENT_BINARY_DIR}/libwavpack.map';-Wl,-no-undefined") 
+            set_target_properties(wavpack PROPERTIES LINK_FLAGS "-Wl,--version-script='${CMAKE_CURRENT_BINARY_DIR}/libwavpack.map' -Wl,-no-undefined")
         else()
             target_link_options(wavpack PRIVATE "-Wl,--version-script=${CMAKE_CURRENT_BINARY_DIR}/libwavpack.map;-Wl,-no-undefined")
         endif()
@@ -394,7 +394,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 	target_link_libraries(wavpackapp
 		PRIVATE
 			wavpack
-			Iconv::Iconv
+			$<$<NOT:$<BOOL:${WIN32}>>:Iconv::Iconv>
 			$<$<BOOL:${HAVE_LIBM}>:m>
 	)
 
@@ -420,7 +420,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 	target_link_libraries(wvunpack
 		PRIVATE
 			wavpack
-			Iconv::Iconv
+			$<$<NOT:$<BOOL:${WIN32}>>:Iconv::Iconv>
 			$<$<BOOL:${HAVE_LIBM}>:m>
 	)
 
@@ -460,7 +460,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 	target_link_libraries(wvtag
 		PRIVATE
 			wavpack
-			Iconv::Iconv
+			$<$<NOT:$<BOOL:${WIN32}>>:Iconv::Iconv>
 			$<$<BOOL:${HAVE_LIBM}>:m>
 	)
 
