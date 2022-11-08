@@ -687,7 +687,7 @@ int64_t DoGetFileSize (FILE *hFile)
     if (fHandle == INVALID_HANDLE_VALUE)
         return 0;
 
-    Size.u.LowPart = GetFileSize(fHandle, &Size.u.HighPart);
+    Size.u.LowPart = GetFileSize(fHandle, (DWORD *) &Size.u.HighPart);
 
     if (Size.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
         return 0;
