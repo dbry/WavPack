@@ -1,4 +1,6 @@
-#pragma once
+#ifndef DISPATCH_H_
+#define DISPATCH_H_
+
 //#include <bfc/platform/platform.h>
 #include "platform/types.h"
 #include "platform/guid.h"
@@ -557,3 +559,4 @@ inline int Dispatchable::QueryInterface(GUID interface_guid, void **object)
 {
 	return _call(Dispatchable::QUERYINTERFACE, 0, interface_guid, object);
 }
+#endif /* DISPATCH_H_ */
