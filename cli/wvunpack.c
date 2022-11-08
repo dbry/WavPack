@@ -57,7 +57,6 @@
 #define fopen(f,m) fopen_utf8(f,m)
 #define strdup(x) _strdup(x)
 #define snprintf _snprintf
-#define fileno _fileno
 #endif
 
 ///////////////////////////// local variable storage //////////////////////////
@@ -1187,7 +1186,7 @@ static int quick_verify_file (char *infilename, int verbose)
     if (*infilename == '-') {
         infile = stdin;
 #ifdef _WIN32
-        _setmode (fileno (stdin), O_BINARY);
+        _setmode (_fileno (stdin), O_BINARY);
 #endif
 #ifdef __OS2__
         setmode (fileno (stdin), O_BINARY);
