@@ -83,9 +83,10 @@ static const char *usage =
 "          WVUNPACK: unpack or verify existing WavPack files\n"
 "          WVGAIN:   apply ReplayGain to WavPack files\n"
 "          WVTAG:    apply or edit metadata tags on WavPack files\n\n"
-" Formats: .wav (default, bwf/rf64 okay)  .wv (transcode, with tags)\n"
+" Formats: .wav (default, bwf/rf64 okay)  .aif (Apple AIFF)\n"
 "          .w64 (Sony Wave64)             .caf (Core Audio Format)\n"
-"          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n\n"
+"          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n"
+"          .wv (transcode from existing WavPack file, with tags)\n\n"
 " Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
 "                                           n = 24-9600 kbits/second (kbps)\n"
 "          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
@@ -253,6 +254,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 
 static struct {
     unsigned char id;
@@ -265,7 +267,8 @@ static struct {
     { WP_FORMAT_W64,  "riff", "w64", ParseWave64HeaderConfig, 8 },
     { WP_FORMAT_CAF,  "caff", "caf", ParseCaffHeaderConfig,   1 },
     { WP_FORMAT_DFF,  "FRM8", "dff", ParseDsdiffHeaderConfig, 2 },
-    { WP_FORMAT_DSF,  "DSD ", "dsf", ParseDsfHeaderConfig,    1 }
+    { WP_FORMAT_DSF,  "DSD ", "dsf", ParseDsfHeaderConfig,    1 },
+    { WP_FORMAT_AIF,  "FORM", "aif", ParseAiffHeaderConfig,   2 }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
@@ -2035,6 +2038,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             error_line ("%s", WavpackGetErrorMessage (wpc));
             result = WAVPACK_HARD_ERROR;
         }
+        else if (wrapper_size && debug_logging_mode)
+            error_line ("%d bytes of trailing data stored in file", wrapper_size);
 
         // if we're supposed to try to import ID3 tags, check for and do that now
         // (but only error on a bad tag, not just a missing one or one with no applicable items)

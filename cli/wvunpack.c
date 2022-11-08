@@ -79,6 +79,7 @@ static const char *usage =
 "           (default is restore original file, multiple input files allowed)\n\n"
 #endif
 " Formats: Microsoft RIFF:   'wav', force with -w or --wav, makes RF64 if > 4 GB\n"
+"          Apple AIFF:       'aif', force with --aif or --aif-le\n"
 "          Sony Wave64:      'w64', force with --w64\n"
 "          Apple Core Audio: 'caf', force with --caf-be or --caf-le\n"
 "          Raw PCM or DSD:   'raw', force with -r or --raw, little-endian\n"
@@ -129,12 +130,15 @@ static const char *help =
 "          (--raw) to avoid headers being interleaved with the audio data.\n\n"
 #endif
 " Formats: Microsoft RIFF:   'wav', force with -w or --wav, makes RF64 if > 4 GB\n"
+"          Apple AIFF:       'aif', force with --aif or --aif-le\n"
 "          Sony Wave64:      'w64', force with --w64\n"
 "          Apple Core Audio: 'caf', force with --caf-be or --caf-le\n"
 "          Raw PCM or DSD:   'raw', force with -r or --raw, little-endian\n"
 "          Philips DSDIFF:   'dff', force with --dsdiff or --dff\n"
 "          Sony DSF:         'dsf', force with --dsf\n\n"
 " Options:\n"
+"    --aif                 force output to Apple AIFF (extension .aif)\n"
+"    --aif-le              force output to Apple AIFF-C/sowt (extension .aif)\n"
 "    -b                    blindly decode all stream blocks & ignore length info\n"
 "    -c                    extract cuesheet only to stdout (no audio decode)\n"
 "                           (note: equivalent to -x \"cuesheet\")\n"
@@ -205,6 +209,7 @@ int WriteWave64Header (FILE *outfile, WavpackContext *wpc, int64_t total_samples
 int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 int WriteDsdiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 int WriteDsfHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
+int WriteAiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, int qmode);
 
 static struct {
     char *default_extension, *format_name;
@@ -215,7 +220,8 @@ static struct {
     { "w64", "Sony Wave64",      WriteWave64Header, 8 },
     { "caf", "Apple Core Audio", WriteCaffHeader,   1 },
     { "dff", "Philips DSDIFF",   WriteDsdiffHeader, 2 },
-    { "dsf", "Sony DSF",         WriteDsfHeader,    1 }
+    { "dsf", "Sony DSF",         WriteDsfHeader,    1 },
+    { "aif", "Apple AIF",        WriteAiffHeader,   2 }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
@@ -225,8 +231,8 @@ static struct {
 
 int debug_logging_mode;
 
-static int overwrite_all, delete_source, raw_decode, raw_pcm, normalize_floats, no_utf8_convert, no_audio_decode, file_info,
-    summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, decode_format, format_specified, caf_be, set_console_title;
+static int overwrite_all, delete_source, raw_decode, raw_pcm, normalize_floats, no_utf8_convert, no_audio_decode, file_info, summary,
+    ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, decode_format, format_specified, caf_be, aif_le, set_console_title;
 
 static int num_files, file_index, outbuf_k;
 
@@ -383,6 +389,14 @@ int main(int argc, char **argv)
             else if (!strcmp (long_option, "caf-le")) {                 // --caf-le
                 decode_format = WP_FORMAT_CAF;
                 format_specified = 1;
+            }
+            else if (!strcmp (long_option, "aif")) {                    // --aif
+                decode_format = WP_FORMAT_AIF;
+                format_specified = 1;
+            }
+            else if (!strcmp (long_option, "aif-le")) {                 // --aif-le
+                decode_format = WP_FORMAT_AIF;
+                aif_le = format_specified = 1;
             }
             else if (!strcmp (long_option, "dsf")) {                    // --dsf
                 decode_format = WP_FORMAT_DSF;
@@ -1602,6 +1616,11 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         switch (decode_format) {
             case WP_FORMAT_CAF:
                 output_qmode = QMODE_SIGNED_BYTES | (caf_be ? QMODE_BIG_ENDIAN : 0) | (input_qmode & QMODE_REORDERED_CHANS);
+                output_format = decode_format;
+                break;
+
+            case WP_FORMAT_AIF:
+                output_qmode = QMODE_SIGNED_BYTES | (aif_le ? 0 : QMODE_BIG_ENDIAN);
                 output_format = decode_format;
                 break;
 

@@ -378,6 +378,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 		cli/caff.c
 		cli/dsdiff.c
 		cli/dsf.c
+		cli/aiff.c
 		cli/utils.c
 		cli/md5.c
 		cli/import_id3.c
@@ -405,6 +406,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 		cli/caff_write.c
 		cli/dsdiff_write.c
 		cli/dsf_write.c
+		cli/aiff_write.c
 		cli/utils.c
 		cli/md5.c
 		$<$<BOOL:${WIN32}>:cli/win32_unicode_support.h>

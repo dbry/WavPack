@@ -39,7 +39,7 @@ if ENABLE_APPS
 bin_PROGRAMS = cli/wavpack cli/wvunpack cli/wvgain cli/wvtag
 endif
 
-cli_wavpack_SOURCES = cli/wavpack.c cli/riff.c cli/wave64.c cli/caff.c cli/dsdiff.c cli/dsf.c cli/utils.c cli/md5.c cli/import_id3.c
+cli_wavpack_SOURCES = cli/wavpack.c cli/riff.c cli/wave64.c cli/caff.c cli/dsdiff.c cli/dsf.c cli/aiff.c cli/utils.c cli/md5.c cli/import_id3.c
 if WINDOWS_HOST
 cli_wavpack_SOURCES += cli/win32_unicode_support.c
 endif
@@ -49,7 +49,7 @@ cli_wavpack_LDFLAGS = -rpath $(libdir)
 endif
 cli_wavpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
 
-cli_wvunpack_SOURCES = cli/wvunpack.c cli/riff_write.c cli/wave64_write.c cli/caff_write.c cli/dsdiff_write.c cli/dsf_write.c cli/utils.c cli/md5.c
+cli_wvunpack_SOURCES = cli/wvunpack.c cli/riff_write.c cli/wave64_write.c cli/caff_write.c cli/dsdiff_write.c cli/aiff_write.c cli/dsf_write.c cli/utils.c cli/md5.c
 if WINDOWS_HOST
 cli_wvunpack_SOURCES += cli/win32_unicode_support.c
 endif
