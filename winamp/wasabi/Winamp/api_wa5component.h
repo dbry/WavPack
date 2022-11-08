@@ -3,7 +3,7 @@
 
 #include <bfc/dispatch.h>
 class api_service;
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #endif
 
@@ -18,7 +18,7 @@ public:
 
 	void RegisterServices(api_service *service);
 	void DeregisterServices(api_service *service);
-#ifdef WIN32 // this is a kind of a hack (might be better to create a function that winamp calls to pass it)
+#ifdef _WIN32 // this is a kind of a hack (might be better to create a function that winamp calls to pass it)
 	HMODULE hModule;
 #endif
 };

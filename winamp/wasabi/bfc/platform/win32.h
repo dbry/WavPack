@@ -1,7 +1,7 @@
 #ifndef _WIN32_H
 #define _WIN32_H
 
-#ifndef WIN32
+#ifndef _WIN32
 #error this file is only for win32
 #endif
 

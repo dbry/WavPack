@@ -630,7 +630,7 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
                 *out++ = *inp++;
         }
         else if (!(WavpackGetMode (wpc) & MODE_FLOAT)) {
-            int32_t samcnt = samples_to_read * num_channels, *inp = buffer;
+            int32_t samcnt = samples_to_read * num_channels;
             float *out = (float *) buffer, factor = 1.0 / 256.0;
 
             if (WavpackGetBitsPerSample (wpc) > 24)
