@@ -242,6 +242,9 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             }
         }
         else if (!strncmp (chunk_header.ckID, "SSND", 4)) {             // on the data chunk, get size and exit loop
+            int64_t data_chunk_size;
+            int bytes_per_frame;
+
             if (!common_chunks || chunk_header.ckSize < sizeof (sound_chunk)      ||
                 (!version_chunks && aiff_chunk_header.formType [3] == 'C')        ||
                 !DoReadFile (infile, &sound_chunk, sizeof (sound_chunk), &bcount) ||
@@ -262,8 +265,8 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 return WAVPACK_SOFT_ERROR;
             }
 
-            int64_t data_chunk_size = chunk_header.ckSize - sizeof (sound_chunk);
-            int bytes_per_frame = config->bytes_per_sample * config->num_channels;
+            data_chunk_size = chunk_header.ckSize - sizeof (sound_chunk);
+            bytes_per_frame = config->bytes_per_sample * config->num_channels;
 
             if (infilesize && !(config->qmode & QMODE_IGNORE_LENGTH) && infilesize - data_chunk_size > 16777216) {
                 error_line ("this .AIF file has over 16 MB of extra AIF data, probably is corrupt!");
