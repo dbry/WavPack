@@ -1,0 +1,129 @@
+# OpenWatcom makefile to build WawPack for Win32
+# Requires JWasm to build x86 assembler sources :
+#   https://github.com/Baron-von-Riedesel/JWasm
+
+LIBNAME = wavpack
+
+LIBFILE = $(LIBNAME).lib
+DLLFILE = $(LIBNAME).dll
+LNKFILE = $(LIBNAME).lnk
+
+# change to 1 to build a static lib instead of a dll
+STATIC = 0
+
+ENABLE_LEGACY = 1
+ENABLE_DSD = 1
+ENABLE_X86ASM = 1
+
+CC = wcc386
+RC = wrc
+AS = jwasm
+
+ASMFLAGS = -q
+
+CFLAGS = -bt=nt -d0 -zq -bm -5s -fp5 -fpi87 -sg -oeatxh -ei
+#CFLAGS+= -j
+# warnings:
+CFLAGS+= -wx
+# newer OpenWatcom versions enable W303 by default:
+CFLAGS+= -wcd=303
+# include paths:
+CFLAGS+= -I"$(%WATCOM)/h/nt" -I"$(%WATCOM)/h"
+CFLAGS+= -I"../include"
+!ifneq STATIC 1
+# to build a dll:
+CFLAGS+= -bd
+!endif
+RCFLAGS = -q -r -bt=nt -I"$(%WATCOM)/h/nt" -I"../wavpackdll"
+
+SRCS = common_utils.c &
+	decorr_utils.c &
+	entropy_utils.c &
+	extra1.c &
+	extra2.c &
+	open_utils.c &
+	open_filename.c &
+	open_legacy.c &
+	open_raw.c &
+	pack.c &
+	pack_dns.c &
+	pack_floats.c &
+	pack_utils.c &
+	read_words.c &
+	tags.c &
+	tag_utils.c &
+	unpack.c &
+	unpack_floats.c &
+	unpack_seek.c &
+	unpack_utils.c &
+	write_words.c
+
+RCSRCS = wavpackdll.rc
+
+!ifeq ENABLE_LEGACY 1
+SRCS += unpack3.c unpack3_open.c unpack3_seek.c
+CFLAGS+= -DENABLE_LEGACY
+!endif
+
+!ifeq ENABLE_DSD 1
+SRCS += pack_dsd.c unpack_dsd.c
+CFLAGS+= -DENABLE_DSD
+!endif
+
+.extensions:
+.extensions: .lib .dll .obj .res .c .rc .asm
+
+OBJS = $(SRCS:.c=.obj)
+RCOBJS= $(RCSRCS:.rc=.res)
+
+!ifeq ENABLE_X86ASM 1
+CFLAGS+= -DOPT_ASM_X86
+SRCS += pack_x86.obj unpack_x86.obj
+!endif
+
+!ifeq STATIC 1
+$(LIBFILE): $(OBJS)
+  @echo * Create library: $@...
+  wlib -b -n -q -c -pa -s -t -zld -ii -io $@ $(OBJS)
+!else
+all: $(DLLFILE) $(LIBFILE)
+
+$(LIBFILE): $(DLLFILE)
+  @echo * Create library: $@...
+  wlib -b -n -q -c -pa -s -t -zld -ii -io $@ $(DLLFILE)
+
+$(DLLFILE): $(OBJS) $(RCOBJS) $(LNKFILE)
+  @echo * Link: $@
+  wlink @$(LNKFILE)
+
+$(LNKFILE):
+  @%create $@
+  @%append $@ SYSTEM nt_dll INITINSTANCE TERMINSTANCE
+  @%append $@ NAME $(LIBNAME)
+  @for %i in ($(OBJS)) do @%append $@ FILE %i
+  @%append $@ OPTION QUIET
+  @%append $@ OPTION RESOURCE=$(RCOBJS)
+  @%append $@ EXPORT=$(LIBNAME).exports
+  @%append $@ OPTION MAP=$*
+  @%append $@ OPTION ELIMINATE
+  @%append $@ OPTION SHOWDEAD
+!endif
+
+.c.obj:
+  $(CC) $(CFLAGS) -Fo=$^@ $<
+.asm.obj:
+  $(AS) $(ASMFLAGS) -Fo=$^@ $<
+.rc: ../wavpackdll
+.rc.res:
+  $(RC) $(RCFLAGS) -Fo=$^@ $<
+
+clean: .SYMBOLIC
+  @if exist *.obj rm *.obj
+  @if exist *.res rm *.res
+  @if exist *.err rm *.err
+  @if exist $(LNKFILE) rm $(LNKFILE)
+
+distclean: .SYMBOLIC clean
+  @if exist $(DLLFILE) rm $(DLLFILE)
+  @if exist $(LIBFILE) rm $(LIBFILE)
+  @if exist *.map rm *.map

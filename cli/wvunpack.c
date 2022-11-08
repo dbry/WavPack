@@ -1172,7 +1172,9 @@ static int quick_verify_file (char *infilename, int verbose)
     FILE *infile, *infile_c;
     uint32_t bytes_skipped;
 
-#ifdef _WIN32
+#if defined(__WATCOMC__)
+    struct _timeb time1, time2;
+#elif defined(_WIN32)
     struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
@@ -1266,7 +1268,9 @@ static int quick_verify_file (char *infilename, int verbose)
         fflush (stderr);
     }
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time1);
+#elif defined(_WIN32)
     _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
@@ -1489,7 +1493,11 @@ static int quick_verify_file (char *infilename, int verbose)
         return WAVPACK_SOFT_ERROR;
     }
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time2);
+    dtime = time2.time + time2.millitm / 1000.0;
+    dtime -= time1.time + time1.millitm / 1000.0;
+#elif defined(_WIN32)
     _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;
@@ -1543,7 +1551,9 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     FILE *outfile;
     double dtime;
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    struct _timeb time1, time2;
+#elif defined(_WIN32)
     struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
@@ -1796,7 +1806,9 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         }
     }
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time1);
+#elif defined(_WIN32)
     _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
@@ -1989,7 +2001,11 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     // Compute and display the time consumed along with some other details of
     // the unpacking operation (assuming there was no error).
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time2);
+    dtime = time2.time + time2.millitm / 1000.0;
+    dtime -= time1.time + time1.millitm / 1000.0;
+#elif defined(_WIN32)
     _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;
