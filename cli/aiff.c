@@ -162,7 +162,7 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                         int pstring_len = (unsigned char) common_chunk.compressionName [0];
 
                         if (pstring_len >= 1 && pstring_len <= chunk_header.ckSize - 23) {
-                            char compressionName [pstring_len + 1];
+                            char compressionName [256];
                             int i, j;
 
                             for (j = i = 0; i < pstring_len; ++i)
