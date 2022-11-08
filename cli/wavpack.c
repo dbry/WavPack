@@ -1587,7 +1587,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     FILE *infile;
     int result;
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    struct _timeb time1, time2;
+#elif defined(_WIN32)
     struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
@@ -1797,7 +1799,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time1);
+#elif defined(_WIN32)
     _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
@@ -2305,7 +2309,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // compute and display the time consumed along with some other details of
     // the packing operation, and then return WAVPACK_NO_ERROR
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time2);
+    dtime = time2.time + time2.millitm / 1000.0;
+    dtime -= time1.time + time1.millitm / 1000.0;
+#elif defined(_WIN32)
     _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;
@@ -2724,7 +2732,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     double dtime;
     int result;
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    struct _timeb time1, time2;
+#elif defined(_WIN32)
     struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
@@ -2886,7 +2896,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         }
     }
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time1);
+#elif defined(_WIN32)
     _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
@@ -3274,7 +3286,11 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // compute and display the time consumed along with some other details of
     // the packing operation, and then return WAVPACK_NO_ERROR
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time2);
+    dtime = time2.time + time2.millitm / 1000.0;
+    dtime -= time1.time + time1.millitm / 1000.0;
+#elif defined(_WIN32)
     _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;

@@ -13,7 +13,7 @@
 
 #include "wavpack.h"
 
-#if defined(_WIN32)
+#if defined(_WIN32) || (defined(__WATCOMC__) && defined(__OS2__))
 #define strdup(x) _strdup(x)
 #ifndef FASTCALL
 #if defined(_M_IX86) || defined(__i386__)
@@ -32,7 +32,7 @@
 #define ASMCALL
 #endif
 
-#if defined(_WIN32) || \
+#if defined(_WIN32) || defined(__WATCOMC__) || \
     (defined(BYTE_ORDER) && defined(LITTLE_ENDIAN) && (BYTE_ORDER == LITTLE_ENDIAN)) || \
     (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
 #define BITSTREAM_SHORTS    // use 16-bit "shorts" for reading/writing bitstreams (instead of chars)

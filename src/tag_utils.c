@@ -17,10 +17,12 @@
 
 #include "wavpack_local.h"
 
+#ifndef __WATCOMC__
 #ifdef _WIN32
 #define stricmp(x,y) _stricmp(x,y)
 #else
 #define stricmp strcasecmp
+#endif
 #endif
 
 static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int size, int type);
