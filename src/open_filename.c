@@ -50,7 +50,6 @@
 #endif
 
 #ifdef _WIN32
-#define fileno _fileno
 static FILE *fopen_utf8 (const char *filename_utf8, const char *mode_utf8);
 #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
 #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
@@ -141,6 +140,16 @@ static int64_t get_length (void *id)
 
 #endif
 
+#ifdef _WIN32
+
+static int can_seek (void *id)
+{
+    struct stat statbuf;
+    return id && !fstat (_fileno ((FILE *)id), &statbuf) && S_ISREG(statbuf.st_mode);
+}
+
+#else
+
 static int can_seek (void *id)
 {
     FILE *file = id;
@@ -148,6 +157,8 @@ static int can_seek (void *id)
 
     return file && !fstat (fileno (file), &statbuf) && S_ISREG(statbuf.st_mode);
 }
+
+#endif
 
 static int32_t write_bytes (void *id, void *data, int32_t bcount)
 {
@@ -161,7 +172,7 @@ static int truncate_here (void *id)
     FILE *file = id;
     int64_t curr_pos = _ftelli64 (file);
 
-    return _chsize_s (fileno (file), curr_pos);
+    return _chsize_s (_fileno (file), curr_pos);
 }
 
 #else
@@ -241,7 +252,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
     if (*infilename == '-') {
         wv_id = stdin;
 #if defined(_WIN32)
-        _setmode (fileno (stdin), O_BINARY);
+        _setmode (_fileno (stdin), O_BINARY);
 #endif
 #if defined(__OS2__)
         setmode (fileno (stdin), O_BINARY);

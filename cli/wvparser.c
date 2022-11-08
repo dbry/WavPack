@@ -152,7 +152,7 @@ int main (int argc, char **argv)
     }
 
 #ifdef _WIN32
-    setmode (fileno (stdin), O_BINARY);
+    setmode (_fileno (stdin), O_BINARY);
 #endif
     fprintf (stderr, "%s", sign_on);
 

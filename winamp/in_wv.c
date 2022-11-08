@@ -18,8 +18,6 @@
 #include "resource.h"
 #include "wasabi/wasabi.h"
 
-#define fileno _fileno
-
 #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
 #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
 #endif
@@ -1272,7 +1270,7 @@ static int can_seek (void *id)
     FILE *file = id ? *(FILE**)id : NULL;
     struct stat statbuf;
 
-    return file && !fstat (fileno (file), &statbuf) && S_ISREG(statbuf.st_mode);
+    return file && !fstat (_fileno (file), &statbuf) && S_ISREG(statbuf.st_mode);
 }
 
 static int32_t write_bytes (void *id, void *data, int32_t bcount)
@@ -1290,7 +1288,7 @@ static int truncate_here (void *id)
     FILE *file = id ? *(FILE**)id : NULL;
     int64_t curr_pos = _ftelli64 (file);
 
-    return _chsize_s (fileno (file), curr_pos);
+    return _chsize_s (_fileno (file), curr_pos);
 }
 
 static WavpackStreamReader64 freader = {
