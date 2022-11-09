@@ -197,6 +197,7 @@
     <ClInclude Include="..\include\wavpack.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cli\aiff_write.c" />
     <ClCompile Include="..\cli\caff_write.c" />
     <ClCompile Include="..\cli\dsdiff_write.c" />
     <ClCompile Include="..\cli\dsf_write.c" />

@@ -124,7 +124,7 @@ int WriteAiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
         memcpy (common_chunk.compressionType, compressionType, sizeof (common_chunk.compressionType));
         common_chunk_size += 4;
-        common_chunk.compressionName [0] = strlen (compressionName);
+        common_chunk.compressionName [0] = (char) strlen (compressionName);
         common_chunk_size++;
         strcpy (common_chunk.compressionName + 1, compressionName);
         common_chunk_size += (unsigned char) common_chunk.compressionName [0];
@@ -141,7 +141,7 @@ int WriteAiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     total_aiff_bytes += (total_data_bytes + 1) & ~(int64_t)1;
 
     memcpy (aiff_header.ckID, "FORM", sizeof (aiff_header.ckID));
-    aiff_header.ckSize = total_aiff_bytes - sizeof (ChunkHeader);
+    aiff_header.ckSize = (uint32_t)(total_aiff_bytes - sizeof (ChunkHeader));
     memcpy (aiff_header.formType, aifc ? "AIFC" : "AIFF", sizeof (aiff_header.formType));
     WavpackNativeToBigEndian (&aiff_header, ChunkHeaderFormat);
 
@@ -150,13 +150,13 @@ int WriteAiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     WavpackNativeToBigEndian (&common_header, ChunkHeaderFormat);
 
     common_chunk.numChannels = num_channels;
-    common_chunk.numSampleFrames = total_samples;
+    common_chunk.numSampleFrames = (uint32_t) total_samples;
     common_chunk.sampleSize = bits_per_sample;
     put_extended (sample_rate, &common_chunk.sampleRateExponent, &common_chunk.sampleRateMantissa);
     WavpackNativeToBigEndian (&common_chunk, CommonChunkFormat);
 
     memcpy (sound_header.ckID, "SSND", sizeof (sound_header.ckID));
-    sound_header.ckSize = sizeof (sound_chunk) + total_data_bytes;
+    sound_header.ckSize = (uint32_t)(sizeof (sound_chunk) + total_data_bytes);
     WavpackNativeToBigEndian (&sound_header, ChunkHeaderFormat);
 
     sound_chunk.offset = sound_chunk.blockSize = 0;

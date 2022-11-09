@@ -51,9 +51,9 @@ extern int debug_logging_mode;
 static int get_extended (uint16_t exponent, uint64_t mantissa)
 {
     if (exponent & 0x8000)
-        return -(mantissa >> (16446 - (exponent & 0x7fff)));
+        return -(int)(mantissa >> (16446 - (exponent & 0x7fff)));
     else
-        return mantissa >> (16446 - exponent);
+        return (int)(mantissa >> (16446 - exponent));
 }
 
 int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
@@ -161,7 +161,7 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     if (chunk_header.ckSize >= 24) {
                         int pstring_len = (unsigned char) common_chunk.compressionName [0];
 
-                        if (pstring_len >= 1 && pstring_len <= chunk_header.ckSize - 23) {
+                        if (pstring_len >= 1 && pstring_len <= (int)(chunk_header.ckSize - 23)) {
                             char compressionName [256];
                             int i, j;
 
