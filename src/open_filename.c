@@ -33,6 +33,12 @@
 #include <io.h>
 #endif
 
+#if defined(__OS2__) && defined(__WATCOMC__)
+#define INCL_LONGLONG
+#define INCL_DOSFILEMGR
+#include <os2.h>    /* for DosSetFileSizeL() */
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -178,15 +184,23 @@ static int32_t write_bytes (void *id, void *data, int32_t bcount)
     return (int32_t) fwrite (data, 1, bcount, (FILE*) id);
 }
 
-#ifdef __WATCOMC__
+#if defined(__WATCOMC__) && defined(_WIN32) /* no _chsize_s() in watcom... */
 
 static int truncate_here (void *id)
 {
-    FILE *file = id;
-    long curr_pos = ftell (file);
+    int fd = _fileno ((FILE *)id);
+    HANDLE handle = (HANDLE) _get_osfhandle (fd);
+    return (SetEndOfFile(handle) != 0) ? 0 : -1;
+}
 
-    /* FIXME: NO 64 BIT OFFSET! */
-    return _chsize (fileno (file), curr_pos);
+#elif defined(__WATCOMC__) && defined(__OS2__)
+
+static int truncate_here (void *id)
+{
+    int fd = fileno ((FILE *)id);
+    HFILE handle = (HFILE) _get_osfhandle (fd);
+    int64_t pos = _lseeki64 (fd, 0, SEEK_CUR);
+    return (DosSetFileSizeL(handle, pos) == 0) ? 0 : -1;
 }
 
 #elif defined(_WIN32)
