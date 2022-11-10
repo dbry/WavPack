@@ -1,13 +1,13 @@
-dnl wavpack 5.5.0 configure.ac
+dnl wavpack 5.5.2 configure.ac
 
-AC_INIT([wavpack], [5.5.0], [bryant@wavpack.com])
+AC_INIT([wavpack], [5.5.2], [bryant@wavpack.com])
 AC_CONFIG_SRCDIR([src/pack.c])
 AM_INIT_AUTOMAKE([-Wall 1.15 serial-tests subdir-objects foreign no-dist-gzip dist-xz])
 AM_MAINTAINER_MODE
 
 LIBWAVPACK_MAJOR=5
 LIBWAVPACK_MINOR=5
-LIBWAVPACK_MICRO=0
+LIBWAVPACK_MICRO=2
 LIBWAVPACK_VERSION_STRING="${LIBWAVPACK_MAJOR}.${LIBWAVPACK_MINOR}.${LIBWAVPACK_MICRO}"
 
 AC_DEFINE_UNQUOTED([LIBWAVPACK_MAJOR], [${LIBWAVPACK_MAJOR}], [libwavpack major version])
@@ -21,7 +21,7 @@ dnl +1 :  0 :  0   == changed/removed an interface. Breaks old apps.
 dnl  ? : +1 :  ?   == internal changes that doesn't break anything.
 dnl CURRENT : REVISION : AGE
 LT_CURRENT=3
-LT_REVISION=4
+LT_REVISION=5
 LT_AGE=2
 
 AC_SUBST([LT_CURRENT])

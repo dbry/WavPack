@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(WavPack VERSION 5.5.0)
+project(WavPack VERSION 5.5.2)
 
 # Languages
 
@@ -375,6 +375,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 		cli/wavpack.c
 		cli/riff.c
 		cli/wave64.c
+		cli/aiff.c
 		cli/caff.c
 		cli/dsdiff.c
 		cli/dsf.c
@@ -403,6 +404,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 		cli/wvunpack.c
 		cli/riff_write.c
 		cli/wave64_write.c
+		cli/aiff_write.c
 		cli/caff_write.c
 		cli/dsdiff_write.c
 		cli/dsf_write.c
