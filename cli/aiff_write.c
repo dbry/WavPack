@@ -84,6 +84,7 @@ int WriteAiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     int bytes_per_sample = WavpackGetBytesPerSample (wpc);
     int bits_per_sample = WavpackGetBitsPerSample (wpc);
     int float_format = WavpackGetFloatNormExp (wpc);
+    uint64_t mantissa;
 
     if (float_format) {
         if (float_format != 127 || !(qmode & QMODE_BIG_ENDIAN)) {
@@ -152,7 +153,8 @@ int WriteAiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     common_chunk.numChannels = num_channels;
     common_chunk.numSampleFrames = (uint32_t) total_samples;
     common_chunk.sampleSize = bits_per_sample;
-    put_extended (sample_rate, &common_chunk.sampleRateExponent, &common_chunk.sampleRateMantissa);
+    put_extended (sample_rate, &common_chunk.sampleRateExponent, &mantissa);    // mantissa is not properly aligned, so use local
+    memcpy (&common_chunk.sampleRateMantissa, &mantissa, sizeof (mantissa));
     WavpackNativeToBigEndian (&common_chunk, CommonChunkFormat);
 
     memcpy (sound_header.ckID, "SSND", sizeof (sound_header.ckID));

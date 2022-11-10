@@ -16,6 +16,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <limits.h>
 
 #include "wavpack.h"
 #include "utils.h"
@@ -50,10 +51,16 @@ extern int debug_logging_mode;
 
 static int get_extended (uint16_t exponent, uint64_t mantissa)
 {
-    if (exponent & 0x8000)
-        return -(int)(mantissa >> (16446 - (exponent & 0x7fff)));
-    else
-        return (int)(mantissa >> (16446 - exponent));
+    int shift = 16446 - (exponent & 0x7fff);
+
+    if (shift >= 64 || !mantissa)
+        return 0;
+    else if (shift < 0)
+        return (exponent & 0x8000) ? INT_MIN : INT_MAX;
+
+    mantissa >>= shift;
+
+    return (exponent & 0x8000) ? -(int)mantissa : (int)mantissa;
 }
 
 int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
@@ -87,6 +94,12 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         !WavpackAddWrapper (wpc, &aiff_chunk_header, sizeof (RiffChunkHeader))) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             return WAVPACK_SOFT_ERROR;
+    }
+
+    if (debug_logging_mode) {
+        WavpackBigEndianToNative (&aiff_chunk_header, ChunkHeaderFormat);
+        error_line ("file size = %llu, chunk size in AIF%c header = %u", (unsigned long long) infilesize,
+            aiff_chunk_header.formType [3], aiff_chunk_header.ckSize);
     }
 
     // loop through all elements of the AIFF header
@@ -193,18 +206,16 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             else
                 supported = FALSE;
 
-            config->bits_per_sample = common_chunk.sampleSize;
-
             if (format != 1 && format != 3)
                 supported = FALSE;
 
-            if (format == 3 && config->bits_per_sample != 32)
+            if (format == 3 && common_chunk.sampleSize != 32)
                 supported = FALSE;
 
             if (!common_chunk.numChannels || common_chunk.numChannels > WAVPACK_MAX_CLI_CHANS)
                 supported = FALSE;
 
-            if (config->bits_per_sample < 1 || config->bits_per_sample > 32)
+            if (common_chunk.sampleSize < 1 || common_chunk.sampleSize > 32)
                 supported = FALSE;
 
             if (!supported) {
@@ -212,6 +223,9 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 return WAVPACK_SOFT_ERROR;
             }
 
+            config->sample_rate = get_extended (common_chunk.sampleRateExponent, common_chunk.sampleRateMantissa);
+            config->bytes_per_sample = (common_chunk.sampleSize + 7) / 8;
+            config->bits_per_sample = common_chunk.sampleSize;
             config->num_channels = common_chunk.numChannels;
 
             if (common_chunk.numChannels <= 2)
@@ -220,9 +234,6 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 config->channel_mask = (1 << common_chunk.numChannels) - 1;
             else
                 config->channel_mask = 0x3ffff;
-
-            config->bytes_per_sample = (common_chunk.sampleSize + 7) / 8;
-            config->sample_rate = get_extended (common_chunk.sampleRateExponent, common_chunk.sampleRateMantissa);
 
             if (common_chunk.sampleSize <= 8)
                 config->qmode |= QMODE_SIGNED_BYTES;
