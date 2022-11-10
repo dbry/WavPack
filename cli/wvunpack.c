@@ -1818,7 +1818,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         if (until_samples_total) {
             if (!file_formats [output_format].WriteHeader (outfile, wpc, until_samples_total, output_qmode)) {
                 DoTruncateFile (outfile);
-                result = WAVPACK_HARD_ERROR;
+                result = WAVPACK_SOFT_ERROR;
             }
             else
                 created_riff_header = TRUE;
@@ -1835,7 +1835,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         }
         else if (!file_formats [output_format].WriteHeader (outfile, wpc, WavpackGetNumSamples64 (wpc), output_qmode)) {
             DoTruncateFile (outfile);
-            result = WAVPACK_HARD_ERROR;
+            result = WAVPACK_SOFT_ERROR;
         }
         else
             created_riff_header = TRUE;
@@ -1923,7 +1923,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
                 error_line ("can't update file header with actual size");
             else if (!file_formats [output_format].WriteHeader (outfile, wpc, total_unpacked_samples, output_qmode)) {
                 DoTruncateFile (outfile);
-                result = WAVPACK_HARD_ERROR;
+                result = WAVPACK_SOFT_ERROR;
             }
     }
 
