@@ -31,6 +31,14 @@
 
 #if defined (HAVE___BUILTIN_CTZ) || defined (_WIN64)
 #define USE_CTZ_OPTIMIZATION    // use ctz intrinsic (or Windows equivalent) to count trailing ones
+#elif defined(__WATCOMC__) && defined(__386__)
+#define USE_CTZ_OPTIMIZATION
+extern __inline uint32_t _bsf_watcom (uint32_t);
+#pragma aux _bsf_watcom = \
+  "bsf eax, eax" \
+  parm [eax] nomemory \
+  value [eax] \
+  modify exact [eax] nomemory;
 #else
 #define USE_NEXT8_OPTIMIZATION  // optimization using a table to count trailing ones
 #endif
@@ -126,6 +134,8 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
 
 #ifdef _MSC_VER
         { unsigned long res; _BitScanForward (&res, (unsigned long)~wps->wvbits.sr); ones_count = (uint32_t) res; }
+#elif defined(__WATCOMC__) && defined(__386__)
+        ones_count = _bsf_watcom (~wps->wvbits.sr);
 #else
         ones_count = __builtin_ctz (~wps->wvbits.sr);
 #endif
@@ -405,6 +415,8 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
 
 #ifdef _MSC_VER
         { unsigned long res; _BitScanForward (&res, (unsigned long)~wps->wvbits.sr); ones_count = (uint32_t) res; }
+#elif defined(__WATCOMC__) && defined(__386__)
+        ones_count = _bsf_watcom (~wps->wvbits.sr);
 #else
         ones_count = __builtin_ctz (~wps->wvbits.sr);
 #endif
