@@ -523,17 +523,21 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
         winamp/wasabi/wasabi.h
     )
     target_compile_definitions(in_wv PRIVATE $<$<BOOL:${MSVC}>:_CRT_SECURE_NO_DEPRECATE>)
-    set_target_properties(in_wv PROPERTIES DEFINE_SYMBOL WINAMP_EXPORTS)
+    set_target_properties(in_wv PROPERTIES
+        DEFINE_SYMBOL WINAMP_EXPORTS
+        PREFIX ""
+    )
     target_link_libraries(in_wv PRIVATE wavpack)
 
-    add_library(in_wv_lang SHARED
+    add_library(in_wv_lng SHARED
         winamp/wavpack.rc
     )
-    target_link_libraries(in_wv_lang PRIVATE $<$<BOOL:${MSVC}>:-NOENTRY>)
-    set_target_properties(in_wv_lang PROPERTIES
+    target_link_libraries(in_wv_lng PRIVATE $<$<BOOL:${MSVC}>:-NOENTRY>)
+    set_target_properties(in_wv_lng PROPERTIES
         RUNTIME_OUTPUT_NAME in_wv
         PREFIX ""
-        SUFFIX ".lang"
+        SUFFIX ".lng"
+        LINKER_LANGUAGE "C"
     )
 
 endif()
@@ -585,7 +589,7 @@ set_package_properties(Threads PROPERTIES
 )
 set_package_properties(LibXslt PROPERTIES
 	TYPE OPTIONAL
-	DESCRIPTION " XSLT C library developed for the GNOME project."
+	DESCRIPTION "XSLT C library developed for the GNOME project."
     PURPOSE "Required to generate documentation."
 )
 
@@ -682,7 +686,7 @@ endif()
 
 if(BUILD_TESTING AND (NOT WIN32))
 
-	enable_testing()
+    enable_testing()
 
     add_executable(wvtest
         cli/wvtest.c
