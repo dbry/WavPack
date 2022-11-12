@@ -801,7 +801,6 @@ DWORD WINAPI __stdcall DecodeThread (void *b)
 
         if (seek_needed != -1) {
             int seek_position = seek_needed;
-            int bc = 0;
 
             seek_needed = -1;
 
