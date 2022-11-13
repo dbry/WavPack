@@ -15,6 +15,7 @@ EXTRA_DIST = \
 	cmake/CheckCLinkerFlag.cmake \
 	cmake/modules/FindIconv.cmake \
 	cmake/TestLargeFiles.cmake \
+	wavpackdll/resource.h \
 	wavpackdll/wavpackdll.rc
 
 MAINTAINERCLEANFILES = \
