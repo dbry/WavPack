@@ -34,9 +34,10 @@
 #endif
 
 #if defined(__OS2__) && defined(__WATCOMC__)
+#define INCL_DOSMODULEMGR
 #define INCL_LONGLONG
 #define INCL_DOSFILEMGR
-#include <os2.h>    /* for DosSetFileSizeL() */
+#include <os2.h>
 #endif
 
 #include <stdlib.h>
@@ -195,12 +196,34 @@ static int truncate_here (void *id)
 
 #elif defined(__WATCOMC__) && defined(__OS2__)
 
+static int chk_DosSetFileSizeL = 0;
+#define ORD_DosSetFileSizeL  989
+typedef APIRET (APIENTRY *DosSetFileSizeL_t)(HFILE,LONGLONG);
+static DosSetFileSizeL_t pDosSetFileSizeL = NULL;
+
+static void init_os2file64api (void)
+{
+    HMODULE handle;
+    if (DosQueryModuleHandle("DOSCALLS", &handle) == 0) {
+        if (DosQueryProcAddr(handle, ORD_DosSetFileSizeL, NULL, (PFN *)&pDosSetFileSizeL) != 0) {
+            pDosSetFileSizeL = NULL;
+        }
+    }
+    chk_DosSetFileSizeL = 1;
+}
+
 static int truncate_here (void *id)
 {
     int fd = fileno ((FILE *)id);
     HFILE handle = (HFILE) _get_osfhandle (fd);
     int64_t pos = _lseeki64 (fd, 0, SEEK_CUR);
-    return (DosSetFileSizeL(handle, pos) == 0) ? 0 : -1;
+    if (!chk_DosSetFileSizeL) {
+        init_os2file64api();
+    }
+    if (pDosSetFileSizeL) {
+        return (pDosSetFileSizeL(handle, pos) == 0) ? 0 : -1;
+    }
+    return (DosSetFileSize(handle,(ULONG)pos) == 0) ? 0 : -1;
 }
 
 #elif defined(_WIN32)
