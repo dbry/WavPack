@@ -471,7 +471,8 @@ int main(int argc, char **argv)
                         break;
 
                     case 'F': case 'f':
-                        file_info = (char) strtol (++argcp, &argcp, 10);
+                        ++argcp;
+                        file_info = (char) strtol (argcp, &argcp, 10);
 
                         if (file_info < 0 || file_info > 10) {
                             error_line ("-f option must be 1-10, or omit (or 0) for all!");
@@ -491,7 +492,8 @@ int main(int argc, char **argv)
                         break;
 
                     case 'K': case 'k':
-                        outbuf_k = strtol (++argcp, &argcp, 10);
+                        ++argcp;
+                        outbuf_k = strtol (argcp, &argcp, 10);
 
                         if (outbuf_k < 1 || outbuf_k > 16384)       // range-check for reasonable values
                             outbuf_k = 0;
@@ -525,7 +527,8 @@ int main(int argc, char **argv)
                         break;
 
                     case 'Z': case 'z':
-                        set_console_title = (char) strtol (++argcp, &argcp, 10);
+                        ++argcp;
+                        set_console_title = (char) strtol (argcp, &argcp, 10);
                         --argcp;
                         break;
 

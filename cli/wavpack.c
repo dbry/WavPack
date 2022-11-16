@@ -449,8 +449,10 @@ int main (int argc, char **argv)
             else if (!strncmp (long_option, "raw-pcm-skip", 12)) {      // --raw-pcm-skip
                 raw_pcm_skip_bytes_begin = strtol (long_param, &long_param, 10);
 
-                if (*long_param == ',')
-                    raw_pcm_skip_bytes_end = strtol (++long_param, &long_param, 10);
+                if (*long_param == ',') {
+                    long_param++;
+                    raw_pcm_skip_bytes_end = strtol (long_param, &long_param, 10);
+                }
 
                 if (*long_param || raw_pcm_skip_bytes_begin < 0 || raw_pcm_skip_bytes_end < 0) {
                     error_line ("syntax error in raw-pcm-skip specification!");
@@ -721,7 +723,8 @@ int main (int argc, char **argv)
                         break;
 
                     case 'Z': case 'z':
-                        set_console_title = strtol (++argcp, &argcp, 10);
+                        ++argcp;
+                        set_console_title = strtol (argcp, &argcp, 10);
                         --argcp;
                         break;
 
@@ -742,8 +745,9 @@ int main (int argc, char **argv)
                         break;
 
                     case 'B': case 'b':
+                        ++argcp;
                         config.flags |= CONFIG_HYBRID_FLAG;
-                        config.bitrate = (float) strtod (++argcp, &argcp);
+                        config.bitrate = (float) strtod (argcp, &argcp);
                         --argcp;
 
                         if (config.bitrate < 2.0 || config.bitrate > 9600.0) {
@@ -777,7 +781,8 @@ int main (int argc, char **argv)
                         break;
 
                     case 'S': case 's':
-                        config.shaping_weight = (float) strtod (++argcp, &argcp);
+                        ++argcp;
+                        config.shaping_weight = (float) strtod (argcp, &argcp);
 
                         if (!config.shaping_weight) {
                             config.flags |= CONFIG_SHAPE_OVERRIDE;
