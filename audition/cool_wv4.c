@@ -935,7 +935,7 @@ static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, 
                     return TRUE;
 
                 case IDABOUT:
-					sprintf (str, "Cool Edit / Audition Filter Version 3.1\n" "WavPack Library Version %s\n"
+                    sprintf (str, "Cool Edit / Audition Filter Version 3.1\n" "WavPack Library Version %s\n"
                         "Copyright (c) 2017 David Bryant", WavpackGetLibraryVersionString());
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
@@ -1321,11 +1321,12 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
         in->special_data += (psp->dwSize + 1) & ~1;
         in->special_bytes -= (psp->dwSize + 1) & ~1;
 
-        if (in->listhdr.ckSize)
+        if (in->listhdr.ckSize) {
             if (in->listhdr.ckSize >= ((ChunkHeader.ckSize + 1) & ~1))
                 in->listhdr.ckSize -= (ChunkHeader.ckSize + 1) & ~1;
             else
                 in->listhdr.ckSize = 0;
+        }
 
         if (!strncmp (ChunkHeader.ckID, "cue ", 4)) {
             int num_cues = (psp->dwExtra = * (DWORD *) pData);

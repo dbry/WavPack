@@ -134,7 +134,7 @@ static WavpackStreamReader freader;
 
 int main (argc, argv) int argc; char **argv;
 {
-    int wpconfig_flags = CONFIG_MD5_CHECKSUM | CONFIG_OPTIMIZE_MONO, test_flags = 0, base_minutes = 2, res;
+    int wpconfig_flags = CONFIG_MD5_CHECKSUM | CONFIG_OPTIMIZE_MONO, test_flags = 0, base_minutes = 2, res = 0;
     int seektest = 0;
 
     // loop through command-line arguments
@@ -1237,7 +1237,7 @@ static void free_stream (StreamingFile *ws)
 
 static double frandom (void)
 {
-    static uint64_t random = 0x3141592653589793;
+    static uint64_t random = 0x3141592653589793ULL;
     random = ((random << 4) - random) ^ 1;
     random = ((random << 4) - random) ^ 1;
     random = ((random << 4) - random) ^ 1;

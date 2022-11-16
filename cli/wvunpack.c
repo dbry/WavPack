@@ -1161,10 +1161,10 @@ static uint32_t read_next_header (FILE *infile, WavpackHeader *wphdr)
 
 static int quick_verify_file (char *infilename, int verbose)
 {
-    int64_t file_size, block_index, bytes_read = 0, total_samples = 0;
+    int64_t file_size, block_index = 0, bytes_read = 0, total_samples = 0;
     int block_errors = 0, continuity_errors = 0, missing_checksums = 0, truncated = 0;
     int block_errors_c = 0, continuity_errors_c = 0, missing_checksums_c = 0, truncated_c = 0;
-    int num_channels = 0, chan_index = 0, wvc_mode = 0, block_samples;
+    int num_channels = 0, chan_index = 0, wvc_mode = 0, block_samples = 0;
     FILE *(*fopen_func)(const char *, const char *) = fopen;
     double dtime, progress = -1.0;
     WavpackHeader wphdr, wphdr_c;
