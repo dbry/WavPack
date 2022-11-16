@@ -234,12 +234,14 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             config->bits_per_sample = common_chunk.sampleSize;
             config->num_channels = common_chunk.numChannels;
 
-            if (common_chunk.numChannels <= 2)
-                config->channel_mask = 0x5 - common_chunk.numChannels;
-            else if (common_chunk.numChannels <= 18)
-                config->channel_mask = (1 << common_chunk.numChannels) - 1;
-            else
-                config->channel_mask = 0x3ffff;
+            if (!config->channel_mask && !(config->qmode & QMODE_CHANS_UNASSIGNED)) {
+                if (common_chunk.numChannels <= 2)
+                    config->channel_mask = 0x5 - common_chunk.numChannels;
+                else if (common_chunk.numChannels <= 18)
+                    config->channel_mask = (1 << common_chunk.numChannels) - 1;
+                else
+                    config->channel_mask = 0x3ffff;
+            }
 
             if (common_chunk.sampleSize <= 8)
                 config->qmode |= QMODE_SIGNED_BYTES;
