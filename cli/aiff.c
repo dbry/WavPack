@@ -49,18 +49,22 @@ typedef struct {
 
 extern int debug_logging_mode;
 
-static int get_extended (uint16_t exponent, uint64_t mantissa)
+static double get_extended (uint16_t exponent, uint64_t mantissa)
 {
-    int shift = 16446 - (exponent & 0x7fff);
+    double sign = (exponent & 0x8000) ? -1.0 : 1.0, value = mantissa;
+    int right_shift = 16446 - (exponent & 0x7fff);
 
-    if (shift >= 64 || !mantissa)
-        return 0;
-    else if (shift < 0)
-        return (exponent & 0x8000) ? INT_MIN : INT_MAX;
+    if (!mantissa)
+        return 0.0;
 
-    mantissa >>= shift;
+    if (right_shift > 0)
+        while (right_shift--)
+            value /= 2.0;
+    else
+        while (right_shift++)
+            value *= 2.0;
 
-    return (exponent & 0x8000) ? -(int)mantissa : (int)mantissa;
+    return value * sign;
 }
 
 int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
@@ -84,9 +88,9 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
 
     memcpy (&aiff_chunk_header, fourcc, 4);
 
-    if (!DoReadFile (infile, ((char *) &aiff_chunk_header) + 4, sizeof (RiffChunkHeader) - 4, &bcount) ||
-        bcount != sizeof (RiffChunkHeader) - 4 || strncmp (aiff_chunk_header.formType, "AIFF", 4) &&
-        strncmp (aiff_chunk_header.formType, "AIFC", 4)) {
+    if (!DoReadFile (infile, ((char *) &aiff_chunk_header) + 4, sizeof (RiffChunkHeader) - 4, &bcount)  ||
+        bcount != sizeof (RiffChunkHeader) - 4                                                          ||
+        (strncmp (aiff_chunk_header.formType, "AIFF", 4) && strncmp (aiff_chunk_header.formType, "AIFC", 4))) {
             error_line ("%s is not a valid .AIF file!", infilename);
             return WAVPACK_SOFT_ERROR;
     }
@@ -140,7 +144,8 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             // WavpackBigEndianToNative (&timestamp, "L");
         }
         else if (!strncmp (chunk_header.ckID, "COMM", 4)) {     // if it's the common chunk, we want to get some info out of there and
-            int supported = TRUE, format;                       // make sure it's a .aiff file we can handle
+            int supported = TRUE, floatData = FALSE;            // make sure it's a .aiff file we can handle
+            double sampleRate;
 
             if (common_chunks++ || padded_chunk_size < 18 || padded_chunk_size > sizeof (common_chunk) ||
                 (aiff_chunk_header.formType [3] == 'F' && padded_chunk_size != 18)                     ||
@@ -156,13 +161,13 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             }
 
             WavpackBigEndianToNative (&common_chunk, CommonChunkFormat);
+            sampleRate = get_extended (common_chunk.sampleRateExponent, common_chunk.sampleRateMantissa);
 
             if (debug_logging_mode) {
                 error_line ("common tag size = %d", chunk_header.ckSize);
                 error_line ("numChannels = %d, numSampleFrames = %u",
                     common_chunk.numChannels, common_chunk.numSampleFrames);
-                error_line ("sampleSize = %d, sampleRate = %d", common_chunk.sampleSize,
-                    get_extended (common_chunk.sampleRateExponent, common_chunk.sampleRateMantissa));
+                error_line ("sampleSize = %d, sampleRate = %g", common_chunk.sampleSize, sampleRate);
 
                 if (chunk_header.ckSize >= 22) {
                     error_line ("compressionType = %c%c%c%c",
@@ -189,27 +194,21 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 }
             }
 
-            if (chunk_header.ckSize < 22) {
+            if (chunk_header.ckSize < 22)
                 config->qmode |= QMODE_BIG_ENDIAN;
-                format = 1;
-            }
-            else if (!strncmp (common_chunk.compressionType, "NONE", 4) || !strncmp (common_chunk.compressionType, "none", 4)) {
+            else if (!strncmp (common_chunk.compressionType, "NONE", 4) || !strncmp (common_chunk.compressionType, "none", 4))
                 config->qmode |= QMODE_BIG_ENDIAN;
-                format = 1;
-            }
             else if (!strncmp (common_chunk.compressionType, "FL32", 4) || !strncmp (common_chunk.compressionType, "fl32", 4)) {
                 config->qmode |= QMODE_BIG_ENDIAN;
-                format = 3;
+                floatData = TRUE;
             }
-            else if (!strncmp (common_chunk.compressionType, "SOWT", 4) || !strncmp (common_chunk.compressionType, "sowt", 4))
-                format = 1;
-            else
+            else if (strncmp (common_chunk.compressionType, "SOWT", 4) && strncmp (common_chunk.compressionType, "sowt", 4))
                 supported = FALSE;
 
-            if (format != 1 && format != 3)
+            if (sampleRate <= 0.0 || sampleRate > 16777215.0)
                 supported = FALSE;
 
-            if (format == 3 && common_chunk.sampleSize != 32)
+            if (floatData && common_chunk.sampleSize != 32)
                 supported = FALSE;
 
             if (!common_chunk.numChannels || common_chunk.numChannels > WAVPACK_MAX_CLI_CHANS)
@@ -223,7 +222,14 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 return WAVPACK_SOFT_ERROR;
             }
 
-            config->sample_rate = get_extended (common_chunk.sampleRateExponent, common_chunk.sampleRateMantissa);
+            if (sampleRate != floor (sampleRate))
+                error_line ("warning: the nonintegral sample rate of %s will be rounded", infilename);
+
+            if (sampleRate < 1.0)
+                config->sample_rate = 1;
+            else
+                config->sample_rate = (int) floor (sampleRate + 0.5);
+
             config->bytes_per_sample = (common_chunk.sampleSize + 7) / 8;
             config->bits_per_sample = common_chunk.sampleSize;
             config->num_channels = common_chunk.numChannels;
@@ -238,7 +244,7 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             if (common_chunk.sampleSize <= 8)
                 config->qmode |= QMODE_SIGNED_BYTES;
 
-            if (format == 3)
+            if (floatData)
                 config->float_norm_exp = 127;
 
             if (debug_logging_mode) {
@@ -333,7 +339,7 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     chunk_header.ckID [3], chunk_header.ckSize);
 
             if (!DoReadFile (infile, buff, padded_chunk_size, &bcount) || bcount != padded_chunk_size ||
-                !(config->qmode & QMODE_NO_STORE_WRAPPER) && !WavpackAddWrapper (wpc, buff, padded_chunk_size)) {
+                (!(config->qmode & QMODE_NO_STORE_WRAPPER) && !WavpackAddWrapper (wpc, buff, padded_chunk_size))) {
                     error_line ("%s", WavpackGetErrorMessage (wpc));
                     free (buff);
                     return WAVPACK_SOFT_ERROR;

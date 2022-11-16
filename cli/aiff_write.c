@@ -62,7 +62,7 @@ static void put_extended (int value, uint16_t *exponent, uint64_t *mantissa)
     *exponent = value < 0 ? 16446 | 0x8000 : 16446;
     *mantissa = abs (value);
 
-    while (!(*mantissa & 0x8000000000000000)) {
+    while (!(*mantissa & 0x8000000000000000ULL)) {
         *mantissa <<= 1;
         (*exponent)--;
     }
@@ -79,7 +79,6 @@ int WriteAiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
     int64_t total_data_bytes, total_aiff_bytes;
     int num_channels = WavpackGetNumChannels (wpc);
-    uint32_t channel_mask = WavpackGetChannelMask (wpc);
     uint32_t sample_rate = WavpackGetSampleRate (wpc);
     int bytes_per_sample = WavpackGetBytesPerSample (wpc);
     int bits_per_sample = WavpackGetBitsPerSample (wpc);
