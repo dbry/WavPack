@@ -207,6 +207,7 @@ target_link_libraries(wavpack
     PRIVATE
         $<$<BOOL:${HAVE_LIBM}>:m>
 )
+add_library(WavPack::WavPack ALIAS wavpack)
 
 if(CMAKE_VERSION VERSION_LESS 3.4)
     target_include_directories(wavpack
@@ -367,6 +368,7 @@ else()
     endif()
 endif()
 
+set_target_properties(wavpack PROPERTIES EXPORT_NAME WavPack)
 set_target_properties(wavpack PROPERTIES PUBLIC_HEADER include/wavpack.h)
 
 if(WAVPACK_BUILD_PROGRAMS)
