@@ -498,7 +498,7 @@ if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
 
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/audition/cool_wv4.def ${FILE_CONTENTS})
 
-    add_library(cool_wv4 SHARED
+    add_library(cool_wv4 MODULE
         audition/cool_wv4.c
         audition/filters.h
         audition/resource.h
@@ -516,7 +516,7 @@ if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
 endif()
 
 if(WAVPACK_BUILD_WINAMP_PLUGIN)
-    add_library(in_wv SHARED
+    add_library(in_wv MODULE
         winamp/in_wv.c
         winamp/in2.h
         winamp/out.h
@@ -531,7 +531,7 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
     )
     target_link_libraries(in_wv PRIVATE wavpack)
 
-    add_library(in_wv_lng SHARED
+    add_library(in_wv_lng MODULE
         winamp/wavpack.rc
     )
     target_link_libraries(in_wv_lng PRIVATE $<$<BOOL:${MSVC}>:-NOENTRY>)
