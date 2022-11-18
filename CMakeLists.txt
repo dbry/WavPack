@@ -513,6 +513,9 @@ if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
         PREFIX ""
     )
     target_link_libraries(cool_wv4 PRIVATE wavpack)
+    if(MINGW)
+        target_link_libraries(cool_wv4 PRIVATE -mwindows)
+    endif()
 
 endif()
 
@@ -531,6 +534,9 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
         PREFIX ""
     )
     target_link_libraries(in_wv PRIVATE wavpack)
+    if(MINGW)
+        target_link_libraries(in_wv PRIVATE -mwindows)
+    endif()
 
     add_library(in_wv_lng MODULE
         winamp/wavpack.rc
@@ -542,6 +548,9 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
         SUFFIX ".lng"
         LINKER_LANGUAGE "C"
     )
+    if(MINGW)
+        target_link_libraries(in_wv_lng PRIVATE -mwindows)
+    endif()
 
 endif()
 
