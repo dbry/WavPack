@@ -543,7 +543,7 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
     )
     target_link_libraries(in_wv_lng PRIVATE $<$<BOOL:${MSVC}>:-NOENTRY>)
     set_target_properties(in_wv_lng PROPERTIES
-        RUNTIME_OUTPUT_NAME in_wv
+        OUTPUT_NAME in_wv
         PREFIX ""
         SUFFIX ".lng"
         LINKER_LANGUAGE "C"
