@@ -183,6 +183,7 @@
 /export:WavpackGetChannelLayout /export:WavpackSetFileInformation
 /export:WavpackSetConfiguration64 /export:WavpackSetChannelLayout
 /export:WavpackVerifySingleBlock
+/export:WavpackFloatNormalize
  %(AdditionalOptions)</AdditionalOptions>
       <OutputFile>$(OutDir)wavpackdll.dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -240,6 +241,7 @@
 /export:WavpackGetChannelLayout /export:WavpackSetFileInformation
 /export:WavpackSetConfiguration64 /export:WavpackSetChannelLayout
 /export:WavpackVerifySingleBlock
+/export:WavpackFloatNormalize
  %(AdditionalOptions)</AdditionalOptions>
       <OutputFile>$(OutDir)wavpackdll.dll</OutputFile>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -302,6 +304,7 @@
 /export:WavpackGetChannelLayout /export:WavpackSetFileInformation
 /export:WavpackSetConfiguration64 /export:WavpackSetChannelLayout
 /export:WavpackVerifySingleBlock
+/export:WavpackFloatNormalize
  %(AdditionalOptions)</AdditionalOptions>
       <OutputFile>$(OutDir)wavpackdll.dll</OutputFile>
       <GenerateDebugInformation>false</GenerateDebugInformation>
