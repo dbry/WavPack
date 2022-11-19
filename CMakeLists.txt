@@ -515,7 +515,7 @@ if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
         PREFIX ""
     )
     if(MINGW)
-        target_link_libraries(cool_wv4 PRIVATE -mwindows -static-libgcc)
+        target_link_libraries(cool_wv4 PRIVATE -mwindows -static-libgcc "-Wl,--enable-stdcall-fixup")
     endif()
 
 endif()
