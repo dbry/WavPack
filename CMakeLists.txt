@@ -504,17 +504,18 @@ if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
         audition/filters.h
         audition/resource.h
         audition/wavpack.rc
+        $<TARGET_OBJECTS:wavpack>
         ${CMAKE_CURRENT_BINARY_DIR}/audition/cool_wv4.def
     )
+    target_include_directories(cool_wv4 PRIVATE include)
     target_compile_definitions(cool_wv4 PRIVATE $<$<BOOL:${MSVC}>:_CRT_SECURE_NO_WARNINGS>)
     set_target_properties(cool_wv4 PROPERTIES
         DEFINE_SYMBOL AUDITION_EXPORTS
         SUFFIX ".flt"
         PREFIX ""
     )
-    target_link_libraries(cool_wv4 PRIVATE wavpack)
     if(MINGW)
-        target_link_libraries(cool_wv4 PRIVATE -mwindows)
+        target_link_libraries(cool_wv4 PRIVATE -mwindows -static-libgcc)
     endif()
 
 endif()
