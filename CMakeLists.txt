@@ -527,13 +527,14 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
         winamp/resource.h
         winamp/wasabi/wasabi.cpp
         winamp/wasabi/wasabi.h
+        $<TARGET_OBJECTS:wavpack>
     )
+    target_include_directories(in_wv PRIVATE include)
     target_compile_definitions(in_wv PRIVATE $<$<BOOL:${MSVC}>:_CRT_SECURE_NO_DEPRECATE>)
     set_target_properties(in_wv PROPERTIES
         DEFINE_SYMBOL WINAMP_EXPORTS
         PREFIX ""
     )
-    target_link_libraries(in_wv PRIVATE wavpack)
     if(MINGW)
         target_link_libraries(in_wv PRIVATE -mwindows)
     endif()
