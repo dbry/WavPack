@@ -536,7 +536,7 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
         PREFIX ""
     )
     if(MINGW)
-        target_link_libraries(in_wv PRIVATE -mwindows)
+        target_link_libraries(in_wv PRIVATE -mwindows -static-libgcc -static-libstdc++)
     endif()
 
     add_library(in_wv_lng MODULE
