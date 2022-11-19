@@ -34,7 +34,7 @@ END
 
 2 TEXTINCLUDE 
 BEGIN
-    "#include <winresrc.rc>\r\n"
+    "#include <winresrc.h>\r\n"
     "\0"
 END
 
