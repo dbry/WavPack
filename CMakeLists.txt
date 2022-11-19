@@ -525,6 +525,7 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
         winamp/in2.h
         winamp/out.h
         winamp/resource.h
+        winamp/wavpack.rc
         winamp/wasabi/wasabi.cpp
         winamp/wasabi/wasabi.h
         $<TARGET_OBJECTS:wavpack>
