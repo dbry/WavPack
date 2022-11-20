@@ -504,7 +504,6 @@ if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
         audition/filters.h
         audition/resource.h
         audition/wavpack.rc
-        $<TARGET_OBJECTS:wavpack>
         ${CMAKE_CURRENT_BINARY_DIR}/audition/cool_wv4.def
     )
     target_include_directories(cool_wv4 PRIVATE include)
@@ -514,6 +513,7 @@ if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
         SUFFIX ".flt"
         PREFIX ""
     )
+    target_link_libraries(cool_wv4 PRIVATE wavpack)
     if(MINGW)
         target_link_libraries(cool_wv4 PRIVATE -mwindows -static-libgcc "-Wl,--enable-stdcall-fixup")
     endif()
@@ -529,7 +529,6 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
         winamp/wavpack.rc
         winamp/wasabi/wasabi.cpp
         winamp/wasabi/wasabi.h
-        $<TARGET_OBJECTS:wavpack>
     )
     target_include_directories(in_wv PRIVATE include)
     target_compile_definitions(in_wv PRIVATE $<$<BOOL:${MSVC}>:_CRT_SECURE_NO_DEPRECATE>)
@@ -537,6 +536,7 @@ if(WAVPACK_BUILD_WINAMP_PLUGIN)
         DEFINE_SYMBOL WINAMP_EXPORTS
         PREFIX ""
     )
+    target_link_libraries(in_wv PRIVATE wavpack)
     if(MINGW)
         target_link_libraries(in_wv PRIVATE -mwindows -static-libgcc -static-libstdc++)
     endif()
