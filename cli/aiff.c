@@ -51,20 +51,9 @@ extern int debug_logging_mode;
 
 static double get_extended (uint16_t exponent, uint64_t mantissa)
 {
-    double sign = (exponent & 0x8000) ? -1.0 : 1.0, value = mantissa;
-    int right_shift = 16446 - (exponent & 0x7fff);
-
-    if (!mantissa)
-        return 0.0;
-
-    if (right_shift > 0)
-        while (right_shift--)
-            value /= 2.0;
-    else
-        while (right_shift++)
-            value *= 2.0;
-
-    return value * sign;
+    double sign = (exponent & 0x8000) ? -1.0 : 1.0, value = (double) mantissa;
+    double scaler = pow (2.0, (exponent & 0x7fff) - 16446);
+    return value * scaler * sign;
 }
 
 int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
