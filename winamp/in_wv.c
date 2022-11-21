@@ -103,12 +103,15 @@ static void configure_resources (void)
 		hResources = GetModuleHandle ("in_wv.dll");
 }
 
+typedef HRESULT (WINAPI *getfolderpath_t)(HWND,int,HANDLE,DWORD,LPSTR); /* SHGetFolderPathA */
+typedef BOOL (WINAPI *getspecialfolderpath_t)(HWND,LPSTR,int,BOOL);     /* SHGetSpecialFolderPathA */
+
 static int get_app_path (char *app_path)
 {
     static char file_path [MAX_PATH], tried, result;
 
     HINSTANCE hinstLib;
-    FARPROC ProcAdd;
+    getfolderpath_t getfolderpath;
 
     if (tried) {
         if (result)
@@ -121,15 +124,15 @@ static int get_app_path (char *app_path)
     hinstLib = LoadLibrary ("shell32.dll");
 
     if (hinstLib) {
-        ProcAdd = GetProcAddress (hinstLib, "SHGetFolderPathA");
+        getfolderpath = (getfolderpath_t) GetProcAddress (hinstLib, "SHGetFolderPathA");
 
-        if (ProcAdd && SUCCEEDED ((ProcAdd) (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
+        if (getfolderpath && SUCCEEDED (getfolderpath (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
             result = TRUE;
 
         if (!result) {
-            ProcAdd = GetProcAddress (hinstLib, "SHGetSpecialFolderPathA");
-
-            if (ProcAdd && SUCCEEDED ((ProcAdd) (NULL, file_path, CSIDL_APPDATA, TRUE)))
+            getspecialfolderpath_t getspecialfolderpath;
+            getspecialfolderpath = (getspecialfolderpath_t) GetProcAddress (hinstLib, "SHGetSpecialFolderPathA");
+            if (getspecialfolderpath && getspecialfolderpath (NULL, file_path, CSIDL_APPDATA, TRUE) != 0)
                 result = TRUE;
         }
 
@@ -140,9 +143,9 @@ static int get_app_path (char *app_path)
         hinstLib = LoadLibrary ("shfolder.dll");
 
         if (hinstLib) {
-            ProcAdd = GetProcAddress (hinstLib, "SHGetFolderPathA");
+            getfolderpath = (getfolderpath_t) GetProcAddress (hinstLib, "SHGetFolderPathA");
 
-            if (ProcAdd && SUCCEEDED ((ProcAdd) (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
+            if (getfolderpath && SUCCEEDED (getfolderpath (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
                 result = TRUE;
 
             FreeLibrary (hinstLib);
