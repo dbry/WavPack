@@ -1288,9 +1288,17 @@ static int32_t write_bytes (void *id, void *data, int32_t bcount)
 static int truncate_here (void *id)
 {
     FILE *file = id ? *(FILE**)id : NULL;
-    int64_t curr_pos = _ftelli64 (file);
 
-    return _chsize_s (_fileno (file), curr_pos);
+    if (file) {
+        #ifdef __WATCOMC__ /*  no _chsize_s() in watcom... */
+        HANDLE handle = (HANDLE) _get_osfhandle (_fileno (file));
+        return (SetEndOfFile(handle) != 0) ? 0 : -1;
+        #else
+        int64_t curr_pos = _ftelli64 (file);
+        return _chsize_s (_fileno (file), curr_pos);
+        #endif
+    }
+    return 0;
 }
 
 static WavpackStreamReader64 freader = {
