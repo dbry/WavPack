@@ -1,4 +1,4 @@
-2017-11-21  David Bryant  <david@wavpack.com>
+2022-11-21  David Bryant  <david@wavpack.com>
 
   * CMakeLists.txt, wavpackdll/wavpackdll.rc, cli/utils.h, configure.ac, src/wavpack_version.h:
     bump versions to 5.6.0
@@ -6,9 +6,9 @@
   * winamp/in_wv.c:
     bring in mingw+ftelli64() fix and remove tabs
 
-2021-11-21  Ozkan Sezer <sezeroz@gmail.com>
+2022-11-21  Ozkan Sezer <sezeroz@gmail.com>
 
-  * winamp/in_wv.c winamp/wa_ipc.h:
+  * winamp/in_wv.c, winamp/wa_ipc.h:
     - use prototyped function ptrs instead of an opaque FARPROC
     - replace UNREFERENCED_PARAMETER(item) with (void)(item)
     - Watcom clib support for truncate_here()
@@ -34,8 +34,10 @@
     - need to set OUTPUT_NAME on MODULE target
     - add objects of wavpack to in_wv.dll
 
-  * wavpackdll/wavpackdll.vcxproj, wavpackdll/wavpackdll.rc:
+  * wavpackdll/wavpackdll.vcxproj:
     - WavpackFloatNormalize was not exported for all MSVC build configurations
+
+  * wavpackdll/wavpackdll.rc:
     - Include winresrc.h instead of afxres.h to allow building without MFC installed
 
 2022-11-17  David Bryant <david@wavpack.com>
@@ -61,7 +63,7 @@
   * cli/wvtest.c, cli/wvunpack.c, src/unpack3_open.c, audition/cool_wv4.c:
     fix warnings
 
-2021-11-15  Ozkan Sezer <sezeroz@gmail.com>
+2022-11-15  Ozkan Sezer <sezeroz@gmail.com>
 
   * src/open_filename.c:
     check presence of DosSetFileSizeL before use (OS/2)
@@ -69,12 +71,12 @@
   * Makefile.am:
     add resource.h to EXTRA_DIST (needed by wavpackdll.rc)
 
-2021-11-12  Ozkan Sezer <sezeroz@gmail.com>
+2022-11-12  Ozkan Sezer <sezeroz@gmail.com>
 
   * CMakeLists.txt, winamp/in_wv.c:
     Cmake fixes to winamp build (still untested!)
 
-2021-11-10  Ozkan Sezer <sezeroz@gmail.com>
+2022-11-10  Ozkan Sezer <sezeroz@gmail.com>
 
   * src/read_words.c, src/wavpack_local.h:
     enable clz and ctz optimizations for watcom builds
@@ -91,7 +93,7 @@
   * cli/aiff[_write].c:
     fix some undefined behavior in AIFF extended numerical processing
 
-2021-11-09  Ozkan Sezer <sezeroz@gmail.com>
+2022-11-09  Ozkan Sezer <sezeroz@gmail.com>
 
   * cli/wavpack.c, cli/wvunpack.c, src/open_filename.c, src/tag_utils.c, src/wavpack_local.h:
     Watcom fixes
@@ -101,15 +103,15 @@
   * cli/aiff[_write].c, cli/wavpack.c, cli/wvunpack.c:
     add import/export support for uncompressed Apple AIFF files
 
-2021-11-07  Ozkan Sezer <sezeroz@gmail.com>
+2022-11-07  Ozkan Sezer <sezeroz@gmail.com>
 
   * extra[12].c, pack.c, unpack.c, wavpack_local.h:
     mark x86 asm functions as __cdecl for Watcom compiler
 
-  * CMakeLists.txt, wavpack_local.h, winamp/:
+  * CMakeLists.txt, wavpack_local.h, winamp/*:
     cmake and windows build fixes (mostly winamp plugin, which is untested!)
 
-2021-11-05  Ozkan Sezer <sezeroz@gmail.com>
+2022-11-05  Ozkan Sezer <sezeroz@gmail.com>
 
   * extra[12].c, tag_utils.c, wavpack_local.h:
     eliminate use of '&' address-of operator on arrays (Watcom warning)
@@ -122,7 +124,7 @@
     - future "unknown" big-endian formats don't properly verify MD5 hashes
     - stop allowing verification mode (-v) with skip/until specifiers
 
-2021-11-01  evpobr <evpobr@gmail.com>
+2022-11-01  evpobr <evpobr@gmail.com>
 
   * CMakeLists.txt:
     make the names of features and options match
