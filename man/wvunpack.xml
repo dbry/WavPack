@@ -24,13 +24,13 @@
       <year>2022</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2022-06-23</date>
+    <date>2022-11-16</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvunpack</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">5.5.0</refmiscinfo>
+    <refmiscinfo class="version">5.6.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
@@ -86,6 +86,11 @@
         </listitem>
         <listitem>
         <para>
+          Apple AIFF, extension <quote>.aif</quote>, force with <option>--aif</option> or <option>--aif-le</option>
+        </para>
+        </listitem>
+        <listitem>
+        <para>
           Apple Core Audio, extension <quote>.caf</quote>, force with <option>--caf-be</option> or <option>--caf-le</option>
         </para>
         </listitem>
@@ -111,6 +116,11 @@
     <title>OPTIONS</title>
     <para>
       <variablelist>
+        <varlistentry>
+          <term> <option>--aif</option> </term>
+          <term> <option>--aif-le</option> </term>
+          <listitem> <para>force output to Apple AIFF (or AIFF-C/sowt), extension <quote>.aif</quote></para> </listitem>
+        </varlistentry>
         <varlistentry>
           <term> <option>-b</option> </term>
           <listitem> <para>blindly decode all stream blocks and ignore length info</para> </listitem>

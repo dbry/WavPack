@@ -2,12 +2,12 @@
 .\"     Title: wvunpack
 .\"    Author: Sebastian Dröge <slomo@debian.org>
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 2022-06-23
+.\"      Date: 2022-11-16
 .\"    Manual: WavPack Executable Programs
-.\"    Source: WavPack 5.5.0
+.\"    Source: WavPack 5.6.0
 .\"  Language: English
 .\"
-.TH "WVUNPACK" "1" "2022\-06\-23" "WavPack 5\&.5\&.0" "WavPack Executable Programs"
+.TH "WVUNPACK" "1" "2022\-11\-16" "WavPack 5\&.6\&.0" "WavPack Executable Programs"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -94,6 +94,21 @@ Sony Wave64, extension
 .sp -1
 .IP \(bu 2.3
 .\}
+Apple AIFF, extension
+\(lq\&.aif\(rq, force with
+\fB\-\-aif\fR
+or
+\fB\-\-aif\-le\fR
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 Apple Core Audio, extension
 \(lq\&.caf\(rq, force with
 \fB\-\-caf\-be\fR
@@ -151,6 +166,12 @@ Stream, extension
 .RE
 .SH "OPTIONS"
 .PP
+.PP
+\fB\-\-aif\fR, \fB\-\-aif\-le\fR
+.RS 4
+force output to Apple AIFF (or AIFF\-C/sowt), extension
+\(lq\&.aif\(rq
+.RE
 .PP
 \fB\-b\fR
 .RS 4

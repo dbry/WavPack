@@ -14,13 +14,13 @@
       <year>2022</year>
       <holder>David Bryant</holder>
     </copyright>
-    <date>2022-06-23</date>
+    <date>2022-11-16</date>
   </refentryinfo>
   <refmeta>
     <refentrytitle>wvtag</refentrytitle>
     <refmiscinfo class="source">WavPack</refmiscinfo>
     <refmiscinfo class="manual">WavPack Executable Programs</refmiscinfo>
-    <refmiscinfo class="version">5.5.0</refmiscinfo>
+    <refmiscinfo class="version">5.6.0</refmiscinfo>
     <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>

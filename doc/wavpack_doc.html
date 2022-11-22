@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 5.5.0</div>
+				<div class="pageHeader">Using WavPack Version 5.6.0</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -189,7 +189,9 @@ a:hover {
 					<br/>
 					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WavPack Compressed Audio, extension ".wv", PCM audio</tt></b>
 					<br/>
-     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apple Core Audio Format, "extension ".caf", PCM or DSD audio</tt></b>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apple AIFF Audio Format, "extension ".aif", PCM audio</tt></b>
+					<br/>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apple Core Audio Format, "extension ".caf", PCM audio</tt></b>
 					<br/>
      <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sony Wave64 Audio Format, extension ".w64", PCM audio</tt></b>
 					<br/>
@@ -807,7 +809,7 @@ a:hover {
 				</p>
 				<p>
      Write a metadata item to the APEv2 tag for the actual encoder being used
-     (e.g., "Encoder=WavPack 5.5.0"). It's also possible to specify a value to override
+     (e.g., "Encoder=WavPack 5.6.0"). It's also possible to specify a value to override
      the default. Note that when re&#235;ncoding WavPack files this metadata item is
      <b>not</b> simply copied from source to destination, but is recreated with the
      appropriate value.
@@ -855,7 +857,7 @@ a:hover {
 					<b><tt>-x[n] = extra encode processing (optional n = 0-6, 1 = default)</tt></b>
 				</p>
 				<p>
-					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 5.5.0 normally
+					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 5.6.0 normally
 					works "symmetrically" in that encoding and decoding operate at about the same rate
 					(regardless of the mode used). However, WavPack has an option to work
 					"asymmetrically", so that extra processing can be done during encoding to
@@ -898,6 +900,15 @@ a:hover {
 			<div class="box" id="wvunpack">
 				<div class="boxHeader">WvUnpack Options</div>
 				<div class="boxContent">
+				<p>
+     <b><tt>--aif or --aif-le = force output to Apple AIFF Audio format</tt></b>
+				</p>
+				<p>
+     Output an Apple AIFF Audio file, either legacy AIFF or AIFF-C/sowt (little-endian),
+     regardless of the input file format. All extra information in the original file's
+     header and trailer will be lost and a "fresh" AIFF Audio header will be generated.
+     Note that DSD audio files will be decimated 8X and output as 24-bit PCM.
+				</p>
 				<p>
      <b><tt>-b  = blindly decode all stream blocks &amp; ignore length info</tt></b>
 				</p>
