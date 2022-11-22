@@ -1,3 +1,21 @@
+                     ---------------------------------
+                     Release 5.6.0 - November 22, 2022
+                     ---------------------------------
+
+ WavPack Library Source Code - 5.6.0
+ wavpack.exe (command-line encoder) - 5.6.0
+ wvunpack.exe (command-line decoder) - 5.6.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.6.0
+ wvtag.exe (command-line tagging utility) - 5.6.0
+ ----------------------------------------------------
+  added: AIFF file import/export support
+  added: WATCOM compiler and OS/2 support
+  added: cmake support for mingw, builds Cooledit + Winamp plugins
+  fixed: possible crash when displaying long channel assignments
+  fixed: big-endian-sourced "raw" files gave big-endian "wav"s
+  fixed: numerous minor issues
+
+
                        ----------------------------
                        Release 5.5.0 - July 7, 2022
                        ----------------------------

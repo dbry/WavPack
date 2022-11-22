@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(WavPack VERSION 5.5.2)
+project(WavPack VERSION 5.6.0)
 
 # Languages
 

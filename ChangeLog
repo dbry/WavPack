@@ -1,3 +1,155 @@
+2017-11-21  David Bryant  <david@wavpack.com>
+
+  * CMakeLists.txt, wavpackdll/wavpackdll.rc, cli/utils.h, configure.ac, src/wavpack_version.h:
+    bump versions to 5.6.0
+
+  * winamp/in_wv.c:
+    bring in mingw+ftelli64() fix and remove tabs
+
+2021-11-21  Ozkan Sezer <sezeroz@gmail.com>
+
+  * winamp/in_wv.c winamp/wa_ipc.h:
+    - use prototyped function ptrs instead of an opaque FARPROC
+    - replace UNREFERENCED_PARAMETER(item) with (void)(item)
+    - Watcom clib support for truncate_here()
+
+  * audition/Makefile.wat:
+    - add OpenWatcom makefile to build Win32 CoolEdit plugin
+
+2022-11-20  David Bryant <david@wavpack.com>
+
+  * cli/aiff.c:
+    simplify conversion from extended precision to double and squash MSVC warning
+
+  * CMakeList.txt:
+    - suppress __stdcall fixup warnings when building Cooledit filter on mingw
+    - add static libgcc and wavpack library to Audition/Cooledit filter
+    - add winamp/wavpack.rc to in_wv.dll to enable dialogs and text
+    - revert to linking plugins with static libwavpack
+
+2022-11-19  Anonymous Maarten <anonymous.maarten@gmail.com>
+
+  * CMakeList.txt:
+    - Build winamp plugin with static libgcc and libstdc++ runtime
+    - need to set OUTPUT_NAME on MODULE target
+    - add objects of wavpack to in_wv.dll
+
+  * wavpackdll/wavpackdll.vcxproj, wavpackdll/wavpackdll.rc:
+    - WavpackFloatNormalize was not exported for all MSVC build configurations
+    - Include winresrc.h instead of afxres.h to allow building without MFC installed
+
+2022-11-17  David Bryant <david@wavpack.com>
+
+  * CMakeList.txt:
+    - Add -mwindows to the link options to change (console) into (GUI) for Audition & Winamp plugins
+    - if we aren't building shared libs, don't check if the compiler supports symbol maps
+
+2022-11-17  Anonymous Maarten <anonymous.maarten@gmail.com>
+
+  * CMakeList.txt:
+    - build winamp and cooledit libraries as module
+    - Create a WavPack::WavPack when exporting + used as subproject
+    - Cannot run an executable when cross compiling
+    - version script cannot contain "\;"
+
+2022-11-16  David Bryant <david@wavpack.com>
+
+  * cli/aiff.c:
+    - improve handling of nonintegral sample rates in AIF and CAF files; squash warnings 
+    - allow command-line specification of channel assignments for AIFF files
+
+  * cli/wvtest.c, cli/wvunpack.c, src/unpack3_open.c, audition/cool_wv4.c:
+    fix warnings
+
+2021-11-15  Ozkan Sezer <sezeroz@gmail.com>
+
+  * src/open_filename.c:
+    check presence of DosSetFileSizeL before use (OS/2)
+
+  * Makefile.am:
+    add resource.h to EXTRA_DIST (needed by wavpackdll.rc)
+
+2021-11-12  Ozkan Sezer <sezeroz@gmail.com>
+
+  * CMakeLists.txt, winamp/in_wv.c:
+    Cmake fixes to winamp build (still untested!)
+
+2021-11-10  Ozkan Sezer <sezeroz@gmail.com>
+
+  * src/read_words.c, src/wavpack_local.h:
+    enable clz and ctz optimizations for watcom builds
+
+  * cli/utils.c:
+    - use prototyped function pointers instead of an opaque FARPROC
+    - fixed success check for SHGetSpecialFolderPathA()
+
+2022-11-09  David Bryant <david@wavpack.com>
+
+  * cli/wvunpack.c:
+    don't error out completely just because a header can't be formatted correctly
+
+  * cli/aiff[_write].c:
+    fix some undefined behavior in AIFF extended numerical processing
+
+2021-11-09  Ozkan Sezer <sezeroz@gmail.com>
+
+  * cli/wavpack.c, cli/wvunpack.c, src/open_filename.c, src/tag_utils.c, src/wavpack_local.h:
+    Watcom fixes
+
+2022-11-07  David Bryant <david@wavpack.com>
+
+  * cli/aiff[_write].c, cli/wavpack.c, cli/wvunpack.c:
+    add import/export support for uncompressed Apple AIFF files
+
+2021-11-07  Ozkan Sezer <sezeroz@gmail.com>
+
+  * extra[12].c, pack.c, unpack.c, wavpack_local.h:
+    mark x86 asm functions as __cdecl for Watcom compiler
+
+  * CMakeLists.txt, wavpack_local.h, winamp/:
+    cmake and windows build fixes (mostly winamp plugin, which is untested!)
+
+2021-11-05  Ozkan Sezer <sezeroz@gmail.com>
+
+  * extra[12].c, tag_utils.c, wavpack_local.h:
+    eliminate use of '&' address-of operator on arrays (Watcom warning)
+
+2022-11-01  David Bryant <david@wavpack.com>
+
+  * cli/wvunpack.c:
+    several fixes for edge-case file format behavior bugs
+    - big-endian-sourced "raw" files give big-endian "wav"s (unless --wav added)
+    - future "unknown" big-endian formats don't properly verify MD5 hashes
+    - stop allowing verification mode (-v) with skip/until specifiers
+
+2021-11-01  evpobr <evpobr@gmail.com>
+
+  * CMakeLists.txt:
+    make the names of features and options match
+
+2022-08-16  David Bryant <david@wavpack.com>
+
+  * cli/wvunpack.c:
+    avoid string overflow when displaying channel assignments
+
+  * cli/wvtest.c:
+    issue #127: make sure that target WavPack file for "seektest" is not longer than its header claims
+
+2022-07-13  Ben Brown <ben@demerara.io>
+
+  * autogen.sh:
+    Honour NOCONFIGURE=1
+
+2022-07-11  Daniel Engberg <daniel.engberg.lists@pyret.net>
+
+  * CMakeLists.txt:
+    Install header in same location as GNU Autotools
+
+2022-07-10  David Bryant <david@wavpack.com>
+
+  * cli/wvtest.c:
+    don't print pthread_join() result b/c we're not setting it anyway
+
 2022-07-07  David Bryant <david@wavpack.com>
 
   * src/pack_utils.c:
@@ -12,8 +164,6 @@
 
   * src/pack_utils.c:
     fix an undefined behavior (UB) in pack_streams()
-
-2022-07-03  David Bryant <david@wavpack.com>
 
   * cli/wvtest.c:
     fix a warning about attempting to print the termination value of pthread_join()
@@ -38,8 +188,6 @@
     - allow -x0 to cancel previously specified -x values (and means no extra)
     - allow -f and -h to override each other instead of generating an error
 
-2022-06-27  David Bryant <david@wavpack.com>
-
   * cli/utils.c, cli/utils.h, cli/wavpack.c, cli/wvunpack.c, cli/wvtag.c:
     - new "--drop" option allows multiple input files for "drag and drop" operations
     - for "--pause", try to detect if it's doable first, and don't peg a core if it is
@@ -53,8 +201,6 @@
 
   * Makefile.am, man/wavpack.xml, man/wvunpack.xml, man/wvgain.xml, man/wvtag.xml:
     update the man pages and fix Makefile.am to put the converted man pages in man/
-
-2022-06-23  David Bryant <david@wavpack.com>
 
   * src/pack_utils.c:
     sanitize total sample count in WavpackSetConfiguration64()
@@ -92,8 +238,6 @@
 
   * cli/wavpack.c:
     add --no-overwrite option to silently skip when the destination file already exists
-
-2022-06-06  David Bryant <david@wavpack.com>
 
   * cli/utils.c, src/open_filename.c:
     mingw32's _fseeki64() / _ftelli64() are broken on i686; use fseeko64() and ftello64() instead
