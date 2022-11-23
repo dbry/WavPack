@@ -200,6 +200,9 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 return WAVPACK_SOFT_ERROR;
             }
 
+            if ((config->qmode & QMODE_EVEN_BYTE_DEPTH) && (config->bits_per_sample % 8))
+                config->bits_per_sample += 8 - (config->bits_per_sample % 8);
+
             if (chunk_header.ckSize < 40) {
                 if (!config->channel_mask && !(config->qmode & QMODE_CHANS_UNASSIGNED)) {
                     if (WaveHeader.NumChannels <= 2)

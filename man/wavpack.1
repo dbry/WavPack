@@ -2,12 +2,12 @@
 .\"     Title: wavpack
 .\"    Author: Sebastian Dröge <slomo@debian.org>
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 2022-11-16
+.\"      Date: 2022-11-23
 .\"    Manual: WavPack Executable Programs
 .\"    Source: WavPack 5.6.0
 .\"  Language: English
 .\"
-.TH "WAVPACK" "1" "2022\-11\-16" "WavPack 5\&.6\&.0" "WavPack Executable Programs"
+.TH "WAVPACK" "1" "2022\-11\-23" "WavPack 5\&.6\&.0" "WavPack Executable Programs"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -208,6 +208,11 @@ delete source file if successful (use with caution!)
 \fB\-f\fR
 .RS 4
 fast mode (fast, but some compromise in compression ratio)
+.RE
+.PP
+\fB\-\-force\-even\-byte\-depth\fR
+.RS 4
+round the bit depth specified in the source file up to the next even byte (e\&.g\&., 20\-bit is rounded up to 24\-bit) to handle cases where the value specified is not correct (i\&.e\&., padding bits are non\-zero)
 .RE
 .PP
 \fB\-g\fR

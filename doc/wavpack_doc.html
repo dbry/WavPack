@@ -463,6 +463,24 @@ a:hover {
 				</p>
 
 				<p>
+					<b><tt>--force-even-byte-depth = round the bit-depth of source PCM files up to the next whole byte</tt></b>
+				</p>
+				<p>
+     File formats that store uncompressed PCM allow the specification of bit depths
+     that are not multiples of 8 (e.g., 12-bit or 20-bit). WavPack accepts these files,
+     however it also checks to make sure that the appropriate LSB "padding" bits are zero
+     in the source file (as they should be), and if not reports this as an error. One
+     method of getting around this rare situation is to specify this option which will
+     round up the bit depth to the next full byte and thereby save the non-zero padding
+     bits. These files will restore losslessly (assuming a lossless mode is used) even
+     though they are technically invalid. Note that the WavPack files will report as the
+     rounded bit depth and be otherwise fine, and this does not result in worse
+     compression. The other method is to use the <b><tt>--pre-quantize</tt></b> option
+     to zero the padding bits before encoding, but that's only recommended if it's
+     known that the padding bits are not valid audio.
+				</p>
+
+				<p>
 					<b><tt>-g = general/normal mode (cancels any previously specified -f or -h options)</tt></b>
 				</p>
 				<p>

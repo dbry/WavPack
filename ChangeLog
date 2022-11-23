@@ -1,3 +1,9 @@
+2022-11-23  David Bryant  <david@wavpack.com>
+
+  * cli/aiff.c, cli/caff.c, cli/riff.c, cli/wave64.c, cli/wavpack.c, include/wavpack.h:
+    - add --force-even-byte-depth option for rounding up bit depths
+    - detect and report PCM files having non-zero padding bits
+
 2022-11-21  David Bryant  <david@wavpack.com>
 
   * CMakeLists.txt, wavpackdll/wavpackdll.rc, cli/utils.h, configure.ac, src/wavpack_version.h:

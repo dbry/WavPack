@@ -255,6 +255,9 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             config->bits_per_sample = caf_audio_format.mBitsPerChannel;
             config->num_channels = caf_audio_format.mChannelsPerFrame;
 
+            if ((config->qmode & QMODE_EVEN_BYTE_DEPTH) && (config->bits_per_sample % 8))
+                config->bits_per_sample += 8 - (config->bits_per_sample % 8);
+
             if (caf_audio_format.mSampleRate != floor (caf_audio_format.mSampleRate))
                 error_line ("warning: the nonintegral sample rate of %s will be rounded", infilename);
 
