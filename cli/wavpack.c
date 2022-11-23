@@ -282,7 +282,7 @@ int debug_logging_mode;
 
 static int overwrite_all, no_overwrite, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
     no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, quantize_round, import_id3,
-    raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end, force_even_byte_depth;
+    raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end;
 
 static int num_channels_order;
 static unsigned char channel_order [18];
