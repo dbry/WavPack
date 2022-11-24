@@ -220,7 +220,7 @@ static struct {
     { "caf", "Apple Core Audio", WriteCaffHeader,   1 },
     { "dff", "Philips DSDIFF",   WriteDsdiffHeader, 2 },
     { "dsf", "Sony DSF",         WriteDsfHeader,    1 },
-    { "aif", "Apple AIF",        WriteAiffHeader,   2 }
+    { "aif", "Apple AIFF",       WriteAiffHeader,   2 }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
