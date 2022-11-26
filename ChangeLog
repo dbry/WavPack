@@ -1,8 +1,20 @@
+2022-11-24  Anonymous Maarten <anonymous.maarten@gmail.com>
+
+  * CMakeList.txt:
+    - too many semicolons in libwavpack.map + escape string
+
 2022-11-23  David Bryant  <david@wavpack.com>
 
   * cli/aiff.c, cli/caff.c, cli/riff.c, cli/wave64.c, cli/wavpack.c, include/wavpack.h:
     - add --force-even-byte-depth option for rounding up bit depths
     - detect and report PCM files having non-zero padding bits
+
+  * cli/wavpack.c:
+    - add new input format (AIFF) to "--help"
+    - delete unused static variable
+
+  * cli/wvunpack.c:
+    - fix AIFF format name typo
 
 2022-11-21  David Bryant  <david@wavpack.com>
 
