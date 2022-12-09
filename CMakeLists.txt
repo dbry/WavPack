@@ -370,7 +370,7 @@ if(BUILD_SHARED_LIBS)
 endif()
 
 set_target_properties(wavpack PROPERTIES EXPORT_NAME WavPack)
-set_target_properties(wavpack PROPERTIES PUBLIC_HEADER include/wavpack.h)
+set_target_properties(wavpack PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/wavpack.h")
 
 if(WAVPACK_BUILD_PROGRAMS)
 
