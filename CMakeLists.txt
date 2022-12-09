@@ -2,6 +2,18 @@ cmake_minimum_required(VERSION 3.2)
 
 project(WavPack VERSION 5.6.0)
 
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/configure.ac" CONFIGURE_AC)
+string(REGEX MATCH "LT_CURRENT=([0-9]+)" LT_CURRENT "${CONFIGURE_AC}")
+set(LT_CURRENT "${CMAKE_MATCH_1}")
+string(REGEX MATCH "LT_REVISION=([0-9]+)" LT_REVISION "${CONFIGURE_AC}")
+set(LT_REVISION "${CMAKE_MATCH_1}")
+string(REGEX MATCH "LT_AGE=([0-9]+)" LT_AGE "${CONFIGURE_AC}")
+set(LT_AGE "${CMAKE_MATCH_1}")
+
+math(EXPR SOVERSION_MAJOR "${LT_CURRENT}-${LT_AGE}")
+math(EXPR SOVERSION_MINOR "${LT_AGE}")
+math(EXPR SOVERSION_MICRO "${LT_REVISION}")
+
 # Languages
 
 include(CheckLanguage)
