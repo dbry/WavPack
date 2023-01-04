@@ -140,25 +140,6 @@ AS_IF([test "x${ac_cv_have___builtin_ctz}" = "xyes"], [
   AC_DEFINE([HAVE___BUILTIN_CTZ])
 ])
 
-AC_ARG_ENABLE([man],
-  [AS_HELP_STRING([--enable-man], [regenerate man pages from Docbook [default=no]])])
-
-AS_IF([test "x${enable_man}" = "xyes"], [
-  dnl
-  dnl Check for xsltproc
-  dnl
-  AC_PATH_PROG([XSLTPROC], [xsltproc])
-  AS_IF([test -z "${XSLTPROC}"], [enable_man=no])
-
-  dnl check for DocBook DTD and stylesheets in the local catalog.
-  JH_CHECK_XML_CATALOG([-//OASIS//DTD DocBook XML V4.1.2//EN],
-    [DocBook XML DTD V4.1.2], [], [enable_man=no])
-  JH_CHECK_XML_CATALOG([http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl],
-    [DocBook XSL Stylesheets], [],[enable_man=no])
-])
-
-AM_CONDITIONAL([ENABLE_MAN], [test "x${enable_man}" != "xno"])
-
 AC_CONFIG_LINKS([
   cli/all-tests:cli/all-tests
   cli/fast-tests:cli/fast-tests
