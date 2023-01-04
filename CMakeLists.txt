@@ -91,39 +91,7 @@ endif()
 
 find_package(Threads)
 find_package(Iconv)
-find_package(LibXslt)
 find_package(OpenSSL)
-
-set(DOCBOOK_PREREQS_FOUND FALSE)
-if(LIBXSLT_XSLTPROC_EXECUTABLE)
-    if(NOT $ENV{XML_CATALOG_FILES} STREQUAL "")
-        set(XML_CATALOG_FILEPATH $ENV{XML_CATALOG_FILES})
-    else()
-        set(XML_CATALOG_FILEPATH "/etc/xml/catalog")
-    endif()
-
-    find_program(XMLCATALOG_EXECUTABLE xmlcatalog)
-
-    if(XMLCATALOG_EXECUTABLE)
-        execute_process(
-            COMMAND ${XMLCATALOG_EXECUTABLE} --noout ${XML_CATALOG_FILEPATH} "-//OASIS//DTD DocBook XML V4.1.2//EN"
-            RESULT_VARIABLE DOCBOOK_XML_RSLT
-            OUTPUT_QUIET
-            ERROR_QUIET
-        )
-        if(DOCBOOK_XML_RSLT EQUAL 0)
-            execute_process(
-                COMMAND ${XMLCATALOG_EXECUTABLE} --noout ${XML_CATALOG_FILEPATH} "http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl"
-                RESULT_VARIABLE DOCBOOK_XSL_RSLT
-                OUTPUT_QUIET
-                ERROR_QUIET
-            )
-            if(DOCBOOK_XML_RSLT EQUAL 0)
-                set(DOCBOOK_PREREQS_FOUND TRUE)
-            endif()
-        endif()
-    endif()
-endif()
 
 check_c_source_compiles(
         "int main()
@@ -173,7 +141,6 @@ cmake_dependent_option(WAVPACK_BUILD_PROGRAMS "Build programs" ON "WIN32 OR Icon
 cmake_dependent_option(WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin" ON "WIN32" OFF)
 cmake_dependent_option(WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin" ON "WIN32" OFF)
 cmake_dependent_option(BUILD_TESTING "Build tests" ON "NOT WIN32" OFF)
-cmake_dependent_option(WAVPACK_BUILD_DOCS "Build documentation" ON "DOCBOOK_PREREQS_FOUND" OFF)
 
 # Targets
 
@@ -598,26 +565,6 @@ set(WAVPACK_DOC_NAMES
     wvunpack
     wvtag
 )
-if(WAVPACK_BUILD_DOCS)
-
-    foreach(WAVPACK_DOC_NAME ${WAVPACK_DOC_NAMES})
-        add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/man/${WAVPACK_DOC_NAME}.1
-            MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/man/${WAVPACK_DOC_NAME}.xml
-            COMMAND ${LIBXSLT_XSLTPROC_EXECUTABLE} -nonet --output ${CMAKE_CURRENT_BINARY_DIR}/man/${WAVPACK_DOC_NAME}.1 "http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl" ${CMAKE_CURRENT_SOURCE_DIR}/man/${WAVPACK_DOC_NAME}.xml
-            COMMENT "Generating MAN page '${WAVPACK_DOC_NAME}.1' from DocBook XML file ${WAVPACK_DOC_NAME}.xml..."
-        )
-    endforeach()
-
-    set(GENERATED_MANS_LIST "")
-    foreach(WAVPACK_DOC_NAME ${WAVPACK_DOC_NAMES})
-        list(APPEND GENERATED_MANS_LIST ${CMAKE_CURRENT_BINARY_DIR}/man/${WAVPACK_DOC_NAME}.1)
-    endforeach()
-    add_custom_target(GEN_DOCS ALL
-        DEPENDS ${GENERATED_MANS_LIST}
-    )
-
-endif()
 
 # Features
 
@@ -655,7 +602,6 @@ add_feature_info(WAVPACK_ENABLE_LIBCRYPTO WAVPACK_ENABLE_LIBCRYPTO "Use OpenSSL:
 add_feature_info(WAVPACK_BUILD_PROGRAMS WAVPACK_BUILD_PROGRAMS "Build programs.")
 add_feature_info(WAVPACK_BUILD_COOLEDIT_PLUGIN WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin.")
 add_feature_info(WAVPACK_BUILD_WINAMP_PLUGIN WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin.")
-add_feature_info(WAVPACK_BUILD_DOCS WAVPACK_BUILD_DOCS "Build documentation.")
 add_feature_info(WAVPACK_INSTALL_DOCS WAVPACK_INSTALL_DOCS "Install documentation.")
 add_feature_info(WAVPACK_INSTALL_PKGCONFIG_MODULE WAVPACK_INSTALL_PKGCONFIG_MODULE "Generate and install wavpack.pc.")
 
@@ -716,16 +662,9 @@ endif()
 
 if(WAVPACK_INSTALL_DOCS)
     set(MAN_FILES_INSTALL_LIST "")
-    if(WAVPACK_BUILD_DOCS)
-        foreach(WAVPACK_DOC_NAME ${WAVPACK_DOC_NAMES})
-            list(APPEND MAN_FILES_INSTALL_LIST ${CMAKE_CURRENT_BINARY_DIR}/man/${WAVPACK_DOC_NAME}.1)
-        endforeach()
-    else()
-        foreach(WAVPACK_DOC_NAME ${WAVPACK_DOC_NAMES})
-            list(APPEND MAN_FILES_INSTALL_LIST ${CMAKE_CURRENT_SOURCE_DIR}/man/${WAVPACK_DOC_NAME}.1)
-        endforeach()
-    endif()
-
+    foreach(WAVPACK_DOC_NAME ${WAVPACK_DOC_NAMES})
+        list(APPEND MAN_FILES_INSTALL_LIST ${CMAKE_CURRENT_BINARY_DIR}/man/${WAVPACK_DOC_NAME}.1)
+    endforeach()
     install(
         FILES ${MAN_FILES_INSTALL_LIST}
         DESTINATION ${CMAKE_INSTALL_MANDIR}/man1

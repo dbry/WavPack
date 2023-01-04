@@ -104,26 +104,11 @@ pkginclude_HEADERS = include/wavpack.h
 ########
 # man/ #
 ########
-if ENABLE_MAN
-.xml.1:
-	$(XSLTPROC) -nonet -o man/ http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
-
-SUFFIXES = .1 .xml
-endif
-
 dist_man_MANS = \
 	man/wavpack.1 \
 	man/wvgain.1 \
 	man/wvunpack.1 \
 	man/wvtag.1
-
-EXTRA_DIST += \
-	man/wavpack.xml \
-	man/wvgain.xml \
-	man/wvunpack.xml \
-	man/wvtag.xml
-
-MAINTAINERCLEANFILES += $(man_MANS)
 
 ########
 # src/ #
