@@ -584,11 +584,6 @@ set_package_properties(Threads PROPERTIES
 	DESCRIPTION "Threads library"
     PURPOSE "Required to build tests."
 )
-set_package_properties(LibXslt PROPERTIES
-	TYPE OPTIONAL
-	DESCRIPTION "XSLT C library developed for the GNOME project."
-    PURPOSE "Required to generate documentation."
-)
 
 add_feature_info(BUILD_SHARED_LIBS BUILD_SHARED_LIBS "Build shared library.")
 add_feature_info(BUILD_TESTING BUILD_TESTING "Build tests.")
