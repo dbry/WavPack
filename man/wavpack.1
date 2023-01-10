@@ -30,15 +30,16 @@ and in that case
 may be used to specify an alternate target directory.
 A filename of
 .Dq -
-specifies the standard input and output.
+specifies
+.Pa stdin
+or
+.Pa stdout .
 .Pp
 When transcoding from existing WavPack files,
 all tags are copied, and may be modified with additional args;
 unless an alternate output file or directory is specified,
 the source files are safely overwritten.
-.Pp
-The following input formats are supported:
-.Pp
+.Ss INPUT FORMATS
 .Bl -bullet -compact
 .It
 Microsoft RIFF, extension
@@ -64,8 +65,7 @@ Philips DSDIFF, extension
 Sony DSD Stream, extension
 .Dq .dsf
 .El
-.Pp
-The options are as follows:
+.Ss OPTIONS
 .Bl -tag -width Ds
 .It Fl a
 Adobe Audition (CoolEdit) mode for 32-bit floats
@@ -73,7 +73,7 @@ Adobe Audition (CoolEdit) mode for 32-bit floats
 Allow tag data up to 16 MB.
 Embedding > 1 MB is not recommended for portable devices
 and may not work with some programs, including older WavPack versions.
-.It Fl b Ar n
+.It Fl b Ns Ar n
 enable hybrid compression,
 .Ar n
 = 2.0 to 23.9 bits/sample, or
@@ -103,7 +103,8 @@ On by default in lossless mode and with the
 .Fl cc
 option.
 .It Fl d
-Delete source file if successful.
+delete source file if successful;
+.Sy use with caution!
 .It Fl f
 fast mode; introduces a compromise in compression ratio
 .It Fl -force-even-byte-depth
@@ -208,7 +209,7 @@ write program version to
 .Pa stdout
 .It Fl w Encoder
 write encoder metadata to APEv2 tag (e.g.,
-.Dq Encoder=WavPack 5.5.0 )
+.Dq Encoder=WavPack 5.6.0 )
 .It Fl w Settings
 write user settings metadata to APEv2 tag (e.g.,
 .Dq Settings=-hb384cx3 )
@@ -220,7 +221,7 @@ normally used for embedded cuesheets and logs
 (field names
 .Dq Cuesheet
 and
-.Dq Log ).
+.Dq Log ) .
 .It Fl -write-binary-tag Do Ar Field Ns =@ Ns Ar file.ext Dc
 Write the specified binary metadata file to APEv2 tag;
 normally used for cover art with the field name
@@ -231,7 +232,8 @@ extra encode processing, n = 0 to 6, default=1;
 -x1 to -x3 to choose best of predefined filters,
 -x4 to -x6 to generate custom filters (very slow!)
 .It Fl y
-yes to all warnings (use with caution!)
+yes to all warnings;
+.Sy use with caution!
 .It Fl z[ Ns Ar n ]
 don't set (n=0 or omitted) or set (n=1) console title
 to indicate progress (leaves "WavPack Completed")
