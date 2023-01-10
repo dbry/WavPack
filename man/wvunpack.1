@@ -27,7 +27,10 @@ resulting in multiple output files, and in that case
 may be used to specify an alternate target directory.
 A filename of
 .Dq -
-specifies standard input and output.
+specifies
+.Pa stdin
+or
+.Pa stdout .
 It is also possible to export to one of the alternate file formats below,
 but in that case the information in the original headers and trailers
 will be lost, even if the alternate format is the same as the source format.
@@ -44,56 +47,54 @@ This can be utilized as an easy way to concatenate WavPack files
 but only makes sense with raw output
 .Pf ( Fl -raw )
 to avoid headers being interleaved with the audio data.
-.Pp
-The following output file formats are supported:
+.Ss OUTPUT FORMATS
 .Bl -bullet -compact
 .It
 Microsoft RIFF
-.Pq Dq wav ,
+.Pq Dq .wav ,
 force with
 .Fl -wav ,
 creates RF64 if > 4 GB
 .It
 Sony Wave64
-.Pq Dq w64 ,
+.Pq Dq .w64 ,
 force with
 .Fl -w64
 .It
 Apple AIFF
-.Pq Dq aif ,
+.Pq Dq .aif ,
 force with
 .Fl -aif
 or
 .Fl -aif-le
 .It
 Apple Core Audio
-.Pq Dq caf ,
+.Pq Dq .caf ,
 force with
 .Fl -caf-be
 or
 .Fl -caf-le
 .It
 Raw PCM or DSD
-.Pq Dq raw ,
+.Pq Dq .raw ,
 force with
 .Fl r
 or
 .Fl -raw
 .It
 Philips DSDIFF
-.Pq Dq dff ,
+.Pq Dq .dff ,
 force with
 .Fl -dsdiff
 or
 .Fl -dff
 .It
 Sony DSD Stream
-.Pq Dq dsf ,
+.Pq Dq .dsf ,
 force with
 .Fl -dsf
 .El
-.Pp
-The options are as follows:
+.Ss OPTIONS
 .Bl -tag -width Ds
 .It Fl -aif , Fl -aif-le
 force output to Apple AIFF (or AIFF-C/sowt), extension
@@ -117,7 +118,8 @@ file in same directory as decoded audio file
 force output to big-endian or little-endian Core Audio, extension
 .Dq .caf
 .It Fl d
-delete source file if successful (use with caution!)
+delete source file if successful;
+.Sy use with caution!
 .It Fl -dff , Fl -dsdiff
 force output to Philips DSDIFF, DSD audio source only, extension
 .Dq .dff
@@ -172,18 +174,18 @@ about WavPack file to
 .Pa stdout
 .It Fl -skip=[-][ Ns Ar sample Ns | Ns Ar hh : Ns Ar mm : Ns Ar ss.ss ]
 start decoding at specified sample or time index, specifying a
-.Fl
+.Sy -
 causes sample/time to be relative to EOF
 .It Fl t
 copy input file's time stamp to output file(s)
 .It Fl -until=[+|-][ Ns Ar sample Ns | Ns Ar hh : Ns Ar mm : Ns Ar ss.ss ]
 stop decoding at specified sample or time index, specifying a
-.Fl +
+.Sy +
 causes sample/time to be relative to
 .Fl -skip
 point,
 specifying a
-.Fl
+.Sy -
 causes sample/time to be relative to EOF
 .It Fl v
 verify source data only (no output file created)
@@ -213,7 +215,8 @@ replaced with the extension from the binary tag source file (or
 .Dq txt
 for text tag).
 .It Fl y
-yes to overwrite warning (use with caution!)
+yes to overwrite warning;
+.Sy use with caution!
 .It Fl z[ Ns Ar n ]
 don't set (n = 0 or omitted) or set (n = 1) console title
 to indicate progress (leaves "WvUnpack Completed")

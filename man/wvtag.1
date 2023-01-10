@@ -6,7 +6,7 @@
 .Nd manipulate wavpack metadata
 .Sh SYNOPSIS
 .Nm wvtag
-.Op Fl cdhlqvwxy
+.Op Fl options
 .Ar
 .Sh DESCRIPTION
 .Nm
@@ -19,8 +19,7 @@ will automatically import from an ID3v1 tag
 if it is the only tag present in the source file,
 and that ID3v1 tag will be deleted and replaced with an APEv2 tag
 if an edit is requested.
-.Pp
-The options are as follows:
+.Ss OPTIONS
 .Bl -tag -width Ds
 .It Fl -allow-huge-tags
 allow tag data up to 16 MB.
@@ -98,7 +97,8 @@ which gets replaced with the extension of the binary tag source file
 .Dq txt
 for a text tag).
 .It Fl y
-yes to all warnings (use with caution!)
+yes to all warnings;
+.Sy use with caution!
 .El
 .Sh SEE ALSO
 .Xr wavpack 1 ,
