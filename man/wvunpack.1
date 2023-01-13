@@ -174,18 +174,18 @@ about WavPack file to
 .Pa stdout
 .It Fl -skip=[-][ Ns Ar sample Ns | Ns Ar hh : Ns Ar mm : Ns Ar ss.ss ]
 start decoding at specified sample or time index, specifying a
-.Sy -
+.Sq -
 causes sample/time to be relative to EOF
 .It Fl t
 copy input file's time stamp to output file(s)
 .It Fl -until=[+|-][ Ns Ar sample Ns | Ns Ar hh : Ns Ar mm : Ns Ar ss.ss ]
 stop decoding at specified sample or time index, specifying a
-.Sy +
+.Sq +
 causes sample/time to be relative to
 .Fl -skip
 point,
 specifying a
-.Sy -
+.Sq -
 causes sample/time to be relative to EOF
 .It Fl v
 verify source data only (no output file created)
