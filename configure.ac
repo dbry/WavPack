@@ -140,6 +140,10 @@ AS_IF([test "x${ac_cv_have___builtin_ctz}" = "xyes"], [
   AC_DEFINE([HAVE___BUILTIN_CTZ])
 ])
 
+AS_IF([test "x${ac_cv_c_compiler_gnu}" = "xyes"], [
+  CFLAGS="$CFLAGS -Wall"
+])
+
 AC_CONFIG_LINKS([
   cli/all-tests:cli/all-tests
   cli/fast-tests:cli/fast-tests

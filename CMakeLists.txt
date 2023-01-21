@@ -107,6 +107,10 @@ if(LARGE_FILES_SUPPORTED)
 endif()
 check_function_exists(fseeko HAVE_FSEEKO)
 
+if(NOT MSVC AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang"))
+    add_compile_options(-Wall)
+endif()
+
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64.*|x86_64.*|AMD64.*")
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(CPU_ASM_X64 1)
