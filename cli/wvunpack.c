@@ -285,7 +285,8 @@ int main(int argc, char **argv)
 #if defined(_WIN32)
     if (!GetModuleFileName (NULL, selfname, sizeof (selfname)))
 #endif
-    strncpy (selfname, *argv, sizeof (selfname));
+    strncpy (selfname, *argv, sizeof (selfname) - 1);
+    selfname [sizeof (selfname) - 1] = '\0';
 
     if (filespec_name (selfname)) {
         char *filename = filespec_name (selfname);
