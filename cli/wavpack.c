@@ -2312,6 +2312,27 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 "deleted" : "can't delete", infilename);
     }
 
+    // if we're not creating a correction file but there's an existing one
+    // with the appropriate name, delete it because it's now very obsolete
+
+    if (!out2filename && outfilename && *outfilename != '-') {
+        char out2filename_obsolete [PATH_MAX];
+        FILE *testfile;
+        int res;
+
+        strcpy (out2filename_obsolete, outfilename);
+        strcat (out2filename_obsolete, "c");
+
+        if ((testfile = fopen (out2filename_obsolete, "rb")) != NULL) {
+            fclose (testfile);
+            res = DoDeleteFile (out2filename_obsolete);
+
+            if (!quiet_mode || !res)
+                error_line ("%s obsolete correction file %s",
+                    res ? "deleted" : "can't delete", out2filename_obsolete);
+        }
+    }
+
     // compute and display the time consumed along with some other details of
     // the packing operation, and then return WAVPACK_NO_ERROR
 
@@ -3305,6 +3326,27 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         if (result != WAVPACK_NO_ERROR) {
             WavpackCloseFile (outfile);
             return result;
+        }
+    }
+
+    // if we're not creating a correction file but there's an existing one
+    // with the appropriate name, delete it because it's now very obsolete
+
+    if (!out2filename && outfilename && *outfilename != '-') {
+        char out2filename_obsolete [PATH_MAX];
+        FILE *testfile;
+        int res;
+
+        strcpy (out2filename_obsolete, outfilename);
+        strcat (out2filename_obsolete, "c");
+
+        if ((testfile = fopen (out2filename_obsolete, "rb")) != NULL) {
+            fclose (testfile);
+            res = DoDeleteFile (out2filename_obsolete);
+
+            if (!quiet_mode || !res)
+                error_line ("%s obsolete correction file %s",
+                    res ? "deleted" : "can't delete", out2filename_obsolete);
         }
     }
 
