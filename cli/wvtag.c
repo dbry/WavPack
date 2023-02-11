@@ -96,8 +96,8 @@ static const char *help =
 "    -d \"Field\"            delete specified metadata item (text or binary)\n"
 "    -h or --help          this help display\n"
 "    --import-id3          import ID3v2 tags from the trailer of original file\n"
-"                           (default for DSF files, optional for other formats,\n"
-"                            add --allow-huge-tags option for > 1 MB images)\n"
+"                           (default for DSF and AIF files, optional for other\n"
+"                            formats, add --allow-huge-tags for > 1 MB images)\n"
 "    -l or --list          list all tag items (done last)\n"
 #ifdef _WIN32
 "    --no-utf8-convert     assume tag values read from files are already UTF-8,\n"
@@ -821,12 +821,12 @@ static int process_file (char *infilename)
 
                 if (res > 0) {
                     if (!quiet_mode)
-                        error_line ("successfully imported %d items from ID3v2 tag", res);
+                        error_line ("successfully imported %d items from %s tag", res, error);
 
                     write_tag = 1;
                 }
                 else if (res == 0)
-                    error_line ("ID3v2 import: no applicable items found");
+                    error_line ("warning: no tag or importable tag items found");
                 else
                     error_line ("ID3v2 import: %s", error);
             }

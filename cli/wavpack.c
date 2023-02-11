@@ -173,7 +173,7 @@ static const char *help =
 "    -i                      parse header for audio format but ignore length in\n"
 "                             header and just assume everything to EOF is audio\n"
 "    --import-id3            attempt to import ID3v2 tags from the trailer of files\n"
-"                             (standard on DSF, optional on WAV and DSDIFF)\n"
+"                             (standard on DSF and AIF, optional on WAV and DSDIFF)\n"
 "    -jn                     joint-stereo override (0 = left/right, 1 = mid/side)\n"
 #if defined (_WIN32) || defined (__OS2__)
 "    -l                      run at lower priority for smoother multitasking\n"
@@ -2078,8 +2078,14 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     error_line ("ID3v2 import: %s", error);
                     result = WAVPACK_SOFT_ERROR;
                 }
-                else if (id3_res > 0)
+                else if (id3_res > 0) {
                     imported_tag_items = id3_res;
+
+                    if (!quiet_mode)
+                        error_line ("successfully imported %d items from %s tag", imported_tag_items, error);
+                }
+                else if (!quiet_mode)
+                    error_line ("warning: no tag or importable tag items found");
             }
         }
 
@@ -2367,9 +2373,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     if (!quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
-
-        if (imported_tag_items)
-            error_line ("successfully imported %d items from ID3v2 tag", imported_tag_items);
 
         if (loc_config.flags & CONFIG_MD5_CHECKSUM) {
             char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
