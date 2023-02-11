@@ -201,6 +201,8 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
 
             if (txxx_mode && num_segments >= 2 && strlen ((char *) utf8_string)) {
                 unsigned char *cptr = utf8_string;
+                unsigned char *utf8_value;
+                int value_length;
 
                 // if all single-byte UTF8, format TXXX description to match case of regular APEv2 descriptions (e.g., Performer)
 
@@ -218,8 +220,8 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
                             *cptr = tolower (*cptr);
                 }
 
-                unsigned char *utf8_value = utf8_string + strlen ((char *) utf8_string) + 1;
-                int value_length = strlen_segments ((char *) utf8_value, num_segments - 1);
+                utf8_value = utf8_string + strlen ((char *) utf8_string) + 1;
+                value_length = strlen_segments ((char *) utf8_value, num_segments - 1);
 
                 if (wpc && !WavpackAppendTagItemNoDups (wpc, (char *) utf8_string, (char *) utf8_value, value_length)) {
                     strcpy (error, WavpackGetErrorMessage (wpc));
