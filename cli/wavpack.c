@@ -1367,8 +1367,14 @@ int main (int argc, char **argv)
                 fflush (stderr);
             }
 
-            if (filespec_ext (matches [file_index]) && !stricmp (filespec_ext (matches [file_index]), ".wv"))
-                result = repack_file (matches [file_index], outfilename, out2filename, &config);
+            if (filespec_ext (matches [file_index]) && !stricmp (filespec_ext (matches [file_index]), ".wv")) {
+                if (config.qmode & QMODE_RAW_PCM) {
+                    error_line ("can't interpret a WavPack file as raw PCM (doesn't make sense)!");
+                    result = WAVPACK_SOFT_ERROR;
+                }
+                else
+                    result = repack_file (matches [file_index], outfilename, out2filename, &config);
+            }
             else
                 result = pack_file (matches [file_index], outfilename, out2filename, &config);
 
