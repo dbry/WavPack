@@ -371,7 +371,7 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
 
 int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, char *error, int32_t *bytes_used)
 {
-    int tag_version, res, res_ss;
+    int tag_version = 0, res = 0, res_ss;
 
     if (bytes_used)
         *bytes_used = 0;
@@ -408,7 +408,7 @@ int ImportID3v2 (WavpackContext *wpc, unsigned char *tag_data, int tag_size, cha
         if (res_ss > 0)
             return wpc ? ImportID3v2_syncsafe (wpc, tag_data, tag_size, error, bytes_used, TRUE) : res_ss;
     }
-    else {
+    else if (tag_version == 4) {
         // ID3v2.4 tags always use syncsafe for the frame sizes
         res = ImportID3v2_syncsafe (NULL, tag_data, tag_size, error, bytes_used, TRUE);
 

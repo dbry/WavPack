@@ -1348,7 +1348,7 @@ static void UTF8ToAnsi (char *string, int len)
     int max_chars = (int) strlen (string);
 #if defined (_WIN32)
     wchar_t *temp = malloc ((max_chars + 1) * 2);
-    int act_chars = UTF8ToWideChar (string, temp);
+    int act_chars = UTF8ToWideChar ((unsigned char *) string, temp);
 
     while (act_chars) {
         memset (string, 0, len);
