@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2022 David Bryant.                 //
+//                Copyright (c) 1998 - 2023 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -65,7 +65,7 @@
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2022 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2023 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WAVPACK using libwavpack version %s, expected %s (see README)\n\n";
@@ -1588,6 +1588,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 {
     char *outfilename_temp = NULL, *out2filename_temp = NULL, dummy;
     int use_tempfiles = (out2filename != NULL), chunk_alignment = 1;
+    char imported_tag_type [16] = "";
     int imported_tag_items = 0;
     uint32_t bcount;
     WavpackConfig loc_config = *config;
@@ -2062,7 +2063,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
         if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10) {
             int32_t bytes_used, id3_res;
-            char error [80];
+            char error [80] = "";
 
             // first we do a "dry run" pass through the ID3 tag, and only if that passes do we try to write the tag items
 
@@ -2087,8 +2088,10 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 else if (id3_res > 0) {
                     imported_tag_items = id3_res;
 
-                    if (!quiet_mode)
-                        error_line ("successfully imported %d items from %s tag", imported_tag_items, error);
+                    if (strlen (error) < sizeof (imported_tag_type))
+                        strcpy (imported_tag_type, error);
+                    else
+                        imported_tag_type [0] = 0;
                 }
                 else if (!quiet_mode)
                     error_line ("warning: no tag or importable tag items found");
@@ -2379,6 +2382,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
     if (!quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
+
+        if (imported_tag_items)
+            error_line ("successfully imported %d items from %s tag", imported_tag_items, imported_tag_type);
 
         if (loc_config.flags & CONFIG_MD5_CHECKSUM) {
             char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
