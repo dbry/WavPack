@@ -578,10 +578,11 @@ void finish_line (void)
 
     if (hConIn && GetConsoleScreenBufferInfo (hConIn, &coninfo) &&
         (coninfo.dwCursorPosition.X || coninfo.dwCursorPosition.Y)) {
-            unsigned char spaces = coninfo.dwSize.X - coninfo.dwCursorPosition.X;
+            COORD cpos = { coninfo.dwCursorPosition.X, coninfo.dwCursorPosition.Y };
+            DWORD spaces = coninfo.dwSize.X - coninfo.dwCursorPosition.X, written;
 
-            while (spaces--)
-                fputc (' ', stderr);
+            FillConsoleOutputCharacter (hConIn, ' ', spaces, cpos, &written);
+            fprintf (stderr, "\n");
     }
     else
         fprintf (stderr, "                                \n");
