@@ -106,7 +106,7 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
     tag_size -= sizeof (id3_header);
     tag_data += sizeof (id3_header);
 
-    if (id3_header [4] == 0xFF || (id3_header [5] & 0x1F)) {
+    if (id3_header [4] == 0xFF || (id3_header [5] & 0x0F)) {
         sprintf (error, "unsupported %s tag (header flags)", tag_type);
         return -1;
     }
@@ -151,6 +151,9 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
 
         if (!frame_header [0] && !frame_header [1] && !frame_header [2] && !frame_header [3])
             break;
+
+        if ((id3_header [5] & 0x10) && !strncmp ((char *) frame_header, "3DI", 3))
+           break;
 
         for (i = 0; i < 4; ++i)
             if (frame_header [i] < '0' ||
