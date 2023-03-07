@@ -352,8 +352,8 @@ static int seeking_test (char *filename, uint32_t test_count)
             if (!samples)
                 break;
 
-            if ((sample_count += samples) > total_samples) {
-                printf ("seeking_test(): sample count is not correct!\n");
+            if ((sample_count += samples) > total_samples || chunk_count >= total_chunks) {
+                printf ("seeking_test(): WavPack file is invalid or corrupt!\n");
                 return -1;
             }
 
