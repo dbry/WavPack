@@ -11,7 +11,7 @@
 	background: #ffffff;
 	color: #000000;
 	font-family: "Verdana", sans-serif;
-	font-size: 9pt;
+	font-size: 10pt;
 	text-align: center;
 }
 
@@ -20,7 +20,7 @@
 	bottom: 0;
 	left: 0;
 	right: 0;
-	width: 760px;
+	width: 960px;
 	margin-left: auto; 
 	margin-right: auto;
 }
@@ -309,11 +309,11 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or</tt></b>
+					<b><tt>-b&lt;n&gt; = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or</tt></b>
 					<br/>
 					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n = 24-9600 kbits/second (kbps)</tt></b>
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n = 24-9600 kbits/second (kbps)</tt></b>
 				</p>
 				<p>
 					The default operation of WavPack is pure lossless, which means that the .wv file 
@@ -330,6 +330,11 @@ a:hover {
 					with CD-audio sampled at 44.1k the lower limit is about 196 kbps.
 				</p>
 				<p>
+     When this option is used in combination with the <b>-c</b> option, then a "correction"
+     file is also created and the result is hybrid lossless compression. Without the <b>-c</b>
+     option the operation is lossy.
+				</p>
+				<p>
 					The hybrid mode can be used quite successfully with floating-point audio, however
 					it should <b>not</b> be used for scientific type floating-point
 					data because the hybrid algorithm might not be application appropriate (and
@@ -342,7 +347,7 @@ a:hover {
 				</p>
 
 				<p>
-     <b><tt>--blocksize=n = specify block size in samples (n = 128 - 131072)</tt></b>
+     <b><tt>--blocksize=&lt;n&gt; = specify block size in samples (n = 128 - 131072)</tt></b>
 				</p>
 				<p>
      WavPack normally determines the optimum number of samples to place into each
@@ -373,6 +378,22 @@ a:hover {
 					used or not.
 				</p>
 
+				<p>
+					<b><tt>-c&lt;n&gt; = enable hybrid lossless compression, n = 2.0 to 23.9 bits/sample, or</tt></b>
+					<br/>
+					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+     &nbsp;&nbsp;&nbsp;n = 24-9600 kbits/second (kbps)</tt></b>
+				</p>
+    <p>
+     This is a new shortcut combining the <b>-b&lt;n&gt;</b> option to set hybrid bitrate and the
+     <b>-c</b> option to create a "correction" file for hybrid lossless operation. The
+     advantage of this new syntax is that it makes it harder to accidentally forget the
+     <b>-c</b> option and get lossy operation unintentionally.
+    </p>
+
+				<p>
 				<p>
 					<b><tt>-cc = maximum hybrid compression (hurts lossy quality &amp; decode speed)</tt></b>
 				</p>
@@ -562,7 +583,7 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-jn = joint-stereo override (0 = left/right, 1 = mid/side)</tt></b>
+					<b><tt>-j&lt;n&gt; = joint-stereo override (0 = left/right, 1 = mid/side)</tt></b>
 				</p>
 				<p>
 					WavPack normally defaults to joint stereo (sometimes called mid/side) in which 
@@ -766,7 +787,7 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-sn = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)</tt></b>
+					<b><tt>-s&lt;n&gt; = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)</tt></b>
 				</p>
 				<p>
 					WavPack uses first-order noise shaping to improve the perceived quality of lossy 

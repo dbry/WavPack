@@ -87,9 +87,13 @@ static const char *usage =
 "          .w64 (Sony Wave64)             .caf (Core Audio Format)\n"
 "          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n"
 "          .wv (transcode from existing WavPack file, with tags)\n\n"
-" Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
-"                                           n = 24-9600 kbits/second (kbps)\n"
-"          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
+" Options: -b<n> = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
+"                                             n = 24-9600 kbits/second (kbps)\n"
+"                  (unless combined with -c this will be a lossy operation)\n"
+"          -c  = create correction file (.wvc) for hybrid lossless mode\n"
+"          -c<n> = shortcut for '-b<n> -c' to specify hybrid lossless mode\n"
+"                  with a single option, n = 2.0 to 23.9 bits/sample, or\n"
+"                                        n = 24-9600 kbits/second (kbps)\n"
 #ifdef _WIN32
 "          --drop = drag-and-drop (multiple infiles only, no outfile spec)\n"
 #endif
@@ -137,14 +141,19 @@ static const char *help =
 "    --allow-huge-tags       allow tag data up to 16 MB (embedding > 1 MB is not\n"
 "                             recommended for portable devices and may not work\n"
 "                             with some programs including WavPack pre-4.70)\n"
-"    -bn                     enable hybrid compression\n"
+"    -b<n>                   enable hybrid compression with specified bitrate:\n"
+"                             n = 2.0 to 23.9 bits/sample, or\n"
+"                             n = 24-9600 kbits/second (kbps)\n"
+"                              add -c to create correction file (.wvc), otherwise\n"
+"                              operation is lossy\n"
+"    --blocksize=<n>         specify block size in samples (max = 131072 and\n"
+"                               min = 16 with --merge-blocks, otherwise 128)\n"
+"    -c                      hybrid lossless mode (use with -b<n> to create\n"
+"                             correction file (.wvc) in hybrid mode)\n"
+"    -c<n>                   shortcut for '-b<n> -c' to specify two-file hybrid\n"
+"                             lossless mode (i.e., wv+wvc) with a single option:\n"
 "                              n = 2.0 to 23.9 bits/sample, or\n"
 "                              n = 24-9600 kbits/second (kbps)\n"
-"                              add -c to create correction file (.wvc)\n"
-"    --blocksize=n           specify block size in samples (max = 131072 and\n"
-"                               min = 16 with --merge-blocks, otherwise 128)\n"
-"    -c                      hybrid lossless mode (use with -b to create\n"
-"                             correction file (.wvc) in hybrid mode)\n"
 "    -cc                     maximum hybrid lossless compression (but degrades\n"
 "                             decode speed and may result in lower quality)\n"
 "    --channel-order=<list>  specify (comma separated) channel order if not\n"
@@ -174,7 +183,7 @@ static const char *help =
 "                             header and just assume everything to EOF is audio\n"
 "    --import-id3            attempt to import ID3v2 tags from the trailer of files\n"
 "                             (standard on DSF and AIF, optional on WAV and DSDIFF)\n"
-"    -jn                     joint-stereo override (0 = left/right, 1 = mid/side)\n"
+"    -j<n>                   joint-stereo override (0 = left/right, 1 = mid/side)\n"
 #if defined (_WIN32) || defined (__OS2__)
 "    -l                      run at lower priority for smoother multitasking\n"
 #endif
@@ -214,7 +223,7 @@ static const char *help =
 "    --raw-pcm-skip=begin[,end]\n"
 "                            skip <begin> bytes before encoding (i.e., a header)\n"
 "                             and <end> bytes at the end-of-file (i.e., a trailer)\n"
-"    -sn                     override default noise shaping where n is a float\n"
+"    -s<n>                   override default noise shaping where n is a float\n"
 "                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
@@ -649,14 +658,6 @@ int main (int argc, char **argv)
                         delete_source = 1;
                         break;
 
-                    case 'C': case 'c':
-                        if (config.flags & CONFIG_CREATE_WVC)
-                            config.flags |= CONFIG_OPTIMIZE_WVC;
-                        else
-                            config.flags |= CONFIG_CREATE_WVC;
-
-                        break;
-
                     case 'X': case 'x':
                         if (isdigit (*++argcp))
                             config.xmode = strtol (argcp, &argcp, 10);
@@ -746,6 +747,15 @@ int main (int argc, char **argv)
                     case 'V': case 'v':
                         verify_mode = 1;
                         break;
+
+                    case 'C': case 'c':
+                        if (config.flags & CONFIG_CREATE_WVC)
+                            config.flags |= CONFIG_OPTIMIZE_WVC;
+                        else
+                            config.flags |= CONFIG_CREATE_WVC;
+
+                        if (!isdigit (argcp [1]))       // if no number follows, we're done; otherwise
+                            break;                      // use numeric parameter for -b option
 
                     case 'B': case 'b':
                         config.flags |= CONFIG_HYBRID_FLAG;

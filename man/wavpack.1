@@ -74,20 +74,40 @@ Allow tag data up to 16 MB.
 Embedding > 1 MB is not recommended for portable devices
 and may not work with some programs, including older WavPack versions.
 .It Fl b Ns Ar n
-enable hybrid compression,
+Enable hybrid compression,
 .Ar n
 = 2.0 to 23.9 bits/sample, or
 .Ar n
-= 24-9600 kbits/second (kbps), not available with DSD audio
+= 24-9600 kbits/second (kbps). If this option is specified
+.Em without
+the
+.Fl c
+option, then the operation is lossy.
+The hybrid mode is not applicable to DSD audio (only PCM).
 .It Fl -blocksize= Ns Ar n
 specify block size in samples (max = 131072 and min = 16 with
 .Fl -merge-blocks ,
 otherwise 128)
 .It Fl c
-Create correction file (.wvc) for hybrid mode.
-Results in 2-file lossless compression.
+Create correction file (.wvc) for hybrid mode resulting in 2-file lossless
+compression.
+The bitrate is specified with the
+.Fl b Ns Ar n
+option.
 .It Fl cc
 maximum hybrid compression (hurts lossy quality & decode speed)
+.It Fl c Ns Ar n
+Enable hybrid lossless (i.e., 2-file) compression,
+.Ar n
+= 2.0 to 23.9 bits/sample, or
+.Ar n
+= 24-9600 kbits/second (kbps). This is a shortcut combining the
+.Fl b Ns Ar n
+and
+.Fl c
+options.
+The hybrid mode is not applicable to DSD audio (only PCM).
+.It Fl -blocksize= Ns Ar n
 .It Fl -channel-order= Ns Ar list
 Specify comma separated channel order if not the Microsoft standard,
 which is FL,FR,FC,LFE,BL,BR,FLC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR;
