@@ -524,7 +524,7 @@ int main (int argc, char **argv)
                         ++error_count;
                 }
                 else if (params [1] == 1) {
-                    config.sample_rate = params [0] / 8;
+                    config.sample_rate = (params [0] + 7) / 8;
                     config.bits_per_sample = params [1] * 8;
                     config.bytes_per_sample = 1;
                     config.num_channels = params [2];

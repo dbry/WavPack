@@ -261,7 +261,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 config->bits_per_sample = 8;
                 config->bytes_per_sample = 1;
                 config->num_channels = numChannels;
-                config->sample_rate = sampleRate / 8;
+                config->sample_rate = (sampleRate + 7) / 8;
                 config->qmode |= QMODE_DSD_MSB_FIRST;
             }
             else if (debug_logging_mode)

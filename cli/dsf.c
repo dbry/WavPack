@@ -164,7 +164,7 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
     config->bytes_per_sample = 1;
     config->num_channels = format_chunk.numChannels;
     config->channel_mask = channel_masks [format_chunk.chanType - 1];
-    config->sample_rate = format_chunk.sampleRate / 8;
+    config->sample_rate = (format_chunk.sampleRate + 7) / 8;
 
     if (format_chunk.bitsPerSample == 1)
         config->qmode |= QMODE_DSD_LSB_FIRST | QMODE_DSD_IN_BLOCKS;
