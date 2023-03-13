@@ -327,10 +327,6 @@ static void make_settings_string (char *settings, WavpackConfig *config);
 static void display_progress (double file_progress);
 static void TextToUTF8 (void *string, int len);
 
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
-
 // The "main" function for the command-line WavPack compressor. Note that on Windows
 // this is actually a static function that is called from the "real" main() defined
 // immediately afterward that converts the wchar argument list into UTF-8 strings
@@ -352,6 +348,7 @@ int main (int argc, char **argv)
     char **matches = NULL;
     WavpackConfig config;
     int result, argi, i;
+    int warnings = 0;
 
 #if defined(_WIN32)
     if (!GetModuleFileName (NULL, selfname, sizeof (selfname)))
@@ -1388,8 +1385,12 @@ int main (int argc, char **argv)
             else
                 result = pack_file (matches [file_index], outfilename, out2filename, &config);
 
-            if (result != WAVPACK_NO_ERROR)
-                ++error_count;
+            if (result != WAVPACK_NO_ERROR) {
+                if (result == WAVPACK_WARNINGS)
+                    ++warnings;
+                else
+                    ++error_count;
+            }
 
             if (result == WAVPACK_HARD_ERROR)
                 break;
@@ -1412,8 +1413,15 @@ int main (int argc, char **argv)
         }
 
         if (num_files > 1) {
-            if (error_count) {
-                fprintf (stderr, "\n **** warning: errors occurred in %d of %d files! ****\n", error_count, num_files);
+            if (warnings || error_count) {
+                fprintf (stderr, "\n");
+
+                if (error_count)
+                    fprintf (stderr, " **** errors occurred in %d of %d files! ****\n", error_count, num_files);
+
+                if (warnings)
+                    fprintf (stderr, " **** warnings occurred in %d of %d files! ****\n", warnings, num_files);
+
                 fflush (stderr);
             }
             else if (!quiet_mode) {
@@ -1605,10 +1613,10 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     unsigned char *new_channel_order = NULL;
     unsigned char md5_digest [16];
     write_id wv_file, wvc_file;
+    int warnings = 0, result;
     WavpackContext *wpc;
     double dtime;
     FILE *infile;
-    int result;
 
 #if defined(__WATCOMC__)
     struct _timeb time1, time2;
@@ -1656,9 +1664,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 return WAVPACK_SOFT_ERROR;
             }
 
-            if (infilesize % sample_size)
+            if (infilesize % sample_size) {
                 error_line ("warning: raw PCM infile length does not divide evenly, %d bytes will be discarded",
                     (int)(infilesize % sample_size));
+                warnings++;
+            }
         }
         else {
             if (raw_pcm_skip_bytes_end) {
@@ -2018,6 +2028,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     else
         result = pack_audio (wpc, infile, loc_config.qmode, new_channel_order, ((loc_config.flags & CONFIG_MD5_CHECKSUM) || verify_mode) ? md5_digest : NULL);
 
+    if (result == WAVPACK_WARNINGS) {
+        result = WAVPACK_NO_ERROR;
+        warnings++;
+    }
+
     if (new_channel_order)
         free (new_channel_order);
 
@@ -2330,11 +2345,17 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // delete source file if that option is enabled
 
     if (result == WAVPACK_NO_ERROR && delete_source) {
-        int res = DoDeleteFile (infilename);
+        if (warnings) {
+            if (!quiet_mode)
+                error_line ("not deleting source file %s because of warnings", infilename);
+        }
+        else {
+            int res = DoDeleteFile (infilename);
 
-        if (!quiet_mode || !res)
-            error_line ("%s source file %s", res ?
+            if (!quiet_mode || !res)
+                error_line ("%s source file %s", res ?
                 "deleted" : "can't delete", infilename);
+        }
     }
 
     // if we're not creating a correction file but there's an existing one
@@ -2434,7 +2455,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     }
 
     WavpackCloseFile (wpc);
-    return WAVPACK_NO_ERROR;
+    return warnings ? WAVPACK_WARNINGS : WAVPACK_NO_ERROR;
 }
 
 // This function handles the actual audio data compression. It assumes that the
@@ -2645,6 +2666,7 @@ static const unsigned char bit_reverse_table [] = {
 
 static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source)
 {
+    int res = WAVPACK_NO_ERROR;
     int64_t samples_remaining;
     double progress = -1.0;
     int num_channels;
@@ -2720,8 +2742,10 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
                             non_null++;
                 }
 
-                if (non_null)
+                if (non_null) {
                     error_line ("blocks not padded with NULLs, MD5 will not match!");
+                    res = WAVPACK_WARNINGS;
+                }
             }
             else {
                 int32_t scount = sample_count * num_channels, *sptr = sample_buffer;
@@ -2777,7 +2801,7 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
     if (md5_digest_source)
         MD5_Final (md5_digest_source, &md5_context);
 
-    return WAVPACK_NO_ERROR;
+    return res;
 }
 
 // This function transcodes a single WavPack file "infilename" and stores the resulting

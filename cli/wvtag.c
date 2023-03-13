@@ -168,10 +168,6 @@ static void TextToUTF8 (void *string, int len);
 static FILE *wild_fopen (char *filename, const char *mode);
 static int process_file (char *infilename);
 
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
-
 // The "main" function for the command-line WavPack metadata editor. Note that on Windows
 // this is actually a static function that is called from the "real" main() defined
 // immediately afterward that converts the wchar argument list into UTF-8 strings

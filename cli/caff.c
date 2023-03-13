@@ -22,11 +22,6 @@
 #define strdup(x) _strdup(x)
 #endif
 
-
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
-
 extern int debug_logging_mode;
 
 typedef struct

@@ -41,10 +41,6 @@ typedef struct {
 #define CS64ChunkFormat "4D"
 #define DS64ChunkFormat "DDDL"
 
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
-
 extern int debug_logging_mode;
 
 int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)

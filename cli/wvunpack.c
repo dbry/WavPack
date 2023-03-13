@@ -260,10 +260,6 @@ static void display_progress (double file_progress);
 static void TextToUTF8 (void *string, int len);
 #endif
 
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
-
 // The "main" function for the command-line WavPack decompressor. Note that on Windows
 // this is actually a static function that is called from the "real" main() defined
 // immediately afterward that converts the wchar argument list into UTF-8 strings

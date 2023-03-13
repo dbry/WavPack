@@ -22,10 +22,6 @@
 #include "utils.h"
 #include "md5.h"
 
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
-
 #pragma pack(push,2)
 typedef struct {
     uint16_t numChannels;
