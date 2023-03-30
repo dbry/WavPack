@@ -409,6 +409,8 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
         decimate_dsd_destroy (wpc->decimation_context);
 #endif
 
+    worker_threads_destroy (wpc);
+
     free (wpc);
 
     return NULL;

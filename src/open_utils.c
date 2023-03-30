@@ -96,6 +96,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         return WavpackCloseFile (wpc);
     }
     CLEAR (*wps);
+    wps->wpc = wpc;
 
     while (!wps->wphdr.block_samples) {
 

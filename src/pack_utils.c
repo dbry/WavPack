@@ -373,6 +373,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         wpc->streams = realloc (wpc->streams, (wpc->current_stream + 1) * sizeof (wpc->streams [0]));
         wpc->streams [wpc->current_stream] = wps;
         CLEAR (*wps);
+        wps->wpc = wpc;
 
         // if there are any bits [still] set in the channel_mask, get the next one or two IDs from there
         if (chan_mask)

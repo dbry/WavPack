@@ -57,6 +57,8 @@ typedef __int8  int8_t;
 #include <stdint.h>
 #endif
 
+#include <pthread.h>
+
 // Because the C99 specification states that "The order of allocation of
 // bit-fields within a unit (high-order to low-order or low-order to
 // high-order) is implementation-defined" (6.7.2.1), I decided to change
@@ -235,6 +237,7 @@ typedef struct {
 } DSDfilters;
 
 typedef struct {
+    const WavpackContext *wpc;
     WavpackHeader wphdr;
     struct words_data w;
 
@@ -289,6 +292,21 @@ typedef struct {
 // files. It is recommended that direct access to this structure be minimized
 // and the provided utilities used instead.
 
+#define NUM_THREADS 8
+
+typedef enum { Uninit, Ready, Running, Quit } WorkerState;
+
+typedef struct {
+    WavpackStream *wps;
+    WorkerState state;
+    int *threads_ready;
+    int32_t *buffer;
+    uint32_t sample_count;
+    pthread_cond_t *global_cond, worker_cond;
+    pthread_mutex_t *mutex;
+    pthread_t pthread;
+} WorkerInfo;
+
 struct WavpackContext {
     WavpackConfig config;
 
@@ -321,6 +339,12 @@ struct WavpackContext {
     uint32_t channel_layout, dsd_multiplier;
     void *decimation_context;
     char file_extension [8];
+
+    // these items support multi-threaded operations on multi-channel streams
+    WorkerInfo workers [NUM_THREADS];
+    pthread_cond_t global_cond;
+    pthread_mutex_t mutex;
+    int threads_ready;
 
     void (*close_callback)(void *wpc);
     char error_message [80];
@@ -393,7 +417,7 @@ int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd);
-int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
+int32_t unpack_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count);
 int check_crc_error (WavpackContext *wpc);
 int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
 void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
@@ -401,6 +425,7 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values);
 void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening_allowed);
 void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
 void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
+void worker_threads_destroy (WavpackContext *wpc);
 
 ////////////////////////// DSD related (including decimation) //////////////////////////
 // modules: pack_dsd.c unpack_dsd.c
@@ -408,7 +433,7 @@ void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do
 void pack_dsd_init (WavpackContext *wpc);
 int pack_dsd_block (WavpackContext *wpc, int32_t *buffer);
 int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd);
-int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
+int32_t unpack_dsd_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count);
 
 void *decimate_dsd_init (int num_channels);
 void decimate_dsd_reset (void *decimate_context);
