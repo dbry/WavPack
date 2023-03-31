@@ -197,6 +197,7 @@ target_include_directories(wavpack
 )
 target_link_libraries(wavpack
     PRIVATE
+        Threads::Threads
         $<$<BOOL:${HAVE_LIBM}>:m>
 )
 add_library(WavPack::WavPack ALIAS wavpack)
