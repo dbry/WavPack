@@ -560,8 +560,6 @@ void free_streams (WavpackContext *wpc)
             wpc->streams [si] = NULL;
         }
     }
-
-    wpc->current_stream = 0;
 }
 
 void free_dsd_tables (WavpackStream *wps)

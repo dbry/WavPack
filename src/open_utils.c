@@ -90,12 +90,13 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         return WavpackCloseFile (wpc);
     }
 
-    wpc->streams [0] = wps = (WavpackStream *)malloc (sizeof (WavpackStream));
+    wpc->streams [0] = wps = (WavpackStream *)calloc (1, sizeof (WavpackStream));
     if (!wps) {
         if (error) strcpy (error, "can't allocate memory");
         return WavpackCloseFile (wpc);
     }
-    CLEAR (*wps);
+
+    wps->wpc = wpc;
 
     while (!wps->wphdr.block_samples) {
 
@@ -166,12 +167,12 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             }
         }
 
-        if (wpc->wvc_flag && !read_wvc_block (wpc)) {
+        if (wpc->wvc_flag && !read_wvc_block (wpc, 0)) {
             if (error) strcpy (error, "not compatible with this version of correction file!");
             return WavpackCloseFile (wpc);
         }
 
-        if (!wps->init_done && !unpack_init (wpc)) {
+        if (!wps->init_done && !unpack_init (wpc, 0)) {
             if (error) strcpy (error, wpc->error_message [0] ? wpc->error_message :
                 "not compatible with this version of WavPack file!");
 
@@ -287,12 +288,12 @@ char *WavpackGetFileExtension (WavpackContext *wpc)
 // bitstream data.
 
 static int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, unsigned char **buffptr);
-static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd);
+static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd, int stream);
 static void bs_open_read (Bitstream *bs, void *buffer_start, void *buffer_end);
 
-int unpack_init (WavpackContext *wpc)
+int unpack_init (WavpackContext *wpc, int stream)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    WavpackStream *wps = wpc->streams [stream];
     unsigned char *blockptr, *block2ptr;
     WavpackMetadata wpmd;
 
@@ -321,7 +322,7 @@ int unpack_init (WavpackContext *wpc)
     blockptr = wps->blockbuff + sizeof (WavpackHeader);
 
     while (read_metadata_buff (&wpmd, wps->blockbuff, &blockptr))
-        if (!process_metadata (wpc, &wpmd)) {
+        if (!process_metadata (wpc, &wpmd, stream)) {
             wps->mute_error = TRUE;
             return FALSE;
         }
@@ -330,7 +331,7 @@ int unpack_init (WavpackContext *wpc)
         block2ptr = wps->block2buff + sizeof (WavpackHeader);
 
         while (read_metadata_buff (&wpmd, wps->block2buff, &block2ptr))
-            if (!process_metadata (wpc, &wpmd)) {
+            if (!process_metadata (wpc, &wpmd, stream)) {
                 wps->mute_error = TRUE;
                 return FALSE;
             }
@@ -711,9 +712,9 @@ static int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, 
     return TRUE;
 }
 
-static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
+static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd, int stream)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    WavpackStream *wps = wpc->streams [stream];
 
     switch (wpmd->id) {
         case ID_DUMMY:
@@ -769,7 +770,7 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
 
         case ID_DSD_BLOCK:
 #ifdef ENABLE_DSD
-            return init_dsd_block (wpc, wpmd);
+            return init_dsd_block (wps, wpmd);
 #else
             strcpy (wpc->error_message, "not configured to handle DSD WavPack files!");
             return FALSE;
@@ -984,9 +985,9 @@ static int match_wvc_header (WavpackHeader *wv_hdr, WavpackHeader *wvc_hdr)
 // we flag this as an error). A return of FALSE indicates a serious
 // error (not just that we missed one wvc block).
 
-int read_wvc_block (WavpackContext *wpc)
+int read_wvc_block (WavpackContext *wpc, int stream)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    WavpackStream *wps = wpc->streams [stream];
     int64_t bcount, file2pos;
     WavpackHeader orig_wphdr;
     WavpackHeader wphdr;

@@ -138,7 +138,6 @@ typedef struct {
 #define CONFIG_MONO_FLAG        4       // not stereo
 #define CONFIG_FLOAT_DATA       0x80    // ieee 32-bit floating point data
 
-#define CONFIG_AUTO_SHAPING     0x4000  // automatic noise shaping
 #define CONFIG_LOSSY_MODE       0x1000000 // obsolete (for information)
 
 /*
@@ -235,16 +234,18 @@ typedef struct {
 } DSDfilters;
 
 typedef struct {
+    const WavpackContext *wpc;
     WavpackHeader wphdr;
     struct words_data w;
+    int stream_index;
 
     unsigned char *blockbuff, *blockend;
     unsigned char *block2buff, *block2end;
     int32_t *sample_buffer;
 
     int64_t sample_index;
-    int bits, num_terms, mute_error, joint_stereo, false_stereo, shift;
-    int num_decorrs, num_passes, best_decorr, mask_decorr;
+    int bits, num_terms, mute_error, joint_stereo, false_stereo, shift, lossy_blocks;
+    int num_decorrs, num_passes, best_decorr, mask_decorr, extra_flags;
     uint32_t crc, crc_x, crc_wvx;
     Bitstream wvbits, wvcbits, wvxbits;
     int init_done, wvc_skip;
@@ -312,7 +313,7 @@ struct WavpackContext {
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
 
-    int current_stream, num_streams, max_streams, stream_version;
+    int num_streams, max_streams, stream_version;
     WavpackStream **streams;
     void *stream3;
 
@@ -382,33 +383,34 @@ struct WavpackContext {
         weight = (weight ^ s) - s; \
     }
 
-void pack_init (WavpackContext *wpc);
-int pack_block (WavpackContext *wpc, int32_t *buffer);
-void send_general_metadata (WavpackContext *wpc);
+void pack_init (WavpackStream *wps);
+int pack_block (WavpackStream *wps, int32_t *buffer);
+void send_general_metadata (WavpackStream *wps);
+void send_pending_metadata (WavpackStream *wps);
 void free_metadata (WavpackMetadata *wpmd);
 int copy_metadata (WavpackMetadata *wpmd, unsigned char *buffer_start, unsigned char *buffer_end);
 double WavpackGetEncodedNoise (WavpackContext *wpc, double *peak);
-int unpack_init (WavpackContext *wpc);
+int unpack_init (WavpackContext *wpc, int stream);
 int read_decorr_terms (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd);
-int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
+int32_t unpack_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count);
 int check_crc_error (WavpackContext *wpc);
 int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
 void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
 void float_values (WavpackStream *wps, int32_t *values, int32_t num_values);
-void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening_allowed);
-void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
-void execute_mono (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples);
+void dynamic_noise_shaping (WavpackStream *wps, int32_t *buffer, int shortening_allowed);
+void execute_stereo (WavpackStream *wps, int32_t *samples, int no_history, int do_samples);
+void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_samples);
 
 ////////////////////////// DSD related (including decimation) //////////////////////////
 // modules: pack_dsd.c unpack_dsd.c
 
-void pack_dsd_init (WavpackContext *wpc);
-int pack_dsd_block (WavpackContext *wpc, int32_t *buffer);
-int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd);
-int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
+void pack_dsd_init (WavpackStream *wps);
+int pack_dsd_block (WavpackStream *wps, int32_t *buffer);
+int init_dsd_block (WavpackStream *wps, WavpackMetadata *wpmd);
+int32_t unpack_dsd_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count);
 
 void *decimate_dsd_init (int num_channels);
 void decimate_dsd_reset (void *decimate_context);
@@ -626,7 +628,7 @@ int WavpackGetMD5Sum (WavpackContext *wpc, unsigned char data [16]);
 
 int WavpackVerifySingleBlock (unsigned char *buffer, int verify_checksum);
 uint32_t read_next_header (WavpackStreamReader64 *reader, void *id, WavpackHeader *wphdr);
-int read_wvc_block (WavpackContext *wpc);
+int read_wvc_block (WavpackContext *wpc, int stream);
 
 /////////////////////////// high-level packing API and support ////////////////////////////
 // modules: pack_utils.c, pack_floats.c

@@ -201,7 +201,7 @@ typedef struct {
     float bitrate, shaping_weight;
     int bits_per_sample, bytes_per_sample;
     int qmode, flags, xmode, num_channels, float_norm_exp;
-    int32_t block_samples, extra_flags, sample_rate, channel_mask;
+    int32_t block_samples, dummy, sample_rate, channel_mask;
     unsigned char md5_checksum [16], md5_read;
     int num_tag_strings;                // this field is not used
     char **tag_strings;                 // this field is not used

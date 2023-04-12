@@ -26,37 +26,21 @@
 // This function initializes everything required to pack WavPack bitstreams
 // and must be called BEFORE any other function in this module.
 
-void pack_init (WavpackContext *wpc)
+void pack_init (WavpackStream *wps)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
-
     wps->sample_index = 0;
     wps->delta_decay = 2.0;
     CLEAR (wps->decorr_passes);
     CLEAR (wps->dc);
 
-#ifdef SKIP_DECORRELATION
-    wpc->config.xmode = 0;
-#endif
-
-    /* although we set the term and delta values here for clarity, they're
-     * actually hardcoded in the analysis function for speed
-     */
-
-    CLEAR (wps->analysis_pass);
-    wps->analysis_pass.term = 18;
-    wps->analysis_pass.delta = 2;
-
-    if (wpc->config.flags & CONFIG_AUTO_SHAPING) {
-        if (wpc->config.flags & CONFIG_OPTIMIZE_WVC)
-            wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = -(512L << 16);
-        else if (wpc->config.sample_rate >= 64000)
-            wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = 1024L << 16;
-        else
-            wpc->config.flags |= CONFIG_DYNAMIC_SHAPING;
+    if (wps->wpc->config.flags & CONFIG_DYNAMIC_SHAPING) {
+        wps->dc.shaping_data = malloc (wps->wpc->max_samples * sizeof (*wps->dc.shaping_data));
+        CLEAR (wps->analysis_pass);
+        wps->analysis_pass.term = 18;
+        wps->analysis_pass.delta = 2;
     }
-    else {
-        int32_t weight = (int32_t) floor (wpc->config.shaping_weight * 1024.0 + 0.5);
+    else if (wps->wpc->config.shaping_weight) {
+        int32_t weight = (int32_t) floor (wps->wpc->config.shaping_weight * 1024.0 + 0.5);
 
         if (weight <= -1000)
             weight = -1000;
@@ -64,27 +48,24 @@ void pack_init (WavpackContext *wpc)
         wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = weight << 16;
     }
 
-    if (wpc->config.flags & CONFIG_DYNAMIC_SHAPING)
-        wps->dc.shaping_data = malloc (wpc->max_samples * sizeof (*wps->dc.shaping_data));
-
-    if (!wpc->config.xmode)
+    if (!wps->wpc->config.xmode)
         wps->num_passes = 0;
-    else if (wpc->config.xmode == 1)
+    else if (wps->wpc->config.xmode == 1)
         wps->num_passes = 2;
-    else if (wpc->config.xmode == 2)
+    else if (wps->wpc->config.xmode == 2)
         wps->num_passes = 4;
     else
         wps->num_passes = 9;
 
-    if (wpc->config.flags & CONFIG_VERY_HIGH_FLAG) {
+    if (wps->wpc->config.flags & CONFIG_VERY_HIGH_FLAG) {
         wps->num_decorrs = NUM_VERY_HIGH_SPECS;
         wps->decorr_specs = very_high_specs;
     }
-    else if (wpc->config.flags & CONFIG_HIGH_FLAG) {
+    else if (wps->wpc->config.flags & CONFIG_HIGH_FLAG) {
         wps->num_decorrs = NUM_HIGH_SPECS;
         wps->decorr_specs = high_specs;
     }
-    else if (wpc->config.flags & CONFIG_FAST_FLAG) {
+    else if (wps->wpc->config.flags & CONFIG_FAST_FLAG) {
         wps->num_decorrs = NUM_FAST_SPECS;
         wps->decorr_specs = fast_specs;
     }
@@ -306,17 +287,17 @@ static void write_float_info (WavpackStream *wps, WavpackMetadata *wpmd)
 // following bytes represent the channel_mask as described for Microsoft
 // WAVEFORMATEX.
 
-static void write_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
+static void write_channel_info (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    uint32_t mask = wpc->config.channel_mask;
+    uint32_t mask = wps->wpc->config.channel_mask;
     char *byteptr = wpmd->data = malloc (8);
 
     wpmd->id = ID_CHANNEL_INFO;
 
-    if (wpc->num_streams > OLD_MAX_STREAMS) {       // if > 8 streams, use 6 or 7 bytes (breaks old decoders
-        *byteptr++ = wpc->config.num_channels - 1;  // that could only handle 8 streams) and allow (in theory)
-        *byteptr++ = wpc->num_streams - 1;          // up to 4096 channels
-        *byteptr++ = (((wpc->num_streams - 1) >> 4) & 0xf0) | (((wpc->config.num_channels - 1) >> 8) & 0xf);
+    if (wps->wpc->num_streams > OLD_MAX_STREAMS) {       // if > 8 streams, use 6 or 7 bytes (breaks old decoders
+        *byteptr++ = wps->wpc->config.num_channels - 1;  // that could only handle 8 streams) and allow (in theory)
+        *byteptr++ = wps->wpc->num_streams - 1;          // up to 4096 channels
+        *byteptr++ = (((wps->wpc->num_streams - 1) >> 4) & 0xf0) | (((wps->wpc->config.num_channels - 1) >> 8) & 0xf);
         *byteptr++ = mask;
         *byteptr++ = (mask >> 8);
         *byteptr++ = (mask >> 16);
@@ -325,7 +306,7 @@ static void write_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
             *byteptr++ = (mask >> 24);
     }
     else {                                          // otherwise use only 1 to 5 bytes
-        *byteptr++ = wpc->config.num_channels;
+        *byteptr++ = wps->wpc->config.num_channels;
 
         while (mask) {
             *byteptr++ = mask;
@@ -342,10 +323,10 @@ static void write_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 // channels (and are represented in the channel mask). A value of 0 is not
 // allowed and 0xff means an unknown or undefined channel identity.
 
-static void write_channel_identities_info (WavpackContext *wpc, WavpackMetadata *wpmd)
+static void write_channel_identities_info (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    wpmd->byte_length = (int) strlen ((char *) wpc->channel_identities);
-    wpmd->data = strdup ((char *) wpc->channel_identities);
+    wpmd->byte_length = (int) strlen ((char *) wps->wpc->channel_identities);
+    wpmd->data = strdup ((char *) wps->wpc->channel_identities);
     wpmd->id = ID_CHANNEL_IDENTITIES;
 }
 
@@ -355,22 +336,22 @@ static void write_channel_identities_info (WavpackContext *wpc, WavpackMetadata 
 // for informational purposes not required for playback or decoding (like
 // whether high or fast mode was specified).
 
-static void write_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
+static void write_config_info (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     char *byteptr;
 
     byteptr = wpmd->data = malloc (8);
     wpmd->id = ID_CONFIG_BLOCK;
-    *byteptr++ = (char) (wpc->config.flags >> 8);
-    *byteptr++ = (char) (wpc->config.flags >> 16);
-    *byteptr++ = (char) (wpc->config.flags >> 24);
+    *byteptr++ = (char) (wps->wpc->config.flags >> 8);
+    *byteptr++ = (char) (wps->wpc->config.flags >> 16);
+    *byteptr++ = (char) (wps->wpc->config.flags >> 24);
 
-    if (wpc->config.flags & CONFIG_EXTRA_MODE)
-        *byteptr++ = (char) wpc->config.xmode;
+    if (wps->wpc->config.flags & CONFIG_EXTRA_MODE)
+        *byteptr++ = (char) wps->wpc->config.xmode;
 
     // for the 5.0.0 alpha, we wrote the qmode flags here, but this
     // has been replaced with the new_config block
-    // *byteptr++ = (char) wpc->config.qmode;
+    // *byteptr++ = (char) wps->wpc->config.qmode;
 
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
@@ -381,35 +362,35 @@ static void write_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 // channel layouts (including optional reordering). Even if there is no new
 // configuration, we still send the empty metadata block to signal a 5.0 file.
 
-static void write_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
+static void write_new_config_info (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     char *byteptr = wpmd->data = malloc (260);
 
     wpmd->id = ID_NEW_CONFIG_BLOCK;
 
-    if (wpc->file_format || (wpc->config.qmode & 0xff) || wpc->channel_layout) {
-        *byteptr++ = (char) wpc->file_format;
-        *byteptr++ = (char) wpc->config.qmode;
+    if (wps->wpc->file_format || (wps->wpc->config.qmode & 0xff) || wps->wpc->channel_layout) {
+        *byteptr++ = (char) wps->wpc->file_format;
+        *byteptr++ = (char) wps->wpc->config.qmode;
 
-        if (wpc->channel_layout) {
-            int nchans = wpc->channel_layout & 0xff;
+        if (wps->wpc->channel_layout) {
+            int nchans = wps->wpc->channel_layout & 0xff;
 
-            *byteptr++ = (char) ((wpc->channel_layout & 0xff0000) >> 16);
+            *byteptr++ = (char) ((wps->wpc->channel_layout & 0xff0000) >> 16);
 
-            if (wpc->channel_reordering || nchans != wpc->config.num_channels)
+            if (wps->wpc->channel_reordering || nchans != wps->wpc->config.num_channels)
                 *byteptr++ = (char) nchans;
 
-            if (wpc->channel_reordering) {
+            if (wps->wpc->channel_reordering) {
                 int i, num_to_send = 0;
 
                 // to save space, don't send redundant reorder string bytes
 
                 for (i = 0; i < nchans; ++i)
-                    if (wpc->channel_reordering [i] != i)
+                    if (wps->wpc->channel_reordering [i] != i)
                         num_to_send = i + 1;
 
                 if (num_to_send) {
-                    memcpy (byteptr, wpc->channel_reordering, num_to_send);
+                    memcpy (byteptr, wps->wpc->channel_reordering, num_to_send);
                     byteptr += num_to_send;
                 }
             }
@@ -425,20 +406,20 @@ static void write_new_config_info (WavpackContext *wpc, WavpackMetadata *wpmd)
 // only be used when the sampling rate was not included in the table of 15
 // "standard" values.
 
-static void write_sample_rate (WavpackContext *wpc, WavpackMetadata *wpmd)
+static void write_sample_rate (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     char *byteptr;
 
     byteptr = wpmd->data = malloc (4);
     wpmd->id = ID_SAMPLE_RATE;
-    *byteptr++ = (char) (wpc->config.sample_rate);
-    *byteptr++ = (char) (wpc->config.sample_rate >> 8);
-    *byteptr++ = (char) (wpc->config.sample_rate >> 16);
+    *byteptr++ = (char) (wps->wpc->config.sample_rate);
+    *byteptr++ = (char) (wps->wpc->config.sample_rate >> 8);
+    *byteptr++ = (char) (wps->wpc->config.sample_rate >> 16);
 
     // handle 4-byte sampling rates for scientific applications, etc.
 
-    if (wpc->config.sample_rate & 0x7f000000)
-        *byteptr++ = (char) (wpc->config.sample_rate >> 24) & 0x7f;
+    if (wps->wpc->config.sample_rate & 0x7f000000)
+        *byteptr++ = (char) (wps->wpc->config.sample_rate >> 24) & 0x7f;
 
     wpmd->byte_length = (int32_t)(byteptr - (char *) wpmd->data);
 }
@@ -456,13 +437,12 @@ static int scan_int32_data (WavpackStream *wps, int32_t *values, int32_t num_val
 static void scan_int32_quick (WavpackStream *wps, int32_t *values, int32_t num_values);
 static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_values);
 static int scan_redundancy (int32_t *values, int32_t num_values);
-static int pack_samples (WavpackContext *wpc, int32_t *buffer);
+static int pack_samples (WavpackStream *wps, int32_t *buffer);
 static void bs_open_write (Bitstream *bs, void *buffer_start, void *buffer_end);
 static uint32_t bs_close_write (Bitstream *bs);
 
-int pack_block (WavpackContext *wpc, int32_t *buffer)
+int pack_block (WavpackStream *wps, int32_t *buffer)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags, sflags = wps->wphdr.flags;
     int32_t sample_count = wps->wphdr.block_samples, *orig_data = NULL;
     int dynamic_shaping_done = FALSE;
@@ -474,20 +454,20 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     // with equal redundancy. These are not applicable for anything besides the first stream of
     // the file and they are not applicable with float data or >24-bit data.
 
-    if (!wpc->current_stream && !(flags & FLOAT_DATA) && (flags & MAG_MASK) >> MAG_LSB < 24) {
-        if ((wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !wpc->config.block_samples) {
-            dynamic_noise_shaping (wpc, buffer, TRUE);
+    if (!wps->stream_index && !(flags & FLOAT_DATA) && (flags & MAG_MASK) >> MAG_LSB < 24) {
+        if ((wps->wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !wps->wpc->config.block_samples) {
+            dynamic_noise_shaping (wps, buffer, TRUE);
             sample_count = wps->wphdr.block_samples;
             dynamic_shaping_done = TRUE;
         }
-        else if (wpc->block_boundary && sample_count >= (int32_t) wpc->block_boundary * 2) {
-            int bc = sample_count / wpc->block_boundary, chans = (flags & MONO_DATA) ? 1 : 2;
-            int res = scan_redundancy (buffer, wpc->block_boundary * chans), i;
+        else if (wps->wpc->block_boundary && sample_count >= (int32_t) wps->wpc->block_boundary * 2) {
+            int bc = sample_count / wps->wpc->block_boundary, chans = (flags & MONO_DATA) ? 1 : 2;
+            int res = scan_redundancy (buffer, wps->wpc->block_boundary * chans), i;
 
             for (i = 1; i < bc; ++i)
-                if (res != scan_redundancy (buffer + (i * wpc->block_boundary * chans),
-                    wpc->block_boundary * chans)) {
-                        sample_count = wps->wphdr.block_samples = wpc->block_boundary * i;
+                if (res != scan_redundancy (buffer + (i * wps->wpc->block_boundary * chans),
+                    wps->wpc->block_boundary * chans)) {
+                        sample_count = wps->wphdr.block_samples = wps->wpc->block_boundary * i;
                         break;
                     }
         }
@@ -496,7 +476,7 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
     // This code scans stereo data to check whether it can be stored as mono data
     // (i.e., all L/R samples identical). Only available with MAX_STREAM_VERS.
 
-    if (!(flags & MONO_FLAG) && wpc->stream_version == MAX_STREAM_VERS) {
+    if (!(flags & MONO_FLAG) && wps->wpc->stream_version == MAX_STREAM_VERS) {
         int32_t lor = 0, diff = 0;
         int32_t *sptr, *dptr, i;
 
@@ -568,12 +548,12 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
 
         // if lossless we have to copy the data to use later...
 
-        if ((!(flags & HYBRID_FLAG) || wpc->wvc_flag) && !(wpc->config.flags & CONFIG_SKIP_WVX)) {
+        if ((!(flags & HYBRID_FLAG) || wps->wpc->wvc_flag) && !(wps->wpc->config.flags & CONFIG_SKIP_WVX)) {
             orig_data = malloc (sizeof (f32) * ((flags & MONO_DATA) ? sample_count : sample_count * 2));
             memcpy (orig_data, buffer, sizeof (f32) * ((flags & MONO_DATA) ? sample_count : sample_count * 2));
 
             if (flags & FLOAT_DATA) {                                       // if lossless float data come here
-                wps->float_norm_exp = wpc->config.float_norm_exp;
+                wps->float_norm_exp = wps->wpc->config.float_norm_exp;
 
                 if (!scan_float_data (wps, (f32 *) buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2)) {
                     free (orig_data);
@@ -589,13 +569,13 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         }
         else {                                                              // otherwise, we're lossy, so no copy
             if (flags & FLOAT_DATA) {
-                wps->float_norm_exp = wpc->config.float_norm_exp;
+                wps->float_norm_exp = wps->wpc->config.float_norm_exp;
 
                 if (scan_float_data (wps, (f32 *) buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2))
-                    wpc->lossy_blocks = TRUE;
+                    wps->lossy_blocks = TRUE;
             }
             else if (scan_int32_data (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2))
-                wpc->lossy_blocks = TRUE;
+                wps->lossy_blocks = TRUE;
         }
 
         // if there's any chance of magnitude change, clear the noise-shaping error term
@@ -615,8 +595,8 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         }
     }
 
-    if ((wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !dynamic_shaping_done)      // calculate dynamic noise profile
-        dynamic_noise_shaping (wpc, buffer, FALSE);
+    if ((wps->wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !dynamic_shaping_done)      // calculate dynamic noise profile
+        dynamic_noise_shaping (wps, buffer, FALSE);
 
     // In some cases we need to start the decorrelation and entropy encoding from scratch. This
     // could be because we switched from stereo to mono encoding or because the magnitude of
@@ -626,16 +606,16 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         wps->num_passes = 1;
 
         if (flags & MONO_DATA)
-            execute_mono (wpc, buffer, 1, 0);
+            execute_mono (wps, buffer, 1, 0);
         else
-            execute_stereo (wpc, buffer, 1, 0);
+            execute_stereo (wps, buffer, 1, 0);
 
         wps->num_passes = 0;
     }
 
     // actually pack the block here and return on an error (which pretty much can only be a block buffer overrun)
 
-    if (!pack_samples (wpc, buffer)) {
+    if (!pack_samples (wps, buffer)) {
         wps->wphdr.flags = sflags;
 
         if (orig_data)
@@ -664,12 +644,12 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
         uint32_t data_count;
         unsigned char *cptr;
 
-        if (wpc->wvc_flag)
+        if (wps->wpc->wvc_flag)
             cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
         else
             cptr = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 8;
 
-        bs_open_write (&wps->wvxbits, cptr + 8, wpc->wvc_flag ? wps->block2end : wps->blockend);
+        bs_open_write (&wps->wvxbits, cptr + 8, wps->wpc->wvc_flag ? wps->block2end : wps->blockend);
 
         if (flags & FLOAT_DATA)
             send_float_data (wps, (f32*) orig_data, (flags & MONO_DATA) ? sample_count : sample_count * 2);
@@ -690,7 +670,7 @@ int pack_block (WavpackContext *wpc, int32_t *buffer)
                 *cptr++ = wps->crc_x >> 16;
                 *cptr = wps->crc_x >> 24;
 
-                if (wpc->wvc_flag)
+                if (wps->wpc->wvc_flag)
                     ((WavpackHeader *) wps->block2buff)->ckSize += data_count + 4;
                 else
                     ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
@@ -899,40 +879,60 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
         }
 }
 
-void send_general_metadata (WavpackContext *wpc)
+// Send any pending metadata (generally RIFF headers, MD5 sums, etc.)
+//
+// Note that this can ONLY be called with stream index 0 which is why
+// it's safe to cast away the const from the WavpackContext pointer.
+
+void send_pending_metadata (WavpackStream *wps)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    WavpackContext *wpc = (WavpackContext *) wps->wpc;  // removes const!
+    WavpackMetadata *wpmdp = wpc->metadata;
+
+    while (wpc->metacount) {
+        copy_metadata (wpmdp, wps->blockbuff, wps->blockend);
+        wpc->metabytes -= wpmdp->byte_length;
+        free_metadata (wpmdp++);
+        wpc->metacount--;
+    }
+
+    free (wpc->metadata);
+    wpc->metadata = NULL;
+}
+
+void send_general_metadata (WavpackStream *wps)
+{
     uint32_t flags = wps->wphdr.flags;
     WavpackMetadata wpmd;
 
-    if ((flags & SRATE_MASK) == SRATE_MASK && wpc->config.sample_rate != 44100) {
-        write_sample_rate (wpc, &wpmd);
+    if ((flags & SRATE_MASK) == SRATE_MASK && wps->wpc->config.sample_rate != 44100) {
+        write_sample_rate (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
     }
 
     if ((flags & INITIAL_BLOCK) &&
-        (wpc->config.num_channels > 2 ||
-        wpc->config.channel_mask != 0x5 - wpc->config.num_channels)) {
-            write_channel_info (wpc, &wpmd);
+        (wps->wpc->config.num_channels > 2 ||
+        wps->wpc->config.channel_mask != 0x5 - wps->wpc->config.num_channels)) {
+            write_channel_info (wps, &wpmd);
             copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
             free_metadata (&wpmd);
 
-            if (wpc->channel_identities) {
-                write_channel_identities_info (wpc, &wpmd);
+            if (wps->wpc->channel_identities) {
+                write_channel_identities_info (wps, &wpmd);
                 copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
                 free_metadata (&wpmd);
             }
     }
 
     if ((flags & INITIAL_BLOCK) && !wps->sample_index) {
-        write_config_info (wpc, &wpmd);
+        write_config_info (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
     }
 
     if (flags & INITIAL_BLOCK) {
-        write_new_config_info (wpc, &wpmd);
+        write_new_config_info (wps, &wpmd);
         copy_metadata (&wpmd, wps->blockbuff, wps->blockend);
         free_metadata (&wpmd);
     }
@@ -990,9 +990,9 @@ uint32_t SCAN_MAX_MAGNITUDE (int32_t *values, int32_t num_values);
 
 #define REPACK_SAFE_NUM_TERMS 5                 // 5 terms is always okay (and we truncate to this)
 
-static int pack_samples (WavpackContext *wpc, int32_t *buffer)
+static int pack_samples (WavpackStream *wps, int32_t *buffer)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream], saved_stream;
+    WavpackStream saved_stream;
     uint32_t flags = wps->wphdr.flags, repack_possible, data_count, crc, crc2, i;
     uint32_t sample_count = wps->wphdr.block_samples, repack_mask;
     int32_t *bptr, *saved_buffer = NULL;
@@ -1008,7 +1008,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             crc += (crc << 1) + *bptr++;
 
         if (wps->num_passes)
-            execute_mono (wpc, buffer, !wps->num_terms, 1);
+            execute_mono (wps, buffer, !wps->num_terms, 1);
     }
     else if (!(flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
         int32_t *eptr = buffer + (sample_count * 2);
@@ -1017,17 +1017,17 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             crc += (crc << 3) + ((uint32_t)bptr [0] << 1) + bptr [0] + bptr [1];
 
         if (wps->num_passes) {
-            execute_stereo (wpc, buffer, !wps->num_terms, 1);
+            execute_stereo (wps, buffer, !wps->num_terms, 1);
             flags = wps->wphdr.flags;
         }
     }
     else if ((flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
         if (wps->num_passes)
-            execute_mono (wpc, buffer, !wps->num_terms, 0);
+            execute_mono (wps, buffer, !wps->num_terms, 0);
     }
     else if ((flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
         if (wps->num_passes) {
-            execute_stereo (wpc, buffer, !wps->num_terms, 0);
+            execute_stereo (wps, buffer, !wps->num_terms, 0);
             flags = wps->wphdr.flags;
         }
     }
@@ -1035,19 +1035,8 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
     wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
     memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
-    if (wpc->metacount) {
-        WavpackMetadata *wpmdp = wpc->metadata;
-
-        while (wpc->metacount) {
-            copy_metadata (wpmdp, wps->blockbuff, wps->blockend);
-            wpc->metabytes -= wpmdp->byte_length;
-            free_metadata (wpmdp++);
-            wpc->metacount--;
-        }
-
-        free (wpc->metadata);
-        wpc->metadata = NULL;
-    }
+    if (!wps->stream_index && wps->wpc->metacount)
+        send_pending_metadata (wps);
 
     if (!sample_count)
         return TRUE;
@@ -1109,10 +1098,10 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             free_metadata (&wpmd);
         }
 
-        send_general_metadata (wpc);
+        send_general_metadata (wps);
         bs_open_write (&wps->wvbits, wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12, wps->blockend);
 
-        if (wpc->wvc_flag) {
+        if (wps->wpc->wvc_flag) {
             wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
             memcpy (wps->block2buff, &wps->wphdr, sizeof (WavpackHeader));
 
@@ -1222,7 +1211,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
                 if ((crc += (crc << 1) + code) != crc2)
                     lossy = TRUE;
 
-                if (wpc->config.flags & CONFIG_CALC_NOISE) {
+                if (wps->wpc->config.flags & CONFIG_CALC_NOISE) {
                     noise = code - bptr [-1];
 
                     noise_acc += noise *= noise;
@@ -1358,7 +1347,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
                 if ((crc += (crc << 3) + ((uint32_t)left << 1) + left + right) != crc2)
                     lossy = TRUE;
 
-                if (wpc->config.flags & CONFIG_CALC_NOISE) {
+                if (wps->wpc->config.flags & CONFIG_CALC_NOISE) {
                     noise = (double)(left - bptr [-2]) * (left - bptr [-2]);
                     noise += (double)(right - bptr [-1]) * (right - bptr [-1]);
 
@@ -1386,7 +1375,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
                     }
                 }
 
-        if (wpc->config.flags & CONFIG_CALC_NOISE)
+        if (wps->wpc->config.flags & CONFIG_CALC_NOISE)
             wps->dc.noise_sum += noise_acc;
 
         flush_word (wps);
@@ -1408,7 +1397,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
 
         ((WavpackHeader *) wps->blockbuff)->crc = crc;
 
-        if (wpc->wvc_flag) {
+        if (wps->wpc->wvc_flag) {
             data_count = bs_close_write (&wps->wvcbits);
 
             if (data_count && lossy) {
@@ -1428,7 +1417,7 @@ static int pack_samples (WavpackContext *wpc, int32_t *buffer)
             ((WavpackHeader *) wps->block2buff)->crc = crc2;
         }
         else if (lossy)
-            wpc->lossy_blocks = TRUE;
+            wps->lossy_blocks = TRUE;
 
         // we're done with the entire block, so now we check if our threshold for a "repack" was hit
 
@@ -1667,7 +1656,7 @@ uint32_t decorr_mono_buffer (int32_t *buffer, struct decorr_pass *decorr_passes,
 
 double WavpackGetEncodedNoise (WavpackContext *wpc, double *peak)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    WavpackStream *wps = wpc->streams [0];
 
     if (peak)
         *peak = wps->dc.noise_max;

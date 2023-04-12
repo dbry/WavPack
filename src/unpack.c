@@ -69,11 +69,10 @@ extern void ASMCALL DECORR_MONO_PASS_CONT (struct decorr_pass *dpp, int32_t *buf
 
 static void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 static void decorr_mono_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
-static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
+static void fixup_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count);
 
-int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count)
+int32_t unpack_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags, crc = wps->crc, i;
     int32_t mute_limit = (1L << ((flags & MAG_MASK) >> MAG_LSB)) + 2;
     int32_t correction [2], read_word, *bptr;
@@ -90,7 +89,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
         wps->mute_error = TRUE;
 
     if (wps->mute_error) {
-        if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))
+        if (wps->wpc->reduced_channels == 1 || wps->wpc->config.num_channels == 1 || (flags & MONO_FLAG))
             memset (buffer, 0, sample_count * 4);
         else
             memset (buffer, 0, sample_count * 8);
@@ -481,11 +480,11 @@ get_word_eof:
                 }
             }
 
-    fixup_samples (wpc, buffer, i);
+    fixup_samples (wps, buffer, i);
 
-    if ((flags & FLOAT_DATA) && (wpc->open_flags & OPEN_NORMALIZE))
+    if ((flags & FLOAT_DATA) && (wps->wpc->open_flags & OPEN_NORMALIZE))
         WavpackFloatNormalize (buffer, (flags & MONO_DATA) ? i : i * 2,
-            127 - wps->float_norm_exp + wpc->norm_offset);
+            127 - wps->float_norm_exp + wps->wpc->norm_offset);
 
     if (flags & FALSE_STEREO) {
         int32_t *dptr = buffer + i * 2;
@@ -684,9 +683,8 @@ static void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_
 // it is clipped and shifted in a single operation. Otherwise, if it's
 // lossless then the last step is to apply the final shift (if any).
 
-static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count)
+static void fixup_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags;
     int lossy_flag = (flags & HYBRID_FLAG) && !wps->block2buff;
     int shift = (flags & SHIFT_MASK) >> SHIFT_LSB;

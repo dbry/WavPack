@@ -36,7 +36,6 @@
 
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples)
 {
-    WavpackStream *wps = wpc->streams ? wpc->streams [wpc->current_stream = 0] : NULL;
     int num_channels = wpc->config.num_channels, file_done = FALSE;
     uint32_t bcount, samples_unpacked = 0, samples_to_unpack;
     int32_t *bptr = buffer;
@@ -49,6 +48,8 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 #endif
 
     while (samples) {
+        WavpackStream *wps = wpc->streams [0];
+        int stream_index = 0;
 
         // if the current block has no audio, or it's not the first block of a multichannel
         // sequence, or the sample we're on is past the last sample in this block...we need
@@ -113,12 +114,12 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                 // if this block has audio, and we're in hybrid lossless mode, read the matching wvc block
 
                 if (wps->wphdr.block_samples && wpc->wvc_flag)
-                    read_wvc_block (wpc);
+                    read_wvc_block (wpc, 0);
 
                 // if the block does NOT have any audio, call unpack_init() to process non-audio stuff
 
                 if (!wps->wphdr.block_samples) {
-                    if (!wps->init_done && !unpack_init (wpc))
+                    if (!wps->init_done && !unpack_init (wpc, 0))
                         wpc->crc_errors++;
 
                     wps->init_done = TRUE;
@@ -171,7 +172,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         if (samples_to_unpack > samples)
             samples_to_unpack = samples;
 
-        if (!wps->init_done && !unpack_init (wpc))
+        if (!wps->init_done && !unpack_init (wpc, 0))
             wpc->crc_errors++;
 
         wps->init_done = TRUE;
@@ -196,18 +197,19 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                 // if the stream has not been allocated and corresponding block read, do that here...
 
-                if (wpc->current_stream == wpc->num_streams) {
+                if (stream_index == wpc->num_streams) {
                     wpc->streams = (WavpackStream **)realloc (wpc->streams, (wpc->num_streams + 1) * sizeof (wpc->streams [0]));
 
                     if (!wpc->streams)
                         break;
 
-                    wps = wpc->streams [wpc->num_streams++] = (WavpackStream *)malloc (sizeof (WavpackStream));
+                    wps = wpc->streams [wpc->num_streams++] = (WavpackStream *)calloc (1, sizeof (WavpackStream));
 
                     if (!wps)
                         break;
 
-                    CLEAR (*wps);
+                    wps->wpc = wpc;
+                    wps->stream_index = stream_index;
                     bcount = read_next_header (wpc->reader, wpc->wv_in, &wps->wphdr);
 
                     if (bcount == (uint32_t) -1) {
@@ -251,26 +253,26 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                     // if this block has audio, and we're in hybrid lossless mode, read the matching wvc block
 
                     if (wpc->wvc_flag)
-                        read_wvc_block (wpc);
+                        read_wvc_block (wpc, stream_index);
 
                     // initialize the unpacker for this block
 
-                    if (!unpack_init (wpc))
+                    if (!unpack_init (wpc, stream_index))
                         wpc->crc_errors++;
 
                     wps->init_done = TRUE;
                 }
                 else
-                    wps = wpc->streams [wpc->current_stream];
+                    wps = wpc->streams [stream_index];
 
                 // unpack the correct number of samples (either mono or stereo) into the temp buffer
 
 #ifdef ENABLE_DSD
                 if (wps->wphdr.flags & DSD_FLAG)
-                    unpack_dsd_samples (wpc, src = temp_buffer, samples_to_unpack);
+                    unpack_dsd_samples (wps, src = temp_buffer, samples_to_unpack);
                 else
 #endif
-                    unpack_samples (wpc, src = temp_buffer, samples_to_unpack);
+                    unpack_samples (wps, src = temp_buffer, samples_to_unpack);
 
                 samcnt = samples_to_unpack;
                 dst = bptr + offset;
@@ -315,10 +317,10 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                 // check several clues that we're done with this set of blocks and exit if we are; else do next stream
 
-                if ((wps->wphdr.flags & FINAL_BLOCK) || wpc->current_stream == wpc->max_streams - 1 || offset == num_channels)
+                if ((wps->wphdr.flags & FINAL_BLOCK) || stream_index == wpc->max_streams - 1 || offset == num_channels)
                     break;
                 else
-                    wpc->current_stream++;
+                    stream_index++;
             }
 
             // if we didn't get all the channels we expected, mute the buffer and flag an error
@@ -340,7 +342,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
             // go back to the first stream (we're going to leave them all loaded for now because they might have more samples)
             // and free the temp buffer
 
-            wps = wpc->streams [wpc->current_stream = 0];
+            wps = wpc->streams [stream_index = 0];
             free (temp_buffer);
         }
         // catch the error situation where we have only one channel but run into a stereo block
@@ -352,10 +354,10 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         }
 #ifdef ENABLE_DSD
         else if (wps->wphdr.flags & DSD_FLAG)
-            unpack_dsd_samples (wpc, bptr, samples_to_unpack);
+            unpack_dsd_samples (wps, bptr, samples_to_unpack);
 #endif
         else
-            unpack_samples (wpc, bptr, samples_to_unpack);
+            unpack_samples (wps, bptr, samples_to_unpack);
 
         if (file_done) {
             strcpy (wpc->error_message, "can't read all of last block!");
