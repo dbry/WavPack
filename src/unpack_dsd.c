@@ -41,6 +41,8 @@ int init_dsd_block (WavpackStream *wps, WavpackMetadata *wpmd)
     // safe to cast away const on stream 0 only
     if (!wps->stream_index)
         ((WavpackContext *)wps->wpc)->dsd_multiplier = 1U << *wps->dsd.byteptr++;
+    else
+        wps->dsd.byteptr++;
 
     wps->dsd.mode = *wps->dsd.byteptr++;
 
