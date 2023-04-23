@@ -1609,13 +1609,14 @@ static void *pack_samples_worker_thread (void *param)
 static void pack_samples_enqueue (WavpackStream *wps)
 {
     WavpackContext *wpc = (WavpackContext *) wps->wpc;  // this is safe here because single-threaded
+    int i;
 
     wp_mutex_obtain (wpc->mutex);
 
     while (!wpc->workers_ready)                         // make sure a worker thread is ready
         wp_condvar_wait (wpc->global_cond, wpc->mutex);
 
-    for (int i = 0; i < wpc->num_workers; ++i)
+    for (i = 0; i < wpc->num_workers; ++i)
         if (wpc->workers [i].state == Ready) {
             wpc->workers [i].wps = wps;
             wpc->workers [i].state = Running;
