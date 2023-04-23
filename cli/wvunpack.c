@@ -1181,7 +1181,7 @@ static int quick_verify_file (char *infilename, int verbose)
     double dtime, progress = -1.0;
     WavpackHeader wphdr, wphdr_c;
     unsigned char *block_buffer;
-    FILE *infile, *infile_c;
+    FILE *infile, *infile_c = NULL;
     uint32_t bytes_skipped;
 
 #if defined(__WATCOMC__)
