@@ -465,7 +465,7 @@ static void *unpack_samples_worker_thread (void *param)
 {
     WorkerInfo *cxt = param;
     int32_t *temp_buffer = NULL;
-    int temp_samples = 0;
+    uint32_t temp_samples = 0;
 
     while (1) {
         wp_mutex_obtain (*cxt->mutex);
