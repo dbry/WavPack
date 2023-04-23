@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2020 David Bryant.                 //
+//                Copyright (c) 1998 - 2023 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -29,7 +29,7 @@
 
 static const char *sign_on = "\n"
 " WVTEST  libwavpack Tester/Exerciser for WavPack  %s Version %s\n"
-" Copyright (c) 2020 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2023 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVTEST using libwavpack version %s, expected %s (see README)\n\n";
@@ -49,6 +49,8 @@ static const char *usage =
 "          --no-speeds         = skip the speed modes (fast, high, etc.)\n"
 "          --help              = display this message\n"
 "          --version           = write the version to stdout\n"
+"          --threads[=n]       = use up to 'n' worker threads for multichannel audio\n"
+"                                 (if 'n' is omitted defaults to 4, max is 12)\n"
 "          --write=n[-n][,...] = write specific test(s) (or range(s)) to disk\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -76,6 +78,8 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
 #define NUM_WRITE_RANGES 10
 static struct { int start, stop; } write_ranges [NUM_WRITE_RANGES];
 int number_of_ranges;
+
+static int worker_threads;
 
 enum generator_type { noise, tone };
 
@@ -224,6 +228,18 @@ int main (argc, argv) int argc; char **argv;
                 if (seektest)
                     break;
             }
+            else if (!strncmp (long_option, "threads", 7)) {            // --threads
+                if (isdigit (*long_param)) {
+                    worker_threads = strtol (long_param, &long_param, 10);
+
+                    if (worker_threads < 0 || worker_threads > 12) {
+                        printf ("worker threads must be 12 or less!\n");
+                        return 1;
+                    }
+                }
+                else
+                    worker_threads = 4;             // 4 is a good default for 5.1
+            }
             else {
                 printf ("unknown option: %s !\n", long_option);
                 return 1;
@@ -291,7 +307,7 @@ done:
 static int seeking_test (char *filename, uint32_t test_count)
 {
     char error [80];
-    WavpackContext *wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+    int open_flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
     int64_t min_chunk_size = 256, total_samples, sample_count = 0;
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
@@ -299,6 +315,12 @@ static int seeking_test (char *filename, uint32_t test_count)
     unsigned char md5_initial [16], md5_stored [16];
     MD5_CTX md5_global, md5_local;
     unsigned char *chunked_md5;
+    WavpackContext *wpc;
+
+    if (worker_threads)
+        open_flags |= worker_threads << OPEN_THREADS_SHFT;
+
+    wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
 
     printf ("\n-------------------- file: %s %s--------------------\n",
         filename, (WavpackGetMode (wpc) & MODE_WVC) ? "(+wvc) " : "");
@@ -421,7 +443,7 @@ static int seeking_test (char *filename, uint32_t test_count)
 
         if (frandom() < 0.5) {
             WavpackCloseFile (wpc);
-            wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+            wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
 
             if (!wpc) {
                 printf ("seeking_test(): error \"%s\" reopening input file \"%s\"\n", error, filename);
@@ -857,6 +879,9 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
     }
 
+    if (worker_threads)
+        wpconfig.worker_threads = worker_threads;
+
     WavpackSetConfiguration64 (out_wpc, &wpconfig, -1, NULL);
     WavpackPackInit (out_wpc);
 
@@ -1003,9 +1028,15 @@ static void *decode_thread (void *threadid)
 {
     WavpackDecoder *wd = (WavpackDecoder *) threadid;
     char error [80];
-    WavpackContext *wpc = WavpackOpenFileInputEx (&freader, wd->wv_stream, wd->wvc_stream, error, 0, 0);
+    WavpackContext *wpc;
     int32_t *decoded_samples, num_chans, bps;
     MD5_CTX md5_context;
+    int open_flags = 0;
+
+    if (worker_threads)
+        open_flags |= worker_threads << OPEN_THREADS_SHFT;
+
+    wpc = WavpackOpenFileInputEx (&freader, wd->wv_stream, wd->wvc_stream, error, open_flags, 0);
 
     if (!wpc) {
         printf ("decode_thread(): error \"%s\" opening input file\n", error);
