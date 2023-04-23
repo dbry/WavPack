@@ -179,6 +179,8 @@ static const char *help =
 "                          start decoding at specified sample/time\n"
 "                           (specifying a '-' makes sample/time relative to end)\n"
 "    -t                    copy input file's time stamp to output file(s)\n"
+"    --threads[=n]         use up to 'n' worker threads for multichannel audio\n"
+"                           (if 'n' is omitted defaults to 4, max is 12)\n"
 "    --until=[+|-][sample|hh:mm:ss.ss]\n"
 "                          stop decoding at specified sample/time\n"
 "                           (adding '+' makes sample/time relative to '--skip'\n"
@@ -231,7 +233,8 @@ static struct {
 int debug_logging_mode;
 
 static int overwrite_all, delete_source, raw_decode, raw_pcm, normalize_floats, no_utf8_convert, no_audio_decode, file_info, summary,
-    ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, decode_format, format_specified, caf_be, aif_le, set_console_title;
+    ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, decode_format, format_specified, caf_be, aif_le, set_console_title,
+    worker_threads;
 
 static int num_files, file_index, outbuf_k;
 
@@ -377,6 +380,18 @@ int main(int argc, char **argv)
                     error_line ("invalid --until parameter!");
                     ++error_count;
                 }
+            }
+            else if (!strncmp (long_option, "threads", 7)) {            // --threads
+                if (isdigit (*long_param)) {
+                    worker_threads = strtol (long_param, &long_param, 10);
+
+                    if (worker_threads < 0 || worker_threads > 12) {
+                        error_line ("worker threads must be 12 or less!");
+                        ++error_count;
+                    }
+                }
+                else
+                    worker_threads = 4;             // 4 is a good default for 5.1
             }
             else if (!strcmp (long_option, "caf-be")) {                 // --caf-be
                 decode_format = WP_FORMAT_CAF;
@@ -1583,6 +1598,9 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         open_flags |= OPEN_DSD_AS_PCM | OPEN_ALT_TYPES;
     else
         open_flags |= OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
+
+    if (worker_threads)
+        open_flags |= worker_threads << OPEN_THREADS_SHFT;
 
     wpc = WavpackOpenFileInput (infilename, error, open_flags, 0);
 

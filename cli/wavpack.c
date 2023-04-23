@@ -227,6 +227,8 @@ static const char *help =
 "                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
+"    --threads[=n]           use up to 'n' worker threads for multichannel audio\n"
+"                             (if 'n' is omitted defaults to 4, max is 12)\n"
 "    -t                      copy input file's time stamp to output file(s)\n"
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 "    -v                      verify output file integrity after write (no pipes)\n"
@@ -292,7 +294,7 @@ int debug_logging_mode;
 
 static int overwrite_all, no_overwrite, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
     no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, quantize_round, import_id3,
-    raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end;
+    raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end, worker_threads;
 
 static int num_channels_order;
 static unsigned char channel_order [18];
@@ -633,6 +635,20 @@ int main (int argc, char **argv)
                     error_line ("invalid quantize bits!");
                     ++error_count;
                 }
+            }
+            else if (!strncmp (long_option, "threads", 7)) {                // --threads
+                if (isdigit (*long_param)) {
+                    worker_threads = strtol (long_param, &long_param, 10);
+
+                    if (worker_threads < 0 || worker_threads > 12) {
+                        error_line ("worker threads must be 12 or less!");
+                        ++error_count;
+                    }
+                }
+                else
+                    worker_threads = 4;             // 4 is a good default for 5.1
+
+                config.worker_threads = worker_threads;
             }
             else {
                 error_line ("unknown option: %s !", long_option);
@@ -2843,6 +2859,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     flags |= OPEN_FILE_UTF8;
 #endif
 
+    if (worker_threads)
+        flags |= worker_threads << OPEN_THREADS_SHFT;
+
     // use library to open input WavPack file
 
     infile = WavpackOpenFileInput (infilename, error, flags, 0);
@@ -3714,6 +3733,7 @@ static void unreorder_channels (int32_t *data, unsigned char *order, int num_cha
 
 static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 {
+    int open_flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
     int num_channels, bps, qmode, result = WAVPACK_NO_ERROR;
     unsigned char *new_channel_order = NULL;
     int64_t total_unpacked_samples = 0;
@@ -3727,10 +3747,13 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     // use library to open WavPack file
 
 #ifdef _WIN32
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_FILE_UTF8 | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
-#else
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+    open_flags |= OPEN_FILE_UTF8;
 #endif
+
+    if (worker_threads)
+        open_flags |= worker_threads << OPEN_THREADS_SHFT;
+
+    wpc = WavpackOpenFileInput (infilename, error, open_flags, 0);
 
     if (!wpc) {
         error_line (error);
