@@ -346,6 +346,31 @@ void WavpackGetChannelIdentities (WavpackContext *wpc, unsigned char *identities
     *identities = 0;
 }
 
+#ifdef ENABLE_THREADS
+
+static void worker_threads_destroy (WavpackContext *wpc)
+{
+    if (wpc->workers) {
+        int i;
+
+        for (i = 0; i < wpc->num_workers; ++i) {
+            wp_mutex_obtain (wpc->mutex);
+            wpc->workers [i].state = Quit;
+            wp_condvar_signal (wpc->workers [i].worker_cond);
+            wp_mutex_release (wpc->mutex);
+            wp_thread_join (wpc->workers [i].thread);
+            wp_thread_delete (wpc->workers [i].thread);
+            wp_condvar_delete (wpc->workers [i].worker_cond);
+        }
+
+        free (wpc->workers);
+        wpc->workers = NULL;
+        wp_mutex_delete (wpc->mutex);
+    }
+}
+
+#endif
+
 // For local use only. Install a callback to be executed when WavpackCloseFile() is called,
 // usually used to dump some statistics accumulated during encode or decode.
 
@@ -407,6 +432,10 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
 #ifdef ENABLE_DSD
     if (wpc->decimation_context)
         decimate_dsd_destroy (wpc->decimation_context);
+#endif
+
+#ifdef ENABLE_THREADS
+    worker_threads_destroy (wpc);
 #endif
 
     free (wpc);

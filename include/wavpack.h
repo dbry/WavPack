@@ -201,7 +201,7 @@ typedef struct {
     float bitrate, shaping_weight;
     int bits_per_sample, bytes_per_sample;
     int qmode, flags, xmode, num_channels, float_norm_exp;
-    int32_t block_samples, dummy, sample_rate, channel_mask;
+    int32_t block_samples, worker_threads, sample_rate, channel_mask;
     unsigned char md5_checksum [16], md5_read;
     int num_tag_strings;                // this field is not used
     char **tag_strings;                 // this field is not used
@@ -327,6 +327,11 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 #define OPEN_ALT_TYPES  0x400   // application is aware of alternate file types & qmode
                                 // (just affects retrieving wrappers & MD5 checksums)
 #define OPEN_NO_CHECKSUM 0x800  // don't verify block checksums before decoding
+
+// new for multithreaded
+
+#define OPEN_THREADS_SHFT 12     // specify number of worker threads here for multichannel file
+#define OPEN_THREADS_MASK 0xF000 // decode; 0 to disable, otherwise 2-15 (1 is useless)
 
 int WavpackGetMode (WavpackContext *wpc);
 

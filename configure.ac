@@ -87,6 +87,13 @@ AS_IF([test "x${enable_dsd}" != "xno"], [
 ])
 AM_CONDITIONAL([ENABLE_DSD], [test "x${enable_dsd}" != "xno"])
 
+AC_ARG_ENABLE([threads],
+  [AS_HELP_STRING([--disable-threads], [disable use of threading in libwavpack])])
+AS_IF([test "x${enable_threads}" != "xno"], [
+  AC_DEFINE([ENABLE_THREADS])
+])
+AM_CONDITIONAL([ENABLE_THREADS], [test "x${enable_threads}" != "xno"])
+
 AC_ARG_ENABLE([rpath],
   [AS_HELP_STRING([--enable-rpath], [hardcode library path in executables])])
 AM_CONDITIONAL([ENABLE_RPATH], [test "x${enable_rpath}" = "xyes"])

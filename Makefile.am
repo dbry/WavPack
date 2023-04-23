@@ -163,5 +163,5 @@ src_libwavpack_la_SOURCES += src/unpack_armv7.S
 endif
 
 src_libwavpack_la_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
-src_libwavpack_la_LIBADD = $(AM_LDADD) $(LIBM)
+src_libwavpack_la_LIBADD = $(AM_LDADD) $(LIBM) -lpthread
 src_libwavpack_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -export-symbols-regex '^Wavpack.*$$' -no-undefined

@@ -57,6 +57,62 @@ typedef __int8  int8_t;
 #include <stdint.h>
 #endif
 
+// This implements portable multithreading via typedefs and macros for either
+// pthreads or native Windows threads. This is easy since the synchronization
+// constructs we are using (condition variables and mutexes / critical
+// sections) are available on both platforms with similar behavior.
+
+#ifdef ENABLE_THREADS
+
+#ifdef _WIN32
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+typedef CONDITION_VARIABLE      wp_condvar_t;
+#define wp_condvar_init(x)      InitializeConditionVariable(&x)
+#define wp_condvar_signal(x)    WakeConditionVariable(&x)
+#define wp_condvar_wait(x,y)    SleepConditionVariableCS(&x,&y,INFINITE)
+#define wp_condvar_delete(x)
+
+typedef CRITICAL_SECTION        wp_mutex_t;
+#define wp_mutex_init(x)        InitializeCriticalSection(&x)
+#define wp_mutex_obtain(x)      EnterCriticalSection(&x)
+#define wp_mutex_release(x)     LeaveCriticalSection(&x)
+#define wp_mutex_delete(x)      DeleteCriticalSection(&x)
+
+typedef HANDLE                  wp_thread_t;
+#define wp_thread_create(x,y,z) x=CreateThread(NULL,0,y,z,0,NULL)
+#define wp_thread_join(x)       WaitForSingleObject(x,INFINITE)
+#define wp_thread_delete(x)     CloseHandle(x);
+#define wp_thread_exit(x)       ExitThread(x);
+
+#else
+
+#include <pthread.h>
+
+typedef pthread_cond_t          wp_condvar_t;
+#define wp_condvar_init(x)      pthread_cond_init(&x,NULL);
+#define wp_condvar_signal(x)    pthread_cond_signal(&x)
+#define wp_condvar_wait(x,y)    pthread_cond_wait(&x,&y)
+#define wp_condvar_delete(x)    pthread_cond_destroy(&x)
+
+typedef pthread_mutex_t         wp_mutex_t;
+#define wp_mutex_init(x)        pthread_mutex_init(&x,NULL);
+#define wp_mutex_obtain(x)      pthread_mutex_lock(&x)
+#define wp_mutex_release(x)     pthread_mutex_unlock(&x)
+#define wp_mutex_delete(x)      pthread_mutex_destroy(&x)
+
+typedef pthread_t               wp_thread_t;
+#define wp_thread_create(x,y,z) pthread_create(&x,NULL,y,z)
+#define wp_thread_join(x)       pthread_join(x,NULL)
+#define wp_thread_delete(x)
+#define wp_thread_exit(x)       pthread_exit(x);
+
+#endif
+
+#endif
+
 // Because the C99 specification states that "The order of allocation of
 // bit-fields within a unit (high-order to low-order or low-order to
 // high-order) is implementation-defined" (6.7.2.1), I decided to change
@@ -287,8 +343,28 @@ typedef struct {
 /////////////////////////////// WavPack Context ///////////////////////////////
 
 // This internal structure holds everything required to encode or decode WavPack
-// files. It is recommended that direct access to this structure be minimized
-// and the provided utilities used instead.
+// files. This is an opaque pointer to clients of libwavpack.
+
+#ifdef ENABLE_THREADS
+
+// Each worker thread owns one of these contexts during its lifetime
+
+typedef enum { Uninit, Ready, Running, Done, Quit } WorkerState;
+
+typedef struct {
+    WavpackStream *wps;
+    WorkerState state;
+    int *workers_ready;
+    int32_t *outbuf;
+    uint32_t samcnt, offset;
+    int result;
+
+    wp_condvar_t *global_cond, worker_cond;
+    wp_mutex_t *mutex;
+    wp_thread_t thread;
+} WorkerInfo;
+
+#endif
 
 struct WavpackContext {
     WavpackConfig config;
@@ -322,6 +398,14 @@ struct WavpackContext {
     uint32_t channel_layout, dsd_multiplier;
     void *decimation_context;
     char file_extension [8];
+
+#ifdef ENABLE_THREADS
+    // these items support multithreaded operations on multichannel streams
+    WorkerInfo *workers;
+    int num_workers, workers_ready;
+    wp_condvar_t global_cond;
+    wp_mutex_t mutex;
+#endif
 
     void (*close_callback)(void *wpc);
     char error_message [80];

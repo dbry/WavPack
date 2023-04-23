@@ -77,6 +77,7 @@ include(FindOpenSSL)
 # Options. See also dependent options below
 
 option(WAVPACK_ENABLE_LEGACY "Decode legacy (< 4.0) WavPack files" OFF)
+option(WAVPACK_ENABLE_THREADS "Enable support for threading in libwavpack" ON)
 option(WAVPACK_ENABLE_DSD "Enable support for WavPack DSD files" ON)
 option(WAVPACK_INSTALL_CMAKE_MODULE "Generate and install CMake package configuration module" ON)
 option(WAVPACK_INSTALL_DOCS "Install documentation" ON)
@@ -197,6 +198,7 @@ target_include_directories(wavpack
 )
 target_link_libraries(wavpack
     PRIVATE
+    $<$<BOOL:${WAVPACK_ENABLE_THREADS}>:Threads::Threads>
         $<$<BOOL:${HAVE_LIBM}>:m>
 )
 add_library(WavPack::WavPack ALIAS wavpack)
@@ -220,6 +222,7 @@ endif()
 target_compile_definitions(wavpack
     PRIVATE
         $<$<BOOL:${WAVPACK_ENABLE_LEGACY}>:ENABLE_LEGACY>
+        $<$<BOOL:${WAVPACK_ENABLE_THREADS}>:ENABLE_THREADS>
         $<$<BOOL:${WAVPACK_ENABLE_DSD}>:ENABLE_DSD>
         $<$<BOOL:${MSVC}>:_CRT_SECURE_NO_WARNINGS>
         $<$<BOOL:${HAVE___BUILTIN_CLZ}>:HAVE___BUILTIN_CLZ>
@@ -586,13 +589,14 @@ set_package_properties(Iconv PROPERTIES
 set_package_properties(Threads PROPERTIES
 	TYPE OPTIONAL
 	DESCRIPTION "Threads library"
-    PURPOSE "Required to build tests."
+    PURPOSE "Required to build tests, optional for library."
 )
 
 add_feature_info(BUILD_SHARED_LIBS BUILD_SHARED_LIBS "Build shared library.")
 add_feature_info(BUILD_TESTING BUILD_TESTING "Build tests.")
 add_feature_info(WAVPACK_ENABLE_LEGACY WAVPACK_ENABLE_LEGACY "Decode legacy (< 4.0) WavPack files.")
 add_feature_info(WAVPACK_ENABLE_DSD WAVPACK_ENABLE_DSD "Enable support for WavPack DSD files.")
+add_feature_info(WAVPACK_ENABLE_THREADS WAVPACK_ENABLE_THREADS "Enable support for threading in libwavpack.")
 add_feature_info(WAVPACK_INSTALL_CMAKE_MODULE WAVPACK_INSTALL_CMAKE_MODULE "Generate and install CMake package configuration module.")
 
 

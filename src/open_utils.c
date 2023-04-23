@@ -235,6 +235,20 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             wpc->config.sample_rate = sample_rates [(wps->wphdr.flags & SRATE_MASK) >> SRATE_LSB];
     }
 
+#ifdef ENABLE_THREADS
+    if (!(wpc->open_flags & OPEN_2CH_MAX) && (wpc->open_flags & OPEN_THREADS_MASK))
+        wpc->num_workers = ((wpc->open_flags & OPEN_THREADS_MASK) >> OPEN_THREADS_SHFT) & 0xf;
+
+    if (wpc->num_workers > wpc->max_streams)
+        wpc->num_workers = wpc->max_streams;
+
+    if (wpc->num_workers > wpc->config.num_channels)
+        wpc->num_workers = wpc->config.num_channels;
+
+    if (wpc->num_workers == 1)
+        wpc->num_workers = 0;
+#endif
+
     return wpc;
 }
 
