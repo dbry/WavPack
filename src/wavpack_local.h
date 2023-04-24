@@ -66,6 +66,14 @@ typedef __int8  int8_t;
 
 #ifdef _WIN32
 
+#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x0600
+#undef _WIN32_WINNT
+#endif
+
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600 /* for CONDITION_VARIABLE & co. */
+#endif
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
