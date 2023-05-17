@@ -267,12 +267,30 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
 
             WavpackBigEndianToNative (&sound_chunk, SoundChunkFormat);
 
-            if (sound_chunk.offset || sound_chunk.blockSize) {
-                error_line ("%s is an unsupported .AIF%c format!", infilename, aiff_chunk_header.formType [3]);
-                return WAVPACK_SOFT_ERROR;
+            // The "offset" and "blockSize" fields are normally zero, and we don't handle any kind of crazy
+            // alignment rules. However, we CAN handle a simple small "offset" (by adding it to the sound
+            // chunk) and a "blockSize" that matches the actual block size (can't complain about that).
+
+            if (sound_chunk.offset > 65536 || (sound_chunk.blockSize != 0 &&
+                sound_chunk.blockSize != config->bytes_per_sample * config->num_channels)) {
+                    error_line ("%s is an unsupported .AIF%c format!", infilename, aiff_chunk_header.formType [3]);
+                    return WAVPACK_SOFT_ERROR;
             }
 
-            data_chunk_size = chunk_header.ckSize - sizeof (sound_chunk);
+            if (sound_chunk.offset) {
+                unsigned char *offset_data = malloc (sound_chunk.offset);
+
+                if (!DoReadFile (infile, offset_data, sound_chunk.offset, &bcount) || bcount != sound_chunk.offset ||
+                    (!(config->qmode & QMODE_NO_STORE_WRAPPER) && !WavpackAddWrapper (wpc, offset_data, sound_chunk.offset))) {
+                        error_line ("%s", WavpackGetErrorMessage (wpc));
+                        free (offset_data);
+                        return WAVPACK_SOFT_ERROR;
+                }
+
+                free (offset_data);
+            }
+
+            data_chunk_size = chunk_header.ckSize - sizeof (sound_chunk) - sound_chunk.offset;
             bytes_per_frame = config->bytes_per_sample * config->num_channels;
 
             if (infilesize && !(config->qmode & QMODE_IGNORE_LENGTH) && infilesize - data_chunk_size > 16777216) {
