@@ -23,15 +23,22 @@
 
 ///////////////////////////// executable code ////////////////////////////////
 
-// This function initializes everything required to pack WavPack bitstreams
-// and must be called BEFORE any other function in this module.
+// This function initializes everything required to pack WavPack bitstreams and
+// must be called BEFORE any other function in this module. Normally the passed
+// WavpackStream structure would already be cleared, however this function can
+// also be used to clear the stream context of history which is required after
+// discontinuities caused by multi-threaded temporal encoding. This is why,
+// for example, we do not clear the sample_index here.
 
 void pack_init (WavpackStream *wps)
 {
-    wps->sample_index = 0;
-    wps->delta_decay = 2.0;
+    wps->num_terms = 0;
+    wps->dc.error [0] = wps->dc.error [1] = 0;
     CLEAR (wps->decorr_passes);
     CLEAR (wps->dc);
+
+    if (wps->delta_decay == 0.0)
+        wps->delta_decay = 2.0;
 
     if (wps->wpc->config.flags & CONFIG_DYNAMIC_SHAPING) {
         wps->dc.shaping_data = malloc (wps->wpc->max_samples * sizeof (*wps->dc.shaping_data));
@@ -1456,7 +1463,6 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
 
     } while (1);
 
-    wps->sample_index += sample_count;
     return TRUE;
 }
 

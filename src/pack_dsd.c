@@ -25,7 +25,6 @@
 
 void pack_dsd_init (WavpackStream *wps)
 {
-    wps->sample_index = 0;
 }
 
 // Pack an entire block of samples (either mono or stereo) into a completed
@@ -102,6 +101,9 @@ int pack_dsd_block (WavpackStream *wps, int32_t *buffer)
     if (wps->wpc->config.flags & CONFIG_HIGH_FLAG) {
         int fast_res = encode_buffer_fast (wps, buffer, sample_count, dsd_encoding);
 
+        if (wps->pre_sample_buffer && wps->num_pre_samples && wps->num_pre_samples <= sample_count)
+            encode_buffer_high (wps, wps->pre_sample_buffer, wps->num_pre_samples, dsd_encoding);
+
         res = encode_buffer_high (wps, buffer, sample_count, dsd_encoding);
 
         if ((fast_res != -1) && (res == -1 || res > fast_res))
@@ -143,7 +145,6 @@ int pack_dsd_block (WavpackStream *wps, int32_t *buffer)
         ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
     }
 
-    wps->sample_index += sample_count;
     return TRUE;
 }
 
@@ -503,10 +504,8 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
     *dp++ = 3;
     ep = destination + num_samples * (stereo + 1) - 10;
 
-    if (!wps->sample_index) {
-        if (!wps->dsd.ptable)
-            wps->dsd.ptable = malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
-
+    if (!wps->dsd.ptable) {
+        wps->dsd.ptable = malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
         init_ptable (wps->dsd.ptable, INITIAL_TERM, RATE_S);
 
         for (channel = 0; channel < 2; ++channel) {

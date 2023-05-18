@@ -305,7 +305,8 @@ typedef struct {
 
     unsigned char *blockbuff, *blockend;
     unsigned char *block2buff, *block2end;
-    int32_t *sample_buffer;
+    int32_t *sample_buffer, *pre_sample_buffer;
+    int num_pre_samples, discontinuous;
 
     int64_t sample_index;
     int bits, num_terms, mute_error, joint_stereo, false_stereo, shift, lossy_blocks;
@@ -393,7 +394,7 @@ struct WavpackContext {
     int64_t filelen, file2len, filepos, file2pos, total_samples, initial_index;
     uint32_t crc_errors, first_flags;
     int wvc_flag, open_flags, norm_offset, reduced_channels, lossy_blocks, version_five;
-    uint32_t block_samples, ave_block_samples, block_boundary, max_samples, acc_samples, riff_trailer_bytes;
+    uint32_t block_samples, ave_block_samples, block_boundary, max_samples, max_pre_samples, acc_samples, riff_trailer_bytes;
     int riff_header_added, riff_header_created;
     M_Tag m_tag;
 
