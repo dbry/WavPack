@@ -500,6 +500,17 @@ get_word_eof:
     wps->sample_index += i;
     wps->crc = crc;
 
+    // If we just finished this block, then it's time to check if the applicable checksums match. Like
+    // other decoding errors, these are indicated by setting the mute_error flag. We also clear the
+    // buffer to reduce the chances of noise bursts getting through.
+
+    if (!wps->mute_error && wps->sample_index == GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples) {
+        if (wps->crc != wps->wphdr.crc || (bs_is_open (&wps->wvxbits) && wps->crc_x != wps->crc_wvx)) {
+            memset (buffer, 0, sample_count * (flags & MONO_FLAG ? 4 : 8));
+            wps->mute_error = TRUE;
+        }
+    }
+
     return i;
 }
 
@@ -798,27 +809,4 @@ static void fixup_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_
         while (sample_count--)
             *(uint32_t*)buffer++ <<= shift;
     }
-}
-
-// This function checks the crc value(s) for an unpacked block, returning the
-// number of actual crc errors detected for the block. The block must be
-// completely unpacked before this test is valid. For losslessly unpacked
-// blocks of float or extended integer data the extended crc is also checked.
-// Note that WavPack's crc is not a CCITT approved polynomial algorithm, but
-// is a much simpler method that is virtually as robust for real world data.
-
-int check_crc_error (WavpackContext *wpc)
-{
-    int result = 0, stream;
-
-    for (stream = 0; stream < wpc->num_streams; stream++) {
-        WavpackStream *wps = wpc->streams [stream];
-
-        if (wps->crc != wps->wphdr.crc)
-            ++result;
-        else if (bs_is_open (&wps->wvxbits) && wps->crc_x != wps->crc_wvx)
-            ++result;
-    }
-
-    return result;
 }

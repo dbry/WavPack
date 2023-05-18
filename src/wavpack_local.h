@@ -362,10 +362,10 @@ typedef enum { Uninit, Ready, Running, Done, Quit } WorkerState;
 typedef struct {
     WavpackStream *wps;
     WorkerState state;
-    int *workers_ready;
+    int *workers_ready, *worker_errors;
     int32_t *outbuf;
     uint32_t samcnt, offset;
-    int result;
+    int result, free_wps;
 
     wp_condvar_t *global_cond, worker_cond;
     wp_mutex_t *mutex;
@@ -410,7 +410,7 @@ struct WavpackContext {
 #ifdef ENABLE_THREADS
     // these items support multithreaded operations on multichannel streams
     WorkerInfo *workers;
-    int num_workers, workers_ready;
+    int num_workers, workers_ready, worker_errors;
     wp_condvar_t global_cond;
     wp_mutex_t mutex;
 #endif
@@ -488,7 +488,6 @@ int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd);
 int read_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd);
 int32_t unpack_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count);
-int check_crc_error (WavpackContext *wpc);
 int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
 void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
 void float_values (WavpackStream *wps, int32_t *values, int32_t num_values);
@@ -773,6 +772,7 @@ void WavpackBigEndianToNative (void *data, char *format);
 void WavpackNativeToBigEndian (void *data, char *format);
 
 void install_close_callback (WavpackContext *wpc, void cb_func (void *wpc));
+void free_single_stream (WavpackStream *wps);
 void free_dsd_tables (WavpackStream *wps);
 void free_streams (WavpackContext *wpc);
 

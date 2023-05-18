@@ -93,6 +93,13 @@ int32_t unpack_dsd_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample
         }
         else if (!decode_high (wps, buffer, sample_count))
             wps->mute_error = TRUE;
+
+        // If we just finished this block, then it's time to check if the applicable checksum matches. Like
+        // other decoding errors, this is indicated by setting the mute_error flag.
+
+        if (wps->sample_index + sample_count == GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples &&
+            !wps->mute_error && wps->crc != wps->wphdr.crc)
+                wps->mute_error = TRUE;
     }
 
     if (wps->mute_error) {

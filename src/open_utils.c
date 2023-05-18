@@ -236,17 +236,20 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
     }
 
 #ifdef ENABLE_THREADS
-    if (!(wpc->open_flags & OPEN_2CH_MAX) && (wpc->open_flags & OPEN_THREADS_MASK))
+    if (!(wpc->open_flags & OPEN_2CH_MAX) && (wpc->open_flags & OPEN_THREADS_MASK)) {
         wpc->num_workers = ((wpc->open_flags & OPEN_THREADS_MASK) >> OPEN_THREADS_SHFT) & 0xf;
 
-    if (wpc->num_workers > wpc->max_streams)
-        wpc->num_workers = wpc->max_streams;
+        // for multichannel files we can limit the number of workers
+        // because we only do spatial multithreading (not temporal)
 
-    if (wpc->num_workers > wpc->config.num_channels)
-        wpc->num_workers = wpc->config.num_channels;
+        if (!(wps->wphdr.flags & FINAL_BLOCK)) {
+            if (wpc->num_workers > wpc->max_streams - 1)
+                wpc->num_workers = wpc->max_streams - 1;
 
-    if (wpc->num_workers == 1)
-        wpc->num_workers = 0;
+            if (wpc->num_workers > wpc->config.num_channels - 1)
+                wpc->num_workers = wpc->config.num_channels - 1;
+        }
+    }
 #endif
 
     return wpc;

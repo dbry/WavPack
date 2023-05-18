@@ -559,29 +559,7 @@ void free_streams (WavpackContext *wpc)
     int si = wpc->num_streams;
 
     while (si--) {
-        if (wpc->streams [si]->blockbuff) {
-            free (wpc->streams [si]->blockbuff);
-            wpc->streams [si]->blockbuff = NULL;
-        }
-
-        if (wpc->streams [si]->block2buff) {
-            free (wpc->streams [si]->block2buff);
-            wpc->streams [si]->block2buff = NULL;
-        }
-
-        if (wpc->streams [si]->sample_buffer) {
-            free (wpc->streams [si]->sample_buffer);
-            wpc->streams [si]->sample_buffer = NULL;
-        }
-
-        if (wpc->streams [si]->dc.shaping_data) {
-            free (wpc->streams [si]->dc.shaping_data);
-            wpc->streams [si]->dc.shaping_data = NULL;
-        }
-
-#ifdef ENABLE_DSD
-        free_dsd_tables (wpc->streams [si]);
-#endif
+        free_single_stream (wpc->streams [si]);
 
         if (si) {
             wpc->num_streams--;
@@ -590,6 +568,37 @@ void free_streams (WavpackContext *wpc)
         }
     }
 }
+
+// Free all resources associated with the specified stream
+
+void free_single_stream (WavpackStream *wps)
+{
+    if (wps->blockbuff) {
+        free (wps->blockbuff);
+        wps->blockbuff = NULL;
+    }
+
+    if (wps->block2buff) {
+        free (wps->block2buff);
+        wps->block2buff = NULL;
+    }
+
+    if (wps->sample_buffer) {
+        free (wps->sample_buffer);
+        wps->sample_buffer = NULL;
+    }
+
+    if (wps->dc.shaping_data) {
+        free (wps->dc.shaping_data);
+        wps->dc.shaping_data = NULL;
+    }
+
+#ifdef ENABLE_DSD
+    free_dsd_tables (wps);
+#endif
+}
+
+// Free all DSD-related resources associated with the specified stream
 
 void free_dsd_tables (WavpackStream *wps)
 {
