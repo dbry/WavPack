@@ -3567,7 +3567,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     }
 
     while (1) {
-        int32_t sample_count = WavpackUnpackSamples (infile, sample_buffer, input_samples);
+        uint32_t sample_count = WavpackUnpackSamples (infile, sample_buffer, input_samples);
 
         if (!sample_count)
             break;
@@ -3614,7 +3614,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
                         int cc = num_channels;
 
                         while (cc--) {
-                            int si;
+                            uint32_t si;
 
                             for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
                                 if (si < samples_this_block)
@@ -3634,7 +3634,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
                             sample_count = 0;
                     }
 
-                    sample_count = (dptr - format_buffer) / num_channels;
+                    sample_count = (uint32_t) ((dptr - format_buffer) / num_channels);
                 }
                 else {
                     int scount = sample_count * num_channels;
@@ -3808,7 +3808,7 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 
     while (result == WAVPACK_NO_ERROR) {
         int32_t *sptr = temp_buffer;
-        int32_t samples_unpacked;
+        uint32_t samples_unpacked;
 
         samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, VERIFY_BLOCKSIZE * blocks);
         total_unpacked_samples += samples_unpacked;
@@ -3831,7 +3831,7 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
                         int cc = num_channels;
 
                         while (cc--) {
-                            int si;
+                            uint32_t si;
 
                             for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
                                 if (si < samples_this_block)

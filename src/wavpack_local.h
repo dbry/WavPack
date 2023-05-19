@@ -306,7 +306,8 @@ typedef struct {
     unsigned char *blockbuff, *blockend;
     unsigned char *block2buff, *block2end;
     int32_t *sample_buffer, *pre_sample_buffer;
-    int num_pre_samples, discontinuous;
+    uint32_t num_pre_samples;
+    int discontinuous;
 
     int64_t sample_index;
     int bits, num_terms, mute_error, joint_stereo, false_stereo, shift, lossy_blocks;
