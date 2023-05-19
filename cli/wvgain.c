@@ -84,6 +84,7 @@ static const char *usage =
 "                 info if album mode specified)\n"
 "          -q  = quiet (keep console output to a minimum)\n"
 "          -s  = show stored values only (no analysis)\n"
+"          -t  = use multiple threads for faster operation\n"
 "          -v  = write the version to stdout\n"
 #if defined (_WIN32)
 "          -z  = don't set console title to indicate progress\n\n"
@@ -101,7 +102,7 @@ int debug_logging_mode;
 static uint32_t track_histogram [HISTOGRAM_SLOTS], album_histogram [HISTOGRAM_SLOTS];
 
 static char album_mode, clean_mode, display_mode, ignore_wvc, quiet_mode, show_mode, new_mode, set_console_title;
-static int num_files, file_index;
+static int num_files, file_index, worker_threads;
 
 /////////////////////////// local function declarations ///////////////////////
 
@@ -218,6 +219,10 @@ int main(int argc, char **argv)
 
                     case 'S': case 's':
                         show_mode = 1;
+                        break;
+
+                    case 'T': case 't':
+                        worker_threads = 4;
                         break;
 
                     default:
@@ -578,7 +583,7 @@ static void float_samples (float *dst, int32_t *src, uint32_t samcnt, float scal
 static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 {
     int result = WAVPACK_NO_ERROR, open_flags = 0, num_channels, wvc_mode;
-    uint32_t sample_rate, window_samples;
+    uint32_t sample_rate, window_samples, num_windows = 1;
     int64_t total_unpacked_samples = 0;
     void *decimation_context = NULL;
     double progress = -1.0;
@@ -599,6 +604,7 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
         open_flags |= OPEN_WVC;
 
     open_flags |= OPEN_TAGS | OPEN_NORMALIZE | OPEN_DSD_AS_PCM;
+    open_flags |= worker_threads << OPEN_THREADS_SHFT;
 
     wpc = WavpackOpenFileInput (infilename, error, open_flags, 0);
 
@@ -630,19 +636,22 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
 
     window_samples = sample_rate / 20;
 
+    if (worker_threads)
+        num_windows = (worker_threads + 1) * 48000 / window_samples;
+
     if (decimation_context)
-        temp_buffer = malloc (window_samples * 8 * 4);
+        temp_buffer = malloc (num_windows * window_samples * 8 * 4);
     else
-        temp_buffer = malloc (window_samples * 8);
+        temp_buffer = malloc (num_windows * window_samples * 8);
 
     if (!filter_init (sample_rate))
         result = WAVPACK_SOFT_ERROR;
 
     while (result == WAVPACK_NO_ERROR) {
         uint32_t samples_to_unpack, samples_unpacked;
-        int32_t level;
+        int32_t *window_ptr = temp_buffer, level;
 
-        samples_to_unpack = window_samples;
+        samples_to_unpack = num_windows * window_samples;
 
         if (decimation_context) {
             samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, samples_to_unpack * 4);
@@ -654,40 +663,45 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
             total_unpacked_samples += samples_unpacked;
         }
 
-        if (samples_unpacked) {
+        if (!samples_unpacked)
+            break;
+
+        if (num_channels == 1) {
+            int32_t *dst = temp_buffer + samples_unpacked * 2;
+            int32_t *src = temp_buffer + samples_unpacked;
+            uint32_t cnt = samples_unpacked;
+
+            while (cnt--) {
+                *--dst = *--src;
+                *--dst = *src;
+            }
+        }
+
+        while (samples_unpacked) {
+            int samples_this_window = samples_unpacked > window_samples ? window_samples : samples_unpacked;
+
             if (!(WavpackGetMode (wpc) & MODE_FLOAT))
                 switch (WavpackGetBytesPerSample (wpc)) {
                     case 1:
-                        float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 128.0);
+                        float_samples ((float *) window_ptr, window_ptr, samples_this_window * 2, 1.0 / 128.0);
                         break;
 
                     case 2:
-                        float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 32768.0);
+                        float_samples ((float *) window_ptr, window_ptr, samples_this_window * 2, 1.0 / 32768.0);
                         break;
 
                     case 3:
-                        float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 8388608.0);
+                        float_samples ((float *) window_ptr, window_ptr, samples_this_window * 2, 1.0 / 8388608.0);
                         break;
 
                     case 4:
-                        float_samples ((float *) temp_buffer, temp_buffer, samples_unpacked * num_channels, 1.0 / 2147483648.0);
+                        float_samples ((float *) window_ptr, window_ptr, samples_this_window * 2, 1.0 / 2147483648.0);
                         break;
                 }
 
-            if (num_channels == 1) {
-                int32_t *dst = temp_buffer + samples_unpacked * 2;
-                int32_t *src = temp_buffer + samples_unpacked;
-                uint32_t cnt = samples_unpacked;
-
-                while (cnt--) {
-                    *--dst = *--src;
-                    *--dst = *src;
-                }
-            }
-
-            calc_stereo_peak ((float *) temp_buffer, samples_unpacked, peak);
-            filter_stereo_samples ((float *) temp_buffer, samples_unpacked);
-            level = (int32_t) floor (100 * calc_stereo_rms ((float *) temp_buffer, samples_unpacked));
+            calc_stereo_peak ((float *) window_ptr, samples_this_window, peak);
+            filter_stereo_samples ((float *) window_ptr, samples_this_window);
+            level = (int32_t) floor (100 * calc_stereo_rms ((float *) window_ptr, samples_this_window));
 
             if (level < 0)
                 histogram [0]++;
@@ -695,9 +709,10 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
                 histogram [HISTOGRAM_SLOTS - 1]++;
             else
                 histogram [level]++;
+
+            window_ptr += samples_this_window * 2;
+            samples_unpacked -= samples_this_window;
         }
-        else
-            break;
 
         if (check_break ()) {
 #if defined(_WIN32)
