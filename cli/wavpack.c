@@ -105,6 +105,7 @@ static const char *usage =
 #else
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
+"          --threads = use multiple threads for faster operation\n"
 "          -v  = verify output file integrity after write (no pipes)\n"
 "          -x  = extra encode processing (no decoding speed penalty)\n"
 "          --help = complete help\n\n"
@@ -227,7 +228,7 @@ static const char *help =
 "                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
-"    --threads[=n]           use up to 'n' worker threads for multichannel audio\n"
+"    --threads[=n]           use up to 'n' worker threads for faster operation\n"
 "                             (if 'n' is omitted defaults to 4, max is 12)\n"
 "    -t                      copy input file's time stamp to output file(s)\n"
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
@@ -646,7 +647,7 @@ int main (int argc, char **argv)
                     }
                 }
                 else
-                    worker_threads = 4;             // 4 is a good default for 5.1
+                    worker_threads = 4;             // 4 is a good default for now
 
                 config.worker_threads = worker_threads;
             }
@@ -2500,10 +2501,11 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
     int32_t padding_error_bit_mask = 0, quantize_bit_mask = 0;
     double fquantize_scale = 1.0, fquantize_iscale = 1.0;
 
-    // don't use an absurd amount of memory just because we have an absurd number of channels
-
-    while (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc) > 2048*1024)
-        input_samples >>= 1;
+    if (worker_threads && WavpackGetNumChannels (wpc) <= 2)
+        input_samples = (worker_threads + 1) * 48000;
+    else
+        while (input_samples * WavpackGetNumChannels (wpc) > 8388608 / sizeof (int32_t))
+            input_samples >>= 1;
 
     if (md5_digest_source)
         MD5_Init (&md5_context);
@@ -2682,10 +2684,10 @@ static const unsigned char bit_reverse_table [] = {
 
 static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source)
 {
-    int res = WAVPACK_NO_ERROR;
+    int res = WAVPACK_NO_ERROR, dsd_blocks = 1;
     int64_t samples_remaining;
     double progress = -1.0;
-    int num_channels;
+    int num_channels = WavpackGetNumChannels (wpc);
     int32_t *sample_buffer;
     unsigned char *input_buffer;
     MD5_CTX md5_context;
@@ -2693,86 +2695,95 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
     if (md5_digest_source)
         MD5_Init (&md5_context);
 
+    if (worker_threads && num_channels <= 2)
+        dsd_blocks = (worker_threads + 1) * 12;
+
     WavpackPackInit (wpc);
-    num_channels = WavpackGetNumChannels (wpc);
     input_buffer = malloc (DSD_BLOCKSIZE * num_channels);
-    sample_buffer = malloc (DSD_BLOCKSIZE * sizeof (int32_t) * num_channels);
+    sample_buffer = malloc (DSD_BLOCKSIZE * dsd_blocks * sizeof (int32_t) * num_channels);
     samples_remaining = WavpackGetNumSamples64 (wpc);
 
     while (samples_remaining) {
-        uint32_t bytes_to_read, bytes_read = 0;
-        int32_t sample_count;
+        int32_t buffer_sample_count = 0, dsd_block;
+        int32_t *sptr = sample_buffer;
 
-        if ((qmode & (QMODE_DSD_IN_BLOCKS | QMODE_IGNORE_LENGTH)) || samples_remaining > DSD_BLOCKSIZE)
-            bytes_to_read = DSD_BLOCKSIZE * num_channels;
-        else
-            bytes_to_read = (uint32_t) samples_remaining * num_channels;
+        for (dsd_block = 0; dsd_block < dsd_blocks && samples_remaining; dsd_block++) {
+            uint32_t bytes_to_read, bytes_read = 0;
+            int32_t sample_count;
 
-        DoReadFile (infile, input_buffer, bytes_to_read, &bytes_read);
-
-        if (qmode & QMODE_DSD_IN_BLOCKS) {
-            if (bytes_read != bytes_to_read) {
-                error_line ("incomplete DSD block!");
-                samples_remaining = sample_count = 0;
-            }
-            else if (samples_remaining < DSD_BLOCKSIZE)
-                sample_count = (int32_t) samples_remaining;
+            if ((qmode & (QMODE_DSD_IN_BLOCKS | QMODE_IGNORE_LENGTH)) || samples_remaining > DSD_BLOCKSIZE)
+                bytes_to_read = DSD_BLOCKSIZE * num_channels;
             else
-                sample_count = DSD_BLOCKSIZE;
-        }
-        else
-            sample_count = bytes_read / num_channels;
+                bytes_to_read = (uint32_t) samples_remaining * num_channels;
 
-        samples_remaining -= sample_count;
+            DoReadFile (infile, input_buffer, bytes_to_read, &bytes_read);
 
-        // if we have reordering to do because the user used the --channel-order option to define
-        // an order that does not match the Microsoft order, then we do that BEFORE the MD5 because
-        // this reordering is permanent (i.e., we will not unreorder on decode) and we want the
-        // MD5 to match the new order
-
-        if (new_order && !(qmode & QMODE_REORDERED_CHANS)) {
-            if (qmode & QMODE_DSD_IN_BLOCKS)
-                reorder_channels (input_buffer, new_order, num_channels, 1, DSD_BLOCKSIZE);
-            else
-                reorder_channels (input_buffer, new_order, num_channels, sample_count, 1);
-        }
-
-        if (md5_digest_source)
-            MD5_Update (&md5_context, input_buffer, bytes_read);
-
-        if (!sample_count)
-            break;
-
-        if (sample_count) {
             if (qmode & QMODE_DSD_IN_BLOCKS) {
-                int32_t sindex, *sptr = sample_buffer, non_null = 0;
-
-                for (sindex = 0; sindex < DSD_BLOCKSIZE; ++sindex) {
-                    unsigned char *srcp = input_buffer + sindex;
-                    int cc;
-
-                    for (cc = num_channels; cc--; srcp += DSD_BLOCKSIZE)
-                        if (sindex < sample_count)
-                            *sptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*srcp] : *srcp;
-                        else if (*srcp)
-                            non_null++;
+                if (bytes_read != bytes_to_read) {
+                    error_line ("incomplete DSD block!");
+                    samples_remaining = sample_count = 0;
                 }
+                else if (samples_remaining < DSD_BLOCKSIZE)
+                    sample_count = (int32_t) samples_remaining;
+                else
+                    sample_count = DSD_BLOCKSIZE;
+            }
+            else
+                sample_count = bytes_read / num_channels;
 
-                if (non_null) {
-                    error_line ("blocks not padded with NULLs, MD5 will not match!");
-                    res = WAVPACK_WARNINGS;
+            samples_remaining -= sample_count;
+
+            // if we have reordering to do because the user used the --channel-order option to define
+            // an order that does not match the Microsoft order, then we do that BEFORE the MD5 because
+            // this reordering is permanent (i.e., we will not unreorder on decode) and we want the
+            // MD5 to match the new order
+
+            if (new_order && !(qmode & QMODE_REORDERED_CHANS)) {
+                if (qmode & QMODE_DSD_IN_BLOCKS)
+                    reorder_channels (input_buffer, new_order, num_channels, 1, DSD_BLOCKSIZE);
+                else
+                    reorder_channels (input_buffer, new_order, num_channels, sample_count, 1);
+            }
+
+            if (md5_digest_source)
+                MD5_Update (&md5_context, input_buffer, bytes_read);
+
+            if (!sample_count)
+                break;
+
+            if (sample_count) {
+                if (qmode & QMODE_DSD_IN_BLOCKS) {
+                    int32_t sindex, non_null = 0;
+
+                    for (sindex = 0; sindex < DSD_BLOCKSIZE; ++sindex) {
+                        unsigned char *srcp = input_buffer + sindex;
+                        int cc;
+
+                        for (cc = num_channels; cc--; srcp += DSD_BLOCKSIZE)
+                            if (sindex < sample_count)
+                                *sptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*srcp] : *srcp;
+                            else if (*srcp)
+                                non_null++;
+                    }
+
+                    if (non_null) {
+                        error_line ("blocks not padded with NULLs, MD5 will not match!");
+                        res = WAVPACK_WARNINGS;
+                    }
+                }
+                else {
+                    int32_t scount = sample_count * num_channels;
+                    unsigned char *iptr = input_buffer;
+
+                    while (scount--)
+                        *sptr++ = *iptr++;
                 }
             }
-            else {
-                int32_t scount = sample_count * num_channels, *sptr = sample_buffer;
-                unsigned char *iptr = input_buffer;
 
-                while (scount--)
-                    *sptr++ = *iptr++;
-            }
+            buffer_sample_count += sample_count;
         }
 
-        if (!WavpackPackSamples (wpc, sample_buffer, sample_count)) {
+        if (!WavpackPackSamples (wpc, sample_buffer, buffer_sample_count)) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             free (sample_buffer);
             free (input_buffer);
@@ -3070,6 +3081,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     loc_config.num_channels = WavpackGetNumChannels (infile);
     loc_config.sample_rate = WavpackGetSampleRate (infile);
     loc_config.qmode |= WavpackGetQualifyMode (infile);
+    loc_config.worker_threads = worker_threads;
     chan_ids = malloc (loc_config.num_channels + 1);
     WavpackGetChannelIdentities (infile, chan_ids);
 
@@ -3518,12 +3530,10 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     int32_t quantize_bit_mask = 0;
     double fquantize_scale = 1.0, fquantize_iscale = 1.0;
 
-    // modify input_samples if we're doing blocked DSD, or we have a large number of channels
-
-    if (qmode & QMODE_DSD_IN_BLOCKS)
-        input_samples = DSD_BLOCKSIZE;
+    if (worker_threads && num_channels <= 2)
+        input_samples = (worker_threads + 1) * DSD_BLOCKSIZE * 12;
     else
-        while (input_samples * sizeof (int32_t) * WavpackGetNumChannels (outfile) > 2048*1024)
+        while (input_samples * num_channels > 8388608 / sizeof (int32_t))
             input_samples >>= 1;
 
     if (md5_digest_source) {
@@ -3599,21 +3609,32 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
                 int32_t *sptr = sample_buffer;
 
                 if (qmode & QMODE_DSD_IN_BLOCKS) {
-                    int cc = num_channels;
+                    while (sample_count) {
+                        uint32_t samples_this_block = sample_count > DSD_BLOCKSIZE ? DSD_BLOCKSIZE : sample_count;
+                        int cc = num_channels;
 
-                    while (cc--) {
-                        int si;
+                        while (cc--) {
+                            int si;
 
-                        for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
-                            if (si < sample_count)
-                                *dptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*sptr & 0xff] : *sptr;
+                            for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
+                                if (si < samples_this_block)
+                                    *dptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*sptr & 0xff] : *sptr;
+                                else
+                                    *dptr++ = 0;
+
+                            if (cc)
+                                sptr -= (DSD_BLOCKSIZE * num_channels) - 1;
                             else
-                                *dptr++ = 0;
+                                sptr -= num_channels - 1;
+                        }
 
-                        sptr -= (DSD_BLOCKSIZE * num_channels) - 1;
+                        if (samples_this_block < sample_count)
+                            sample_count -= samples_this_block;
+                        else
+                            sample_count = 0;
                     }
 
-                    sample_count = DSD_BLOCKSIZE;
+                    sample_count = (dptr - format_buffer) / num_channels;
                 }
                 else {
                     int scount = sample_count * num_channels;
@@ -3733,7 +3754,7 @@ static void unreorder_channels (int32_t *data, unsigned char *order, int num_cha
 
 static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 {
-    int open_flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
+    int open_flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, blocks = 1;
     int num_channels, bps, qmode, result = WAVPACK_NO_ERROR;
     unsigned char *new_channel_order = NULL;
     int64_t total_unpacked_samples = 0;
@@ -3766,7 +3787,11 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     qmode = WavpackGetQualifyMode (wpc);
     num_channels = WavpackGetNumChannels (wpc);
     bps = WavpackGetBytesPerSample (wpc);
-    temp_buffer = malloc (VERIFY_BLOCKSIZE * num_channels * 4);
+
+    if (worker_threads && num_channels <= 2)
+        blocks = (worker_threads + 1) * 12;
+
+    temp_buffer = malloc (VERIFY_BLOCKSIZE * blocks * num_channels * 4);
 
     if (qmode & QMODE_REORDERED_CHANS) {
         int layout = WavpackGetChannelLayout (wpc, NULL), i;
@@ -3782,20 +3807,25 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     }
 
     while (result == WAVPACK_NO_ERROR) {
+        int32_t *sptr = temp_buffer;
         int32_t samples_unpacked;
 
-        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, VERIFY_BLOCKSIZE);
+        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, VERIFY_BLOCKSIZE * blocks);
         total_unpacked_samples += samples_unpacked;
 
-        if (samples_unpacked) {
-            if (md5_digest_source) {
-                if (new_channel_order)
-                    unreorder_channels (temp_buffer, new_channel_order, num_channels, samples_unpacked);
+        if (!samples_unpacked)
+            break;
 
+        if (md5_digest_source && new_channel_order)
+            unreorder_channels (temp_buffer, new_channel_order, num_channels, samples_unpacked);
+
+        while (samples_unpacked) {
+            uint32_t samples_this_block = samples_unpacked > VERIFY_BLOCKSIZE ? VERIFY_BLOCKSIZE : samples_unpacked;
+
+            if (md5_digest_source) {
                 if (qmode & QMODE_DSD_AUDIO) {
                     unsigned char *dsd_buffer = malloc (DSD_BLOCKSIZE * num_channels);
                     unsigned char *dptr = dsd_buffer;
-                    int32_t *sptr = temp_buffer;
 
                     if (qmode & QMODE_DSD_IN_BLOCKS) {
                         int cc = num_channels;
@@ -3804,34 +3834,41 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
                             int si;
 
                             for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
-                                if (si < samples_unpacked)
+                                if (si < samples_this_block)
                                     *dptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*sptr & 0xff] : *sptr;
                                 else
                                     *dptr++ = 0;
 
-                            sptr -= (DSD_BLOCKSIZE * num_channels) - 1;
+                            if (cc)
+                                sptr -= (DSD_BLOCKSIZE * num_channels) - 1;
+                            else
+                                sptr -= num_channels - 1;
                         }
 
-                        samples_unpacked = DSD_BLOCKSIZE;   // count the entire block for MD5 (even if partial/last)
+                        samples_this_block = DSD_BLOCKSIZE;   // count the entire block for MD5 (even if partial/last)
                     }
                     else {
-                        int scount = samples_unpacked * num_channels;
+                        int scount = samples_this_block * num_channels;
 
                         while (scount--)
                             *dptr++ = *sptr++;
                     }
 
-                    MD5_Update (&md5_context, dsd_buffer, samples_unpacked * num_channels);
+                    MD5_Update (&md5_context, dsd_buffer, samples_this_block * num_channels);
                     free (dsd_buffer);
                 }
                 else {
-                    store_samples (temp_buffer, temp_buffer, qmode, bps, samples_unpacked * num_channels);
-                    MD5_Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
+                    store_samples (sptr, sptr, qmode, bps, samples_this_block * num_channels);
+                    MD5_Update (&md5_context, (unsigned char *) sptr, bps * samples_this_block * num_channels);
+                    sptr += samples_this_block * num_channels;
                 }
             }
+
+            if (samples_this_block < samples_unpacked)
+                samples_unpacked -= samples_this_block;
+            else
+                samples_unpacked = 0;
         }
-        else
-            break;
 
         if (check_break ()) {
 #if defined(_WIN32)
