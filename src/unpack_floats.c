@@ -21,6 +21,8 @@ static void float_values_nowvx (WavpackStream *wps, int32_t *values, int32_t num
 
 void float_values (WavpackStream *wps, int32_t *values, int32_t num_values)
 {
+    int min_shifted_zeros = wps->float_min_shifted_zeros;
+    int max_shifted_ones = wps->float_max_shifted_ones;
     uint32_t crc = wps->crc_x;
 
     if (!bs_is_open (&wps->wvxbits)) {
@@ -78,8 +80,19 @@ void float_values (WavpackStream *wps, int32_t *values, int32_t num_values)
                         ((wps->float_flags & FLOAT_SHIFT_SAME) && getbit (&wps->wvxbits)))
                             *values |= ((1U << shift_count) - 1);
                     else if (wps->float_flags & FLOAT_SHIFT_SENT) {
-                        getbits (&temp, shift_count, &wps->wvxbits);
-                        *values |= temp & ((1U << shift_count) - 1);
+                        int32_t mask = (1U << shift_count) - 1;
+                        int num_zeros = 0;
+
+                        if (max_shifted_ones && shift_count > max_shifted_ones)
+                            num_zeros = shift_count - max_shifted_ones;
+
+                        if (min_shifted_zeros > num_zeros)
+                            num_zeros = (min_shifted_zeros > shift_count) ? shift_count : min_shifted_zeros;
+
+                        if ((shift_count -= num_zeros) > 0) {
+                            getbits (&temp, shift_count, &wps->wvxbits);
+                            *values |= (temp << num_zeros) & mask;
+                        }
                     }
                 }
 

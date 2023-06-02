@@ -32,6 +32,8 @@ int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
 {
     int32_t shifted_ones = 0, shifted_zeros = 0, shifted_both = 0;
     int32_t false_zeros = 0, neg_zeros = 0;
+    int32_t max_shift_count = 0, max_shifted_ones = 0;
+    int32_t min_shifted_zeros = 32;
 #ifdef DISPLAY_DIAGNOSTICS
     int32_t true_zeros = 0, denormals = 0, exceptions = 0;
 #endif
@@ -40,6 +42,7 @@ int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
     int max_mag = 0, max_exp = 0;
     f32 *dp;
 
+    wps->float_max_shifted_ones = wps->float_min_shifted_zeros = 0;
     wps->float_shift = wps->float_flags = 0;
 
     // First loop goes through all the data and (1) calculates the CRC and (2) finds the
@@ -115,13 +118,33 @@ int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
         // ones, and (3) a mix of ones and zeros.
         else if (shift_count) {
             int32_t mask = (1 << shift_count) - 1;
+            int32_t mantissa = get_mantissa (*dp) & mask;
 
-            if (!(get_mantissa (*dp) & mask))
+            if (!mantissa)
                 shifted_zeros++;
-            else if ((get_mantissa (*dp) & mask) == mask)
+            else if (mantissa == mask)
                 shifted_ones++;
             else
                 shifted_both++;
+
+            if (mantissa && (wps->wpc->config.flags & CONFIG_OPTIMIZE_32BIT)) {
+                int count_zeros = 0, count_ones = shift_count;
+
+                while (!(mantissa & 1)) {
+                    count_zeros++;
+                    count_ones--;
+                    mantissa >>= 1;
+                }
+
+                if (count_zeros < min_shifted_zeros)
+                    min_shifted_zeros = count_zeros;
+
+                if (count_ones > max_shifted_ones)
+                    max_shifted_ones = count_ones;
+
+                if (shift_count > max_shift_count)
+                    max_shift_count = shift_count;
+            }
         }
 
         // "or" all the integer values together, and store the final integer with applied sign
@@ -192,7 +215,17 @@ int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
         num_values, max_exp, wps->float_shift, denormals, exceptions, max_mag);
     fprintf (stderr, "shifted ones/zeros/both = %d/%d/%d, true/neg/false zeros = %d/%d/%d\n",
         shifted_ones, shifted_zeros, shifted_both, true_zeros, neg_zeros, false_zeros);
+
+    if ((max_shifted_ones && max_shifted_ones < max_shift_count) || (min_shifted_zeros && min_shifted_zeros < 32))
+        fprintf (stderr, "max shift = %d, max shifted ones = %d, min shifted zeros = %d\n",
+            max_shift_count, max_shifted_ones, min_shifted_zeros);
 #endif
+
+    if (max_shifted_ones && max_shifted_ones < max_shift_count)
+        wps->float_max_shifted_ones = max_shifted_ones;
+
+    if (min_shifted_zeros < 32)
+        wps->float_min_shifted_zeros = min_shifted_zeros;
 
     return wps->float_flags & (FLOAT_EXCEPTIONS | FLOAT_ZEROS_SENT | FLOAT_SHIFT_SENT | FLOAT_SHIFT_SAME);
 }
@@ -206,9 +239,16 @@ int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
 
 void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
 {
+    int min_shifted_zeros = wps->float_min_shifted_zeros;
+    int max_shifted_ones = wps->float_max_shifted_ones;
     int max_exp = wps->float_max_exp;
     int32_t count, value, shift_count;
     f32 *dp;
+
+    if (wps->wpc->config.flags & CONFIG_OPTIMIZE_32BIT) {
+        putbits (min_shifted_zeros, 5, &wps->wvxbits);
+        putbits (max_shifted_ones, 5, &wps->wvxbits);
+    }
 
     for (dp = values, count = num_values; count--; dp++) {
         if (get_exponent (*dp) == 255) {
@@ -260,7 +300,18 @@ void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values)
         else if (shift_count) {
             if (wps->float_flags & FLOAT_SHIFT_SENT) {
                 int32_t data = get_mantissa (*dp) & ((1 << shift_count) - 1);
-                putbits (data, shift_count, &wps->wvxbits);
+                int num_zeros = 0;
+
+                if (max_shifted_ones && shift_count > max_shifted_ones)
+                    num_zeros = shift_count - max_shifted_ones;
+
+                if (min_shifted_zeros > num_zeros)
+                    num_zeros = (min_shifted_zeros > shift_count) ? shift_count : min_shifted_zeros;
+
+                if ((shift_count -= num_zeros) > 0) {
+                    data >>= num_zeros;
+                    putbits (data, shift_count, &wps->wvxbits);
+                }
             }
             else if (wps->float_flags & FLOAT_SHIFT_SAME) {
                 putbit (get_mantissa (*dp) & 1, &wps->wvxbits);

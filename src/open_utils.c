@@ -426,6 +426,22 @@ static int init_wvx_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
     wps->crc_wvx |= (uint32_t) *cp++ << 24;
 
     bs_open_read (&wps->wvxbits, cp, (unsigned char *) wpmd->data + wpmd->byte_length);
+
+    // the new WVX bitstream format starts with one or two new 5-bit fields
+
+    if (wpmd->id == ID_WVX_NEW_BITSTREAM) {
+        if (wps->wphdr.flags & FLOAT_DATA) {
+            getbits (&wps->float_min_shifted_zeros, 5, &wps->wvxbits);
+            wps->float_min_shifted_zeros &= 0x1f;
+            getbits (&wps->float_max_shifted_ones, 5, &wps->wvxbits);
+            wps->float_max_shifted_ones &= 0x1f;
+        }
+        else {
+            getbits (&wps->int32_max_width, 5, &wps->wvxbits);
+            wps->int32_max_width &= 0x1f;
+        }
+    }
+
     return TRUE;
 }
 
@@ -783,6 +799,7 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd, int str
             return init_wvc_bitstream (wps, wpmd);
 
         case ID_WVX_BITSTREAM:
+        case ID_WVX_NEW_BITSTREAM:
             return init_wvx_bitstream (wps, wpmd);
 
         case ID_DSD_BLOCK:

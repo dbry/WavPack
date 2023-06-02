@@ -668,7 +668,11 @@ int pack_block (WavpackStream *wps, int32_t *buffer)
 
         if (data_count) {
             if (data_count != (uint32_t) -1) {
-                *cptr++ = ID_WVX_BITSTREAM | ID_LARGE;
+                if (wps->wpc->config.flags & CONFIG_OPTIMIZE_32BIT)
+                    *cptr++ = ID_WVX_NEW_BITSTREAM | ID_LARGE;
+                else
+                    *cptr++ = ID_WVX_BITSTREAM | ID_LARGE;
+
                 *cptr++ = (data_count += 4) >> 1;
                 *cptr++ = data_count >> 9;
                 *cptr++ = data_count >> 17;
@@ -875,15 +879,53 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
 {
     int sent_bits = wps->int32_sent_bits, pre_shift;
     int32_t mask = (1 << sent_bits) - 1;
-    int32_t count, value, *dp;
 
     pre_shift = wps->int32_zeros + wps->int32_ones + wps->int32_dups;
 
-    if (sent_bits)
-        for (dp = values, count = num_values; count--; dp++) {
-            value = (*dp >> pre_shift) & mask;
-            putbits (value, sent_bits, &wps->wvxbits);
+    if (sent_bits) {
+        int32_t count, *dp;
+        int max_width = 0;
+
+        for (dp = values, count = num_values; count--; dp++)
+            *dp >>= pre_shift;
+
+        if (wps->wpc->config.flags & CONFIG_OPTIMIZE_32BIT) {
+            for (dp = values, count = num_values; count--; dp++)
+                if (*dp) {
+                    int32_t value = *dp, pvalue = value < 0 ? ~value : value;
+                    int width = count_bits (pvalue);
+
+                    while (!(value & 1)) {
+                        value >>= 1;
+                        width--;
+                    }
+
+                    if (width > max_width && (max_width = width) >= sent_bits + 23) {
+                        max_width = 0;
+                        break;
+                    }
+                }
+
+            putbits (max_width, 5, &wps->wvxbits);
         }
+
+        if (max_width)
+            for (dp = values, count = num_values; count--; dp++) {
+                int32_t pvalue = *dp < 0 ? ~*dp : *dp;
+                int width = count_bits (pvalue);
+                int bits_to_send = sent_bits;
+
+                if (width <= max_width || (bits_to_send -= width - max_width) > 0) {
+                    *dp = (*dp >> (sent_bits - bits_to_send)) & ((1U << bits_to_send) - 1);
+                    putbits (*dp, bits_to_send, &wps->wvxbits);
+                }
+            }
+        else
+            for (dp = values, count = num_values; count--; dp++) {
+                int32_t value = *dp & mask;
+                putbits (value, sent_bits, &wps->wvxbits);
+            }
+    }
 }
 
 // Send any pending metadata (generally RIFF headers, MD5 sums, etc.)

@@ -713,13 +713,29 @@ static void fixup_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_
         int32_t *dptr = buffer;
 
         if (bs_is_open (&wps->wvxbits)) {
+            int max_width = wps->int32_max_width;
             uint32_t crc = wps->crc_x;
 
             while (count--) {
-//              if (sent_bits) {
-                    getbits (&data, sent_bits, &wps->wvxbits);
-                    *dptr = ((uint32_t) *dptr << sent_bits) | (data & mask);
-//              }
+                if (sent_bits) {
+                    if (max_width) {
+                        int32_t pvalue = *dptr < 0 ? ~*dptr : *dptr;
+                        int width = count_bits (pvalue) + sent_bits;
+                        int bits_to_read = sent_bits;
+
+                        if (width <= max_width || (bits_to_read -= width - max_width) > 0) {
+                            getbits (&data, bits_to_read, &wps->wvxbits);
+                            data &= (1U << bits_to_read) - 1;
+                            *dptr = (((uint32_t) *dptr << bits_to_read) | data) << (sent_bits - bits_to_read);
+                        }
+                        else
+                            *dptr = (uint32_t) *dptr << sent_bits;
+                    }
+                    else {
+                        getbits (&data, sent_bits, &wps->wvxbits);
+                        *dptr = ((uint32_t) *dptr << sent_bits) | (data & mask);
+                    }
+                }
 
                 if (zeros)
                     *(uint32_t*)dptr <<= zeros;

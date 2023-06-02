@@ -319,6 +319,7 @@ typedef struct {
 
     unsigned char int32_sent_bits, int32_zeros, int32_ones, int32_dups;
     unsigned char float_flags, float_shift, float_max_exp, float_norm_exp;
+    unsigned char int32_max_width, float_max_shifted_ones, float_min_shifted_zeros;
 
     struct {
         int32_t shaping_acc [2], shaping_delta [2], error [2];
