@@ -203,6 +203,9 @@ static const char *help =
 "    --no-utf8-convert       don't recode passed tags from local encoding to\n"
 "                             UTF-8, assume they are in UTF-8 already\n"
 "    -o FILENAME | PATH      specify output filename or path\n"
+"    --optimize-32bit        optimizations for some specific 32-bit files (e.g.,\n"
+"                             integer files sourced from floats and vice versa);\n"
+"                             old revisions will decode only 24 bits (HQ lossy)\n"
 #endif
 "    --pair-unassigned-chans encode unassigned channels into stereo pairs\n"
 #ifdef _WIN32
@@ -435,6 +438,8 @@ int main (int argc, char **argv)
             else if (!strcmp (long_option, "drop"))                     // --drop
                 drop_mode = 1;
 #endif
+            else if (!strcmp (long_option, "optimize-32bit"))           // --optimize-32bit
+                config.flags |= CONFIG_OPTIMIZE_32BIT;
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 error_line ("warning: --optimize-mono deprecated, now enabled by default");
             else if (!strcmp (long_option, "dns")) {                    // --dns
