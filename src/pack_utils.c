@@ -347,8 +347,8 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
             else
                 bps = (uint32_t) floor (config->bitrate * 256.0 + 0.5);
         }
-        else
-            flags |= CROSS_DECORR;
+        // else
+        //     flags |= CROSS_DECORR;   // FIXME: no cross-decorrelation for muLaw
 
         if (!(config->flags & CONFIG_JOINT_OVERRIDE) || (config->flags & CONFIG_JOINT_STEREO))
             flags |= JOINT_STEREO;
@@ -1115,7 +1115,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
 
     // then calculate maximum size based on bytes / sample
 
-    max_blocksize = block_samples * max_chans * ((wpc->streams [0]->wphdr.flags & BYTES_STORED) + 1);
+    max_blocksize = block_samples * max_chans * ((wpc->streams [0]->wphdr.flags & BYTES_STORED) + 1 + 1);   // FIXME: extra for muLaw
 
     // add margin based on how much "negative" compression is possible with pathological audio
 
@@ -1132,7 +1132,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
         uint32_t flags = wps->wphdr.flags;
 
         flags &= ~MAG_MASK;
-        flags += (1U << MAG_LSB) * ((flags & BYTES_STORED) * 8 + 7);
+        flags += (1U << MAG_LSB) * ((flags & BYTES_STORED) * 8 + 7 + 8);    // FIXME: extra for muLaw
 
         SET_BLOCK_INDEX (wps->wphdr, wps->sample_index);
         wps->wphdr.block_samples = block_samples;

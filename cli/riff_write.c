@@ -63,6 +63,9 @@ int WriteRiffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     int format = WavpackGetFloatNormExp (wpc) ? 3 : 1;
     int wavhdrsize = 16;
 
+    if (bytes_per_sample == 1)      // for testing, mark 8-bit WAV files as muLaw
+        format = 7;
+
     if (format == 3 && WavpackGetFloatNormExp (wpc) != 127) {
         error_line ("invalid float data for WAV, use --normalize-floats and omit MD5 check!");
         return FALSE;

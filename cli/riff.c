@@ -41,6 +41,12 @@ typedef struct {
 #define CS64ChunkFormat "4D"
 #define DS64ChunkFormat "DDDL"
 
+#define WAVE_FORMAT_PCM         0x0001
+#define WAVE_FORMAT_IEEE_FLOAT  0x0003
+#define WAVE_FORMAT_ALAW        0x0006
+#define WAVE_FORMAT_MULAW       0x0007
+#define WAVE_FORMAT_EXTENSIBLE  0xFFFE
+
 extern int debug_logging_mode;
 
 int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config)
@@ -170,16 +176,24 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             if (chunk_header.ckSize > 16 && WaveHeader.cbSize == 2)
                 config->qmode |= QMODE_ADOBE_MODE;
 
-            format = (WaveHeader.FormatTag == 0xfffe && chunk_header.ckSize == 40) ?
+            format = (WaveHeader.FormatTag == WAVE_FORMAT_EXTENSIBLE && chunk_header.ckSize == 40) ?
                 WaveHeader.SubFormat : WaveHeader.FormatTag;
 
             config->bits_per_sample = (chunk_header.ckSize == 40 && WaveHeader.ValidBitsPerSample) ?
                 WaveHeader.ValidBitsPerSample : WaveHeader.BitsPerSample;
 
-            if (format != 1 && format != 3)
-                supported = FALSE;
+            if (format != WAVE_FORMAT_PCM  && format != WAVE_FORMAT_IEEE_FLOAT &&
+                format != WAVE_FORMAT_ALAW && format != WAVE_FORMAT_MULAW)
+                    supported = FALSE;
 
-            if (format == 3 && config->bits_per_sample != 32)
+            if (format == WAVE_FORMAT_ALAW || format == WAVE_FORMAT_MULAW) {
+                if (config->bits_per_sample == 8)
+                    config->qmode |= QMODE_SIGNED_BYTES;
+                else
+                    supported = FALSE;
+            }
+
+            if (format == WAVE_FORMAT_IEEE_FLOAT && config->bits_per_sample != 32)
                 supported = FALSE;
 
             if (!WaveHeader.NumChannels || WaveHeader.NumChannels > WAVPACK_MAX_CLI_CHANS ||

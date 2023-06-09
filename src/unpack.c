@@ -41,6 +41,11 @@ extern void ASMCALL DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *b
 extern void ASMCALL DECORR_MONO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
 #endif
 
+#define MuLawNativeToContiguous(x) ((signed char)((unsigned char)(x) >= 0x80 ? 0xFF - (x) : (x) - 0x80))
+#define MuLawContiguousToNative(x) ((signed char)((unsigned char)(x) >= 0x80 ? (x) - 0x80 : 0xFF - (x)))
+static unsigned char LinearToMuLawSample(short sample);
+static short MuLawDecompressTable[];
+
 // This flag provides the functionality of terminating the decoding and muting
 // the output when a lossy sample appears to be corrupt. This is automatic
 // for lossless files because a corrupt sample is unambiguous, but for lossy
@@ -101,9 +106,237 @@ int32_t unpack_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_cou
     if ((flags & HYBRID_FLAG) && !wps->block2buff)
         mute_limit = (mute_limit * 2) + 128;
 
-    //////////////// handle lossless or hybrid lossy mono data /////////////////
+    /////////////////////// handle lossless mono mode (muLaw version) /////////////////////////
 
-    if (!wps->block2buff && (flags & MONO_DATA)) {
+    if (!(flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
+        i = get_words_lossless (wps, buffer, sample_count);
+
+        if (i != sample_count)
+            goto get_word_eof;
+
+        for (bptr = buffer, i = 0; i < sample_count; ++i) {
+            int32_t pcm_prediction = 0, clamped_pcm_prediction, pcm_code, pcm_value;
+            int32_t mulaw_prediction, mulaw_code;
+
+            // First, calculate a prediction based on previous samples (does not require "current" sample).
+            // note that this can be done in either order through the terms because the prediction is just
+            // a sum of the results of each stage. Note that we save the "applied weights" just so that we
+            // don't have to calculate them again during the adaptation phase below.
+
+            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
+                if (dpp->term > MAX_TERM) {
+                    if (dpp->term & 1)
+                        dpp->samples_A [2] = 2 * dpp->samples_A [0] - dpp->samples_A [1];
+                    else
+                        dpp->samples_A [2] = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
+
+                    pcm_prediction += (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [2]));
+                }
+                else
+                    pcm_prediction += (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [m]));
+
+            // clamp prediction to short and generate the contiguous muLaw value for that
+
+            if (pcm_prediction < -32768) clamped_pcm_prediction = -32768;
+            else if (pcm_prediction > 32767) clamped_pcm_prediction = 32767;
+            else clamped_pcm_prediction = pcm_prediction;
+
+            mulaw_prediction = LinearToMuLawSample (clamped_pcm_prediction);
+            mulaw_prediction = MuLawNativeToContiguous (mulaw_prediction);
+
+            // add the delta from the entropy decoder to get output sample in muLaw contiguous,
+            // then convert that to native muLaw and LPCM (which is the output of this code)
+
+            mulaw_code = mulaw_prediction + *bptr;
+            mulaw_code = MuLawContiguousToNative (mulaw_code);
+            *bptr = pcm_value = MuLawDecompressTable [mulaw_code & 0xff];
+
+            // value that goes back into decorrelator is delta PCM
+
+            pcm_code = pcm_value - pcm_prediction;
+
+            // Apply the entropy decoder output to the decorrelator terms. Note that this part must be
+            // done in the opposite order as the encoder, but we go forward through the terms because
+            // they're actually loaded backwards (see read_decorr_terms(), etc.)
+
+            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++) {
+                if (dpp->term > MAX_TERM) {
+                    update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [2], pcm_code);
+                    dpp->samples_A [1] = dpp->samples_A [0];
+                    dpp->samples_A [0] = (pcm_code += dpp->aweight_A);
+                }
+                else {
+                    int32_t sam = dpp->samples_A [m];
+
+                    update_weight (dpp->weight_A, dpp->delta, sam, pcm_code);
+                    dpp->samples_A [(m + dpp->term) & (MAX_TERM - 1)] = (pcm_code += dpp->aweight_A);
+                }
+            }
+
+            // just for completeness, verify that the code we just generated (pretending to be the
+            // decoder) matches what we know to be the output value
+
+            if (pcm_code != pcm_value)
+                fprintf (stderr, "code (%d) != pcm_value (%d)\n", pcm_code, pcm_value);
+
+            m = (m + 1) & (MAX_TERM - 1);
+            crc = crc * 3 + *bptr++;
+        }
+    }
+
+    /////////////////////// handle lossless stereo mode (muLaw version) /////////////////////////
+
+    else if (!(flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
+        i = get_words_lossless (wps, buffer, sample_count);
+
+        if (i != sample_count)
+            goto get_word_eof;
+
+        for (bptr = buffer, i = 0; i < sample_count; ++i) {
+            int32_t left_pcm_prediction = 0, clamped_left_pcm_prediction, left_pcm_code, left_pcm_value;
+            int32_t left_mulaw_prediction, left_mulaw_code;
+            int32_t right_pcm_prediction = 0, clamped_right_pcm_prediction, right_pcm_code, right_pcm_value;
+            int32_t right_mulaw_prediction, right_mulaw_code;
+
+            // First, calculate a pair of predictions based on previous samples. Note that this does not
+            // require "current" sample, however that is because we fold the terms that cross channels
+            // without delay (-1 and -2) into -3 (which uses delay). Note that this operation can be
+            // done in either order through the terms because the prediction is just a sum of the
+            // results of each stage. We save the "applied weights" just so that we don't have to
+            // calculate them again during the adaptation phase below.
+
+            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
+                if (dpp->term > MAX_TERM) {
+                    if (dpp->term & 1) {
+                        dpp->samples_A [2] = 2 * dpp->samples_A [0] - dpp->samples_A [1];
+                        dpp->samples_B [2] = 2 * dpp->samples_B [0] - dpp->samples_B [1];
+                    }
+                    else {
+                        dpp->samples_A [2] = (3 * dpp->samples_A [0] - dpp->samples_A [1]) >> 1;
+                        dpp->samples_B [2] = (3 * dpp->samples_B [0] - dpp->samples_B [1]) >> 1;
+                    }
+
+                    left_pcm_prediction += (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [2]));
+                    right_pcm_prediction += (dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [2]));
+                }
+                else if (dpp->term > 0) {
+                    left_pcm_prediction += (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [m]));
+                    right_pcm_prediction += (dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [m]));
+                }
+                else {
+                    // if (dpp->term == -1)
+                    //     dpp->samples_B [0] = left;
+                    // else if (dpp->term == -2)
+                    //     dpp->samples_A [0] = right;
+
+                    left_pcm_prediction += (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [0]));
+                    right_pcm_prediction += (dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [0]));
+                }
+
+            // if joint-stereo, convert the predictions to left and right because we need
+
+            if (flags & JOINT_STEREO)
+                SideMidToLeftRight (left_pcm_prediction, right_pcm_prediction);
+
+            // clamp predictions to shorts and generate the contiguous muLaw values for that
+
+            if (left_pcm_prediction < -32768) clamped_left_pcm_prediction = -32768;
+            else if (left_pcm_prediction > 32767) clamped_left_pcm_prediction = 32767;
+            else clamped_left_pcm_prediction = left_pcm_prediction;
+
+            if (right_pcm_prediction < -32768) clamped_right_pcm_prediction = -32768;
+            else if (right_pcm_prediction > 32767) clamped_right_pcm_prediction = 32767;
+            else clamped_right_pcm_prediction = right_pcm_prediction;
+
+            left_mulaw_prediction = LinearToMuLawSample (clamped_left_pcm_prediction);
+            left_mulaw_prediction = MuLawNativeToContiguous (left_mulaw_prediction);
+
+            right_mulaw_prediction = LinearToMuLawSample (clamped_right_pcm_prediction);
+            right_mulaw_prediction = MuLawNativeToContiguous (right_mulaw_prediction);
+
+            // add the delta from the entropy decoder to get output samples (native muLaw and PCM)
+
+            left_mulaw_code = left_mulaw_prediction + bptr [0];
+            left_mulaw_code = MuLawContiguousToNative (left_mulaw_code);
+            bptr [0] = left_pcm_value = MuLawDecompressTable [left_mulaw_code & 0xff];
+
+            right_mulaw_code = right_mulaw_prediction + bptr [1];
+            right_mulaw_code = MuLawContiguousToNative (right_mulaw_code);
+            bptr [1] = right_pcm_value = MuLawDecompressTable [right_mulaw_code & 0xff];
+
+            // This is where we convert both the prediction and the actual PCM values to
+            // mid/side (if using joint stereo), and then generate the code value that feeds
+            // back into the decorrelator for adaptation.
+
+            if (flags & JOINT_STEREO) {
+                LeftRightToSideMid (left_pcm_prediction, right_pcm_prediction);
+                LeftRightToSideMid (left_pcm_value, right_pcm_value);
+            }
+
+            left_pcm_code = left_pcm_value - left_pcm_prediction;
+            right_pcm_code = right_pcm_value - right_pcm_prediction;
+
+            // Apply the entropy decoder output to the decorrelator terms updating the weights and
+            // the history (i.e., the adaptation). Note that this part must be done in the opposite
+            // order as the encoder, but we go forward through the terms because they're actually
+            // loaded backwards (see read_decorr_terms(), etc.)
+
+            for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount-- ; dpp++)
+                if (dpp->term > MAX_TERM) {
+                    update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [2], left_pcm_code);
+                    update_weight (dpp->weight_B, dpp->delta, dpp->samples_B [2], right_pcm_code);
+
+                    dpp->samples_A [1] = dpp->samples_A [0];
+                    dpp->samples_B [1] = dpp->samples_B [0];
+
+                    dpp->samples_A [0] = (left_pcm_code += dpp->aweight_A);
+                    dpp->samples_B [0] = (right_pcm_code += dpp->aweight_B);
+                }
+                else if (dpp->term > 0) {
+                    int k = (m + dpp->term) & (MAX_TERM - 1);
+
+                    update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [m], left_pcm_code);
+                    dpp->samples_A [k] = (left_pcm_code += dpp->aweight_A);
+
+                    update_weight (dpp->weight_B, dpp->delta, dpp->samples_B [m], right_pcm_code);
+                    dpp->samples_B [k] = (right_pcm_code += dpp->aweight_B);
+                }
+                else {
+                    // if (dpp->term == -1) {
+                    //     dpp->samples_B [0] = left + dpp->aweight_A;
+                    //     dpp->aweight_B = apply_weight (dpp->weight_B, dpp->samples_B [0]);
+                    // }
+                    // else if (dpp->term == -2) {
+                    //     dpp->samples_A [0] = right + dpp->aweight_B;
+                    //     dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [0]);
+                    // }
+
+                    update_weight_clip (dpp->weight_A, dpp->delta, dpp->samples_A [0], left_pcm_code);
+                    update_weight_clip (dpp->weight_B, dpp->delta, dpp->samples_B [0], right_pcm_code);
+                    dpp->samples_B [0] = (left_pcm_code += dpp->aweight_A);
+                    dpp->samples_A [0] = (right_pcm_code += dpp->aweight_B);
+                }
+
+
+            // just for completeness, verify that the code we just generated (pretending to be the
+            // decoder) matches what we know to be the output value
+
+            if (flags & JOINT_STEREO)
+                SideMidToLeftRight (left_pcm_code, right_pcm_code);
+
+            if (left_pcm_code != bptr [0] || right_pcm_code != bptr [1])
+                fprintf (stderr, "left (%d) != bptr [0] (%d) || right (%d) != bptr [1] (%d)\n",
+                    left_pcm_code, bptr [0], right_pcm_code, bptr [1]);
+
+            crc += (crc << 3) + ((uint32_t) bptr [0] << 1) + bptr [0] + bptr [1];
+            m = (m + 1) & (MAX_TERM - 1);
+            bptr += 2;
+        }
+    }
+
+    //////////////// handle hybrid lossy mono data /////////////////
+
+    else if (!wps->block2buff && (flags & MONO_DATA)) {
         int32_t *eptr = buffer + sample_count;
 
         if (flags & HYBRID_FLAG) {
@@ -486,6 +719,19 @@ get_word_eof:
         WavpackFloatNormalize (buffer, (flags & MONO_DATA) ? i : i * 2,
             127 - wps->float_norm_exp + wps->wpc->norm_offset);
 
+    // For muLaw data, convert the LPCM values back into muLaw data
+
+    {
+        uint32_t cnt = (flags & MONO_DATA) ? i : i * 2;
+        int32_t *ptr = buffer;
+
+        while (cnt--) {
+            if (*ptr < -32768 || *ptr > 32767) fprintf (stderr, "sample is %d\n", *ptr);
+            *ptr = (signed char) LinearToMuLawSample (*ptr);
+            ptr++;
+        }
+    }
+
     if (flags & FALSE_STEREO) {
         int32_t *dptr = buffer + i * 2;
         int32_t *sptr = buffer + i;
@@ -826,3 +1072,83 @@ static void fixup_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_
             *(uint32_t*)buffer++ <<= shift;
     }
 }
+
+//u-law compression and expansion
+
+// Thanks for Jonathan Hays for this code!
+// https://web.archive.org/web/20060526071748/http://hazelware.luggle.com/tutorials/mulawcompression.html
+
+static const int cBias = 0x84;
+static const int cClip = 32635;
+
+static char MuLawCompressTable[256] =
+{
+     0,0,1,1,2,2,2,2,3,3,3,3,3,3,3,3,
+     4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+     5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+     5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+     6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+     6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+     6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+     6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
+};
+
+static short MuLawDecompressTable[256] =
+{
+     -32124,-31100,-30076,-29052,-28028,-27004,-25980,-24956,
+     -23932,-22908,-21884,-20860,-19836,-18812,-17788,-16764,
+     -15996,-15484,-14972,-14460,-13948,-13436,-12924,-12412,
+     -11900,-11388,-10876,-10364, -9852, -9340, -8828, -8316,
+      -7932, -7676, -7420, -7164, -6908, -6652, -6396, -6140,
+      -5884, -5628, -5372, -5116, -4860, -4604, -4348, -4092,
+      -3900, -3772, -3644, -3516, -3388, -3260, -3132, -3004,
+      -2876, -2748, -2620, -2492, -2364, -2236, -2108, -1980,
+      -1884, -1820, -1756, -1692, -1628, -1564, -1500, -1436,
+      -1372, -1308, -1244, -1180, -1116, -1052,  -988,  -924,
+       -876,  -844,  -812,  -780,  -748,  -716,  -684,  -652,
+       -620,  -588,  -556,  -524,  -492,  -460,  -428,  -396,
+       -372,  -356,  -340,  -324,  -308,  -292,  -276,  -260,
+       -244,  -228,  -212,  -196,  -180,  -164,  -148,  -132,
+       -120,  -112,  -104,   -96,   -88,   -80,   -72,   -64,
+        -56,   -48,   -40,   -32,   -24,   -16,    -8,     -1,
+      32124, 31100, 30076, 29052, 28028, 27004, 25980, 24956,
+      23932, 22908, 21884, 20860, 19836, 18812, 17788, 16764,
+      15996, 15484, 14972, 14460, 13948, 13436, 12924, 12412,
+      11900, 11388, 10876, 10364,  9852,  9340,  8828,  8316,
+       7932,  7676,  7420,  7164,  6908,  6652,  6396,  6140,
+       5884,  5628,  5372,  5116,  4860,  4604,  4348,  4092,
+       3900,  3772,  3644,  3516,  3388,  3260,  3132,  3004,
+       2876,  2748,  2620,  2492,  2364,  2236,  2108,  1980,
+       1884,  1820,  1756,  1692,  1628,  1564,  1500,  1436,
+       1372,  1308,  1244,  1180,  1116,  1052,   988,   924,
+        876,   844,   812,   780,   748,   716,   684,   652,
+        620,   588,   556,   524,   492,   460,   428,   396,
+        372,   356,   340,   324,   308,   292,   276,   260,
+        244,   228,   212,   196,   180,   164,   148,   132,
+        120,   112,   104,    96,    88,    80,    72,    64,
+         56,    48,    40,    32,    24,    16,     8,     0
+};
+
+static unsigned char LinearToMuLawSample(short sample)
+{
+     int sign = (sample >> 8) & 0x80;
+     if (sign)
+          sample = (short)-sample;
+     if (sample > cClip)
+          sample = cClip;
+     sample = (short)(sample + cBias);
+     int exponent = (int)MuLawCompressTable[(sample>>7) & 0xFF];
+     int mantissa = (sample >> (exponent+3)) & 0x0F;
+     int compressedByte = ~ (sign | (exponent << 4) | mantissa);
+
+     return (unsigned char)compressedByte;
+}
+

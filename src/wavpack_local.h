@@ -430,6 +430,10 @@ struct WavpackContext {
 //////////////////////////////// decorrelation //////////////////////////////
 // modules: pack.c, unpack.c, unpack_floats.c, extra1.c, extra2.c
 
+// Joint Stereo
+#define LeftRightToSideMid(l,r) ((r) += (((l) -= (r)) >> 1))
+#define SideMidToLeftRight(l,r) ((l) += ((r) -= ((l) >> 1)))
+
 // #define SKIP_DECORRELATION   // experimental switch to disable all decorrelation on encode
 
 // These macros implement the weight application and update operations

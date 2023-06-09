@@ -411,7 +411,8 @@ static void analyze_mono (WavpackStream *wps, int32_t *samples, int do_samples)
     int i;
 
 #ifdef LOG_LIMIT
-    info.log_limit = (((wps->wphdr.flags & MAG_MASK) >> MAG_LSB) + 4) * 256;
+    // FIXME: allow 16-bit sized values even for 8-bit (i.e., muLaw)
+    info.log_limit = (((wps->wphdr.flags & MAG_MASK) >> MAG_LSB) + 4) * 256 + 256;
 
     if (info.log_limit > LOG_LIMIT)
         info.log_limit = LOG_LIMIT;
