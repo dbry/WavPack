@@ -1167,11 +1167,11 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
             memcpy (wps_copy, wps, sizeof (WavpackStream));
 
             // If there is a discontinuity (i.e., the previous block is not done, so we can't get any
-            // continuation information from it) then we must essentially start fresh for PCM. For
-            // "high" mode DSD we are able to use some number of previous samples instead, and "fast"
-            // DSD mode is always encoded independently, so that's a freebie.
+            // continuation information from it) then we must essentially start fresh for PCM (except
+            // with "extra" modes). For "high" mode DSD we are able to use some number of previous
+            // samples, and "fast" DSD mode is always encoded independently, so that's a freebie.
 
-            if (wps->discontinuous)
+            if (wps->discontinuous && ((wps->wphdr.flags & DSD_FLAG) || !wps->wpc->config.xmode))
                 pack_init (wps_copy);
 
             wps_copy->sample_buffer = malloc (block_samples * (wps->wphdr.flags & MONO_FLAG ? 4 : 8));
@@ -1208,7 +1208,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
             // This code handles blocks compressed now and sent in the foreground,
             // although we might have to wait for all backgrounded blocks to send.
 
-            if (wps->discontinuous)
+            if (wps->discontinuous && ((wps->wphdr.flags & DSD_FLAG) || !wps->wpc->config.xmode))
                 pack_init (wps);
 
             result = pack_stream_block (wps);
