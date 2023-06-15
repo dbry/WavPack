@@ -105,7 +105,9 @@ static const char *usage =
 #else
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
+#ifdef ENABLE_THREADS
 "          --threads = use multiple threads for faster operation\n"
+#endif
 "          -v  = verify output file integrity after write (no pipes)\n"
 "          -x  = extra encode processing (no decoding speed penalty)\n"
 "          --help = complete help\n\n"
@@ -231,7 +233,9 @@ static const char *help =
 "                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
+#ifdef ENABLE_THREADS
 "    --threads[=n]           use up to 'n' worker threads for faster operation\n"
+#endif
 "                             (if 'n' is omitted defaults to 4, max is 12)\n"
 "    -t                      copy input file's time stamp to output file(s)\n"
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
@@ -643,6 +647,7 @@ int main (int argc, char **argv)
                 }
             }
             else if (!strncmp (long_option, "threads", 7)) {                // --threads
+#ifdef ENABLE_THREADS
                 if (isdigit (*long_param)) {
                     worker_threads = strtol (long_param, &long_param, 10);
 
@@ -655,6 +660,9 @@ int main (int argc, char **argv)
                     worker_threads = 4;             // 4 is a good default for now
 
                 config.worker_threads = worker_threads;
+#else
+                error_line ("warning: --threads not enabled, ignoring option!");
+#endif
             }
             else {
                 error_line ("unknown option: %s !", long_option);

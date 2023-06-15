@@ -84,7 +84,9 @@ static const char *usage =
 "                 info if album mode specified)\n"
 "          -q  = quiet (keep console output to a minimum)\n"
 "          -s  = show stored values only (no analysis)\n"
+#ifdef ENABLE_THREADS
 "          -t  = use multiple threads for faster operation\n"
+#endif
 "          -v  = write the version to stdout\n"
 #if defined (_WIN32)
 "          -z  = don't set console title to indicate progress\n\n"
@@ -222,7 +224,11 @@ int main(int argc, char **argv)
                         break;
 
                     case 'T': case 't':
+#ifdef ENABLE_THREADS
                         worker_threads = 4;
+#else
+                        error_line ("warning: threads not enabled, ignoring -t option!");
+#endif
                         break;
 
                     default:

@@ -64,12 +64,14 @@ void pack_init (WavpackStream *wps)
     else
         wps->num_passes = 9;
 
+#ifdef ENABLE_THREADS
     // For temporal multithreading, add a couple of passes to the -x1 and -x2 modes to
     // compensate for the compression degradation caused by the discontinuities.
 
     if (wps->wpc->config.xmode && wps->wpc->config.xmode <= 2 &&
         wps->wpc->num_workers && wps->wpc->num_streams == 1)
             wps->num_passes += 2;
+#endif
 
     if (wps->wpc->config.flags & CONFIG_VERY_HIGH_FLAG) {
         wps->num_decorrs = NUM_VERY_HIGH_SPECS;

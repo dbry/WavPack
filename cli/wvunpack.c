@@ -95,7 +95,9 @@ static const char *usage =
 "          -q  = quiet (keep console output to a minimum)\n"
 "          -s  = display summary information only to stdout (no audio decode)\n"
 "          -ss = display super summary (including tags) to stdout (no decode)\n"
+#ifdef ENABLE_THREADS
 "          --threads = use multiple threads for faster operation\n"
+#endif
 "          -v  = verify source data only (no output file created)\n"
 "          -vv = quick verify (no output, version 5+ files only)\n"
 "          --help = complete help\n\n"
@@ -180,7 +182,9 @@ static const char *help =
 "                          start decoding at specified sample/time\n"
 "                           (specifying a '-' makes sample/time relative to end)\n"
 "    -t                    copy input file's time stamp to output file(s)\n"
+#ifdef ENABLE_THREADS
 "    --threads[=n]         use up to 'n' worker threads for faster operation\n"
+#endif
 "                           (if 'n' is omitted defaults to 4, max is 12)\n"
 "    --until=[+|-][sample|hh:mm:ss.ss]\n"
 "                          stop decoding at specified sample/time\n"
@@ -383,6 +387,7 @@ int main(int argc, char **argv)
                 }
             }
             else if (!strncmp (long_option, "threads", 7)) {            // --threads
+#ifdef ENABLE_THREADS
                 if (isdigit (*long_param)) {
                     worker_threads = strtol (long_param, &long_param, 10);
 
@@ -393,6 +398,9 @@ int main(int argc, char **argv)
                 }
                 else
                     worker_threads = 4;             // 4 is a good default for 5.1
+#else
+                error_line ("warning: --threads not enabled, ignoring option!");
+#endif
             }
             else if (!strcmp (long_option, "caf-be")) {                 // --caf-be
                 decode_format = WP_FORMAT_CAF;
