@@ -554,6 +554,47 @@ int WavpackPackInit (WavpackContext *wpc)
     if (wpc->metabytes > 16384)             // 16384 bytes still leaves plenty of room for audio
         write_metadata_block (wpc);         //  in this block (otherwise write a special one)
 
+#ifdef ENABLE_THREADS
+    // if multithreading is enabled and requested, configure and start the workers here
+
+    if (wpc->config.worker_threads) {
+        // for multichannel files, we use one less worker thread than there are streams
+        if (wpc->num_streams > 1 && wpc->config.worker_threads > wpc->num_streams - 1)
+            wpc->num_workers = wpc->num_streams - 1;
+        else
+            wpc->num_workers = wpc->config.worker_threads;
+
+        if (wpc->num_workers > 15)
+            wpc->num_workers = 15;
+
+        // FIXME: There are some situations where the number of samples in a block is truncated during the packing
+        // of the first stream. This can be either because of dynamic noise shaping used with correction files or with
+        // the "merge blocks" feature. Since this would not work with multithreaded compression, we'll prohibit that
+        // for now, but in the future a better solution would be to simply calculate the truncation before starting
+        // the compression threads.
+
+        if (!(wpc->streams [0]->wphdr.flags & FLOAT_DATA) && (wpc->streams [0]->wphdr.flags & MAG_MASK) >> MAG_LSB < 24)
+            if ((wpc->wvc_flag && (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !wpc->config.block_samples) ||
+                wpc->block_boundary)
+                    wpc->num_workers = 0;
+
+        // Because of noise-shaping discontinuities between blocks and complications in measuring quantization noise,
+        // we don't allow temporal multithreading in hybrid mode. In the future we might be able to loosen this up some.
+
+        if (wpc->num_workers && wpc->num_streams == 1 && (wpc->streams [0]->wphdr.flags & HYBRID_FLAG))
+            wpc->num_workers = 0;
+
+        // DSD "high" mode performs much better with discontinuities if it has some "pre samples" to chew on first.
+        // DSD "fast" mode doesn't care about discontinuities, and the PCM modes do a pack_init() to deal with them.
+
+        if (wpc->num_workers && wpc->dsd_multiplier && wpc->num_streams == 1 && (wpc->config.flags & CONFIG_HIGH_FLAG))
+            wpc->max_pre_samples = 512;
+
+        if (wpc->num_workers)
+            worker_threads_create (wpc);
+    }
+#endif
+
     // The default block size is a compromise. Longer blocks provide better encoding efficiency,
     // but longer blocks adversely affect memory requirements and seeking performance. For WavPack
     // version 5.0, the default block sizes have been reduced by half from the previous version,
@@ -612,47 +653,6 @@ int WavpackPackInit (WavpackContext *wpc)
 #endif
             pack_init (wps);
     }
-
-#ifdef ENABLE_THREADS
-    // if multithreading is enabled and requested, configure and start the workers here
-
-    if (wpc->config.worker_threads) {
-        // for multichannel files, we use one less worker thread than there are streams
-        if (wpc->num_streams > 1 && wpc->config.worker_threads > wpc->num_streams - 1)
-            wpc->num_workers = wpc->num_streams - 1;
-        else
-            wpc->num_workers = wpc->config.worker_threads;
-
-        if (wpc->num_workers > 15)
-            wpc->num_workers = 15;
-
-        // FIXME: There are some situations where the number of samples in a block is truncated during the packing
-        // of the first stream. This can be either because of dynamic noise shaping used with correction files or with
-        // the "merge blocks" feature. Since this would not work with multithreaded compression, we'll prohibit that
-        // for now, but in the future a better solution would be to simply calculate the truncation before starting
-        // the compression threads.
-
-        if (!(wpc->streams [0]->wphdr.flags & FLOAT_DATA) && (wpc->streams [0]->wphdr.flags & MAG_MASK) >> MAG_LSB < 24)
-            if ((wpc->wvc_flag && (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !wpc->config.block_samples) ||
-                wpc->block_boundary)
-                    wpc->num_workers = 0;
-
-        // Because of noise-shaping discontinuities between blocks and complications in measuring quantization noise,
-        // we don't allow temporal multithreading in hybrid mode. In the future we might be able to loosen this up some.
-
-        if (wpc->num_workers && wpc->num_streams == 1 && (wpc->streams [0]->wphdr.flags & HYBRID_FLAG))
-            wpc->num_workers = 0;
-
-        // DSD "high" mode performs much better with discontinuities if it has some "pre samples" to chew on first.
-        // DSD "fast" mode doesn't care about discontinuities, and the PCM modes do a pack_init() to deal with them.
-
-        if (wpc->num_workers && wpc->dsd_multiplier && wpc->num_streams == 1 && (wpc->config.flags & CONFIG_HIGH_FLAG))
-            wpc->max_pre_samples = 512;
-
-        if (wpc->num_workers)
-            worker_threads_create (wpc);
-    }
-#endif
 
     return TRUE;
 }
@@ -1167,11 +1167,11 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
             memcpy (wps_copy, wps, sizeof (WavpackStream));
 
             // If there is a discontinuity (i.e., the previous block is not done, so we can't get any
-            // continuation information from it) then we must essentially start fresh for PCM (except
-            // with "extra" modes). For "high" mode DSD we are able to use some number of previous
-            // samples, and "fast" DSD mode is always encoded independently, so that's a freebie.
+            // continuation information from it) then we must essentially start fresh. For "high" mode
+            // DSD we are able to use some number of previous samples to compensate for this, and the
+            // "fast" DSD mode is always encoded independently, so that's a freebie.
 
-            if (wps->discontinuous && ((wps->wphdr.flags & DSD_FLAG) || !wps->wpc->config.xmode))
+            if (wps->discontinuous)
                 pack_init (wps_copy);
 
             wps_copy->sample_buffer = malloc (block_samples * (wps->wphdr.flags & MONO_FLAG ? 4 : 8));
@@ -1208,7 +1208,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
             // This code handles blocks compressed now and sent in the foreground,
             // although we might have to wait for all backgrounded blocks to send.
 
-            if (wps->discontinuous && ((wps->wphdr.flags & DSD_FLAG) || !wps->wpc->config.xmode))
+            if (wps->discontinuous)
                 pack_init (wps);
 
             result = pack_stream_block (wps);
