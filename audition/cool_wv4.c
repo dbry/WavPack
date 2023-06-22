@@ -31,6 +31,7 @@
 // Version 2.15b - Sept 27, 2016 (library ver 5.0.0-alpha5, new "high" DSD, broken!)
 // Version 3.0 - Dec 1, 2016 (library ver 5.0.0)
 // Version 3.1 - Jan 18, 2017 (library ver 5.1.0)
+// Version 4.0 - June 22, 2023 (library ver 5.6.6, multithreading)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -188,7 +189,13 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
     if (!total_samples)
         return 0;
 
-    *lplChunkSize = CHUNKSIZE;
+    // set the chunk size large enough for multithreading to kick in
+
+    if (wChannels > 2)
+        *lplChunkSize = 262144;
+    else
+        *lplChunkSize = 240000 * wChannels * (wBitsPerSample / 8);
+
     CLEAR (config);
 
     if ((out = malloc (sizeof (OUTPUT))) == NULL)
@@ -268,6 +275,7 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
     config.bits_per_sample = wBitsPerSample;
     config.bytes_per_sample = (wBitsPerSample + 7) / 8;
     config.channel_mask = 0x5 - wChannels;
+    config.worker_threads = 4;
 
     if (wBitsPerSample == 32)
         config.float_norm_exp = (format == 3) ? 127 : 127 + 15;
@@ -543,7 +551,8 @@ HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
 
     CLEAR (*in);
 
-    wpc = in->wpc = WavpackOpenFileInput (lpszFilename, error, OPEN_WVC | OPEN_WRAPPER | OPEN_NORMALIZE | OPEN_DSD_AS_PCM, 15);
+    wpc = in->wpc = WavpackOpenFileInput (lpszFilename, error,
+        OPEN_WVC | OPEN_WRAPPER | OPEN_NORMALIZE | OPEN_DSD_AS_PCM | (4 << OPEN_THREADS_SHFT), 15);
 
     if (!wpc) {
         free (in);
@@ -555,11 +564,17 @@ HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
         return WavpackCloseFile (wpc);
     }
 
-    *lplChunkSize = CHUNKSIZE;
     *lplSamprate = WavpackGetSampleRate (wpc);
     *lpwChannels = WavpackGetNumChannels (wpc);
     *lpwBitsPerSample = WavpackGetBitsPerSample (wpc) > 16 ? 32 :
         (WavpackGetBitsPerSample (wpc) > 8 ? 16 : 8);
+
+    // set the chunk size large enough for multithreading to kick in
+
+    if (*lpwChannels > 2)
+        *lplChunkSize = 262144;
+    else
+        *lplChunkSize = 240000 * *lpwChannels * (*lpwBitsPerSample / 8);
 
     return in;
 }
@@ -935,8 +950,8 @@ static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, 
                     return TRUE;
 
                 case IDABOUT:
-                    sprintf (str, "Cool Edit / Audition Filter Version 3.1\n" "WavPack Library Version %s\n"
-                        "Copyright (c) 2017 David Bryant", WavpackGetLibraryVersionString());
+                    sprintf (str, "Cool Edit / Audition Filter Version 4.0\n" "WavPack Library Version %s\n"
+                        "Copyright (c) 2023 David Bryant", WavpackGetLibraryVersionString());
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
             }
