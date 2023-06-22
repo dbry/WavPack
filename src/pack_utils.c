@@ -1696,7 +1696,7 @@ static void block_update_checksum (unsigned char *buffer_start)
 // pack_stream_block() to be running for multiple streams simultaneously.
 
 #ifdef _WIN32
-static DWORD WINAPI pack_samples_worker_thread (LPVOID param)
+static unsigned WINAPI pack_samples_worker_thread (LPVOID param)
 #else
 static void *pack_samples_worker_thread (void *param)
 #endif

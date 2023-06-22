@@ -76,6 +76,7 @@ typedef __int8  int8_t;
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <process.h>
 
 typedef CONDITION_VARIABLE      wp_condvar_t;
 #define wp_condvar_init(x)      InitializeConditionVariable(&x)
@@ -90,10 +91,10 @@ typedef CRITICAL_SECTION        wp_mutex_t;
 #define wp_mutex_delete(x)      DeleteCriticalSection(&x)
 
 typedef HANDLE                  wp_thread_t;
-#define wp_thread_create(x,y,z) x=CreateThread(NULL,0,y,z,0,NULL)
+#define wp_thread_create(x,y,z) x=(HANDLE)_beginthreadex(NULL,0,y,z,0,NULL)
 #define wp_thread_join(x)       WaitForSingleObject(x,INFINITE)
 #define wp_thread_delete(x)     CloseHandle(x);
-#define wp_thread_exit(x)       ExitThread(x);
+#define wp_thread_exit(x)       _endthreadex(x);
 
 #else
 

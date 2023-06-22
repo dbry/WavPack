@@ -483,7 +483,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 // unpack_samples_interleave() to be running for multiple streams simultaneously.
 
 #ifdef _WIN32
-static DWORD WINAPI unpack_samples_worker_thread (LPVOID param)
+static unsigned WINAPI unpack_samples_worker_thread (LPVOID param)
 #else
 static void *unpack_samples_worker_thread (void *param)
 #endif
