@@ -274,11 +274,11 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
 
     WavpackSetConfiguration64 (wpc, &config, total_samples, NULL);
 
-    strncpy (riffhdr.ckID, "RIFF", sizeof (riffhdr.ckID));
+    memcpy (riffhdr.ckID, "RIFF", sizeof (riffhdr.ckID));
     riffhdr.ckSize = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + lSize;
-    strncpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
+    memcpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
 
-    strncpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
+    memcpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
     fmthdr.ckSize = wavhdrsize;
 
     wavhdr.FormatTag = format;
@@ -293,7 +293,7 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
         wavhdr.ValidBitsPerSample = 1;
     }
 
-    strncpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
+    memcpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
     datahdr.ckSize = lSize;
 
     // write the RIFF chunks up to just before the data starts
@@ -527,7 +527,7 @@ typedef struct {
     RiffChunkHeader listhdr;
     WavpackContext *wpc;
     uint32_t special_bytes;
-    char *special_data;
+    unsigned char *special_data;
     int legacy_warned;
 } WavpackInput;
 
@@ -1063,7 +1063,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
     if (out) {
         if (!strncmp (szListType, "INFO", 4)) {
 
-            strncpy (ChunkHeader.ckID, szType, 4);
+            memcpy (ChunkHeader.ckID, szType, 4);
             ChunkHeader.ckSize = dwSize;
             return write_special_riff_chunk (out, szListType, &ChunkHeader, pData);
         }
@@ -1081,7 +1081,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                     if (length > 16)
                         memcpy (pBuffer + 20, cp + 16, length - 16);
 
-                    strncpy (ChunkHeader.ckID, szType, 4);
+                    memcpy (ChunkHeader.ckID, szType, 4);
                     ChunkHeader.ckSize = length + 4;
                     write_special_riff_chunk (out, szListType, &ChunkHeader, pBuffer);
                     free (pBuffer);
@@ -1092,7 +1092,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                 char *cp = pData, *ep = pData + dwSize;
 
                 while (ep - cp > 4) {
-                    strncpy (ChunkHeader.ckID, szType, 4);
+                    memcpy (ChunkHeader.ckID, szType, 4);
                     ChunkHeader.ckSize = strlen (cp + 4) + 5;
                     write_special_riff_chunk (out, szListType, &ChunkHeader, cp);
                     cp += ChunkHeader.ckSize;
@@ -1107,7 +1107,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                 struct cue_type *pCue;
                 char *pBuffer;
 
-                strncpy (ChunkHeader.ckID, szType, 4);
+                memcpy (ChunkHeader.ckID, szType, 4);
                 ChunkHeader.ckSize = num_cues * sizeof (*pCue) + sizeof (DWORD);
                 pBuffer = malloc (ChunkHeader.ckSize);
                 * (DWORD*) pBuffer = num_cues;
@@ -1115,7 +1115,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
 
                 while (num_cues--) {
                     CLEAR (*pCue);
-                    strncpy ((char *) &pCue->fccChunk, "data", 4);
+                    memcpy ((char *) &pCue->fccChunk, "data", 4);
                     pCue->dwName = *dwPtr++;
                     pCue->dwPosition = pCue->dwSampleOffset = *dwPtr++;
                     pCue++;
@@ -1130,7 +1130,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                 struct play_type *pPlay;
                 char *pBuffer;
 
-                strncpy (ChunkHeader.ckID, szType, 4);
+                memcpy (ChunkHeader.ckID, szType, 4);
                 ChunkHeader.ckSize = num_plays * sizeof (*pPlay) + sizeof (num_plays);
                 pBuffer = malloc (ChunkHeader.ckSize);
                 * (DWORD*) pBuffer = num_plays;
@@ -1150,7 +1150,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                 return 1;
             }
 
-            strncpy (ChunkHeader.ckID, szType, 4);
+            memcpy (ChunkHeader.ckID, szType, 4);
             ChunkHeader.ckSize = dwSize;
             return write_special_riff_chunk (out, szListType, &ChunkHeader, pData);
         }
@@ -1185,8 +1185,8 @@ static DWORD write_special_riff_chunk (OUTPUT *out, LPCSTR szListType, ChunkHead
             dump_list_chunk (out);
 
         if (!out->listdata) {
-            strncpy (out->listhdr.formType, szListType, 4);
-            strncpy (out->listhdr.ckID, "LIST", 4);
+            memcpy (out->listhdr.formType, szListType, 4);
+            memcpy (out->listhdr.ckID, "LIST", 4);
             out->listhdr.ckSize = 4;
         }
 
@@ -1297,13 +1297,13 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
             else
                 in->listhdr.ckSize = 0;
 
-            strncpy (psp->szListType, in->listhdr.formType, 4);
+            memcpy (psp->szListType, in->listhdr.formType, 4);
             psp->szListType [4] = 0;
         }
         else
             strcpy (psp->szListType, "WAVE");
 
-        strncpy (psp->szType, ChunkHeader.ckID, 4);
+        memcpy (psp->szType, ChunkHeader.ckID, 4);
         psp->szType [4] = 0;
         psp->dwSize = ChunkHeader.ckSize;
         psp->dwExtra = 1;
