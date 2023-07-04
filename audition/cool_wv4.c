@@ -32,6 +32,7 @@
 // Version 3.0 - Dec 1, 2016 (library ver 5.0.0)
 // Version 3.1 - Jan 18, 2017 (library ver 5.1.0)
 // Version 4.0 - June 22, 2023 (library ver 5.6.6, multithreading)
+// Version 4.1 - July 4, 2023 (fixed bug with handling of Type 3 "normalized" float setting)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -62,6 +63,9 @@
 #define OPTIONS_EXTRA           0x1000  // extra processing mode (version 2.9+, range = 0-6, else 0-1)
 #define OPTIONS_VERY_HIGH       0x8000  // "very high" mode specified
 #define OPTIONS_BITRATE         0xfff00000 // hybrid bits/sample (5.7 fixed pt)
+
+#define WAV_IEEE_FLOAT_NORMAL   127         // +/- 1.0
+#define COOL_EDIT_FLOAT_NORMAL  (127+15)    // +/- 32768.0
 
 #define CLEAR(destin) memset (&destin, 0, sizeof (destin));
 
@@ -278,7 +282,7 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
     config.worker_threads = 4;
 
     if (wBitsPerSample == 32)
-        config.float_norm_exp = (format == 3) ? 127 : 127 + 15;
+        config.float_norm_exp = (format == 3) ? WAV_IEEE_FLOAT_NORMAL : COOL_EDIT_FLOAT_NORMAL;
 
     WavpackSetConfiguration64 (wpc, &config, total_samples, NULL);
 
@@ -425,8 +429,9 @@ DWORD PASCAL WriteFilterOutput (HANDLE hOutput, BYTE *lpbData, long lBytes)
 
             out->random = random;
         }
-        else if (WavpackGetFloatNormExp (wpc) == 127)
-            WavpackFloatNormalize ((int32_t *) lpbData, samples * num_channels, -15);
+        else if (WavpackGetFloatNormExp (wpc) == WAV_IEEE_FLOAT_NORMAL)
+            WavpackFloatNormalize ((int32_t *) lpbData, samples * num_channels,
+                WAV_IEEE_FLOAT_NORMAL - COOL_EDIT_FLOAT_NORMAL);
 
         result = WavpackPackSamples (wpc, buffer, samples);
 
@@ -552,7 +557,7 @@ HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
     CLEAR (*in);
 
     wpc = in->wpc = WavpackOpenFileInput (lpszFilename, error,
-        OPEN_WVC | OPEN_WRAPPER | OPEN_NORMALIZE | OPEN_DSD_AS_PCM | (4 << OPEN_THREADS_SHFT), 15);
+        OPEN_WVC | OPEN_WRAPPER | OPEN_DSD_AS_PCM | (4 << OPEN_THREADS_SHFT), 0);
 
     if (!wpc) {
         free (in);
@@ -654,6 +659,9 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
             while (samcnt--)
                 *out++ = *buffer++ * factor;
         }
+        else if ((WavpackGetMode (wpc) & MODE_FLOAT) && WavpackGetFloatNormExp (wpc) != COOL_EDIT_FLOAT_NORMAL)
+            WavpackFloatNormalize (buffer, samples_to_read * num_channels,
+                COOL_EDIT_FLOAT_NORMAL - WavpackGetFloatNormExp (wpc));
 
         if (bytes_per_sample != 4)
             free (buffer);
@@ -950,7 +958,7 @@ static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, 
                     return TRUE;
 
                 case IDABOUT:
-                    sprintf (str, "Cool Edit / Audition Filter Version 4.0\n" "WavPack Library Version %s\n"
+                    sprintf (str, "Cool Edit / Audition Filter Version 4.1\n" "WavPack Library Version %s\n"
                         "Copyright (c) 2023 David Bryant", WavpackGetLibraryVersionString());
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
@@ -1018,7 +1026,7 @@ DWORD PASCAL FilterOptions (HANDLE hInput)
         else if (WavpackGetBitsPerSample (wpc) == 24)
             dwOptions |= OPTIONS_FLOAT24;
 
-        if ((mode & MODE_FLOAT) && WavpackGetFloatNormExp (wpc) == 127)
+        if ((mode & MODE_FLOAT) && WavpackGetFloatNormExp (wpc) == WAV_IEEE_FLOAT_NORMAL)
             dwOptions |= OPTIONS_NORMALIZE;
     }
 
