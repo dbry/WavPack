@@ -23,6 +23,12 @@ math(EXPR DYLIB_COMPATIBILITY_VERSION_MICRO "0")
 set(DYLIB_CURRENT_VERSION "${DYLIB_CURRENT_VERSION_MAJOR}.${DYLIB_CURRENT_VERSION_MINOR}.${DYLIB_CURRENT_VERSION_MICRO}")
 set(DYLIB_COMPATIBILITY_VERSION "${DYLIB_COMPATIBILITY_VERSION_MAJOR}.${DYLIB_COMPATIBILITY_VERSION_MINOR}.${DYLIB_COMPATIBILITY_VERSION_MICRO}")
 
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    set(WAVPACK_ROOTPROJECT ON)
+else()
+    set(WAVPACK_ROOTPROJECT OFF)
+endif()
+
 # Languages
 
 include(CheckLanguage)
@@ -79,9 +85,9 @@ include(FindOpenSSL)
 option(WAVPACK_ENABLE_LEGACY "Decode legacy (< 4.0) WavPack files" OFF)
 option(WAVPACK_ENABLE_THREADS "Enable support for threading in libwavpack" ON)
 option(WAVPACK_ENABLE_DSD "Enable support for WavPack DSD files" ON)
-option(WAVPACK_INSTALL_CMAKE_MODULE "Generate and install CMake package configuration module" ON)
-option(WAVPACK_INSTALL_DOCS "Install documentation" ON)
-option(WAVPACK_INSTALL_PKGCONFIG_MODULE "Generate and install wavpack.pc" ON)
+option(WAVPACK_INSTALL_CMAKE_MODULE "Generate and install CMake package configuration module" ${WAVPACK_ROOTPROJECT})
+option(WAVPACK_INSTALL_DOCS "Install documentation" ${WAVPACK_ROOTPROJECT})
+option(WAVPACK_INSTALL_PKGCONFIG_MODULE "Generate and install wavpack.pc" ${WAVPACK_ROOTPROJECT})
 
 # Configuration tests
 
@@ -142,10 +148,10 @@ endif()
 
 cmake_dependent_option(WAVPACK_ENABLE_ASM "Enable assembly optimizations" ON "HAVE_ASM OR HAVE_MASM" OFF)
 cmake_dependent_option(WAVPACK_ENABLE_LIBCRYPTO "Use OpenSSL::Crypto library" ON "OPENSSL_FOUND" OFF)
-cmake_dependent_option(WAVPACK_BUILD_PROGRAMS "Build programs" ON "WIN32 OR Iconv_FOUND" OFF)
-cmake_dependent_option(WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin" ON "WIN32" OFF)
-cmake_dependent_option(WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin" ON "WIN32" OFF)
-cmake_dependent_option(BUILD_TESTING "Build tests" ON "NOT WIN32" OFF)
+cmake_dependent_option(WAVPACK_BUILD_PROGRAMS "Build programs" ${WAVPACK_ROOTPROJECT} "WIN32 OR Iconv_FOUND" OFF)
+cmake_dependent_option(WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin" ${WAVPACK_ROOTPROJECT} "WIN32" OFF)
+cmake_dependent_option(WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin" ${WAVPACK_ROOTPROJECT} "WIN32" OFF)
+cmake_dependent_option(BUILD_TESTING "Build tests" ${WAVPACK_ROOTPROJECT} "NOT WIN32" OFF)
 
 # Targets
 
