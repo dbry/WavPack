@@ -30,7 +30,7 @@ typedef struct {
     uint16_t sampleRateExponent;
     uint64_t sampleRateMantissa;
     char compressionType [4];
-    char compressionName [256-22];
+    char compressionName [512];
 } CommonChunk;
 #pragma pack(pop)
 
@@ -253,7 +253,7 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             int bytes_per_frame;
 
             if (!common_chunks || chunk_header.ckSize < sizeof (sound_chunk)      ||
-                (!version_chunks && aiff_chunk_header.formType [3] == 'C')        ||
+             /* (!version_chunks && aiff_chunk_header.formType [3] == 'C')        || */
                 !DoReadFile (infile, &sound_chunk, sizeof (sound_chunk), &bcount) ||
                 bcount != sizeof (sound_chunk)) {
                     error_line ("%s is not a valid .AIF%c file!", infilename, aiff_chunk_header.formType [3]);
