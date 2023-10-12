@@ -48,9 +48,6 @@ dnl Check for large files support
 AC_SYS_LARGEFILE
 AC_FUNC_FSEEKO
 
-AC_ARG_ENABLE([libcrypto],
-  [AS_HELP_STRING([--enable-libcrypto], [use libcrypto MD5 if available (breaks Mac build)])])
-
 AC_ARG_ENABLE([apps],
   [AS_HELP_STRING([--disable-apps], [build only libwavpack (removes ICONV dependency)])])
 AM_CONDITIONAL([ENABLE_APPS], [test "x${enable_apps}" != "xno"])
@@ -69,16 +66,6 @@ AS_IF([test "x${enable_apps}" != "xno" && test "x${windows_host}" != "xyes"], [
     AC_MSG_ERROR([iconv is required for apps, use --disable-apps to build only libwavpack])
   ])
 ])
-
-AS_IF([test "x${enable_libcrypto}" = "xyes"], [
-  save_LIBS="$LIBS"
-  AC_CHECK_LIB([crypto],[MD5_Init])
-  LIBS="$save_LIBS"
-  AS_IF([test "x${ac_cv_lib_crypto_MD5_Init}" = "xyes"], [
-    LIBCRYPTO="-lcrypto"
-  ])
-])
-AC_SUBST([LIBCRYPTO])
 
 AC_ARG_ENABLE([legacy],
   [AS_HELP_STRING([--enable-legacy], [decode legacy (< 4.0) WavPack files])])
