@@ -14,9 +14,7 @@ EXTRA_DIST = \
 	CMakeLists.txt \
 	cmake/CheckCLinkerFlag.cmake \
 	cmake/modules/FindIconv.cmake \
-	cmake/TestLargeFiles.cmake \
-	wavpackdll/resource.h \
-	wavpackdll/wavpackdll.rc
+	cmake/TestLargeFiles.cmake
 
 MAINTAINERCLEANFILES = \
 	aclocal.m4 \
@@ -48,7 +46,7 @@ cli_wavpack_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 cli_wavpack_LDFLAGS = -rpath $(libdir)
 endif
-cli_wavpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
+cli_wavpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV) $(LIBCRYPTO)
 
 cli_wvunpack_SOURCES = cli/wvunpack.c cli/riff_write.c cli/wave64_write.c cli/caff_write.c cli/dsdiff_write.c cli/aiff_write.c cli/dsf_write.c cli/utils.c cli/md5.c
 if WINDOWS_HOST
@@ -58,7 +56,7 @@ cli_wvunpack_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 cli_wvunpack_LDFLAGS = -rpath $(libdir)
 endif
-cli_wvunpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
+cli_wvunpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV) $(LIBCRYPTO)
 
 cli_wvgain_SOURCES = cli/wvgain.c cli/utils.c
 if WINDOWS_HOST
@@ -80,16 +78,21 @@ cli_wvtag_LDFLAGS = -rpath $(libdir)
 endif
 cli_wvtag_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
 
+# FIXME: wvtest relies on pthreads only and doesn't use win32 threads
+if WINDOWS_HOST
+check_PROGRAMS =
+else
 check_PROGRAMS = cli/wvtest
 cli_wvtest_SOURCES = cli/wvtest.c cli/md5.c
 cli_wvtest_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 cli_wvtest_LDFLAGS = -rpath $(libdir)
 endif
-cli_wvtest_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) -lpthread
+cli_wvtest_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBCRYPTO) $(LIBTHREAD)
 
 TESTS = cli/fast-tests
 TESTS_ENVIRONMENT = $(SHELL)
+endif
 
 noinst_HEADERS = \
 	cli/win32_unicode_support.h \
@@ -162,6 +165,18 @@ if ENABLE_ARMASM
 src_libwavpack_la_SOURCES += src/unpack_armv7.S
 endif
 
+if WINDOWS_HOST
+if HAVE_WINDRES
+src_libwavpack_la_SOURCES += wavpackdll/dummy.c wavpackdll/wavpackdll.rc wavpackdll/resource.h
+src_libwavpack_la_DEPENDENCIES = wavpackdll/wavpackdll.o
+win32res_link = -Wl,wavpackdll/wavpackdll.o
+wavpackdll/wavpackdll.o: wavpackdll/wavpackdll.rc
+endif
+endif
+
 src_libwavpack_la_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
-src_libwavpack_la_LIBADD = $(AM_LDADD) $(LIBM) -lpthread
-src_libwavpack_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -export-symbols-regex '^Wavpack.*$$' -no-undefined
+src_libwavpack_la_LIBADD = $(AM_LDADD) $(LIBM) $(LIBTHREAD)
+src_libwavpack_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) $(win32res_link) -export-symbols-regex '^Wavpack.*$$' -no-undefined
+
+.rc.o:
+	$(RC) $(AM_CPPFLAGS) -i $< $@
