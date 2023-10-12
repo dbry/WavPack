@@ -34,9 +34,10 @@ AC_DEFINE_UNQUOTED([VERSION_OS], ["${host_os}"], [os version])
 
 dnl Checks for programs.
 AC_PROG_CC
-AC_PROG_INSTALL
 AM_PROG_AR
 AM_PROG_AS
+AC_CHECK_TOOL(RC,[windres],[:])
+AC_PROG_INSTALL
 
 LT_INIT([win32-dll disable-static])
 
@@ -70,8 +71,14 @@ AS_IF([test "x${enable_apps}" != "xno" && test "x${windows_host}" != "xyes"], [
 ])
 
 AS_IF([test "x${enable_libcrypto}" = "xyes"], [
+  save_LIBS="$LIBS"
   AC_CHECK_LIB([crypto],[MD5_Init])
+  LIBS="$save_LIBS"
+  AS_IF([test "x${ac_cv_lib_crypto_MD5_Init}" = "xyes"], [
+    LIBCRYPTO="-lcrypto"
+  ])
 ])
+AC_SUBST([LIBCRYPTO])
 
 AC_ARG_ENABLE([legacy],
   [AS_HELP_STRING([--enable-legacy], [decode legacy (< 4.0) WavPack files])])
@@ -91,7 +98,11 @@ AC_ARG_ENABLE([threads],
   [AS_HELP_STRING([--disable-threads], [disable use of threading in libwavpack])])
 AS_IF([test "x${enable_threads}" != "xno"], [
   AC_DEFINE([ENABLE_THREADS])
+  AS_IF([test "x${windows_host}" != "xyes"], [
+    LIBTHREAD="-lpthread"
+  ])
 ])
+AC_SUBST([LIBTHREAD])
 AM_CONDITIONAL([ENABLE_THREADS], [test "x${enable_threads}" != "xno"])
 
 AC_ARG_ENABLE([rpath],
@@ -150,6 +161,11 @@ AS_IF([test "x${ac_cv_have___builtin_ctz}" = "xyes"], [
 AS_IF([test "x${ac_cv_c_compiler_gnu}" = "xyes"], [
   CFLAGS="$CFLAGS -Wall"
 ])
+
+AS_IF([test "x${windows_host}" = "xyes"], [
+  AS_IF([test "x$RC" != "x:"],[have_windres=true])
+])
+AM_CONDITIONAL([HAVE_WINDRES],[test "x$have_windres" = "xtrue"])
 
 AC_CONFIG_LINKS([
   cli/all-tests:cli/all-tests

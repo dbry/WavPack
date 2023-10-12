@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2...3.5)
+cmake_minimum_required(VERSION 3.5)
 
 project(WavPack VERSION 5.6.6)
 
@@ -96,7 +96,9 @@ if(HAVE_LIBM)
     list(APPEND CMAKE_REQUIRED_LIBRARIES m)
 endif()
 
-find_package(Threads)
+if(NOT WIN32)
+  find_package(Threads)
+endif()
 find_package(Iconv)
 find_package(OpenSSL)
 
@@ -147,7 +149,7 @@ endif()
 # Dependent options
 
 cmake_dependent_option(WAVPACK_ENABLE_ASM "Enable assembly optimizations" ON "HAVE_ASM OR HAVE_MASM" OFF)
-cmake_dependent_option(WAVPACK_ENABLE_LIBCRYPTO "Use OpenSSL::Crypto library" ON "OPENSSL_FOUND" OFF)
+cmake_dependent_option(WAVPACK_ENABLE_LIBCRYPTO "Use OpenSSL::Crypto library" OFF "OPENSSL_FOUND" OFF)
 cmake_dependent_option(WAVPACK_BUILD_PROGRAMS "Build programs" ${WAVPACK_ROOTPROJECT} "WIN32 OR Iconv_FOUND" OFF)
 cmake_dependent_option(WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin" ${WAVPACK_ROOTPROJECT} "WIN32" OFF)
 cmake_dependent_option(WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin" ${WAVPACK_ROOTPROJECT} "WIN32" OFF)
@@ -204,26 +206,10 @@ target_include_directories(wavpack
 )
 target_link_libraries(wavpack
     PRIVATE
-    $<$<BOOL:${WAVPACK_ENABLE_THREADS}>:Threads::Threads>
+        $<$<AND:$<NOT:$<BOOL:${WIN32}>>,$<BOOL:${WAVPACK_ENABLE_THREADS}>>:Threads::Threads>
         $<$<BOOL:${HAVE_LIBM}>:m>
 )
 add_library(WavPack::WavPack ALIAS wavpack)
-
-if(CMAKE_VERSION VERSION_LESS 3.4)
-    target_include_directories(wavpack
-        PRIVATE
-            $<$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>:${OPENSSL_INCLUDE_DIR}>
-    )
-    target_link_libraries(wavpack
-        PRIVATE
-            $<$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>:${OPENSSL_CRYPTO_LIBRARY}>
-    )
-else()
-    target_link_libraries(wavpack
-        PRIVATE
-            $<$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>:OpenSSL::Crypto>
-    )
-endif()
 
 target_compile_definitions(wavpack
     PRIVATE
@@ -233,7 +219,6 @@ target_compile_definitions(wavpack
         $<$<BOOL:${MSVC}>:_CRT_SECURE_NO_WARNINGS>
         $<$<BOOL:${HAVE___BUILTIN_CLZ}>:HAVE___BUILTIN_CLZ>
         $<$<BOOL:${HAVE_FSEEKO}>:HAVE_FSEEKO>
-        $<$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>:HAVE_LIBCRYPTO>
         $<$<AND:$<BOOL:${WAVPACK_ENABLE_ASM}>,$<BOOL:${CPU_ASM_X86}>>:OPT_ASM_X86>
         $<$<AND:$<BOOL:${WAVPACK_ENABLE_ASM}>,$<BOOL:${CPU_ASM_X64}>>:OPT_ASM_X64>
         $<$<AND:$<BOOL:${WAVPACK_ENABLE_ASM}>,$<BOOL:${CPU_ASM_ARM32}>>:OPT_ASM_ARM32>
@@ -406,6 +391,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 	target_compile_definitions(wavpackapp
 		PRIVATE
 			$<$<BOOL:${MSVC}>:_CRT_SECURE_NO_WARNINGS>
+			$<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:HAVE_LIBCRYPTO>
 			$<$<BOOL:${WAVPACK_ENABLE_THREADS}>:ENABLE_THREADS>
 			"PACKAGE_VERSION=\"${PROJECT_VERSION}\""
 			"VERSION_OS=\"${CMAKE_SYSTEM_NAME}\""
@@ -415,6 +401,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 		PRIVATE
 			wavpack
 			$<$<NOT:$<BOOL:${WIN32}>>:Iconv::Iconv>
+			$<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:OpenSSL::Crypto>
 			$<$<BOOL:${HAVE_LIBM}>:m>
 	)
 
@@ -434,6 +421,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 	target_compile_definitions(wvunpack
 		PRIVATE
 			$<$<BOOL:${MSVC}>:_CRT_SECURE_NO_WARNINGS>
+			$<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:HAVE_LIBCRYPTO>
 			$<$<BOOL:${WAVPACK_ENABLE_THREADS}>:ENABLE_THREADS>
 			"PACKAGE_VERSION=\"${PROJECT_VERSION}\""
 			"VERSION_OS=\"${CMAKE_SYSTEM_NAME}\""
@@ -443,6 +431,7 @@ if(WAVPACK_BUILD_PROGRAMS)
 		PRIVATE
 			wavpack
 			$<$<NOT:$<BOOL:${WIN32}>>:Iconv::Iconv>
+			$<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:OpenSSL::Crypto>
 			$<$<BOOL:${HAVE_LIBM}>:m>
 	)
 
@@ -486,7 +475,6 @@ if(WAVPACK_BUILD_PROGRAMS)
 			$<$<NOT:$<BOOL:${WIN32}>>:Iconv::Iconv>
 			$<$<BOOL:${HAVE_LIBM}>:m>
 	)
-
 endif()
 
 if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
@@ -585,9 +573,9 @@ set(WAVPACK_DOC_NAMES
 # Features
 
 set_package_properties(OpenSSL PROPERTIES
-	TYPE RECOMMENDED
+	TYPE OPTIONAL
 	DESCRIPTION "TLS/SSL and crypto library"
-    PURPOSE "Can be used to build wavpack library."
+    PURPOSE "Can be used to build programs."
 )
 
 set_package_properties(Iconv PROPERTIES
@@ -686,7 +674,7 @@ endif()
 # Tests
 
 if(BUILD_TESTING AND (NOT WIN32))
-
+    # FIXME: wvtest relies on pthreads only and doesn't use win32 threads
     enable_testing()
 
     add_executable(wvtest
@@ -697,14 +685,15 @@ if(BUILD_TESTING AND (NOT WIN32))
     )
     target_compile_definitions(wvtest
         PRIVATE
+            $<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:HAVE_LIBCRYPTO>
             "PACKAGE_VERSION=\"${PROJECT_VERSION}\""
             "VERSION_OS=\"${CMAKE_SYSTEM_NAME}\"")
     target_link_libraries(wvtest
         PRIVATE
             wavpack
             Threads::Threads
+            $<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:OpenSSL::Crypto>
             $<$<BOOL:${HAVE_LIBM}>:m>
     )
     add_test(NAME wvtest COMMAND $<TARGET_FILE:wvtest> --exhaustive --short --no-extras)
-
 endif()
