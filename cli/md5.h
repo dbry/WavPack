@@ -22,10 +22,7 @@
  *
  * See md5.c for more information.
  */
-
-#ifdef HAVE_LIBCRYPTO
-#include <openssl/md5.h>
-#elif !defined(_MD5_H)
+#ifndef _MD5_H
 #define _MD5_H
 
 /* Any 32-bit or wider unsigned integer data type will do */

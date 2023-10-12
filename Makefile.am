@@ -46,7 +46,7 @@ cli_wavpack_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 cli_wavpack_LDFLAGS = -rpath $(libdir)
 endif
-cli_wavpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV) $(LIBCRYPTO)
+cli_wavpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
 
 cli_wvunpack_SOURCES = cli/wvunpack.c cli/riff_write.c cli/wave64_write.c cli/caff_write.c cli/dsdiff_write.c cli/aiff_write.c cli/dsf_write.c cli/utils.c cli/md5.c
 if WINDOWS_HOST
@@ -56,7 +56,7 @@ cli_wvunpack_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 cli_wvunpack_LDFLAGS = -rpath $(libdir)
 endif
-cli_wvunpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV) $(LIBCRYPTO)
+cli_wvunpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
 
 cli_wvgain_SOURCES = cli/wvgain.c cli/utils.c
 if WINDOWS_HOST
@@ -88,7 +88,7 @@ cli_wvtest_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 cli_wvtest_LDFLAGS = -rpath $(libdir)
 endif
-cli_wvtest_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBCRYPTO) $(LIBTHREAD)
+cli_wvtest_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBTHREAD)
 
 TESTS = cli/fast-tests
 TESTS_ENVIRONMENT = $(SHELL)

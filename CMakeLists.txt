@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.2...3.5)
 
 project(WavPack VERSION 5.6.6)
 
@@ -78,7 +78,6 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(FeatureSummary)
 include(CPack)
-include(FindOpenSSL)
 
 # Options. See also dependent options below
 
@@ -100,7 +99,6 @@ if(NOT WIN32)
   find_package(Threads)
 endif()
 find_package(Iconv)
-find_package(OpenSSL)
 
 check_c_source_compiles(
         "int main()
@@ -149,7 +147,6 @@ endif()
 # Dependent options
 
 cmake_dependent_option(WAVPACK_ENABLE_ASM "Enable assembly optimizations" ON "HAVE_ASM OR HAVE_MASM" OFF)
-cmake_dependent_option(WAVPACK_ENABLE_LIBCRYPTO "Use OpenSSL::Crypto library" OFF "OPENSSL_FOUND" OFF)
 cmake_dependent_option(WAVPACK_BUILD_PROGRAMS "Build programs" ${WAVPACK_ROOTPROJECT} "WIN32 OR Iconv_FOUND" OFF)
 cmake_dependent_option(WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin" ${WAVPACK_ROOTPROJECT} "WIN32" OFF)
 cmake_dependent_option(WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin" ${WAVPACK_ROOTPROJECT} "WIN32" OFF)
@@ -391,7 +388,6 @@ if(WAVPACK_BUILD_PROGRAMS)
 	target_compile_definitions(wavpackapp
 		PRIVATE
 			$<$<BOOL:${MSVC}>:_CRT_SECURE_NO_WARNINGS>
-			$<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:HAVE_LIBCRYPTO>
 			$<$<BOOL:${WAVPACK_ENABLE_THREADS}>:ENABLE_THREADS>
 			"PACKAGE_VERSION=\"${PROJECT_VERSION}\""
 			"VERSION_OS=\"${CMAKE_SYSTEM_NAME}\""
@@ -401,7 +397,6 @@ if(WAVPACK_BUILD_PROGRAMS)
 		PRIVATE
 			wavpack
 			$<$<NOT:$<BOOL:${WIN32}>>:Iconv::Iconv>
-			$<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:OpenSSL::Crypto>
 			$<$<BOOL:${HAVE_LIBM}>:m>
 	)
 
@@ -421,7 +416,6 @@ if(WAVPACK_BUILD_PROGRAMS)
 	target_compile_definitions(wvunpack
 		PRIVATE
 			$<$<BOOL:${MSVC}>:_CRT_SECURE_NO_WARNINGS>
-			$<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:HAVE_LIBCRYPTO>
 			$<$<BOOL:${WAVPACK_ENABLE_THREADS}>:ENABLE_THREADS>
 			"PACKAGE_VERSION=\"${PROJECT_VERSION}\""
 			"VERSION_OS=\"${CMAKE_SYSTEM_NAME}\""
@@ -431,7 +425,6 @@ if(WAVPACK_BUILD_PROGRAMS)
 		PRIVATE
 			wavpack
 			$<$<NOT:$<BOOL:${WIN32}>>:Iconv::Iconv>
-			$<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:OpenSSL::Crypto>
 			$<$<BOOL:${HAVE_LIBM}>:m>
 	)
 
@@ -570,13 +563,8 @@ set(WAVPACK_DOC_NAMES
     wvtag
 )
 
-# Features
 
-set_package_properties(OpenSSL PROPERTIES
-	TYPE OPTIONAL
-	DESCRIPTION "TLS/SSL and crypto library"
-    PURPOSE "Can be used to build programs."
-)
+# Features
 
 set_package_properties(Iconv PROPERTIES
 	TYPE RECOMMENDED
@@ -596,9 +584,7 @@ add_feature_info(WAVPACK_ENABLE_DSD WAVPACK_ENABLE_DSD "Enable support for WavPa
 add_feature_info(WAVPACK_ENABLE_THREADS WAVPACK_ENABLE_THREADS "Enable support for threading in libwavpack.")
 add_feature_info(WAVPACK_INSTALL_CMAKE_MODULE WAVPACK_INSTALL_CMAKE_MODULE "Generate and install CMake package configuration module.")
 
-
 add_feature_info(WAVPACK_ENABLE_ASM WAVPACK_ENABLE_ASM "Enable assembly optimizations.")
-add_feature_info(WAVPACK_ENABLE_LIBCRYPTO WAVPACK_ENABLE_LIBCRYPTO "Use OpenSSL::Crypto library.")
 add_feature_info(WAVPACK_BUILD_PROGRAMS WAVPACK_BUILD_PROGRAMS "Build programs.")
 add_feature_info(WAVPACK_BUILD_COOLEDIT_PLUGIN WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin.")
 add_feature_info(WAVPACK_BUILD_WINAMP_PLUGIN WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin.")
@@ -606,6 +592,7 @@ add_feature_info(WAVPACK_INSTALL_DOCS WAVPACK_INSTALL_DOCS "Install documentatio
 add_feature_info(WAVPACK_INSTALL_PKGCONFIG_MODULE WAVPACK_INSTALL_PKGCONFIG_MODULE "Generate and install wavpack.pc.")
 
 feature_summary(WHAT ALL)
+
 
 # Installation
 
@@ -685,14 +672,12 @@ if(BUILD_TESTING AND (NOT WIN32))
     )
     target_compile_definitions(wvtest
         PRIVATE
-            $<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:HAVE_LIBCRYPTO>
             "PACKAGE_VERSION=\"${PROJECT_VERSION}\""
             "VERSION_OS=\"${CMAKE_SYSTEM_NAME}\"")
     target_link_libraries(wvtest
         PRIVATE
             wavpack
             Threads::Threads
-            $<$<AND:$<BOOL:${WAVPACK_ENABLE_LIBCRYPTO}>,$<BOOL:${OPENSSL_FOUND}>>:OpenSSL::Crypto>
             $<$<BOOL:${HAVE_LIBM}>:m>
     )
     add_test(NAME wvtest COMMAND $<TARGET_FILE:wvtest> --exhaustive --short --no-extras)
