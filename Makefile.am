@@ -14,7 +14,23 @@ EXTRA_DIST = \
 	CMakeLists.txt \
 	cmake/CheckCLinkerFlag.cmake \
 	cmake/modules/FindIconv.cmake \
-	cmake/TestLargeFiles.cmake
+	cmake/TestLargeFiles.cmake \
+	\
+	cli/Makefile.w32 \
+	src/Makefile.os2 \
+	src/Makefile.w32 \
+	src/pack_x64.asm \
+	src/pack_x86.asm \
+	src/unpack_x64.asm \
+	src/unpack_x86.asm \
+	\
+	src/libwavpack.vcxproj \
+	wavpackexe/wavpack.vcxproj \
+	wavpackdll/wavpackdll.vcxproj \
+	wvgainexe/wvgain.vcxproj \
+	wvunpackexe/wvunpack.vcxproj \
+	wvtagexe/wvtag.vcxproj \
+	wavpack.sln masm.rules
 
 MAINTAINERCLEANFILES = \
 	aclocal.m4 \
