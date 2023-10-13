@@ -87,6 +87,8 @@ option(WAVPACK_ENABLE_DSD "Enable support for WavPack DSD files" ON)
 option(WAVPACK_INSTALL_CMAKE_MODULE "Generate and install CMake package configuration module" ${WAVPACK_ROOTPROJECT})
 option(WAVPACK_INSTALL_DOCS "Install documentation" ${WAVPACK_ROOTPROJECT})
 option(WAVPACK_INSTALL_PKGCONFIG_MODULE "Generate and install wavpack.pc" ${WAVPACK_ROOTPROJECT})
+option(BUILD_SHARED_LIBS "Build the library as a shared library" OFF)
+option(BUILD_TESTING "Build tests" OFF)
 
 # Configuration tests
 
@@ -150,7 +152,6 @@ cmake_dependent_option(WAVPACK_ENABLE_ASM "Enable assembly optimizations" ON "HA
 cmake_dependent_option(WAVPACK_BUILD_PROGRAMS "Build programs" ${WAVPACK_ROOTPROJECT} "WIN32 OR Iconv_FOUND" OFF)
 cmake_dependent_option(WAVPACK_BUILD_COOLEDIT_PLUGIN "Build CoolEdit plugin" OFF "WIN32" OFF)
 cmake_dependent_option(WAVPACK_BUILD_WINAMP_PLUGIN "Build WinAmp plugin" OFF "WIN32" OFF)
-cmake_dependent_option(BUILD_TESTING "Build tests" ${WAVPACK_ROOTPROJECT} "NOT WIN32" OFF)
 
 # Targets
 
@@ -660,8 +661,7 @@ endif()
 
 # Tests
 
-if(BUILD_TESTING AND (NOT WIN32))
-    # FIXME: wvtest relies on pthreads only and doesn't use win32 threads
+if(BUILD_TESTING)
     enable_testing()
 
     add_executable(wvtest
@@ -677,7 +677,7 @@ if(BUILD_TESTING AND (NOT WIN32))
     target_link_libraries(wvtest
         PRIVATE
             wavpack
-            Threads::Threads
+            $<$<NOT:$<BOOL:${WIN32}>>:Threads::Threads>
             $<$<BOOL:${HAVE_LIBM}>:m>
     )
     add_test(NAME wvtest COMMAND $<TARGET_FILE:wvtest> --exhaustive --short --no-extras)

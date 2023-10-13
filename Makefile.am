@@ -30,6 +30,7 @@ EXTRA_DIST = \
 	wvgainexe/wvgain.vcxproj \
 	wvunpackexe/wvunpack.vcxproj \
 	wvtagexe/wvtag.vcxproj \
+	wvtestexe/wvtest.vcxproj \
 	wavpack.sln masm.rules
 
 MAINTAINERCLEANFILES = \
@@ -95,9 +96,6 @@ endif
 cli_wvtag_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
 
 # FIXME: wvtest relies on pthreads only and doesn't use win32 threads
-if WINDOWS_HOST
-check_PROGRAMS =
-else
 check_PROGRAMS = cli/wvtest
 cli_wvtest_SOURCES = cli/wvtest.c cli/md5.c
 cli_wvtest_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
@@ -108,7 +106,6 @@ cli_wvtest_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBTHREAD)
 
 TESTS = cli/fast-tests
 TESTS_ENVIRONMENT = $(SHELL)
-endif
 
 noinst_HEADERS = \
 	cli/win32_unicode_support.h \
