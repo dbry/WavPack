@@ -21,6 +21,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "winamp_lng", "winamp\winamp
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wvtag", "wvtagexe\wvtag.vcxproj", "{E902ADAD-C567-4AB7-A480-1AE7396C7AF7}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wvtest", "wvtestexe\wvtest.vcxproj", "{D243A896-F253-4955-BDFB-F94DADEF5A18}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -95,6 +97,14 @@ Global
 		{E902ADAD-C567-4AB7-A480-1AE7396C7AF7}.Release|Win32.Build.0 = Release|Win32
 		{E902ADAD-C567-4AB7-A480-1AE7396C7AF7}.Release|x64.ActiveCfg = Release|x64
 		{E902ADAD-C567-4AB7-A480-1AE7396C7AF7}.Release|x64.Build.0 = Release|x64
+		{D243A896-F253-4955-BDFB-F94DADEF5A18}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D243A896-F253-4955-BDFB-F94DADEF5A18}.Debug|Win32.Build.0 = Debug|Win32
+		{D243A896-F253-4955-BDFB-F94DADEF5A18}.Debug|x64.ActiveCfg = Debug|x64
+		{D243A896-F253-4955-BDFB-F94DADEF5A18}.Debug|x64.Build.0 = Debug|x64
+		{D243A896-F253-4955-BDFB-F94DADEF5A18}.Release|Win32.ActiveCfg = Release|Win32
+		{D243A896-F253-4955-BDFB-F94DADEF5A18}.Release|Win32.Build.0 = Release|Win32
+		{D243A896-F253-4955-BDFB-F94DADEF5A18}.Release|x64.ActiveCfg = Release|x64
+		{D243A896-F253-4955-BDFB-F94DADEF5A18}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

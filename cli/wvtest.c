@@ -93,24 +93,24 @@ struct audio_generator {
     enum generator_type type;
     union {
         struct noise_generator {
-            float sum1, sum2, sum2p;                // these are changing
-            float factor, scalar;                   // these are constant
+            double sum1, sum2, sum2p;               // these are changing
+            double factor, scalar;                  // these are constant
         } noise_cxt;
 
         struct tone_generator {
             int sample_rate, samples_per_update;    // these are constant
             int high_frequency, low_frequency;      // these are constant
-            float angle, velocity, acceleration;    // these are changing
+            double angle, velocity, acceleration;   // these are changing
             int samples_left;
         } tone_cxt;    
     } u;
 };
 
-static int seeking_test (char *filename, uint32_t test_count);
+static int seeking_test (char *filename, int32_t test_count);
 static void tone_generator_init (struct audio_generator *cxt, int sample_rate, int low_freq, int high_freq);
-static void noise_generator_init (struct audio_generator *cxt, float factor);
+static void noise_generator_init (struct audio_generator *cxt, double factor);
 static void audio_generator_run (struct audio_generator *cxt, float *samples, int num_samples);
-static void mix_samples_with_gain (float *destin, float *source, int num_samples, int num_chans, float initial_gain, float final_gain);
+static void mix_samples_with_gain (float *destin, float *source, int num_samples, int num_chans, double initial_gain, double final_gain);
 static void truncate_float_samples (float *samples, int num_samples, int bits);
 static void float_to_integer_samples (float *samples, int num_samples, int bits);
 static void float_to_32bit_integer_samples (float *samples, int num_samples);
@@ -309,7 +309,7 @@ done:
 // actually verify that every sample decoded is correct. For each test run, we decode the entire
 // file 4 times over, on average.
 
-static int seeking_test (char *filename, uint32_t test_count)
+static int seeking_test (char *filename, int32_t test_count)
 {
     char error [80];
     int open_flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
@@ -358,8 +358,8 @@ static int seeking_test (char *filename, uint32_t test_count)
     for (test_index = 0; test_index < test_count; test_index++) {
         uint32_t chunk_samples, total_chunks, chunk_count = 0, seek_count = 0;
 
-        chunk_samples = min_chunk_size + frandom () * min_chunk_size;   // 256 - 511 (unless reduced)
-        total_chunks = (total_samples + chunk_samples - 1) / chunk_samples;
+        chunk_samples = (uint32_t) (min_chunk_size + frandom () * min_chunk_size);   // 256 - 511 (unless reduced)
+        total_chunks = (uint32_t) ((total_samples + chunk_samples - 1) / chunk_samples);
         decoded_samples = malloc (sizeof (int32_t) * chunk_samples * num_chans);
         chunked_md5 = malloc (total_chunks * 16);
 
@@ -461,16 +461,16 @@ static int seeking_test (char *filename, uint32_t test_count)
         while (chunk_count) {
             int start_chunk = 0, stop_chunk, current_chunk, num_chunks = 1;
 
-            start_chunk = floor (frandom () * total_chunks);
+            start_chunk = (int) floor (frandom () * total_chunks);
             if (start_chunk == total_chunks) start_chunk--;
 
             // At a minimum, we very one chunk after the seek. However, we also random chose additional
             // chunks to verify so that sometimes we verify lots of data after the seek.
 
-            while (start_chunk + num_chunks < total_chunks && frandom () < 0.667)
+            while (start_chunk + num_chunks < (int) total_chunks && frandom () < 0.667)
                 num_chunks *= 2;
 
-            if (start_chunk + num_chunks > total_chunks)
+            if (start_chunk + num_chunks > (int) total_chunks)
                 num_chunks = total_chunks - start_chunk;
 
             stop_chunk = start_chunk + num_chunks - 1;
@@ -686,7 +686,7 @@ static int run_test_extra_modes (int wpconfig_flags, int test_flags, int bits, i
 #define NUM_GENERATORS 6
 
 struct audio_channel {
-    float audio_gain_hist [NUM_GENERATORS], audio_gain [NUM_GENERATORS], angle_offset;
+    double audio_gain_hist [NUM_GENERATORS], audio_gain [NUM_GENERATORS], angle_offset;
     int lfe_flag;
 };
 
@@ -705,7 +705,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
 {
     static int test_number;
 
-    float sequencing_angle = 0.0, speed = 60.0, width = 200.0, *source, *destin, ratio, bps;
+    double sequencing_angle = 0.0, speed = 60.0, width = 200.0, ratio, bps;
     int lossless = !(wpconfig_flags & CONFIG_HYBRID_FLAG) || ((wpconfig_flags & CONFIG_CREATE_WVC) && !(test_flags & TEST_FLAG_IGNORE_WVC));
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
@@ -714,6 +714,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     int seconds = 0, samples = 0, wc = 0, chan_mask;
     char *filename = NULL, mode_string [32] = "-";
     struct audio_channel *channels;
+    float *source, *destin;
     wp_thread_t thread;
     WavpackContext *out_wpc;
     WavpackConfig wpconfig;
@@ -1115,7 +1116,7 @@ static int write_block (void *id, void *data, int32_t length)
     wp_mutex_obtain (ws->mutex);
 
     while (length) {
-        int32_t bytes_available = ws->buffer_tail - ws->buffer_head - 1;
+        int32_t bytes_available = (int32_t) (ws->buffer_tail - ws->buffer_head - 1);
         int32_t bytes_to_copy = length;
 
         if (bytes_available < 0)
@@ -1125,7 +1126,7 @@ static int write_block (void *id, void *data, int32_t length)
             bytes_to_copy = bytes_available;
 
         if (ws->buffer_head + bytes_to_copy > ws->buffer_base + ws->buffer_size)
-            bytes_to_copy = ws->buffer_base + ws->buffer_size - ws->buffer_head;
+            bytes_to_copy = (int32_t) (ws->buffer_base + ws->buffer_size - ws->buffer_head);
 
         if (!bytes_to_copy) {
             ws->full_waits++;
@@ -1162,7 +1163,7 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
             bcount--;
         }
         else if (ws->buffer_head != ws->buffer_tail) {
-            int bytes_available = ws->buffer_head - ws->buffer_tail;
+            int bytes_available = (int) (ws->buffer_head - ws->buffer_tail);
             int32_t bytes_to_copy = bcount;
 
             if (bytes_available < 0)
@@ -1172,7 +1173,7 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
                 bytes_to_copy = bytes_available;
 
             if (ws->buffer_tail + bytes_to_copy > ws->buffer_base + ws->buffer_size)
-                bytes_to_copy = ws->buffer_base + ws->buffer_size - ws->buffer_tail;
+                bytes_to_copy = (int32_t) (ws->buffer_base + ws->buffer_size - ws->buffer_tail);
 
             memcpy (data_ptr, (void *) ws->buffer_tail, bytes_to_copy);
 
@@ -1194,7 +1195,7 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
     wp_condvar_signal (ws->cond_read);
     wp_mutex_release (ws->mutex);
 
-    return data_ptr - (unsigned char *) data;
+    return (int32_t) (data_ptr - (unsigned char *) data);
 }
 
 static uint32_t get_pos (void *id)
@@ -1298,7 +1299,7 @@ static void tone_generator_init (struct audio_generator *cxt, int sample_rate, i
 
 static void tone_generator_run (struct tone_generator *cxt, float *samples, int num_samples)
 {
-    float target_frequency, target_velocity;
+    double target_frequency, target_velocity;
 
     while (num_samples--) {
         if (!cxt->samples_left) {
@@ -1309,13 +1310,13 @@ static void tone_generator_run (struct tone_generator *cxt, float *samples, int 
             cxt->acceleration = (target_velocity - cxt->velocity) / cxt->samples_left;
         }
 
-        *samples++ = sin (cxt->angle += cxt->velocity += cxt->acceleration);
+        *samples++ = (float) sin (cxt->angle += cxt->velocity += cxt->acceleration);
         if (cxt->angle > M_PI) cxt->angle -= M_PI * 2.0;
         cxt->samples_left--;
     }
 }
 
-static void noise_generator_init (struct audio_generator *cxt, float factor)
+static void noise_generator_init (struct audio_generator *cxt, double factor)
 {
     struct noise_generator *noise_cxt = &cxt->u.noise_cxt;
 
@@ -1329,10 +1330,10 @@ static void noise_generator_init (struct audio_generator *cxt, float factor)
 static void noise_generator_run (struct noise_generator *cxt, float *samples, int num_samples)
 {
     while (num_samples--) {
-        float source = (frandom () - 0.5) * cxt->scalar;
+        double source = (frandom () - 0.5) * cxt->scalar;
         cxt->sum1 += (source - cxt->sum1) / cxt->factor;
         cxt->sum2 += (cxt->sum1 - cxt->sum2) / cxt->factor;
-        *samples++ = cxt->sum2 - cxt->sum2p;
+        *samples++ = (float) (cxt->sum2 - cxt->sum2p);
         cxt->sum2p = cxt->sum2;
     }
 }
@@ -1354,13 +1355,13 @@ static void audio_generator_run (struct audio_generator *cxt, float *samples, in
     }
 }
 
-static void mix_samples_with_gain (float *destin, float *source, int num_samples, int num_chans, float initial_gain, float final_gain)
+static void mix_samples_with_gain (float *destin, float *source, int num_samples, int num_chans, double initial_gain, double final_gain)
 {
-    float delta_gain = (final_gain - initial_gain) / num_samples;
-    float gain = initial_gain - delta_gain;
+    double delta_gain = (final_gain - initial_gain) / num_samples;
+    double gain = initial_gain - delta_gain;
 
     while (num_samples--) {
-        *destin += *source++ * (gain += delta_gain);
+        *destin += *source++ * (float) (gain += delta_gain);
         destin += num_chans;
     }
 }
@@ -1368,7 +1369,7 @@ static void mix_samples_with_gain (float *destin, float *source, int num_samples
 static void truncate_float_samples (float *samples, int num_samples, int bits)
 {
     int isample, imin = -(1 << (bits - 1)), imax = (1 << (bits - 1)) - 1;
-    float scalar = (float) (1 << (bits - 1));
+    double scalar = (double) (1 << (bits - 1));
 
     while (num_samples--) {
         if (*samples >= 1.0)
@@ -1376,16 +1377,16 @@ static void truncate_float_samples (float *samples, int num_samples, int bits)
         else if (*samples <= -1.0)
             isample = imin;
         else
-            isample = floor (*samples * scalar);
+            isample = (int) floor (*samples * scalar);
 
-        *samples++ = isample / scalar;
+        *samples++ = (float) (isample / scalar);
     } 
 }
 
 static void float_to_integer_samples (float *samples, int num_samples, int bits)
 {
     int isample, imin = -(1 << (bits - 1)), imax = (1 << (bits - 1)) - 1;
-    float scalar = (float) (1 << (bits - 1));
+    double scalar = (double) (1 << (bits - 1));
     int ishift = (8 - (bits & 0x7)) & 0x7;
 
     while (num_samples--) {
@@ -1394,7 +1395,7 @@ static void float_to_integer_samples (float *samples, int num_samples, int bits)
         else if (*samples <= -1.0)
             isample = imin;
         else
-            isample = floor (*samples * scalar);
+            isample = (int) floor (*samples * scalar);
 
         *(int32_t *)samples = (uint32_t) isample << ishift;
         samples++;
@@ -1404,7 +1405,7 @@ static void float_to_integer_samples (float *samples, int num_samples, int bits)
 static void float_to_32bit_integer_samples (float *samples, int num_samples)
 {
     int isample, imin = 0x8000000, imax = 0x7fffffff;
-    float scalar = 2147483648.0;
+    double scalar = 2147483648.0;
 
     while (num_samples--) {
         if (*samples >= 1.0)
@@ -1412,7 +1413,7 @@ static void float_to_32bit_integer_samples (float *samples, int num_samples)
         else if (*samples <= -1.0)
             isample = imin;
         else
-            isample = floor (*samples * scalar);
+            isample = (int) floor (*samples * scalar);
 
         // if there are trailing zeros, fill them in with random data
 
