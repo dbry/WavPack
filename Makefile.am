@@ -19,6 +19,7 @@ EXTRA_DIST = \
 	cli/Makefile.w32 \
 	src/Makefile.os2 \
 	src/Makefile.w32 \
+	src/wavpack.exports \
 	src/pack_x64.asm \
 	src/pack_x86.asm \
 	src/unpack_x64.asm \
