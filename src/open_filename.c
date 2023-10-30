@@ -164,8 +164,8 @@ static int64_t get_length (void *id)
 
 static int can_seek (void *id)
 {
-    struct stat statbuf;
-    return id && !fstat (_fileno ((FILE *)id), &statbuf) && S_ISREG(statbuf.st_mode);
+    struct __stat64 statbuf;
+    return id && !_fstat64 (_fileno ((FILE *)id), &statbuf) && S_ISREG(statbuf.st_mode);
 }
 
 #else
