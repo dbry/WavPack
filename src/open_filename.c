@@ -110,36 +110,14 @@ static int push_back_byte (void *id, int c)
     return ungetc (c, id);
 }
 
-#ifdef _WIN32
-
-static int64_t get_length (void *id)
-{
-    LARGE_INTEGER Size;
-    HANDLE        fHandle;
-
-    if (id == NULL)
-        return 0;
-
-    fHandle = (HANDLE)_get_osfhandle(_fileno((FILE*) id));
-    if (fHandle == INVALID_HANDLE_VALUE)
-        return 0;
-
-    Size.u.LowPart = GetFileSize(fHandle, (DWORD *) &Size.u.HighPart);
-
-    if (Size.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
-        return 0;
-
-    return (int64_t)Size.QuadPart;
-}
-
-#elif defined(__WATCOMC__)
+#if defined(_WIN32) || defined(__WATCOMC__)
 
 static int64_t get_length (void *id)
 {
     FILE *file = id;
     struct _stati64 statbuf;
 
-    if (!file || _fstati64 (fileno (file), &statbuf) || !S_ISREG(statbuf.st_mode))
+    if (!file || _fstati64 (_fileno (file), &statbuf) || !S_ISREG(statbuf.st_mode))
         return 0;
 
     return statbuf.st_size;
@@ -160,12 +138,12 @@ static int64_t get_length (void *id)
 
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__WATCOMC__)
 
 static int can_seek (void *id)
 {
-    struct __stat64 statbuf;
-    return id && !_fstat64 (_fileno ((FILE *)id), &statbuf) && S_ISREG(statbuf.st_mode);
+    struct _stati64 statbuf;
+    return id && !_fstati64 (_fileno ((FILE *)id), &statbuf) && S_ISREG(statbuf.st_mode);
 }
 
 #else
