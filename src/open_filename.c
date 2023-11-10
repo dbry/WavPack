@@ -112,6 +112,12 @@ static int push_back_byte (void *id, int c)
 
 #if defined(_WIN32) || defined(__WATCOMC__)
 
+static int can_seek (void *id)
+{
+    struct _stati64 statbuf;
+    return id && !_fstati64 (_fileno ((FILE *)id), &statbuf) && S_ISREG(statbuf.st_mode);
+}
+
 static int64_t get_length (void *id)
 {
     FILE *file = id;
@@ -125,6 +131,14 @@ static int64_t get_length (void *id)
 
 #else
 
+static int can_seek (void *id)
+{
+    FILE *file = id;
+    struct stat statbuf;
+
+    return file && !fstat (fileno (file), &statbuf) && S_ISREG(statbuf.st_mode);
+}
+
 static int64_t get_length (void *id)
 {
     FILE *file = id;
@@ -134,26 +148,6 @@ static int64_t get_length (void *id)
         return 0;
 
     return statbuf.st_size;
-}
-
-#endif
-
-#if defined(_WIN32) || defined(__WATCOMC__)
-
-static int can_seek (void *id)
-{
-    struct _stati64 statbuf;
-    return id && !_fstati64 (_fileno ((FILE *)id), &statbuf) && S_ISREG(statbuf.st_mode);
-}
-
-#else
-
-static int can_seek (void *id)
-{
-    FILE *file = id;
-    struct stat statbuf;
-
-    return file && !fstat (fileno (file), &statbuf) && S_ISREG(statbuf.st_mode);
 }
 
 #endif
