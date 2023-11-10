@@ -113,7 +113,7 @@ typedef pthread_mutex_t         wp_mutex_t;
 #define wp_mutex_delete(x)      pthread_mutex_destroy(&x)
 
 typedef pthread_t               wp_thread_t;
-#define wp_thread_create(x,y,z) pthread_create(&x,NULL,y,z)
+#define wp_thread_create(x,y,z) do { if (pthread_create(&x,NULL,y,z)) x=0; } while (0)
 #define wp_thread_join(x)       pthread_join(x,NULL)
 #define wp_thread_delete(x)
 #define wp_thread_exit(x)       pthread_exit(x);

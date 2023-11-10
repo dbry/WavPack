@@ -1843,10 +1843,23 @@ static void worker_threads_create (WavpackContext *wpc)
             wpc->workers [i].workers_ready = &wpc->workers_ready;
             wp_condvar_init (wpc->workers [i].worker_cond);
             wp_thread_create (wpc->workers [i].thread, pack_samples_worker_thread, &wpc->workers [i]);
+
+            // gracefully handle failures in creating worker threads
+
+            if (!wpc->workers [i].thread) {
+                wp_condvar_delete (wpc->workers [i].worker_cond);
+                wpc->num_workers = i;
+                break;
+            }
+        }
+
+        if (!wpc->num_workers) {    // if we failed to start any workers, free the array
+            free (wpc->workers);
+            wpc->workers = NULL;
         }
     }
 }
-//
+
 // Return TRUE if there is a worker thread available. Obviously this depends on
 // whether there are worker threads enabled and running, but it also depends
 // on whether there is actually a worker thread that's not busy (however we

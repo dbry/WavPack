@@ -597,6 +597,19 @@ static void worker_threads_create (WavpackContext *wpc)
             wpc->workers [i].worker_errors = &wpc->worker_errors;
             wp_condvar_init (wpc->workers [i].worker_cond);
             wp_thread_create (wpc->workers [i].thread, unpack_samples_worker_thread, &wpc->workers [i]);
+
+            // gracefully handle failures in creating worker threads
+
+            if (!wpc->workers [i].thread) {
+                wp_condvar_delete (wpc->workers [i].worker_cond);
+                wpc->num_workers = i;
+                break;
+            }
+        }
+
+        if (!wpc->num_workers) {    // if we failed to start any workers, free the array
+            free (wpc->workers);
+            wpc->workers = NULL;
         }
     }
 }
