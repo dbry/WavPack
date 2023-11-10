@@ -237,9 +237,9 @@ static const char *help =
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
 #ifdef ENABLE_THREADS
-"    --threads[=n]           use up to 'n' worker threads for faster operation\n"
+"    --threads[=n]           use multiple threads for faster operation, optional\n"
+"                             'n' must be 1 - 12, 1 = single thread only\n"
 #endif
-"                             (if 'n' is omitted defaults to 4, max is 12)\n"
 "    -t                      copy input file's time stamp to output file(s)\n"
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 "    -v                      verify output file integrity after write (no pipes)\n"
@@ -652,10 +652,11 @@ int main (int argc, char **argv)
             else if (!strncmp (long_option, "threads", 7)) {                // --threads
 #ifdef ENABLE_THREADS
                 if (isdigit (*long_param)) {
-                    worker_threads = strtol (long_param, &long_param, 10);
+                    // "worker_threads" doesn't include main thread, so subtract 1 from user value
+                    worker_threads = strtol (long_param, &long_param, 10) - 1;
 
-                    if (worker_threads < 0 || worker_threads > 12) {
-                        error_line ("worker threads must be 12 or less!");
+                    if (worker_threads < 0 || worker_threads > 11) {
+                        error_line ("specified thread count must be 1 - 12!");
                         ++error_count;
                     }
                 }

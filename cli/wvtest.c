@@ -55,8 +55,8 @@ static const char *usage =
 "          --no-speeds         = skip the speed modes (fast, high, etc.)\n"
 "          --help              = display this message\n"
 "          --version           = write the version to stdout\n"
-"          --threads[=n]       = use up to 'n' worker threads for multichannel audio\n"
-"                                 (if 'n' is omitted defaults to 4, max is 12)\n"
+"          --threads[=n]       = use multiple threads, optional 'n' must\n"
+"                                 be 1 - 12, 1 = single thread only\n"
 "          --write=n[-n][,...] = write specific test(s) (or range(s)) to disk\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -235,15 +235,16 @@ int main (argc, argv) int argc; char **argv;
             }
             else if (!strncmp (long_option, "threads", 7)) {            // --threads
                 if (isdigit (*long_param)) {
-                    worker_threads = strtol (long_param, &long_param, 10);
+                    // "worker_threads" doesn't include main thread, so subtract 1 from user value
+                    worker_threads = strtol (long_param, &long_param, 10) - 1;
 
-                    if (worker_threads < 0 || worker_threads > 12) {
-                        printf ("worker threads must be 12 or less!\n");
+                    if (worker_threads < 0 || worker_threads > 11) {
+                        printf ("specified thread count must be 1 - 12!\n");
                         return 1;
                     }
                 }
                 else
-                    worker_threads = 4;             // 4 is a good default for 5.1
+                    worker_threads = 4;             // 4 is a good default for now
             }
             else {
                 printf ("unknown option: %s !\n", long_option);
