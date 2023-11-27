@@ -573,9 +573,9 @@ int WavpackPackInit (WavpackContext *wpc)
         // for now, but in the future a better solution would be to simply calculate the truncation before starting
         // the compression threads.
 
-        if (!(wpc->streams [0]->wphdr.flags & FLOAT_DATA) && (wpc->streams [0]->wphdr.flags & MAG_MASK) >> MAG_LSB < 24)
+        if (!(wpc->streams [0]->wphdr.flags & FLOAT_DATA) && wpc->config.bytes_per_sample <= 3)
             if ((wpc->wvc_flag && (wpc->config.flags & CONFIG_DYNAMIC_SHAPING) && !wpc->config.block_samples) ||
-                wpc->block_boundary)
+                wpc->config.flags & CONFIG_MERGE_BLOCKS)
                     wpc->num_workers = 0;
 
         // Because of noise-shaping discontinuities between blocks and complications in measuring quantization noise,
