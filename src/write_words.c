@@ -200,8 +200,8 @@ int32_t FASTCALL send_word (WavpackStream *wps, int32_t value, int chan)
             putbit_0 (&wps->wvbits);
         else {
             c->slow_level -= (c->slow_level + SLO) >> SLS;
-            CLEAR (wps->w.c [0].median);
-            CLEAR (wps->w.c [1].median);
+            CLEARA (wps->w.c [0].median);
+            CLEARA (wps->w.c [1].median);
             wps->w.zeros_acc = 1;
             return 0;
         }
@@ -356,8 +356,8 @@ void send_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsamples)
             else if (value)
                 putbit_0 (&wps->wvbits);
             else {
-                CLEAR (wps->w.c [0].median);
-                CLEAR (wps->w.c [1].median);
+                CLEARA (wps->w.c [0].median);
+                CLEARA (wps->w.c [1].median);
                 wps->w.zeros_acc = 1;
                 continue;
             }

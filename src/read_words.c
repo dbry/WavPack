@@ -113,8 +113,8 @@ int32_t FASTCALL get_word (WavpackStream *wps, int chan, int32_t *correction)
 
             if (wps->w.zeros_acc) {
                 c->slow_level -= (c->slow_level + SLO) >> SLS;
-                CLEAR (wps->w.c [0].median);
-                CLEAR (wps->w.c [1].median);
+                CLEARA (wps->w.c [0].median);
+                CLEARA (wps->w.c [1].median);
                 return 0;
             }
         }
@@ -396,8 +396,8 @@ int32_t get_words_lossless (WavpackStream *wps, int32_t *buffer, int32_t nsample
                 }
 
                 if (wps->w.zeros_acc) {
-                    CLEAR (wps->w.c [0].median);
-                    CLEAR (wps->w.c [1].median);
+                    CLEARA (wps->w.c [0].median);
+                    CLEARA (wps->w.c [1].median);
                     buffer [csamples] = 0;
                     continue;
                 }

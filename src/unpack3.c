@@ -75,7 +75,7 @@ void unpack_init3 (WavpackStream3 *wps)
     struct decorr_pass *dpp;
     int ti;
 
-    CLEAR (wps->decorr_passes);
+    CLEARA(wps->decorr_passes);
     CLEAR (wps->dc);
 
     if (flags & EXTREME_DECORR) {
@@ -187,7 +187,7 @@ static void *unpack_save (WavpackStream3 *wps, void *destin)
         SAVE (destin, wps->w2);
 
     if (wps->wphdr.bits) {
-        SAVE (destin, wps->dc.error);
+        SAVEA(destin, wps->dc.error);
     }
     else {
         SAVE (destin, wps->dc.sum_level);
@@ -202,8 +202,8 @@ static void *unpack_save (WavpackStream3 *wps, void *destin)
     }
 
     if (!(flags & EXTREME_DECORR)) {
-        SAVE (destin, wps->dc.sample);
-        SAVE (destin, wps->dc.weight);
+        SAVEA(destin, wps->dc.sample);
+        SAVEA(destin, wps->dc.weight);
     }
 
     if (flags & (HIGH_FLAG | NEW_HIGH_FLAG))
