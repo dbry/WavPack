@@ -115,5 +115,8 @@ typedef struct {
 
 #define SAVE(destin, item) { memcpy (destin, &item, sizeof (item)); destin = (char *) destin + sizeof (item); }
 #define RESTORE(item, source) { memcpy (&item, source, sizeof (item)); source = (char *) source + sizeof (item); }
+/* same as above, but for when 'item' is an array:  */
+#define SAVEA(destin, item) { memcpy (destin, item, sizeof (item)); destin = (char *) destin + sizeof (item); }
+#define RESTOREA(item, source) { memcpy (item, source, sizeof (item)); source = (char *) source + sizeof (item); }
 
 void unpack_init3 (WavpackStream3 *wps);

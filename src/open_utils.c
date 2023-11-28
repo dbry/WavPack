@@ -321,7 +321,7 @@ int unpack_init (WavpackContext *wpc, int stream)
     CLEAR (wps->wvbits);
     CLEAR (wps->wvcbits);
     CLEAR (wps->wvxbits);
-    CLEAR (wps->decorr_passes);
+    CLEARA(wps->decorr_passes);
     CLEAR (wps->dc);
     CLEAR (wps->w);
 

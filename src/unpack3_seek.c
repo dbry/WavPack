@@ -133,7 +133,7 @@ static void *unpack_restore (WavpackStream3 *wps, void *source, int keep_resourc
         RESTORE (wps->w2, source);
 
     if (wps->wphdr.bits) {
-        RESTORE (wps->dc.error, source);
+        RESTOREA(wps->dc.error, source);
     }
     else {
         RESTORE (wps->dc.sum_level, source);
@@ -148,8 +148,8 @@ static void *unpack_restore (WavpackStream3 *wps, void *source, int keep_resourc
     }
 
     if (!(flags & EXTREME_DECORR)) {
-        RESTORE (wps->dc.sample, source);
-        RESTORE (wps->dc.weight, source);
+        RESTOREA (wps->dc.sample, source);
+        RESTOREA (wps->dc.weight, source);
     }
 
     if (flags & (HIGH_FLAG | NEW_HIGH_FLAG))
