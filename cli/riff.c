@@ -130,7 +130,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             }
         }
         else if (!strncmp (chunk_header.ckID, "fmt ", 4)) {     // if it's the format chunk, we want to get some info out of there and
-            int supported = TRUE, format;                        // make sure it's a .wav file we can handle
+            int supported = TRUE, cbSize = 0, format;           // make sure it's a .wav file we can handle
 
             if (format_chunk++) {
                 error_line ("%s is not a valid .WAV file!", infilename);
@@ -151,6 +151,15 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
 
             WavpackLittleEndianToNative (&WaveHeader, WaveHeaderFormat);
 
+            if (chunk_header.ckSize >= 18) {
+                cbSize = WaveHeader.cbSize;
+
+                if (cbSize > chunk_header.ckSize - 18) {
+                    error_line ("%s is not a valid .WAV file!", infilename);
+                    return WAVPACK_SOFT_ERROR;
+                }
+            }
+
             if (debug_logging_mode) {
                 error_line ("format tag size = %d", chunk_header.ckSize);
                 error_line ("FormatTag = %x, NumChannels = %d, BitsPerSample = %d",
@@ -158,22 +167,26 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 error_line ("BlockAlign = %d, SampleRate = %d, BytesPerSecond = %d",
                     WaveHeader.BlockAlign, WaveHeader.SampleRate, WaveHeader.BytesPerSecond);
 
-                if (chunk_header.ckSize > 16)
-                    error_line ("cbSize = %d, ValidBitsPerSample = %d", WaveHeader.cbSize,
-                        WaveHeader.ValidBitsPerSample);
+                if (chunk_header.ckSize >= 18)
+                    error_line ("cbSize = %d", cbSize);
 
-                if (chunk_header.ckSize > 20)
-                    error_line ("ChannelMask = %x, SubFormat = %d",
-                        WaveHeader.ChannelMask, WaveHeader.SubFormat);
+                if (cbSize >= 2)
+                    error_line ("ValidBitsPerSample = %d", WaveHeader.ValidBitsPerSample);
+
+                if (cbSize >= 6)
+                    error_line ("ChannelMask = 0x%04x", WaveHeader.ChannelMask);
+
+                if (cbSize >= 8)
+                    error_line ("SubFormat = %d", WaveHeader.SubFormat);
             }
 
             if (chunk_header.ckSize > 16 && WaveHeader.cbSize == 2)
                 config->qmode |= QMODE_ADOBE_MODE;
 
-            format = (WaveHeader.FormatTag == 0xfffe && chunk_header.ckSize == 40) ?
+            format = (WaveHeader.FormatTag == 0xfffe && chunk_header.ckSize == 40 && cbSize >= 8) ?
                 WaveHeader.SubFormat : WaveHeader.FormatTag;
 
-            config->bits_per_sample = (chunk_header.ckSize == 40 && WaveHeader.ValidBitsPerSample) ?
+            config->bits_per_sample = (chunk_header.ckSize == 40 && cbSize >= 2 && WaveHeader.ValidBitsPerSample) ?
                 WaveHeader.ValidBitsPerSample : WaveHeader.BitsPerSample;
 
             if (format != 1 && format != 3)
@@ -199,7 +212,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             if ((config->qmode & QMODE_EVEN_BYTE_DEPTH) && (config->bits_per_sample % 8))
                 config->bits_per_sample += 8 - (config->bits_per_sample % 8);
 
-            if (chunk_header.ckSize < 40) {
+            if (chunk_header.ckSize < 40 || cbSize < 6) {
                 if (!config->channel_mask && !(config->qmode & QMODE_CHANS_UNASSIGNED)) {
                     if (WaveHeader.NumChannels <= 2)
                         config->channel_mask = 0x5 - WaveHeader.NumChannels;
