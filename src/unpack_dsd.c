@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** DSDPACK ****                            //
 //         Lossless DSD (Direct Stream Digital) Audio Compressor          //
-//                Copyright (c) 2013 - 2016 David Bryant.                 //
+//                Copyright (c) 2013 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
