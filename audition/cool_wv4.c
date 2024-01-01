@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2019 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -959,7 +959,7 @@ static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, 
 
                 case IDABOUT:
                     sprintf (str, "Cool Edit / Audition Filter Version 4.1\n" "WavPack Library Version %s\n"
-                        "Copyright (c) 2023 David Bryant", WavpackGetLibraryVersionString());
+                        "Copyright (c) 2024 David Bryant", WavpackGetLibraryVersionString());
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
             }

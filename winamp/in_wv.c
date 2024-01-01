@@ -1,7 +1,14 @@
-/*
-** .WV input plug-in for WavPack
-** Copyright (c) 2000 - 2022, David Bryant, All Rights Reserved
-*/
+////////////////////////////////////////////////////////////////////////////
+//                           **** WAVPACK ****                            //
+//                  Hybrid Lossless Wavefile Compressor                   //
+//                Copyright (c) 2000 - 2024 David Bryant.                 //
+//                          All Rights Reserved.                          //
+//      Distributed under the BSD Software License (see license.txt)      //
+////////////////////////////////////////////////////////////////////////////
+
+// in_wv_c.c
+
+// .WV input plug-in for WavPack
 
 #include <windows.h>
 #include <fcntl.h>

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2023 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -65,7 +65,7 @@
 
 static const char *sign_on = "\n"
 " WVTAG  WavPack Metadata Tagging Utility  %s Version %s\n"
-" Copyright (c) 2018 - 2023 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2018 - 2024 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVTAG using libwavpack version %s, expected %s (see README)\n\n";
