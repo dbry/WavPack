@@ -289,6 +289,7 @@ static struct {
 } file_formats [] = {
     { WP_FORMAT_WAV,  "RIFF", "wav", ParseRiffHeaderConfig,   2 },
     { WP_FORMAT_WAV,  "RF64", "wav", ParseRiffHeaderConfig,   2 },
+    { WP_FORMAT_WAV,  "BW64", "wav", ParseRiffHeaderConfig,   2 },
     { WP_FORMAT_W64,  "riff", "w64", ParseWave64HeaderConfig, 8 },
     { WP_FORMAT_CAF,  "caff", "caf", ParseCaffHeaderConfig,   1 },
     { WP_FORMAT_DFF,  "FRM8", "dff", ParseDsdiffHeaderConfig, 2 },
@@ -1918,7 +1919,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // if not in "raw" mode, process RIFF form header and set configuration
 
     if (!(loc_config.qmode & QMODE_RAW_PCM)) {
-        char fourcc [4];
+        char fourcc [4], fourcc_str [5];
         int i;
 
         if (!DoReadFile (infile, fourcc, sizeof (fourcc), &bcount) || bcount != sizeof (fourcc)) {
@@ -1931,6 +1932,15 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             free (out2filename_temp);
             return WAVPACK_SOFT_ERROR;
         }
+
+        strcpy (fourcc_str, "????");
+
+        for (i = 0; i < 4 && fourcc [i]; ++i)
+            if (fourcc [i] >= 0x20 && fourcc [i] <= 0x7f)
+                fourcc_str [i] = fourcc [i];
+
+        if (debug_logging_mode)
+            error_line ("fourcc is \"%s\"", fourcc_str);
 
         for (i = 0; i < NUM_FILE_FORMATS; ++i)
             if (!strncmp (fourcc, file_formats [i].fourcc, 4)) {
@@ -1954,7 +1964,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             }
 
         if (i == NUM_FILE_FORMATS)  {
-            error_line ("%s is not a recognized file type!", infilename);
+            error_line ("%s is not a recognized file type, fourcc is \"%s\"!", infilename, fourcc_str);
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
