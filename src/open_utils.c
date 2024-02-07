@@ -519,6 +519,14 @@ static int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
                 mask |= (uint32_t) *byteptr++ << shift;
                 shift += 8;
             }
+
+            // FFmpeg 6.1 generates non-compliant multichannel WavPack files that do not use the
+            // new (2016) channel format form introduced in WavPack 5.0. This hack allows those
+            // files to be decoded by the reference decoder. Surprisingly, the last time I
+            // checked, FFmpeg itself can't decode many of them either!
+
+            if (wpc->config.num_channels > OLD_MAX_STREAMS)
+                wpc->max_streams = wpc->config.num_channels;
         }
 
         if (wpc->config.num_channels > wpc->max_streams * 2)
