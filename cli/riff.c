@@ -130,7 +130,8 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             }
         }
         else if (!strncmp (chunk_header.ckID, "fmt ", 4)) {     // if it's the format chunk, we want to get some info out of there and
-            int supported = TRUE, cbSize = 0, format;           // make sure it's a .wav file we can handle
+            int supported = TRUE, format;                       // make sure it's a .wav file we can handle
+            uint32_t cbSize = 0;
 
             if (format_chunk++) {
                 error_line ("%s is not a valid .WAV file!", infilename);
