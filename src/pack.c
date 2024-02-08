@@ -677,7 +677,7 @@ int pack_block (WavpackStream *wps, int32_t *buffer)
 
         if (data_count) {
             if (data_count != (uint32_t) -1) {
-                if (wps->wpc->config.flags & CONFIG_OPTIMIZE_32BIT)
+                if ((wps->wpc->config.flags & CONFIG_OPTIMIZE_32BIT) && !(flags & FLOAT_DATA))
                     *cptr++ = ID_WVX_NEW_BITSTREAM | ID_LARGE;
                 else
                     *cptr++ = ID_WVX_BITSTREAM | ID_LARGE;

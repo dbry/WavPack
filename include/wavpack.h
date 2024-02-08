@@ -229,7 +229,7 @@ typedef struct {
 #define CONFIG_MD5_CHECKSUM     0x8000000 // store MD5 signature
 #define CONFIG_MERGE_BLOCKS     0x10000000 // merge blocks of equal redundancy (for lossyWAV)
 #define CONFIG_PAIR_UNDEF_CHANS 0x20000000 // encode undefined channels in stereo pairs
-#define CONFIG_OPTIMIZE_32BIT   0x40000000 // new optimizations for 32-bit integer and float files
+#define CONFIG_OPTIMIZE_32BIT   0x40000000 // new optimizations for 32-bit integer files
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
 // The lower 8 bits of qmode indicate the use of new features in version 5 that (presently)

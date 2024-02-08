@@ -206,8 +206,8 @@ static const char *help =
 "                             UTF-8, assume they are in UTF-8 already\n"
 "    -o FILENAME | PATH      specify output filename or path\n"
 #endif
-"    --optimize-32bit        optimizations for some specific 32-bit files (e.g.,\n"
-"                             integer files sourced from floats and vice versa);\n"
+"    --optimize-int32        optimizations for some specific 32-bit integer files\n"
+"                             (e.g., integer files sourced from float data);\n"
 "                             decoding files so created with previous revisions\n"
 "                             will result in output with only 24-bit equivalent\n"
 "                             resolution (but appropriately formatted); applies\n"
@@ -446,7 +446,7 @@ int main (int argc, char **argv)
             else if (!strcmp (long_option, "drop"))                     // --drop
                 drop_mode = 1;
 #endif
-            else if (!strcmp (long_option, "optimize-32bit"))           // --optimize-32bit
+            else if (!strcmp (long_option, "optimize-int32"))           // --optimize-int32
                 config.flags |= CONFIG_OPTIMIZE_32BIT;
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 error_line ("warning: --optimize-mono deprecated, now enabled by default");
@@ -995,7 +995,7 @@ int main (int argc, char **argv)
 
     if (config.flags & CONFIG_HYBRID_FLAG) {
         if ((config.flags & CONFIG_OPTIMIZE_32BIT) && !(config.flags & CONFIG_CREATE_WVC)) {
-            error_line ("--optimize-32bit option is for lossless mode only!");
+            error_line ("--optimize-int32 option is for lossless mode only!");
             ++error_count;
         }
         if ((config.flags & CONFIG_CREATE_WVC) && use_stdout) {
