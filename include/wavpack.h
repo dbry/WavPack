@@ -332,8 +332,8 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 
 // new for multithreaded
 
-#define OPEN_THREADS_SHFT 12     // specify number of worker threads here for multichannel file
-#define OPEN_THREADS_MASK 0xF000 // decode; 0 to disable, otherwise 2-15 (1 is useless)
+#define OPEN_THREADS_SHFT 12     // specify number of additional worker threads here for
+#define OPEN_THREADS_MASK 0xF000 // decode; 0 to disable, otherwise 1-15 added threads
 
 int WavpackGetMode (WavpackContext *wpc);
 

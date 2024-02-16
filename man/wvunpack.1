@@ -1,4 +1,4 @@
-.Dd January 4, 2023
+.Dd February 9, 2024
 .Dt WVUNPACK 1
 .Os
 .Sh NAME
@@ -178,6 +178,14 @@ start decoding at specified sample or time index, specifying a
 causes sample/time to be relative to EOF
 .It Fl t
 copy input file's time stamp to output file(s)
+.It Fl -threads= Ns Ar n
+Enable multithreaded operation with
+.Ar n=1
+(no threading) to
+.Ar n=12
+(max threads).
+Significantly improves performance of all modes, including verify.
+Omitting the parameter will select an optimum number of threads.
 .It Fl -until=[+|-][ Ns Ar sample Ns | Ns Ar hh : Ns Ar mm : Ns Ar ss.ss ]
 stop decoding at specified sample or time index, specifying a
 .Sq +

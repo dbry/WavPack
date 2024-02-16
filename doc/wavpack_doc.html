@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 5.6.0</div>
+				<div class="pageHeader">Using WavPack Version 5.7.0</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -562,7 +562,7 @@ a:hover {
     <p>
 
 				<p>
-					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF and other files</tt></b>
+					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 or ID3v2.4 tag on DSF and other files</tt></b>
 				</p>
 				<p>
 					Sony's DSF file format specifies that these files may contain an ID3v2 tag at the end, and it
@@ -570,8 +570,9 @@ a:hover {
      specs (e.g., WAV and DSDIFF files). WavPack considers this a trailing "wrapper" and stores it in the
      WavPack file as such so that the original file can be restored verbatim. However, stored this way
      it is not easily accessible for reading (and it is certainly not writable) because WavPack uses
-     APEv2 tags for metadata. This option causes any trailing ID3v2.3 tag in the DSF file (or any other
-     file type) to be scanned and all applicable items imported into the APEv2 tag, including cover art.
+     APEv2 tags for metadata. This option causes any trailing ID3v2.3 or ID3v2.4 tag in the DSF file (or
+     any other file type) to be scanned and all applicable items imported into the APEv2 tag,
+     including cover art.
     </p>
 				<p>
      Note that if over 1 MB of image data is present, then the <b>--allow-huge-tags</b> option must
@@ -669,6 +670,19 @@ a:hover {
      tag information is passed in on the command-line they are converted to UTF-8 before
      being stored. If your system is already passing the strings in UTF-8, use this option
      to prevent double conversion.
+    </p>
+
+    <p>
+     <b><tt>--optimize-int32 = enable new optimizations for certain 32-bit integer files</tt></b>
+    </p>
+    <p>
+     32-bit integer files are often originally sourced from floating-point audio, and
+     previously these were not optimally compressed by WavPack. This option enables a
+     new check for these (and similar) files and compresses them up to 10% more.
+     Unfortunately this new mode is not 100% backward compatible, so files created
+     with this option will decode with only 24 bits of resolution with older WavPack
+     decoders or 3rd party decoders like FFmpeg. Of course, this difference is very
+     likely inaudible, and in fact will be non-existent with common 24-bit DACs.
     </p>
 
 				<p>
@@ -810,6 +824,17 @@ a:hover {
 				</p>
 
 				<p>
+     <b><tt>--threads[=n] = enable multithreaded operation (optional n = 1 for no threading to 12 threads maximum)</tt></b>
+				</p>
+				<p>
+     On modern multicore CPUs WavPack can get a significant performance boost by utilizing
+     multiple threads. This is fully applicable to the pure lossless mode, but in the hybrid
+     modes it is only applicable to multichannel files. If the parameter <b>n</b> is omitted
+     then the number of threads is determined automatically as a balance between operational
+     speed and energy consumption.
+				</p>
+
+				<p>
 					<b><tt>--use-dns = force use of dynamic noise shaping (hybrid only)</tt></b>
 				</p>
 				<p>
@@ -848,7 +873,7 @@ a:hover {
 				</p>
 				<p>
      Write a metadata item to the APEv2 tag for the actual encoder being used
-     (e.g., "Encoder=WavPack 5.6.0"). It's also possible to specify a value to override
+     (e.g., "Encoder=WavPack 5.7.0"). It's also possible to specify a value to override
      the default. Note that when re&#235;ncoding WavPack files this metadata item is
      <b>not</b> simply copied from source to destination, but is recreated with the
      appropriate value.
@@ -896,7 +921,7 @@ a:hover {
 					<b><tt>-x[n] = extra encode processing (optional n = 0-6, 1 = default)</tt></b>
 				</p>
 				<p>
-					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 5.6.0 normally
+					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 5.7.0 normally
 					works "symmetrically" in that encoding and decoding operate at about the same rate
 					(regardless of the mode used). However, WavPack has an option to work
 					"asymmetrically", so that extra processing can be done during encoding to
@@ -1193,6 +1218,16 @@ a:hover {
 				</p>
 
 				<p>
+     <b><tt>--threads[=n] = enable multithreaded operation (optional n = 1 for no threading to 12 threads maximum)</tt></b>
+				</p>
+				<p>
+     On modern multicore CPUs WavPack can get a significant performance boost by utilizing
+     multiple threads. This is applicable to all modes, including verify. If the parameter
+     <b>n</b> is omitted then the number of threads is determined automatically as a balance
+     between operational speed and energy consumption.
+				</p>
+
+				<p>
      <b><tt>--until=[+|-][sample|hh:mm:ss.ss] = stop decoding at specified sample/time</tt></b>
 				</p>
 				<p>
@@ -1391,6 +1426,13 @@ a:hover {
 				</p>
 
 				<p>
+					<b><tt>-t = use multiple threads for faster operation</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
+				<p>
 					<b><tt>-v = display program version to stdout</tt></b>
 				</p>
 				<p>
@@ -1463,15 +1505,15 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF and other files</tt></b>
+					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 or ID3v2.4 tag on DSF and other files</tt></b>
 				</p>
 				<p>
 					Sony's DSF file format specifies that these files may contain an ID3v2 tag at the end. WavPack
      considers this a trailing "wrapper" and stores it in the WavPack file as such so that the DSF
      file can be restored verbatim. However, stored this way it is not easily accessible for
      reading (and it is certainly not writable) because WavPack uses APEv2 (or, sometimes, ID3v1) tags
-     for metadata. This option causes any trailing ID3v2.3 tag in the DSF file (or other file type) to be
-     scanned and all applicable items imported into the APEv2 tag, including cover art.
+     for metadata. This option causes any trailing ID3v2.3 or ID3v2.4 tag in the DSF file (or other
+     file type) to be scanned and all applicable items imported into the APEv2 tag, including cover art.
     </p>
     <p>
      Note that if over 1 MB of image data is present, then the <b>--allow-huge-tags</b> option must be included
