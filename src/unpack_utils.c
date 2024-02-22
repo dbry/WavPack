@@ -111,7 +111,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
     uint32_t bcount, samples_unpacked = 0, samples_to_unpack;
     int32_t *bptr = buffer;
 
-    memset (buffer, 0, num_channels * samples * sizeof (int32_t));
+    memset (buffer, 0, (wpc->reduced_channels ? wpc->reduced_channels : num_channels) * samples * sizeof (int32_t));
 
 #ifdef ENABLE_THREADS
     if (wpc->num_workers && !wpc->workers)
@@ -185,7 +185,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
                 // if this block has audio, but not the sample index we were expecting, flag an error
 
-                if (wps->wphdr.block_samples && wps->sample_index != GET_BLOCK_INDEX (wps->wphdr))
+                if (!wpc->reduced_channels && wps->wphdr.block_samples && wps->sample_index != GET_BLOCK_INDEX (wps->wphdr))
                     wpc->crc_errors++;
 
                 // if this block has audio, and we're in hybrid lossless mode, read the matching wvc block

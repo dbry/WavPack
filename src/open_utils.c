@@ -236,7 +236,7 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
     }
 
 #ifdef ENABLE_THREADS
-    if (!(wpc->open_flags & OPEN_2CH_MAX) && (wpc->open_flags & OPEN_THREADS_MASK)) {
+    if (!wpc->reduced_channels && (wpc->open_flags & OPEN_THREADS_MASK)) {
         wpc->num_workers = ((wpc->open_flags & OPEN_THREADS_MASK) >> OPEN_THREADS_SHFT) & 0xf;
 
         // for multichannel files we can limit the number of workers
