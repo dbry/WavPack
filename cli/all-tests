@@ -1,2 +1,2 @@
 set -e
-./cli/wvtest --default
+./cli/wvtest --threads --exhaustive

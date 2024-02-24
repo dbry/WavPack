@@ -693,6 +693,7 @@ struct audio_channel {
 
 #define SAMPLE_RATE 44100
 #define ENCODE_SAMPLES 128
+#define DESTIN_SAMPLES (220672)     // multiple of ENCODE_SAMPLES, long enough for temporal multithreading
 #define NOISE_GAIN 0.6667
 #define TONE_GAIN 0.3333
 
@@ -749,7 +750,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
 
     channels = malloc (num_chans * sizeof (*channels));
     source = malloc (ENCODE_SAMPLES * sizeof (*source));
-    destin = malloc (ENCODE_SAMPLES * num_chans * sizeof (*destin));
+    destin = malloc (DESTIN_SAMPLES * num_chans * sizeof (*destin));
 
     if (!channels || !source || !destin) {
         printf ("run_test(): can't allocate memory!\n");
@@ -898,35 +899,63 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     WavpackPackInit (out_wpc);
 
     while (seconds < num_seconds) {
+        int destin_samples = 0;
 
-        double translated_angle = cos (sequencing_angle) * 100.0;
-        double width_scalar = pow (2.0, -width);
-
-        for (k = 0; k < num_chans; ++k) {
-            channels [k].audio_gain [0] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 1.6667) + 1.0, width) * width_scalar * NOISE_GAIN;
-            channels [k].audio_gain [1] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 0.6667) + 1.0, width) * width_scalar * TONE_GAIN;
-            channels [k].audio_gain [2] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 0.3333) + 1.0, width) * width_scalar * NOISE_GAIN;
-            channels [k].audio_gain [3] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 1.3333) + 1.0, width) * width_scalar * TONE_GAIN;
-            channels [k].audio_gain [4] = pow (sin (translated_angle + channels [k].angle_offset - M_PI) + 1.0, width) * width_scalar * NOISE_GAIN;
-            channels [k].audio_gain [5] = pow (sin (translated_angle + channels [k].angle_offset) + 1.0, width) * width_scalar * TONE_GAIN;
-        }
-
-        memset (destin, 0, ENCODE_SAMPLES * num_chans * sizeof (*destin));
-
-        for (j = 0; j < NUM_GENERATORS; ++j) {
-            audio_generator_run (&generators [j], source, ENCODE_SAMPLES);
+        while (destin_samples < DESTIN_SAMPLES && seconds < num_seconds) {
+            float *destin_ptr = destin + destin_samples * num_chans;
+            double translated_angle = cos (sequencing_angle) * 100.0;
+            double width_scalar = pow (2.0, -width);
 
             for (k = 0; k < num_chans; ++k) {
-                if (!channels [k].lfe_flag || j < 2)
-                    mix_samples_with_gain (destin + k, source, ENCODE_SAMPLES, num_chans, channels [k].audio_gain_hist [j], channels [k].audio_gain [j]);
-
-                channels [k].audio_gain_hist [j] = channels [k].audio_gain [j];
+                channels [k].audio_gain [0] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 1.6667) + 1.0, width) * width_scalar * NOISE_GAIN;
+                channels [k].audio_gain [1] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 0.6667) + 1.0, width) * width_scalar * TONE_GAIN;
+                channels [k].audio_gain [2] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 0.3333) + 1.0, width) * width_scalar * NOISE_GAIN;
+                channels [k].audio_gain [3] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 1.3333) + 1.0, width) * width_scalar * TONE_GAIN;
+                channels [k].audio_gain [4] = pow (sin (translated_angle + channels [k].angle_offset - M_PI) + 1.0, width) * width_scalar * NOISE_GAIN;
+                channels [k].audio_gain [5] = pow (sin (translated_angle + channels [k].angle_offset) + 1.0, width) * width_scalar * TONE_GAIN;
             }
+
+            memset (destin_ptr, 0, ENCODE_SAMPLES * num_chans * sizeof (*destin));
+
+            for (j = 0; j < NUM_GENERATORS; ++j) {
+                audio_generator_run (&generators [j], source, ENCODE_SAMPLES);
+
+                for (k = 0; k < num_chans; ++k) {
+                    if (!channels [k].lfe_flag || j < 2)
+                        mix_samples_with_gain (destin_ptr + k, source, ENCODE_SAMPLES, num_chans, channels [k].audio_gain_hist [j], channels [k].audio_gain [j]);
+
+                    channels [k].audio_gain_hist [j] = channels [k].audio_gain [j];
+                }
+            }
+
+            sequencing_angle += 2.0 * M_PI / SAMPLE_RATE / speed * ENCODE_SAMPLES;
+            if (sequencing_angle > M_PI) sequencing_angle -= M_PI * 2.0;
+
+            if ((samples += ENCODE_SAMPLES) >= SAMPLE_RATE) {
+                samples -= SAMPLE_RATE;
+                ++seconds;
+
+                if (!(wc & 1)) {
+                    if (width > 1.0) width *= 0.875;
+                    else if (width > 0.125) width -= 0.125;
+                    else {
+                        width = 0.0;
+                        wc++;
+                    }
+                }
+                else {
+                    if (width < 1.0) width += 0.125;
+                    else if (width < 200.0) width *= 1.125;
+                    else wc++;
+                }
+            }
+
+            destin_samples += ENCODE_SAMPLES;
         }
 
         if (test_flags & TEST_FLAG_FLOAT_DATA) {
             if (bits <= 25)
-                truncate_float_samples (destin, ENCODE_SAMPLES * num_chans, bits);
+                truncate_float_samples (destin, destin_samples * num_chans, bits);
             else if (bits != 32) {
                 printf ("invalid bits configuration\n");
                 exit (-1);
@@ -934,40 +963,18 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
         else if (!(test_flags & TEST_FLAG_STORE_FLOAT_AS_INT32)) {
             if (bits < 32)
-                float_to_integer_samples (destin, ENCODE_SAMPLES * num_chans, bits);
+                float_to_integer_samples (destin, destin_samples * num_chans, bits);
             else if (bits == 32)
-                float_to_32bit_integer_samples (destin, ENCODE_SAMPLES * num_chans);
+                float_to_32bit_integer_samples (destin, destin_samples * num_chans);
             else {
                 printf ("invalid bits configuration\n");
                 exit (-1);
             }
         }
 
-	WavpackPackSamples (out_wpc, (int32_t *) destin, ENCODE_SAMPLES);
-        store_samples (destin, (int32_t *) destin, 0, wpconfig.bytes_per_sample, ENCODE_SAMPLES * num_chans);
-        MD5_Update (&md5_context, (unsigned char *) destin, wpconfig.bytes_per_sample * ENCODE_SAMPLES * num_chans);
-
-        sequencing_angle += 2.0 * M_PI / SAMPLE_RATE / speed * ENCODE_SAMPLES;
-        if (sequencing_angle > M_PI) sequencing_angle -= M_PI * 2.0;
-
-        if ((samples += ENCODE_SAMPLES) >= SAMPLE_RATE) {
-            samples -= SAMPLE_RATE;
-            ++seconds;
-
-            if (!(wc & 1)) {
-                if (width > 1.0) width *= 0.875;
-                else if (width > 0.125) width -= 0.125;
-                else {
-                    width = 0.0;
-                    wc++;
-                }
-            }
-            else {
-                if (width < 1.0) width += 0.125;
-                else if (width < 200.0) width *= 1.125;
-                else wc++;
-            }
-        }
+        WavpackPackSamples (out_wpc, (int32_t *) destin, destin_samples);
+        store_samples (destin, (int32_t *) destin, 0, wpconfig.bytes_per_sample, destin_samples * num_chans);
+        MD5_Update (&md5_context, (unsigned char *) destin, wpconfig.bytes_per_sample * destin_samples * num_chans);
     }
 
     WavpackFlushSamples (out_wpc);
@@ -1028,7 +1035,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
 // Thread / function that opens a virtual WavPack file, decodes it and calculates the MD5 hash of the
 // decoded audio data.
 
-#define DECODE_SAMPLES 1000
+#define DECODE_SAMPLES 200000       // long enough for temporal multithreading
 
 #ifdef _WIN32
 static unsigned WINAPI decode_thread (LPVOID threadid)
@@ -1093,7 +1100,7 @@ static int write_block (void *id, void *data, int32_t length)
     unsigned char *data_ptr = data;
 
     if (!ws || !data || !length)
-	return 0;
+        return 0;
 
 //    if (frandom() < .0001)
 //        ((char *) data) [(int) floor (length * frandom())] ^= 1;
@@ -1142,9 +1149,9 @@ static int write_block (void *id, void *data, int32_t length)
 
         data_ptr += bytes_to_copy;
         length -= bytes_to_copy;
+        wp_condvar_signal (ws->cond_write);
     }
 
-    wp_condvar_signal (ws->cond_write);
     wp_mutex_release (ws->mutex);
 
     return 1;
@@ -1162,6 +1169,7 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
             *data_ptr++ = ws->push_back;
             ws->push_back = 0;
             bcount--;
+            wp_condvar_signal (ws->cond_read);
         }
         else if (ws->buffer_head != ws->buffer_tail) {
             int bytes_available = (int) (ws->buffer_head - ws->buffer_tail);
@@ -1184,6 +1192,7 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
             ws->bytes_read += bytes_to_copy;
             data_ptr += bytes_to_copy;
             bcount -= bytes_to_copy;
+            wp_condvar_signal (ws->cond_read);
         }
         else if (ws->done)
             break;
@@ -1193,7 +1202,6 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
         }
     }
 
-    wp_condvar_signal (ws->cond_read);
     wp_mutex_release (ws->mutex);
 
     return (int32_t) (data_ptr - (unsigned char *) data);
