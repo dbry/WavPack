@@ -75,6 +75,7 @@ static const char *usage =
 #define TEST_FLAG_STORE_INT32_AS_FLOAT  0x2000
 #define TEST_FLAG_IGNORE_WVC            0x4000
 #define TEST_FLAG_NO_DECODE             0x8000
+#define TEST_FLAG_INT32_FILL_LOW_BITS   0x10000
 
 static int run_test_size_modes (int wpconfig_flags, int test_flags, int base_minutes);
 static int run_test_speed_modes (int wpconfig_flags, int test_flags, int bits, int num_chans, int num_seconds);
@@ -113,7 +114,7 @@ static void audio_generator_run (struct audio_generator *cxt, float *samples, in
 static void mix_samples_with_gain (float *destin, float *source, int num_samples, int num_chans, double initial_gain, double final_gain);
 static void truncate_float_samples (float *samples, int num_samples, int bits);
 static void float_to_integer_samples (float *samples, int num_samples, int bits);
-static void float_to_32bit_integer_samples (float *samples, int num_samples);
+static void float_to_32bit_integer_samples (float *samples, int num_samples, int test_flags);
 static void *store_samples (void *dst, int32_t *src, int qmode, int bps, int count);
 static double frandom (void);
 
@@ -574,8 +575,12 @@ static int run_test_size_modes (int wpconfig_flags, int test_flags, int base_min
             if (res) return res;
         }
  
-        printf ("\n   *** 32-bit integer, 5.1 channels ***\n");
+        printf ("\n   *** 32-bit integer (converted from float), 5.1 channels ***\n");
         res = run_test_speed_modes (wpconfig_flags, test_flags, 32, 6, base_minutes*60);
+        if (res) return res;
+
+        printf ("\n   *** 32-bit integer, 5.1 channels ***\n");
+        res = run_test_speed_modes (wpconfig_flags, test_flags | TEST_FLAG_INT32_FILL_LOW_BITS, 32, 6, base_minutes*60);
         if (res) return res;
 
         if (!(test_flags & TEST_FLAG_NO_FLOATS)) {
@@ -862,6 +867,10 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     else {
         wpconfig.bytes_per_sample = (bits + 7) >> 3;
         wpconfig.bits_per_sample = bits;
+
+        // for 32-bit integers, set the new optimize flag in the "high" modes only
+        if (bits == 32 && (wpconfig_flags & (CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG)))
+            wpconfig_flags |= CONFIG_OPTIMIZE_32BIT;
     }
 
     if (test_flags & TEST_FLAG_EXTRA_MASK) {
@@ -965,7 +974,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
             if (bits < 32)
                 float_to_integer_samples (destin, destin_samples * num_chans, bits);
             else if (bits == 32)
-                float_to_32bit_integer_samples (destin, destin_samples * num_chans);
+                float_to_32bit_integer_samples (destin, destin_samples * num_chans, test_flags);
             else {
                 printf ("invalid bits configuration\n");
                 exit (-1);
@@ -1411,7 +1420,7 @@ static void float_to_integer_samples (float *samples, int num_samples, int bits)
     } 
 }
 
-static void float_to_32bit_integer_samples (float *samples, int num_samples)
+static void float_to_32bit_integer_samples (float *samples, int num_samples, int test_flags)
 {
     int isample, imin = 0x8000000, imax = 0x7fffffff;
     double scalar = 2147483648.0;
@@ -1424,9 +1433,9 @@ static void float_to_32bit_integer_samples (float *samples, int num_samples)
         else
             isample = (int) floor (*samples * scalar);
 
-        // if there are trailing zeros, fill them in with random data
+        // if there are trailing zeros, fill them in with random data (if enabled)
 
-        if (isample && !(isample & 1)) {
+        if ((test_flags & TEST_FLAG_INT32_FILL_LOW_BITS) && isample && !(isample & 1)) {
             int tzeros = 1;
 
             while (!((isample >>= 1) & 1))
