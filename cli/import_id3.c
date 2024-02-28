@@ -137,6 +137,8 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
         sprintf (error, "invalid %s tag (truncated)", tag_type);
         return -1;
     }
+    else if (tag_size_from_header < tag_size)
+        tag_size = tag_size_from_header;        // trust indicated tag size over what's passed in here
 
     while (1) {
         unsigned char frame_header [10], *frame_body;
