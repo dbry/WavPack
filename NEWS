@@ -1,4 +1,27 @@
                      ---------------------------------
+                     Release 5.7.0 - February 29, 2024
+                     ---------------------------------
+
+ added: multithreading option to CLI programs (--threads)
+ added: multithreading operation available in libwavpack
+ added: multithreading support for Cool Edit filter
+ added: support for ID3v2.4 when importing tags
+ added: recognize WAV files with new fourcc of BW64
+ added: wavpack -c option now accepts bitrate specification
+ added: Windows native threads to wvtest, now builds with MSVC
+ fixed: seeking issue on very large files (Windows only)
+ fixed: decode non-compliant FFmpeg files over 8 channels
+ fixed: accept some common but non-compliant AIFF files
+ fixed: don't delete source files if certain warnings occur
+ fixed: automatically delete newly obsolete correction files
+ improved: use mingw to build faster official Windows executables
+ improved: compression of 32-bit integer files (--optimize-int32)
+ improved: ID3v2 tag support (more items, multiple values, etc.)
+ improved: convert the man pages to mdoc(7)
+ improved: cmake & autoconf support
+
+
+                     ---------------------------------
                      Release 5.6.0 - November 23, 2022
                      ---------------------------------
 
@@ -16,6 +39,7 @@
   fixed: possible crash when displaying long channel assignments
   fixed: big-endian-sourced "raw" files gave big-endian "wav"s
   fixed: numerous minor issues
+
 
                        ----------------------------
                        Release 5.5.0 - July 7, 2022

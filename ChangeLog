@@ -1,3 +1,278 @@
+2024-02-27  David Bryant  <david@wavpack.com>
+
+  * cli/import_id3.c:
+    don't parse past the indicated length of an ID3 tag
+
+2024-02-25  David Bryant  <david@wavpack.com>
+
+  * cli/wvtest.c, cli/fast-tests, cli/all-tests:
+    - improve coverage of multithreading test with bigger buffers
+    - fix possible threading deadlock with small transfer buffer
+    - add testing for the new --optimize-int32 option
+
+2024-02-22  David Bryant  <david@wavpack.com>
+
+  * src/open_utils.c, src/unpack_utils.c:
+    issue #177: fix crash and false errors when decoding mchan files with OPEN_2CH_MAX
+
+2024-02-16  David Bryant  <david@wavpack.com>
+
+  * doc/WavPack5LibraryDoc.*, doc/wavpack_doc.html, man/*.1, include/wavpack.h:
+    update docs for 5.7.0
+
+2024-02-07  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c, include/wavpack.h, src/pack[_floats].c:
+    remove the recent encoding optimization pertaining to floating point audio
+
+2024-02-07  David Bryant  <david@wavpack.com>
+
+  * src/open_utils.c:
+    allow non-compliant multichannel FFmpeg files to decode
+
+2024-02-07  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c:
+    add "BW64" to fourcc headers recognized for WAV files
+
+2024-02-06  David Bryant  <david@wavpack.com>
+
+  * cli/riff.c, src/entropy_utils.c:
+    fix MSVC warnings
+
+2024-01-23  David Bryant  <david@wavpack.com>
+
+  * src/entropy_utils.c:
+    issue #175: fix undefined behavior (UB) caught by fuzzing
+
+2023-12-20  David Bryant  <david@wavpack.com>
+
+  * cli/riff.c:
+    check the cbSize in the wave format header before using the extraData fields
+
+2023-12-03  Ozkan Sezer <sezeroz@gmail.com>
+
+  * decorr_utils.c, extra[12].c, open_utils.c, pack.c, read_words.c, unpack3.[ch],
+    unpack3_seek.c, write_words.c:
+    eliminate use of '&' address-of operator on arrays
+
+2023-11-27  David Bryant  <david@wavpack.com>
+
+  * src/pack_utils.c:
+    fix issue causing multithreading to mistakenly work with --merge-blocks
+
+2023-11-09  David Bryant  <david@wavpack.com>
+
+  * src/pack_utils.c, src/unpack_utils.c, wavpack_local.h:
+    gracefully handle failures in creating worker threads (by not using them)
+
+2023-11-09  Ozkan Sezer <sezeroz@gmail.com>
+
+  * src/open_filename.c:
+    use _fstati64 in can_seek and get_length for windows (or with watcom)
+
+2023-10-29  David Bryant  <david@wavpack.com>
+
+  * src/open_filename.c:
+    fix VS 2019 seeking issue on very large files (Windows only since 5.4.0)
+
+2023-10-23  Ozkan Sezer <sezeroz@gmail.com>
+
+  * Makefile.am, acinclude.m4:
+    add src/wavpack.exports to EXTRA_DIST and remove acinclude.m4
+
+2023-10-13  Ozkan Sezer <sezeroz@gmail.com>
+
+  * CMakeLists.txt, Makefile.am:
+    build updates for wvtest building on Windows
+
+2023-10-12  David Bryant  <david@wavpack.com>
+
+  * cli/wvtest.c, wavpack.sln, w*exe/w*.vcxproj:
+    - use the typedefs and macros defined in src/wavpack_local.h to allow native Windows threading
+    - add wvtest project to MSVC and add ENABLE_THREADS to command-line programs
+
+2023-10-12  Ozkan Sezer <sezeroz@gmail.com>
+
+  * CMakeLists.txt, Makefile.am, configure.ac, cli/md5.[ch]:
+    many Cmake and autoconf fixes, including removing openssl libcrypt for MD5
+
+2023-10-10  David Bryant  <david@wavpack.com>
+
+  * cli/aiff.c:
+    reduced pedantism (based on a non-compliant SoundCloud file that others accept)
+
+2023-08-30  Anonymous Maarten <anonymous.maarten@gmail.com>
+
+  * CMakeList.txt:
+    - don't enable tests and programs when building wavpack as a subproject
+
+2023-08-29  David Bryant  <david@wavpack.com>
+
+  * CMakeLists.txt
+    issue #162: add <max> version (3.5) to silence CMake deprecation warning
+
+2023-07-04  David Bryant  <david@wavpack.com>
+
+  * audition/cool_wv4.c:
+    move reading of different float normalizations to inside plugin, ver 4.1
+
+2023-06-22  David Bryant  <david@wavpack.com>
+
+  * audition/cool_wv4.c:
+    update for multithreading, bump version to 4.0
+
+2023-06-22  David Bryant  <david@wavpack.com>
+
+  * src/pack_utils.c, src/unpack_utils.c, src/wavpack_local.h:
+    for Windows threading use _beginthreadex()/_endthreadex() in libwavpack
+    - Google says CreateThread()/ExitThread() should not be used with the CRT
+
+2023-06-15  David Bryant  <david@wavpack.com>
+
+  * src/pack.c, cli/wavpack.c, cli/wvunpack.c, cli/wvgain.c:
+    - fix "--disable-threads" configure option and add appropriate messaging to CLI programs
+    - error on attempt to use "--optimize-32bit" with lossy; update help text
+
+2023-06-15  David Bryant  <david@wavpack.com>
+
+  * src/pack.c, src/pack_utils.c:
+    improve -x1 and -x2 compression under temporal multithreading
+
+2023-06-14  David Bryant  <david@wavpack.com>
+
+  * src/pack_utils.c:
+    don't reset packing code on threading discontinuities in 'extra' modes
+
+2023-06-02  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c:
+    add option --optimize-32bit to enable new optimized compression for 32-bit audio
+
+2023-06-01  David Bryant  <david@wavpack.com>
+
+  * src/wavpack.h, src/open_utils.c, src/pack[_floats].c, src/unpack[_floats].c, src/wavpack_local.h:
+    new optional optimizations in libwavpack for specific 32-bit float and integer files
+
+2023-05-19  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c, cli/wvunpack.c, cli/wvgain.c:
+    use large buffers when --threads is selected to allow "temporal" multithreading
+    - also add -t option to wvgain to enable threads
+
+2023-05-18  David Bryant  <david@wavpack.com>
+
+  * src/common_utils.c, src/pack.c, src/pack_dsd.c, src/pack_utils.c, src/wavpack_local.h:
+    extend multithreaded encoding to stereo and mono files in libwavpack
+
+2023-05-18  David Bryant  <david@wavpack.com>
+
+  * src/common_utils.c, src/open_utils.c, src/unpack.c, src/unpack_dsd.c, src/unpack_utils.c,
+    src/wavpack_local.h:
+    extend multithreaded decoding to stereo and mono files in libwavpack
+
+2023-05-17  David Bryant  <david@wavpack.com>
+
+  * cli/aiff.c:
+    allow AIFF files with a non-zero "offset" or a non-zero but valid "blockSize" in the sound chunk
+
+2023-04-22  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c, cli/wvunpack.c, cli/wvtest.c, src/libwavpack.vcxproj:
+    add options to select multithreaded operation
+
+2023-04-22  David Bryant  <david@wavpack.com>
+
+  * include/wavpack.h, src/common_utils.c, src/open_utils.c, src/pack_utils.c, src/unpack_utils.c,
+    src/wavpack_local.h, CMakeLists.txt, configure.ac, Makefile.am:
+    add support for multithreaded encoding and decoding to libwavpack
+
+2023-04-11  David Bryant  <david@wavpack.com>
+
+  * include/wavpack.h, src/common_utils.c, src/extra?.c, src/open_utils.c, src/pack*.c, src/unpack*.c,
+    src/wavpack_local.h:
+    refactor to aid implementation of threading of multichannel audio
+
+2023-03-13  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c, cli/wvunpack.c, cli/wvgain.c, cli/wvtag.c, cli/utils.h, cli/aiff[_write].c,
+    cli/caff.c, cli/dsdiff.c, cli/dsf.c, cli/riff.c, cli/wave64.c:
+    don't delete source files with certain warnings that could cause data loss
+
+2023-03-11  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c, cli/dsdiff.c, cli/dsf.c:
+    round up DSD sample rates to avoid falsely detecting zero
+
+2023-03-10  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c, man/wavpack.1, doc/wavpack_doc.html:
+    allow hybrid bitrate to be specified with "-c" option (not just "-b" option)
+
+2023-03-07  David Bryant  <david@wavpack.com>
+
+  * cli/wvtest.c:
+    issue #161, add another check for invalid WavPack files to the seeking test harness
+
+2023-03-01  David Bryant  <david@wavpack.com>
+
+  * cli/import_id3.c:
+    do not reject ID3v2 tags with footers
+
+2023-02-11  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c:
+    delay display of tag import until after verify
+
+2023-02-11  David Bryant  <david@wavpack.com>
+
+  * cli/utils.c:
+    FillConsoleOutputCharacter() is cleaner and more reliable under Wine than spewing spaces
+
+2023-02-10  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c:
+    don't allow a WavPack source file with --raw-pcm (makes no sense)
+
+2023-01-27  David Bryant  <david@wavpack.com>
+
+  * cli/import_id3.c, cli/wavpack.c, cli/wvtag.c:
+    improvements to ID3v2 tag import, including ID3v2.4 support
+
+2023-01-27  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c:
+    after creating a solitary .wv file, delete any similarly-named, now obsolete, .wvc file
+
+2023-01-21  Ozkan Sezer <sezeroz@gmail.com>
+
+  * CMakeLists.txt, configure.ac:
+    add -Wall to CFLAGS for gcc (or clang)
+
+2023-01-21  Ozkan Sezer <sezeroz@gmail.com>
+
+  * cli/wavpack.c, cli/wvunpack.c:
+    Silence gcc-9 -Wstringop-truncation warnings
+
+2023-01-13  David Bryant  <david@wavpack.com>
+
+  * man/wavpack.1, man/wvunpack.1, man/wvgain.1, man/wvtag.1, CMakeLists.txt:
+    tweaks to man pages
+
+2023-01-09  Jan Starý <hans@stare.cz>
+
+  * man/wavpack.1, man/wvunpack.1, man/wvgain.1, man/wvtag.1, CMakeLists.txt, configure.ac, Makefile.am:
+    update man pages to mdoc(7)
+
+2022-12-09  Anonymous Maarten <anonymous.maarten@gmail.com>
+
+  * CMakeList.txt:
+    - calculate macho current/compatibility version
+    - fix dll filename of mingw library
+    - set SOVERSION and VERSION property of wavpack
+    - extract libtool from configure.ac and convert to SOVERSION
+    - allow wavpack to be installed by a master project
+
 2022-11-24  Anonymous Maarten <anonymous.maarten@gmail.com>
 
   * CMakeList.txt:
