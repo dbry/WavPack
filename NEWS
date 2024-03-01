@@ -2,21 +2,28 @@
                      Release 5.7.0 - February 29, 2024
                      ---------------------------------
 
- added: multithreading option to CLI programs (--threads)
- added: multithreading operation available in libwavpack
- added: multithreading support for Cool Edit filter
- added: support for ID3v2.4 when importing tags
- added: recognize WAV files with new fourcc of BW64
- added: wavpack -c option now accepts bitrate specification
- added: Windows native threads to wvtest, now builds with MSVC
+ WavPack Library Source Code - 5.7.0
+ wavpack.exe (command-line encoder) - 5.7.0
+ wvunpack.exe (command-line decoder) - 5.7.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.7.0
+ wvtag.exe (command-line tagging utility) - 5.7.0
+ cool_wv4.flt (Cool Edit / Audition filter) - 4.2
+ ----------------------------------------------------
+ added: multithreaded encoding and decoding to libwavpack (optional)
+ added: option to specify multithreading in CLI programs (--threads)
+ added: multithreading support to Cool Edit filter (always enabled)
+ added: support for ID3v2.4 when importing tags (--import-id3)
+ added: optional bitrate specification to wavpack -c option
+ added: Windows native threads in wvtest, builds with MSVC
+ added: recognize WAV files with new fourcc of 'BW64'
  fixed: seeking issue on very large files (Windows only)
  fixed: decode non-compliant FFmpeg files over 8 channels
  fixed: accept some common but non-compliant AIFF files
- fixed: don't delete source files if certain warnings occur
  fixed: automatically delete newly obsolete correction files
- improved: use mingw to build faster official Windows executables
+ fixed: don't delete source files if data loss warnings occur
+ improved: ID3v2 tag support (more items, multiple values, pics, etc)
+ improved: use MinGW to build official Windows executables (faster)
  improved: compression of 32-bit integer files (--optimize-int32)
- improved: ID3v2 tag support (more items, multiple values, etc.)
  improved: convert the man pages to mdoc(7)
  improved: cmake & autoconf support
 
