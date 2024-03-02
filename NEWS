@@ -9,23 +9,23 @@
  wvtag.exe (command-line tagging utility) - 5.7.0
  cool_wv4.flt (Cool Edit / Audition filter) - 4.2
  ----------------------------------------------------
- added: multithreaded encoding and decoding to libwavpack (optional)
- added: option to specify multithreading in CLI programs (--threads)
- added: multithreading support to Cool Edit filter (always enabled)
- added: support for ID3v2.4 when importing tags (--import-id3)
- added: optional bitrate specification to wavpack -c option
- added: Windows native threads in wvtest, builds with MSVC
- added: recognize WAV files with new fourcc of 'BW64'
- fixed: seeking issue on very large files (Windows only)
- fixed: decode non-compliant FFmpeg files over 8 channels
- fixed: accept some common but non-compliant AIFF files
- fixed: automatically delete newly obsolete correction files
- fixed: don't delete source files if data loss warnings occur
- improved: ID3v2 tag support (more items, multiple values, pics, etc)
- improved: use MinGW to build official Windows executables (faster)
- improved: compression of 32-bit integer files (--optimize-int32)
- improved: convert the man pages to mdoc(7)
- improved: cmake & autoconf support
+  added: multithreaded encoding and decoding to libwavpack (optional)
+  added: option to specify multithreading in CLI programs (--threads)
+  added: multithreading support to Cool Edit filter (always enabled)
+  added: support for ID3v2.4 when importing tags (--import-id3)
+  added: optional bitrate specification to wavpack -c option
+  added: Windows native threads in wvtest, builds with MSVC
+  added: recognize WAV files with new fourcc of 'BW64'
+  fixed: seeking issue on very large files (Windows only)
+  fixed: decode non-compliant FFmpeg files over 8 channels
+  fixed: accept some common but non-compliant AIFF files
+  fixed: automatically delete newly obsolete correction files
+  fixed: don't delete source files if data loss warnings occur
+  improved: ID3v2 tag support (more items, multiple values, pics, etc)
+  improved: use MinGW to build official Windows executables (faster)
+  improved: compression of 32-bit integer files (--optimize-int32)
+  improved: convert the man pages to mdoc(7)
+  improved: cmake & autoconf support
 
 
                      ---------------------------------
