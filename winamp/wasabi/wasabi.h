@@ -1,4 +1,5 @@
-#pragma once
+#ifndef WASABI_H_
+#define WASABI_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,3 +13,4 @@ void Wasabi_Free(void *memory_block);
 #ifdef __cplusplus
 }
 #endif
+#endif /* WASABI_H_ */

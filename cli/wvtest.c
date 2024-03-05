@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2020 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -15,9 +15,15 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <math.h>
-#include <pthread.h>
 
-#include "wavpack.h"
+// Threading support is required for wvtest (although it can still test
+// a libwavpack that's NOT built with threading support).
+
+#ifndef ENABLE_THREADS
+#define ENABLE_THREADS
+#endif
+
+#include "../src/wavpack_local.h"   // for threading typedefs and macros
 #include "utils.h"                  // for PACKAGE_VERSION, etc.
 #include "md5.h"
 
@@ -29,7 +35,7 @@
 
 static const char *sign_on = "\n"
 " WVTEST  libwavpack Tester/Exerciser for WavPack  %s Version %s\n"
-" Copyright (c) 2020 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2024 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVTEST using libwavpack version %s, expected %s (see README)\n\n";
@@ -49,6 +55,8 @@ static const char *usage =
 "          --no-speeds         = skip the speed modes (fast, high, etc.)\n"
 "          --help              = display this message\n"
 "          --version           = write the version to stdout\n"
+"          --threads[=n]       = use multiple threads, optional 'n' must\n"
+"                                 be 1 - 12, 1 = single thread only\n"
 "          --write=n[-n][,...] = write specific test(s) (or range(s)) to disk\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -67,6 +75,7 @@ static const char *usage =
 #define TEST_FLAG_STORE_INT32_AS_FLOAT  0x2000
 #define TEST_FLAG_IGNORE_WVC            0x4000
 #define TEST_FLAG_NO_DECODE             0x8000
+#define TEST_FLAG_INT32_FILL_LOW_BITS   0x10000
 
 static int run_test_size_modes (int wpconfig_flags, int test_flags, int base_minutes);
 static int run_test_speed_modes (int wpconfig_flags, int test_flags, int bits, int num_chans, int num_seconds);
@@ -77,33 +86,35 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
 static struct { int start, stop; } write_ranges [NUM_WRITE_RANGES];
 int number_of_ranges;
 
+static int worker_threads;
+
 enum generator_type { noise, tone };
 
 struct audio_generator {
     enum generator_type type;
     union {
         struct noise_generator {
-            float sum1, sum2, sum2p;                // these are changing
-            float factor, scalar;                   // these are constant
+            double sum1, sum2, sum2p;               // these are changing
+            double factor, scalar;                  // these are constant
         } noise_cxt;
 
         struct tone_generator {
             int sample_rate, samples_per_update;    // these are constant
             int high_frequency, low_frequency;      // these are constant
-            float angle, velocity, acceleration;    // these are changing
+            double angle, velocity, acceleration;   // these are changing
             int samples_left;
         } tone_cxt;    
     } u;
 };
 
-static int seeking_test (char *filename, uint32_t test_count);
+static int seeking_test (char *filename, int32_t test_count);
 static void tone_generator_init (struct audio_generator *cxt, int sample_rate, int low_freq, int high_freq);
-static void noise_generator_init (struct audio_generator *cxt, float factor);
+static void noise_generator_init (struct audio_generator *cxt, double factor);
 static void audio_generator_run (struct audio_generator *cxt, float *samples, int num_samples);
-static void mix_samples_with_gain (float *destin, float *source, int num_samples, int num_chans, float initial_gain, float final_gain);
+static void mix_samples_with_gain (float *destin, float *source, int num_samples, int num_chans, double initial_gain, double final_gain);
 static void truncate_float_samples (float *samples, int num_samples, int bits);
 static void float_to_integer_samples (float *samples, int num_samples, int bits);
-static void float_to_32bit_integer_samples (float *samples, int num_samples);
+static void float_to_32bit_integer_samples (float *samples, int num_samples, int test_flags);
 static void *store_samples (void *dst, int32_t *src, int qmode, int bps, int count);
 static double frandom (void);
 
@@ -111,8 +122,8 @@ typedef struct {
     uint32_t buffer_size, bytes_written, bytes_read, first_block_size;
     volatile unsigned char *buffer_base, *buffer_head, *buffer_tail;
     int push_back, done, error, empty_waits, full_waits;
-    pthread_cond_t cond_read, cond_write;
-    pthread_mutex_t mutex;
+    wp_condvar_t cond_read, cond_write;
+    wp_mutex_t mutex;
     FILE *file;
 } StreamingFile;
 
@@ -127,14 +138,13 @@ static void initialize_stream (StreamingFile *ws, int buffer_size);
 static int write_block (void *id, void *data, int32_t length);
 static void flush_stream (StreamingFile *ws);
 static void free_stream (StreamingFile *ws);
-static void *decode_thread (void *threadid);
 static WavpackStreamReader freader;
 
 //////////////////////////////////////// main () function for CLI //////////////////////////////////////
 
 int main (argc, argv) int argc; char **argv;
 {
-    int wpconfig_flags = CONFIG_MD5_CHECKSUM | CONFIG_OPTIMIZE_MONO, test_flags = 0, base_minutes = 2, res;
+    int wpconfig_flags = CONFIG_MD5_CHECKSUM | CONFIG_OPTIMIZE_MONO, test_flags = 0, base_minutes = 2, res = 0;
     int seektest = 0;
 
     // loop through command-line arguments
@@ -224,6 +234,19 @@ int main (argc, argv) int argc; char **argv;
                 if (seektest)
                     break;
             }
+            else if (!strncmp (long_option, "threads", 7)) {            // --threads
+                if (isdigit (*long_param)) {
+                    // "worker_threads" doesn't include main thread, so subtract 1 from user value
+                    worker_threads = strtol (long_param, &long_param, 10) - 1;
+
+                    if (worker_threads < 0 || worker_threads > 11) {
+                        printf ("specified thread count must be 1 - 12!\n");
+                        return 1;
+                    }
+                }
+                else
+                    worker_threads = 4;             // 4 is a good default for now
+            }
             else {
                 printf ("unknown option: %s !\n", long_option);
                 return 1;
@@ -288,10 +311,10 @@ done:
 // actually verify that every sample decoded is correct. For each test run, we decode the entire
 // file 4 times over, on average.
 
-static int seeking_test (char *filename, uint32_t test_count)
+static int seeking_test (char *filename, int32_t test_count)
 {
     char error [80];
-    WavpackContext *wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+    int open_flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
     int64_t min_chunk_size = 256, total_samples, sample_count = 0;
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
@@ -299,6 +322,12 @@ static int seeking_test (char *filename, uint32_t test_count)
     unsigned char md5_initial [16], md5_stored [16];
     MD5_CTX md5_global, md5_local;
     unsigned char *chunked_md5;
+    WavpackContext *wpc;
+
+    if (worker_threads)
+        open_flags |= worker_threads << OPEN_THREADS_SHFT;
+
+    wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
 
     printf ("\n-------------------- file: %s %s--------------------\n",
         filename, (WavpackGetMode (wpc) & MODE_WVC) ? "(+wvc) " : "");
@@ -331,8 +360,8 @@ static int seeking_test (char *filename, uint32_t test_count)
     for (test_index = 0; test_index < test_count; test_index++) {
         uint32_t chunk_samples, total_chunks, chunk_count = 0, seek_count = 0;
 
-        chunk_samples = min_chunk_size + frandom () * min_chunk_size;   // 256 - 511 (unless reduced)
-        total_chunks = (total_samples + chunk_samples - 1) / chunk_samples;
+        chunk_samples = (uint32_t) (min_chunk_size + frandom () * min_chunk_size);   // 256 - 511 (unless reduced)
+        total_chunks = (uint32_t) ((total_samples + chunk_samples - 1) / chunk_samples);
         decoded_samples = malloc (sizeof (int32_t) * chunk_samples * num_chans);
         chunked_md5 = malloc (total_chunks * 16);
 
@@ -352,14 +381,17 @@ static int seeking_test (char *filename, uint32_t test_count)
             if (!samples)
                 break;
 
+            if ((sample_count += samples) > total_samples || chunk_count >= total_chunks) {
+                printf ("seeking_test(): WavPack file is invalid or corrupt!\n");
+                return -1;
+            }
+
             store_samples (decoded_samples, decoded_samples, qmode, bps, samples * num_chans);
             MD5_Update (&md5_global, (unsigned char *) decoded_samples, bps * samples * num_chans);
 
             MD5_Init (&md5_local);
             MD5_Update (&md5_local, (unsigned char *) decoded_samples, bps * samples * num_chans);
             MD5_Final (chunked_md5 + chunk_count * 16, &md5_local);
-
-            sample_count += samples;
             chunk_count++;
         }
 
@@ -418,7 +450,7 @@ static int seeking_test (char *filename, uint32_t test_count)
 
         if (frandom() < 0.5) {
             WavpackCloseFile (wpc);
-            wpc = WavpackOpenFileInput (filename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+            wpc = WavpackOpenFileInput (filename, error, open_flags, 0);
 
             if (!wpc) {
                 printf ("seeking_test(): error \"%s\" reopening input file \"%s\"\n", error, filename);
@@ -431,16 +463,16 @@ static int seeking_test (char *filename, uint32_t test_count)
         while (chunk_count) {
             int start_chunk = 0, stop_chunk, current_chunk, num_chunks = 1;
 
-            start_chunk = floor (frandom () * total_chunks);
+            start_chunk = (int) floor (frandom () * total_chunks);
             if (start_chunk == total_chunks) start_chunk--;
 
             // At a minimum, we very one chunk after the seek. However, we also random chose additional
             // chunks to verify so that sometimes we verify lots of data after the seek.
 
-            while (start_chunk + num_chunks < total_chunks && frandom () < 0.667)
+            while (start_chunk + num_chunks < (int) total_chunks && frandom () < 0.667)
                 num_chunks *= 2;
 
-            if (start_chunk + num_chunks > total_chunks)
+            if (start_chunk + num_chunks > (int) total_chunks)
                 num_chunks = total_chunks - start_chunk;
 
             stop_chunk = start_chunk + num_chunks - 1;
@@ -543,8 +575,12 @@ static int run_test_size_modes (int wpconfig_flags, int test_flags, int base_min
             if (res) return res;
         }
  
-        printf ("\n   *** 32-bit integer, 5.1 channels ***\n");
+        printf ("\n   *** 32-bit integer (converted from float), 5.1 channels ***\n");
         res = run_test_speed_modes (wpconfig_flags, test_flags, 32, 6, base_minutes*60);
+        if (res) return res;
+
+        printf ("\n   *** 32-bit integer, 5.1 channels ***\n");
+        res = run_test_speed_modes (wpconfig_flags, test_flags | TEST_FLAG_INT32_FILL_LOW_BITS, 32, 6, base_minutes*60);
         if (res) return res;
 
         if (!(test_flags & TEST_FLAG_NO_FLOATS)) {
@@ -656,20 +692,27 @@ static int run_test_extra_modes (int wpconfig_flags, int test_flags, int bits, i
 #define NUM_GENERATORS 6
 
 struct audio_channel {
-    float audio_gain_hist [NUM_GENERATORS], audio_gain [NUM_GENERATORS], angle_offset;
+    double audio_gain_hist [NUM_GENERATORS], audio_gain [NUM_GENERATORS], angle_offset;
     int lfe_flag;
 };
 
 #define SAMPLE_RATE 44100
 #define ENCODE_SAMPLES 128
+#define DESTIN_SAMPLES (220672)     // multiple of ENCODE_SAMPLES, long enough for temporal multithreading
 #define NOISE_GAIN 0.6667
 #define TONE_GAIN 0.3333
+
+#ifdef _WIN32
+static unsigned WINAPI decode_thread (LPVOID threadid);
+#else
+static void *decode_thread (void *threadid);
+#endif
 
 static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans, int num_seconds)
 {
     static int test_number;
 
-    float sequencing_angle = 0.0, speed = 60.0, width = 200.0, *source, *destin, ratio, bps;
+    double sequencing_angle = 0.0, speed = 60.0, width = 200.0, ratio, bps;
     int lossless = !(wpconfig_flags & CONFIG_HYBRID_FLAG) || ((wpconfig_flags & CONFIG_CREATE_WVC) && !(test_flags & TEST_FLAG_IGNORE_WVC));
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
@@ -678,14 +721,14 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     int seconds = 0, samples = 0, wc = 0, chan_mask;
     char *filename = NULL, mode_string [32] = "-";
     struct audio_channel *channels;
-    pthread_t pthread;
+    float *source, *destin;
+    wp_thread_t thread;
     WavpackContext *out_wpc;
     WavpackConfig wpconfig;
     StreamingFile wv_stream, wvc_stream;
     WavpackDecoder wv_decoder;
     unsigned char md5_encoded [16];
     MD5_CTX md5_context;
-    void *term_value;
     int i, j, k;
 
     if (wpconfig_flags & CONFIG_FAST_FLAG)
@@ -712,7 +755,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
 
     channels = malloc (num_chans * sizeof (*channels));
     source = malloc (ENCODE_SAMPLES * sizeof (*source));
-    destin = malloc (ENCODE_SAMPLES * num_chans * sizeof (*destin));
+    destin = malloc (DESTIN_SAMPLES * num_chans * sizeof (*destin));
 
     if (!channels || !source || !destin) {
         printf ("run_test(): can't allocate memory!\n");
@@ -814,7 +857,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     out_wpc = WavpackOpenFileOutput (write_block, &wv_stream, (wpconfig_flags & CONFIG_CREATE_WVC) ? &wvc_stream : NULL);
 
     if (!(test_flags & TEST_FLAG_NO_DECODE))
-        pthread_create (&pthread, NULL, decode_thread, (void *) &wv_decoder);
+        wp_thread_create (thread, decode_thread, (void *) &wv_decoder);
 
     if (test_flags & (TEST_FLAG_FLOAT_DATA | TEST_FLAG_STORE_INT32_AS_FLOAT)) {
         wpconfig.float_norm_exp = 127;
@@ -824,6 +867,10 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     else {
         wpconfig.bytes_per_sample = (bits + 7) >> 3;
         wpconfig.bits_per_sample = bits;
+
+        // for 32-bit integers, set the new optimize flag in the "high" modes only
+        if (bits == 32 && (wpconfig_flags & (CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG)))
+            wpconfig_flags |= CONFIG_OPTIMIZE_32BIT;
     }
 
     if (test_flags & TEST_FLAG_EXTRA_MASK) {
@@ -854,39 +901,70 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
     }
 
+    if (worker_threads)
+        wpconfig.worker_threads = worker_threads;
+
     WavpackSetConfiguration64 (out_wpc, &wpconfig, -1, NULL);
     WavpackPackInit (out_wpc);
 
     while (seconds < num_seconds) {
+        int destin_samples = 0;
 
-        double translated_angle = cos (sequencing_angle) * 100.0;
-        double width_scalar = pow (2.0, -width);
-
-        for (k = 0; k < num_chans; ++k) {
-            channels [k].audio_gain [0] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 1.6667) + 1.0, width) * width_scalar * NOISE_GAIN;
-            channels [k].audio_gain [1] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 0.6667) + 1.0, width) * width_scalar * TONE_GAIN;
-            channels [k].audio_gain [2] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 0.3333) + 1.0, width) * width_scalar * NOISE_GAIN;
-            channels [k].audio_gain [3] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 1.3333) + 1.0, width) * width_scalar * TONE_GAIN;
-            channels [k].audio_gain [4] = pow (sin (translated_angle + channels [k].angle_offset - M_PI) + 1.0, width) * width_scalar * NOISE_GAIN;
-            channels [k].audio_gain [5] = pow (sin (translated_angle + channels [k].angle_offset) + 1.0, width) * width_scalar * TONE_GAIN;
-        }
-
-        memset (destin, 0, ENCODE_SAMPLES * num_chans * sizeof (*destin));
-
-        for (j = 0; j < NUM_GENERATORS; ++j) {
-            audio_generator_run (&generators [j], source, ENCODE_SAMPLES);
+        while (destin_samples < DESTIN_SAMPLES && seconds < num_seconds) {
+            float *destin_ptr = destin + destin_samples * num_chans;
+            double translated_angle = cos (sequencing_angle) * 100.0;
+            double width_scalar = pow (2.0, -width);
 
             for (k = 0; k < num_chans; ++k) {
-                if (!channels [k].lfe_flag || j < 2)
-                    mix_samples_with_gain (destin + k, source, ENCODE_SAMPLES, num_chans, channels [k].audio_gain_hist [j], channels [k].audio_gain [j]);
-
-                channels [k].audio_gain_hist [j] = channels [k].audio_gain [j];
+                channels [k].audio_gain [0] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 1.6667) + 1.0, width) * width_scalar * NOISE_GAIN;
+                channels [k].audio_gain [1] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 0.6667) + 1.0, width) * width_scalar * TONE_GAIN;
+                channels [k].audio_gain [2] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 0.3333) + 1.0, width) * width_scalar * NOISE_GAIN;
+                channels [k].audio_gain [3] = pow (sin (translated_angle + channels [k].angle_offset - M_PI * 1.3333) + 1.0, width) * width_scalar * TONE_GAIN;
+                channels [k].audio_gain [4] = pow (sin (translated_angle + channels [k].angle_offset - M_PI) + 1.0, width) * width_scalar * NOISE_GAIN;
+                channels [k].audio_gain [5] = pow (sin (translated_angle + channels [k].angle_offset) + 1.0, width) * width_scalar * TONE_GAIN;
             }
+
+            memset (destin_ptr, 0, ENCODE_SAMPLES * num_chans * sizeof (*destin));
+
+            for (j = 0; j < NUM_GENERATORS; ++j) {
+                audio_generator_run (&generators [j], source, ENCODE_SAMPLES);
+
+                for (k = 0; k < num_chans; ++k) {
+                    if (!channels [k].lfe_flag || j < 2)
+                        mix_samples_with_gain (destin_ptr + k, source, ENCODE_SAMPLES, num_chans, channels [k].audio_gain_hist [j], channels [k].audio_gain [j]);
+
+                    channels [k].audio_gain_hist [j] = channels [k].audio_gain [j];
+                }
+            }
+
+            sequencing_angle += 2.0 * M_PI / SAMPLE_RATE / speed * ENCODE_SAMPLES;
+            if (sequencing_angle > M_PI) sequencing_angle -= M_PI * 2.0;
+
+            if ((samples += ENCODE_SAMPLES) >= SAMPLE_RATE) {
+                samples -= SAMPLE_RATE;
+                ++seconds;
+
+                if (!(wc & 1)) {
+                    if (width > 1.0) width *= 0.875;
+                    else if (width > 0.125) width -= 0.125;
+                    else {
+                        width = 0.0;
+                        wc++;
+                    }
+                }
+                else {
+                    if (width < 1.0) width += 0.125;
+                    else if (width < 200.0) width *= 1.125;
+                    else wc++;
+                }
+            }
+
+            destin_samples += ENCODE_SAMPLES;
         }
 
         if (test_flags & TEST_FLAG_FLOAT_DATA) {
             if (bits <= 25)
-                truncate_float_samples (destin, ENCODE_SAMPLES * num_chans, bits);
+                truncate_float_samples (destin, destin_samples * num_chans, bits);
             else if (bits != 32) {
                 printf ("invalid bits configuration\n");
                 exit (-1);
@@ -894,40 +972,18 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
         }
         else if (!(test_flags & TEST_FLAG_STORE_FLOAT_AS_INT32)) {
             if (bits < 32)
-                float_to_integer_samples (destin, ENCODE_SAMPLES * num_chans, bits);
+                float_to_integer_samples (destin, destin_samples * num_chans, bits);
             else if (bits == 32)
-                float_to_32bit_integer_samples (destin, ENCODE_SAMPLES * num_chans);
+                float_to_32bit_integer_samples (destin, destin_samples * num_chans, test_flags);
             else {
                 printf ("invalid bits configuration\n");
                 exit (-1);
             }
         }
 
-	WavpackPackSamples (out_wpc, (int32_t *) destin, ENCODE_SAMPLES);
-        store_samples (destin, (int32_t *) destin, 0, wpconfig.bytes_per_sample, ENCODE_SAMPLES * num_chans);
-        MD5_Update (&md5_context, (unsigned char *) destin, wpconfig.bytes_per_sample * ENCODE_SAMPLES * num_chans);
-
-        sequencing_angle += 2.0 * M_PI / SAMPLE_RATE / speed * ENCODE_SAMPLES;
-        if (sequencing_angle > M_PI) sequencing_angle -= M_PI * 2.0;
-
-        if ((samples += ENCODE_SAMPLES) >= SAMPLE_RATE) {
-            samples -= SAMPLE_RATE;
-            ++seconds;
-
-            if (!(wc & 1)) {
-                if (width > 1.0) width *= 0.875;
-                else if (width > 0.125) width -= 0.125;
-                else {
-                    width = 0.0;
-                    wc++;
-                }
-            }
-            else {
-                if (width < 1.0) width += 0.125;
-                else if (width < 200.0) width *= 1.125;
-                else wc++;
-            }
-        }
+        WavpackPackSamples (out_wpc, (int32_t *) destin, destin_samples);
+        store_samples (destin, (int32_t *) destin, 0, wpconfig.bytes_per_sample, destin_samples * num_chans);
+        MD5_Update (&md5_context, (unsigned char *) destin, wpconfig.bytes_per_sample * destin_samples * num_chans);
     }
 
     WavpackFlushSamples (out_wpc);
@@ -956,14 +1012,8 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     flush_stream (&wv_stream);
     flush_stream (&wvc_stream);
 
-    if (!(test_flags & TEST_FLAG_NO_DECODE)) {
-        pthread_join (pthread, &term_value);
-
-        if (term_value) {
-            printf ("decode_thread() returned error %d\n", (int) (long) term_value);
-            return 1;
-        }
-    }
+    if (!(test_flags & TEST_FLAG_NO_DECODE))
+        wp_thread_join (thread);
 
     if (!(test_flags & TEST_FLAG_NO_DECODE)) {
         for (i = 0; i < 16; ++i) {
@@ -994,20 +1044,30 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
 // Thread / function that opens a virtual WavPack file, decodes it and calculates the MD5 hash of the
 // decoded audio data.
 
-#define DECODE_SAMPLES 1000
+#define DECODE_SAMPLES 200000       // long enough for temporal multithreading
 
+#ifdef _WIN32
+static unsigned WINAPI decode_thread (LPVOID threadid)
+#else
 static void *decode_thread (void *threadid)
+#endif
 {
     WavpackDecoder *wd = (WavpackDecoder *) threadid;
     char error [80];
-    WavpackContext *wpc = WavpackOpenFileInputEx (&freader, wd->wv_stream, wd->wvc_stream, error, 0, 0);
+    WavpackContext *wpc;
     int32_t *decoded_samples, num_chans, bps;
     MD5_CTX md5_context;
+    int open_flags = 0;
+
+    if (worker_threads)
+        open_flags |= worker_threads << OPEN_THREADS_SHFT;
+
+    wpc = WavpackOpenFileInputEx (&freader, wd->wv_stream, wd->wvc_stream, error, open_flags, 0);
 
     if (!wpc) {
         printf ("decode_thread(): error \"%s\" opening input file\n", error);
         wd->num_errors = 1;
-        pthread_exit (NULL);
+        wp_thread_exit (0);
     }
 
     MD5_Init (&md5_context);
@@ -1036,8 +1096,8 @@ static void *decode_thread (void *threadid)
     wd->num_errors = WavpackGetNumErrors (wpc);
     free (decoded_samples);
     WavpackCloseFile (wpc);
-    pthread_exit (NULL);
-    return NULL;
+    wp_thread_exit (0);
+    return 0;
 }
 
 // This code implements a simple virtual "file" so that we can have a WavPack encoding process and
@@ -1049,7 +1109,7 @@ static int write_block (void *id, void *data, int32_t length)
     unsigned char *data_ptr = data;
 
     if (!ws || !data || !length)
-	return 0;
+        return 0;
 
 //    if (frandom() < .0001)
 //        ((char *) data) [(int) floor (length * frandom())] ^= 1;
@@ -1070,10 +1130,10 @@ static int write_block (void *id, void *data, int32_t length)
     if (!ws->buffer_size)       // if no buffer, just swallow data silently
         return 1;
 
-    pthread_mutex_lock (&ws->mutex);
+    wp_mutex_obtain (ws->mutex);
 
     while (length) {
-        int32_t bytes_available = ws->buffer_tail - ws->buffer_head - 1;
+        int32_t bytes_available = (int32_t) (ws->buffer_tail - ws->buffer_head - 1);
         int32_t bytes_to_copy = length;
 
         if (bytes_available < 0)
@@ -1083,11 +1143,11 @@ static int write_block (void *id, void *data, int32_t length)
             bytes_to_copy = bytes_available;
 
         if (ws->buffer_head + bytes_to_copy > ws->buffer_base + ws->buffer_size)
-            bytes_to_copy = ws->buffer_base + ws->buffer_size - ws->buffer_head;
+            bytes_to_copy = (int32_t) (ws->buffer_base + ws->buffer_size - ws->buffer_head);
 
         if (!bytes_to_copy) {
             ws->full_waits++;
-            pthread_cond_wait (&ws->cond_read, &ws->mutex);
+            wp_condvar_wait (ws->cond_read, ws->mutex);
             continue;
         }
 
@@ -1098,10 +1158,10 @@ static int write_block (void *id, void *data, int32_t length)
 
         data_ptr += bytes_to_copy;
         length -= bytes_to_copy;
+        wp_condvar_signal (ws->cond_write);
     }
 
-    pthread_cond_signal (&ws->cond_write);
-    pthread_mutex_unlock (&ws->mutex);
+    wp_mutex_release (ws->mutex);
 
     return 1;
 }
@@ -1111,16 +1171,17 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
     StreamingFile *ws = (StreamingFile *) id;
     unsigned char *data_ptr = data;
 
-    pthread_mutex_lock (&ws->mutex);
+    wp_mutex_obtain (ws->mutex);
 
     while (bcount) {
         if (ws->push_back) {
             *data_ptr++ = ws->push_back;
             ws->push_back = 0;
             bcount--;
+            wp_condvar_signal (ws->cond_read);
         }
         else if (ws->buffer_head != ws->buffer_tail) {
-            int bytes_available = ws->buffer_head - ws->buffer_tail;
+            int bytes_available = (int) (ws->buffer_head - ws->buffer_tail);
             int32_t bytes_to_copy = bcount;
 
             if (bytes_available < 0)
@@ -1130,7 +1191,7 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
                 bytes_to_copy = bytes_available;
 
             if (ws->buffer_tail + bytes_to_copy > ws->buffer_base + ws->buffer_size)
-                bytes_to_copy = ws->buffer_base + ws->buffer_size - ws->buffer_tail;
+                bytes_to_copy = (int32_t) (ws->buffer_base + ws->buffer_size - ws->buffer_tail);
 
             memcpy (data_ptr, (void *) ws->buffer_tail, bytes_to_copy);
 
@@ -1140,19 +1201,19 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
             ws->bytes_read += bytes_to_copy;
             data_ptr += bytes_to_copy;
             bcount -= bytes_to_copy;
+            wp_condvar_signal (ws->cond_read);
         }
         else if (ws->done)
             break;
         else {
             ws->empty_waits++;
-            pthread_cond_wait (&ws->cond_write, &ws->mutex);
+            wp_condvar_wait (ws->cond_write, ws->mutex);
         }
     }
 
-    pthread_cond_signal (&ws->cond_read);
-    pthread_mutex_unlock (&ws->mutex);
+    wp_mutex_release (ws->mutex);
 
-    return data_ptr - (unsigned char *) data;
+    return (int32_t) (data_ptr - (unsigned char *) data);
 }
 
 static uint32_t get_pos (void *id)
@@ -1199,19 +1260,19 @@ static void initialize_stream (StreamingFile *ws, int buffer_size)
     if (buffer_size) {
         ws->buffer_base = malloc (ws->buffer_size = buffer_size);
         ws->buffer_head = ws->buffer_tail = ws->buffer_base;
-        pthread_cond_init (&ws->cond_write, NULL);
-        pthread_cond_init (&ws->cond_read, NULL);
-        pthread_mutex_init (&ws->mutex, NULL);
+        wp_condvar_init (ws->cond_write);
+        wp_condvar_init (ws->cond_read);
+        wp_mutex_init (ws->mutex);
     }
 }
 
 static void flush_stream (StreamingFile *ws)
 {
     if (ws->buffer_base) {
-        pthread_mutex_lock (&ws->mutex);
+        wp_mutex_obtain (ws->mutex);
         ws->done = 1;
-        pthread_cond_signal (&ws->cond_write);
-        pthread_mutex_unlock (&ws->mutex);
+        wp_condvar_signal (ws->cond_write);
+        wp_mutex_release (ws->mutex);
     }
 }
 
@@ -1234,7 +1295,7 @@ static void free_stream (StreamingFile *ws)
 
 static double frandom (void)
 {
-    static uint64_t random = 0x3141592653589793;
+    static uint64_t random = 0x3141592653589793ULL;
     random = ((random << 4) - random) ^ 1;
     random = ((random << 4) - random) ^ 1;
     random = ((random << 4) - random) ^ 1;
@@ -1256,7 +1317,7 @@ static void tone_generator_init (struct audio_generator *cxt, int sample_rate, i
 
 static void tone_generator_run (struct tone_generator *cxt, float *samples, int num_samples)
 {
-    float target_frequency, target_velocity;
+    double target_frequency, target_velocity;
 
     while (num_samples--) {
         if (!cxt->samples_left) {
@@ -1267,13 +1328,13 @@ static void tone_generator_run (struct tone_generator *cxt, float *samples, int 
             cxt->acceleration = (target_velocity - cxt->velocity) / cxt->samples_left;
         }
 
-        *samples++ = sin (cxt->angle += cxt->velocity += cxt->acceleration);
+        *samples++ = (float) sin (cxt->angle += cxt->velocity += cxt->acceleration);
         if (cxt->angle > M_PI) cxt->angle -= M_PI * 2.0;
         cxt->samples_left--;
     }
 }
 
-static void noise_generator_init (struct audio_generator *cxt, float factor)
+static void noise_generator_init (struct audio_generator *cxt, double factor)
 {
     struct noise_generator *noise_cxt = &cxt->u.noise_cxt;
 
@@ -1287,10 +1348,10 @@ static void noise_generator_init (struct audio_generator *cxt, float factor)
 static void noise_generator_run (struct noise_generator *cxt, float *samples, int num_samples)
 {
     while (num_samples--) {
-        float source = (frandom () - 0.5) * cxt->scalar;
+        double source = (frandom () - 0.5) * cxt->scalar;
         cxt->sum1 += (source - cxt->sum1) / cxt->factor;
         cxt->sum2 += (cxt->sum1 - cxt->sum2) / cxt->factor;
-        *samples++ = cxt->sum2 - cxt->sum2p;
+        *samples++ = (float) (cxt->sum2 - cxt->sum2p);
         cxt->sum2p = cxt->sum2;
     }
 }
@@ -1312,13 +1373,13 @@ static void audio_generator_run (struct audio_generator *cxt, float *samples, in
     }
 }
 
-static void mix_samples_with_gain (float *destin, float *source, int num_samples, int num_chans, float initial_gain, float final_gain)
+static void mix_samples_with_gain (float *destin, float *source, int num_samples, int num_chans, double initial_gain, double final_gain)
 {
-    float delta_gain = (final_gain - initial_gain) / num_samples;
-    float gain = initial_gain - delta_gain;
+    double delta_gain = (final_gain - initial_gain) / num_samples;
+    double gain = initial_gain - delta_gain;
 
     while (num_samples--) {
-        *destin += *source++ * (gain += delta_gain);
+        *destin += *source++ * (float) (gain += delta_gain);
         destin += num_chans;
     }
 }
@@ -1326,7 +1387,7 @@ static void mix_samples_with_gain (float *destin, float *source, int num_samples
 static void truncate_float_samples (float *samples, int num_samples, int bits)
 {
     int isample, imin = -(1 << (bits - 1)), imax = (1 << (bits - 1)) - 1;
-    float scalar = (float) (1 << (bits - 1));
+    double scalar = (double) (1 << (bits - 1));
 
     while (num_samples--) {
         if (*samples >= 1.0)
@@ -1334,16 +1395,16 @@ static void truncate_float_samples (float *samples, int num_samples, int bits)
         else if (*samples <= -1.0)
             isample = imin;
         else
-            isample = floor (*samples * scalar);
+            isample = (int) floor (*samples * scalar);
 
-        *samples++ = isample / scalar;
+        *samples++ = (float) (isample / scalar);
     } 
 }
 
 static void float_to_integer_samples (float *samples, int num_samples, int bits)
 {
     int isample, imin = -(1 << (bits - 1)), imax = (1 << (bits - 1)) - 1;
-    float scalar = (float) (1 << (bits - 1));
+    double scalar = (double) (1 << (bits - 1));
     int ishift = (8 - (bits & 0x7)) & 0x7;
 
     while (num_samples--) {
@@ -1352,17 +1413,17 @@ static void float_to_integer_samples (float *samples, int num_samples, int bits)
         else if (*samples <= -1.0)
             isample = imin;
         else
-            isample = floor (*samples * scalar);
+            isample = (int) floor (*samples * scalar);
 
         *(int32_t *)samples = (uint32_t) isample << ishift;
         samples++;
     } 
 }
 
-static void float_to_32bit_integer_samples (float *samples, int num_samples)
+static void float_to_32bit_integer_samples (float *samples, int num_samples, int test_flags)
 {
     int isample, imin = 0x8000000, imax = 0x7fffffff;
-    float scalar = 2147483648.0;
+    double scalar = 2147483648.0;
 
     while (num_samples--) {
         if (*samples >= 1.0)
@@ -1370,11 +1431,11 @@ static void float_to_32bit_integer_samples (float *samples, int num_samples)
         else if (*samples <= -1.0)
             isample = imin;
         else
-            isample = floor (*samples * scalar);
+            isample = (int) floor (*samples * scalar);
 
-        // if there are trailing zeros, fill them in with random data
+        // if there are trailing zeros, fill them in with random data (if enabled)
 
-        if (isample && !(isample & 1)) {
+        if ((test_flags & TEST_FLAG_INT32_FILL_LOW_BITS) && isample && !(isample & 1)) {
             int tzeros = 1;
 
             while (!((isample >>= 1) & 1))

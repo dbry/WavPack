@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2020 Conifer Software.               //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -28,11 +28,16 @@
 #else
 #define VERSION_OS "Win32"
 #endif
-#define PACKAGE_VERSION "5.4.0"
+#define PACKAGE_VERSION "5.7.0"
 #endif
 
 #define FALSE 0
 #define TRUE 1
+
+#define WAVPACK_NO_ERROR    0
+#define WAVPACK_WARNINGS    1
+#define WAVPACK_SOFT_ERROR  2
+#define WAVPACK_HARD_ERROR  3
 
 #define CLEAR(destin) memset (&destin, 0, sizeof (destin));
 
@@ -41,6 +46,7 @@ char *filespec_ext (char *filespec), *filespec_path (char *filespec);
 char *filespec_name (char *filespec), *filespec_wild (char *filespec);
 void error_line (char *error, ...);
 void setup_break (void), finish_line (void);
+void do_pause_mode (void);
 int check_break (void);
 char yna (void);
 

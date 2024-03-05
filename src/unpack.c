@@ -37,8 +37,8 @@
 #endif
 
 #ifdef DECORR_STEREO_PASS_CONT
-extern void DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
-extern void DECORR_MONO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
+extern void ASMCALL DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
+extern void ASMCALL DECORR_MONO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count, int32_t long_math);
 #endif
 
 // This flag provides the functionality of terminating the decoding and muting
@@ -69,11 +69,10 @@ extern void DECORR_MONO_PASS_CONT (struct decorr_pass *dpp, int32_t *buffer, int
 
 static void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
 static void decorr_mono_pass (struct decorr_pass *dpp, int32_t *buffer, int32_t sample_count);
-static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count);
+static void fixup_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count);
 
-int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count)
+int32_t unpack_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags, crc = wps->crc, i;
     int32_t mute_limit = (1L << ((flags & MAG_MASK) >> MAG_LSB)) + 2;
     int32_t correction [2], read_word, *bptr;
@@ -90,7 +89,7 @@ int32_t unpack_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_co
         wps->mute_error = TRUE;
 
     if (wps->mute_error) {
-        if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))
+        if (wps->wpc->reduced_channels == 1 || wps->wpc->config.num_channels == 1 || (flags & MONO_FLAG))
             memset (buffer, 0, sample_count * 4);
         else
             memset (buffer, 0, sample_count * 8);
@@ -481,11 +480,11 @@ get_word_eof:
                 }
             }
 
-    fixup_samples (wpc, buffer, i);
+    fixup_samples (wps, buffer, i);
 
-    if ((flags & FLOAT_DATA) && (wpc->open_flags & OPEN_NORMALIZE))
+    if ((flags & FLOAT_DATA) && (wps->wpc->open_flags & OPEN_NORMALIZE))
         WavpackFloatNormalize (buffer, (flags & MONO_DATA) ? i : i * 2,
-            127 - wps->float_norm_exp + wpc->norm_offset);
+            127 - wps->float_norm_exp + wps->wpc->norm_offset);
 
     if (flags & FALSE_STEREO) {
         int32_t *dptr = buffer + i * 2;
@@ -500,6 +499,17 @@ get_word_eof:
 
     wps->sample_index += i;
     wps->crc = crc;
+
+    // If we just finished this block, then it's time to check if the applicable checksums match. Like
+    // other decoding errors, these are indicated by setting the mute_error flag. We also clear the
+    // buffer to reduce the chances of noise bursts getting through.
+
+    if (!wps->mute_error && wps->sample_index == GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples) {
+        if (wps->crc != wps->wphdr.crc || (bs_is_open (&wps->wvxbits) && wps->crc_x != wps->crc_wvx)) {
+            memset (buffer, 0, sample_count * (flags & MONO_FLAG ? 4 : 8));
+            wps->mute_error = TRUE;
+        }
+    }
 
     return i;
 }
@@ -684,9 +694,8 @@ static void decorr_stereo_pass (struct decorr_pass *dpp, int32_t *buffer, int32_
 // it is clipped and shifted in a single operation. Otherwise, if it's
 // lossless then the last step is to apply the final shift (if any).
 
-static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count)
+static void fixup_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags;
     int lossy_flag = (flags & HYBRID_FLAG) && !wps->block2buff;
     int shift = (flags & SHIFT_MASK) >> SHIFT_LSB;
@@ -704,13 +713,29 @@ static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample
         int32_t *dptr = buffer;
 
         if (bs_is_open (&wps->wvxbits)) {
+            int max_width = wps->int32_max_width;
             uint32_t crc = wps->crc_x;
 
             while (count--) {
-//              if (sent_bits) {
-                    getbits (&data, sent_bits, &wps->wvxbits);
-                    *dptr = ((uint32_t) *dptr << sent_bits) | (data & mask);
-//              }
+                if (sent_bits) {
+                    if (max_width) {
+                        int32_t pvalue = *dptr < 0 ? ~*dptr : *dptr;
+                        int width = count_bits (pvalue) + sent_bits;
+                        int bits_to_read = sent_bits;
+
+                        if (width <= max_width || (bits_to_read -= width - max_width) > 0) {
+                            getbits (&data, bits_to_read, &wps->wvxbits);
+                            data &= (1U << bits_to_read) - 1;
+                            *dptr = (((uint32_t) *dptr << bits_to_read) | data) << (sent_bits - bits_to_read);
+                        }
+                        else
+                            *dptr = (uint32_t) *dptr << sent_bits;
+                    }
+                    else {
+                        getbits (&data, sent_bits, &wps->wvxbits);
+                        *dptr = ((uint32_t) *dptr << sent_bits) | (data & mask);
+                    }
+                }
 
                 if (zeros)
                     *(uint32_t*)dptr <<= zeros;
@@ -800,27 +825,4 @@ static void fixup_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample
         while (sample_count--)
             *(uint32_t*)buffer++ <<= shift;
     }
-}
-
-// This function checks the crc value(s) for an unpacked block, returning the
-// number of actual crc errors detected for the block. The block must be
-// completely unpacked before this test is valid. For losslessly unpacked
-// blocks of float or extended integer data the extended crc is also checked.
-// Note that WavPack's crc is not a CCITT approved polynomial algorithm, but
-// is a much simpler method that is virtually as robust for real world data.
-
-int check_crc_error (WavpackContext *wpc)
-{
-    int result = 0, stream;
-
-    for (stream = 0; stream < wpc->num_streams; stream++) {
-        WavpackStream *wps = wpc->streams [stream];
-
-        if (wps->crc != wps->wphdr.crc)
-            ++result;
-        else if (bs_is_open (&wps->wvxbits) && wps->crc_x != wps->crc_wvx)
-            ++result;
-    }
-
-    return result;
 }

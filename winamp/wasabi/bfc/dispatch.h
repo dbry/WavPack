@@ -1,9 +1,11 @@
-#pragma once
+#ifndef DISPATCH_H_
+#define DISPATCH_H_
+
 //#include <bfc/platform/platform.h>
 #include "platform/types.h"
 #include "platform/guid.h"
 
-#ifdef WIN32
+#ifdef _MSC_VER
 #ifndef NOVTABLE
 #define NOVTABLE __declspec(novtable)
 #endif
@@ -557,3 +559,4 @@ inline int Dispatchable::QueryInterface(GUID interface_guid, void **object)
 {
 	return _call(Dispatchable::QUERYINTERFACE, 0, interface_guid, object);
 }
+#endif /* DISPATCH_H_ */

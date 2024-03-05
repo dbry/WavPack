@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2020 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -65,7 +65,7 @@
 
 static const char *sign_on = "\n"
 " WVTAG  WavPack Metadata Tagging Utility  %s Version %s\n"
-" Copyright (c) 2018 - 2020 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2018 - 2024 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVTAG using libwavpack version %s, expected %s (see README)\n\n";
@@ -96,8 +96,8 @@ static const char *help =
 "    -d \"Field\"            delete specified metadata item (text or binary)\n"
 "    -h or --help          this help display\n"
 "    --import-id3          import ID3v2 tags from the trailer of original file\n"
-"                           (default for DSF files, optional for other formats,\n"
-"                            add --allow-huge-tags option for > 1 MB images)\n"
+"                           (default for DSF and AIF files, optional for other\n"
+"                            formats, add --allow-huge-tags for > 1 MB images)\n"
 "    -l or --list          list all tag items (done last)\n"
 #ifdef _WIN32
 "    --no-utf8-convert     assume tag values read from files are already UTF-8,\n"
@@ -167,10 +167,6 @@ static void add_tag_extraction_to_list (char *spec);
 static void TextToUTF8 (void *string, int len);
 static FILE *wild_fopen (char *filename, const char *mode);
 static int process_file (char *infilename);
-
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
 
 // The "main" function for the command-line WavPack metadata editor. Note that on Windows
 // this is actually a static function that is called from the "real" main() defined
@@ -715,13 +711,8 @@ int main(int argc, char **argv)
 
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
 
-    if (pause_mode) {
-        fprintf (stderr, "\nPress any key to continue . . . ");
-        fflush (stderr);
-        while (!_kbhit ());
-        _getch ();
-        fprintf (stderr, "\n");
-    }
+    if (pause_mode)
+        do_pause_mode ();
 
     return ret;
 }
@@ -826,12 +817,12 @@ static int process_file (char *infilename)
 
                 if (res > 0) {
                     if (!quiet_mode)
-                        error_line ("successfully imported %d items from ID3v2 tag", res);
+                        error_line ("successfully imported %d items from %s tag", res, error);
 
                     write_tag = 1;
                 }
                 else if (res == 0)
-                    error_line ("ID3v2 import: no applicable items found");
+                    error_line ("warning: no tag or importable tag items found");
                 else
                     error_line ("ID3v2 import: %s", error);
             }
@@ -1353,7 +1344,7 @@ static void UTF8ToAnsi (char *string, int len)
     int max_chars = (int) strlen (string);
 #if defined (_WIN32)
     wchar_t *temp = malloc ((max_chars + 1) * 2);
-    int act_chars = UTF8ToWideChar (string, temp);
+    int act_chars = UTF8ToWideChar ((unsigned char *) string, temp);
 
     while (act_chars) {
         memset (string, 0, len);

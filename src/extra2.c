@@ -50,8 +50,8 @@
 #endif
 
 #ifdef PACK_DECORR_STEREO_PASS_CONT
-    void PACK_DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
-    void PACK_DECORR_STEREO_PASS_CONT_REV (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
+    void ASMCALL PACK_DECORR_STEREO_PASS_CONT (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
+    void ASMCALL PACK_DECORR_STEREO_PASS_CONT_REV (struct decorr_pass *dpp, int32_t *in_buffer, int32_t *out_buffer, int32_t sample_count);
 #endif
 
 typedef struct {
@@ -346,8 +346,8 @@ static void decorr_stereo_buffer (WavpackExtraInfo *info, int32_t *samples, int3
     if (tindex == 0)
         reverse_decorr (&dp);
     else {
-        CLEAR (dp.samples_A);
-        CLEAR (dp.samples_B);
+        CLEARA (dp.samples_A);
+        CLEARA (dp.samples_B);
     }
 
     memcpy (dppi->samples_A, dp.samples_A, sizeof (dp.samples_A));
@@ -383,17 +383,16 @@ static int log2overhead (int first_term, int num_terms)
 #endif
 }
 
-static void recurse_stereo (WavpackContext *wpc, WavpackExtraInfo *info, int depth, int delta, uint32_t input_bits)
+static void recurse_stereo (WavpackStream *wps, WavpackExtraInfo *info, int depth, int delta, uint32_t input_bits)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
-    int term, branches = ((wpc->config.extra_flags & EXTRA_BRANCHES) >> 6) - depth;
+    int term, branches = ((wps->extra_flags & EXTRA_BRANCHES) >> 6) - depth;
     int32_t *samples, *outsamples;
     uint32_t term_bits [22], bits;
 
     if (branches < 1 || depth + 1 == info->nterms)
         branches = 1;
 
-    CLEAR (term_bits);
+    CLEARA (term_bits);
     samples = info->sampleptrs [depth];
     outsamples = info->sampleptrs [depth + 1];
 
@@ -408,7 +407,7 @@ static void recurse_stereo (WavpackContext *wpc, WavpackExtraInfo *info, int dep
             if (!(wps->wphdr.flags & CROSS_DECORR))
                 continue;
 
-        if ((wpc->config.flags & CONFIG_FAST_FLAG) && (term > 4 && term < 17))
+        if ((wps->wpc->config.flags & CONFIG_FAST_FLAG) && (term > 4 && term < 17))
             continue;
 
         info->dps [depth].term = term;
@@ -421,7 +420,7 @@ static void recurse_stereo (WavpackContext *wpc, WavpackExtraInfo *info, int dep
 
         if (bits < info->best_bits) {
             info->best_bits = bits;
-            CLEAR (wps->decorr_passes);
+            CLEARA (wps->decorr_passes);
             memcpy (wps->decorr_passes, info->dps, sizeof (info->dps [0]) * (depth + 1));
             memcpy (info->sampleptrs [info->nterms + 1], info->sampleptrs [depth + 1], wps->wphdr.block_samples * 8);
         }
@@ -452,13 +451,12 @@ static void recurse_stereo (WavpackContext *wpc, WavpackExtraInfo *info, int dep
 //      if (log2buffer (outsamples, wps->wphdr.block_samples * 2, 0) != local_best_bits)
 //          error_line ("data doesn't match!");
 
-        recurse_stereo (wpc, info, depth + 1, delta, local_best_bits);
+        recurse_stereo (wps, info, depth + 1, delta, local_best_bits);
     }
 }
 
-static void delta_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
+static void delta_stereo (WavpackStream *wps, WavpackExtraInfo *info)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     int lower = FALSE;
     int delta, d;
     uint32_t bits;
@@ -488,7 +486,7 @@ static void delta_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
         if (bits < info->best_bits) {
             lower = TRUE;
             info->best_bits = bits;
-            CLEAR (wps->decorr_passes);
+            CLEARA (wps->decorr_passes);
             memcpy (wps->decorr_passes, info->dps, sizeof (info->dps [0]) * i);
             memcpy (info->sampleptrs [info->nterms + 1], info->sampleptrs [i], wps->wphdr.block_samples * 8);
         }
@@ -512,7 +510,7 @@ static void delta_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
 
         if (bits < info->best_bits) {
             info->best_bits = bits;
-            CLEAR (wps->decorr_passes);
+            CLEARA (wps->decorr_passes);
             memcpy (wps->decorr_passes, info->dps, sizeof (info->dps [0]) * i);
             memcpy (info->sampleptrs [info->nterms + 1], info->sampleptrs [i], wps->wphdr.block_samples * 8);
         }
@@ -521,9 +519,8 @@ static void delta_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
     }
 }
 
-static void sort_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
+static void sort_stereo (WavpackStream *wps, WavpackExtraInfo *info)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     int reversed = TRUE;
     uint32_t bits;
 
@@ -557,7 +554,7 @@ static void sort_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
             if (bits < info->best_bits) {
                 reversed = TRUE;
                 info->best_bits = bits;
-                CLEAR (wps->decorr_passes);
+                CLEARA (wps->decorr_passes);
                 memcpy (wps->decorr_passes, info->dps, sizeof (info->dps [0]) * i);
                 memcpy (info->sampleptrs [info->nterms + 1], info->sampleptrs [i], wps->wphdr.block_samples * 8);
             }
@@ -572,9 +569,8 @@ static void sort_stereo (WavpackContext *wpc, WavpackExtraInfo *info)
 
 static const uint32_t xtable [] = { 91, 123, 187, 251 };
 
-static void analyze_stereo (WavpackContext *wpc, int32_t *samples, int do_samples)
+static void analyze_stereo (WavpackStream *wps, int32_t *samples, int do_samples)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     WavpackExtraInfo info;
     int i;
 
@@ -587,10 +583,10 @@ static void analyze_stereo (WavpackContext *wpc, int32_t *samples, int do_sample
     info.log_limit = 0;
 #endif
 
-    if (wpc->config.flags & (CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG))
-        wpc->config.extra_flags = xtable [wpc->config.xmode - 4];
+    if (wps->wpc->config.flags & (CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG))
+        wps->extra_flags = xtable [wps->wpc->config.xmode - 4];
     else
-        wpc->config.extra_flags = xtable [wpc->config.xmode - 3];
+        wps->extra_flags = xtable [wps->wpc->config.xmode - 3];
 
     info.nterms = wps->num_terms;
 
@@ -607,24 +603,24 @@ static void analyze_stereo (WavpackContext *wpc, int32_t *samples, int do_sample
     info.best_bits += log2overhead (info.dps [0].term, i);
     memcpy (info.sampleptrs [info.nterms + 1], info.sampleptrs [i], wps->wphdr.block_samples * 8);
 
-    if (wpc->config.extra_flags & EXTRA_BRANCHES)
-        recurse_stereo (wpc, &info, 0, (int) floor (wps->delta_decay + 0.5),
+    if (wps->extra_flags & EXTRA_BRANCHES)
+        recurse_stereo (wps, &info, 0, (int) floor (wps->delta_decay + 0.5),
             LOG2BUFFER (info.sampleptrs [0], wps->wphdr.block_samples * 2, 0));
 
-    if (wpc->config.extra_flags & EXTRA_SORT_FIRST)
-        sort_stereo (wpc, &info);
+    if (wps->extra_flags & EXTRA_SORT_FIRST)
+        sort_stereo (wps, &info);
 
-    if (wpc->config.extra_flags & EXTRA_TRY_DELTAS) {
-        delta_stereo (wpc, &info);
+    if (wps->extra_flags & EXTRA_TRY_DELTAS) {
+        delta_stereo (wps, &info);
 
-        if ((wpc->config.extra_flags & EXTRA_ADJUST_DELTAS) && wps->decorr_passes [0].term)
+        if ((wps->extra_flags & EXTRA_ADJUST_DELTAS) && wps->decorr_passes [0].term)
             wps->delta_decay = (float)((wps->delta_decay * 2.0 + wps->decorr_passes [0].delta) / 3.0);
         else
             wps->delta_decay = 2.0;
     }
 
-    if (wpc->config.extra_flags & EXTRA_SORT_LAST)
-        sort_stereo (wpc, &info);
+    if (wps->extra_flags & EXTRA_SORT_LAST)
+        sort_stereo (wps, &info);
 
     if (do_samples)
         memcpy (samples, info.sampleptrs [info.nterms + 1], wps->wphdr.block_samples * 8);
@@ -641,13 +637,14 @@ static void analyze_stereo (WavpackContext *wpc, int32_t *samples, int do_sample
 
 static void stereo_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
 {
-    int shaping_weight, new = wps->wphdr.flags & NEW_SHAPING;
+    int shaping_weight, is_new = wps->wphdr.flags & NEW_SHAPING;
     short *shaping_array = wps->dc.shaping_array;
     int32_t error [2], temp, cnt;
 
     scan_word (wps, rptr, wps->wphdr.block_samples, -1);
     cnt = wps->wphdr.block_samples;
-    CLEAR (error);
+    error [0] = 0;
+    error [1] = 0;
 
     if (wps->wphdr.flags & HYBRID_SHAPE) {
         while (cnt--) {
@@ -658,7 +655,7 @@ static void stereo_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
 
             temp = -apply_weight (shaping_weight, error [0]);
 
-            if (new && shaping_weight < 0 && temp) {
+            if (is_new && shaping_weight < 0 && temp) {
                 if (temp == error [0])
                     temp = (temp < 0) ? temp + 1 : temp - 1;
 
@@ -672,7 +669,7 @@ static void stereo_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
 
             temp = -apply_weight (shaping_weight, error [1]);
 
-            if (new && shaping_weight < 0 && temp) {
+            if (is_new && shaping_weight < 0 && temp) {
                 if (temp == error [1])
                     temp = (temp < 0) ? temp + 1 : temp - 1;
 
@@ -699,11 +696,10 @@ static void stereo_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
         }
 }
 
-void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int do_samples)
+void execute_stereo (WavpackStream *wps, int32_t *samples, int no_history, int do_samples)
 {
     int32_t *temp_buffer [2], *best_buffer, *noisy_buffer = NULL, *js_buffer = NULL;
     struct decorr_pass temp_decorr_pass, save_decorr_passes [MAX_NTERMS];
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     int32_t num_samples = wps->wphdr.block_samples;
     int32_t buf_size = sizeof (int32_t) * num_samples * 2;
     uint32_t best_size = (uint32_t) -1, size;
@@ -721,7 +717,7 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
 
     if (i == num_samples * 2) {
         wps->wphdr.flags &= ~((uint32_t) JOINT_STEREO);
-        CLEAR (wps->decorr_passes);
+        CLEARA (wps->decorr_passes);
         wps->num_terms = 0;
         init_words (wps);
         return;
@@ -736,14 +732,14 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
     log_limit = 0;
 #endif
 
-    if (wpc->config.flags & CONFIG_JOINT_OVERRIDE) {
+    if (wps->wpc->config.flags & CONFIG_JOINT_OVERRIDE) {
         if (wps->wphdr.flags & JOINT_STEREO)
             force_js = 1;
         else
             force_ts = 1;
     }
 
-    CLEAR (save_decorr_passes);
+    CLEARA (save_decorr_passes);
     temp_buffer [0] = malloc (buf_size);
     temp_buffer [1] = malloc (buf_size);
     best_buffer = malloc (buf_size);
@@ -815,7 +811,7 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
             else
                 memcpy (temp_buffer [0], noisy_buffer ? noisy_buffer : samples, buf_size);
 
-            CLEAR (save_decorr_passes);
+            CLEARA (save_decorr_passes);
 
             for (j = 0; j < nterms; ++j) {
                 CLEAR (temp_decorr_pass);
@@ -829,8 +825,8 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
                     num_samples > 2048 ? 2048 : num_samples, &temp_decorr_pass, -1);
 
                 if (j) {
-                    CLEAR (temp_decorr_pass.samples_A);
-                    CLEAR (temp_decorr_pass.samples_B);
+                    CLEARA (temp_decorr_pass.samples_A);
+                    CLEARA (temp_decorr_pass.samples_B);
                 }
                 else
                     reverse_decorr (&temp_decorr_pass);
@@ -866,26 +862,26 @@ void execute_stereo (WavpackContext *wpc, int32_t *samples, int no_history, int 
     else
         wps->wphdr.flags &= ~((uint32_t) JOINT_STEREO);
 
-    if (wpc->config.xmode > 3) {
+    if (wps->wpc->config.xmode > 3) {
         if (wps->wphdr.flags & JOINT_STEREO) {
-            analyze_stereo (wpc, js_buffer, do_samples);
+            analyze_stereo (wps, js_buffer, do_samples);
 
             if (do_samples)
                 memcpy (samples, js_buffer, buf_size);
         }
         else if (noisy_buffer) {
-            analyze_stereo (wpc, noisy_buffer, do_samples);
+            analyze_stereo (wps, noisy_buffer, do_samples);
 
             if (do_samples)
                 memcpy (samples, noisy_buffer, buf_size);
         }
         else
-            analyze_stereo (wpc, samples, do_samples);
+            analyze_stereo (wps, samples, do_samples);
     }
     else if (do_samples)
         memcpy (samples, best_buffer, buf_size);
 
-    if (wpc->config.xmode > 3 || no_history || wps->joint_stereo != wps->decorr_specs [wps->best_decorr].joint_stereo) {
+    if (wps->wpc->config.xmode > 3 || no_history || wps->joint_stereo != wps->decorr_specs [wps->best_decorr].joint_stereo) {
         wps->joint_stereo = wps->decorr_specs [wps->best_decorr].joint_stereo;
         scan_word (wps, best_buffer, num_samples, -1);
     }

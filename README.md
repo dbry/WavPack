@@ -2,7 +2,7 @@
 
 Hybrid Lossless Wavefile Compressor
 
-Copyright (c) 1998 - 2022 David Bryant.
+Copyright (c) 1998 - 2024 David Bryant.
 
 All Rights Reserved.
 
@@ -10,7 +10,7 @@ Distributed under the [BSD Software License](https://github.com/dbry/WavPack/blo
 
 ---
 
-This [repository](https://github.com/dbry/WavPack) contains all of the source code required to build the WavPack library (_libwavpack_), and any associated command-line programs.
+This [repository](https://github.com/dbry/WavPack) contains all of the source code required to build the WavPack library (_libwavpack_), the associated command-line programs, and a few example plugins.
 
 Additional references:
 
@@ -38,38 +38,27 @@ Branches [actively built](https://travis-ci.org/dbry/WavPack/branches) by Travis
 
 ### Windows
 
-There are solution and project files for Visual Studio 2008, and additional source code to build the [CoolEdit/Audition](https://github.com/dbry/WavPack/tree/master/audition) plugin and the [Winamp](https://github.com/dbry/WavPack/tree/master/winamp) plugin.
+There are solution and project files for Visual Studio 2019, and additional source code to build the [CoolEdit/Audition](https://github.com/dbry/WavPack/tree/master/audition) plugin and the [Winamp](https://github.com/dbry/WavPack/tree/master/winamp) plugin.
 
 The CoolEdit/Audition plugin provides a good example for using the library to both read and write WavPack files, and the Winamp plugin makes extensive use of APEv2 tag reading and writing.
 
 Both 32-bit and 64-bit platforms are provided.
-
-Visual Studio 2008 does not support projects with x64 assembly very well. I have provided a copy of the edited `masm.rules` file that works for me, but I can't provide support if your build does not work. Please make a copy of your `masm.rules` file first.
-
-On my system it lives here: `C:\Program Files (x86)\Microsoft Visual Studio 9.0\VC\VCProjectDefaults`
 
 ### Linux
 
 To build everything on Linux, type:
 
 1. `./configure`
-   * `--disable-asm`
-   * `--enable-man`
-   * `--enable-rpath`
-   * `--enable-tests`
-   * `--disable-apps`
-   * `--disable-dsd`
-   * `--enable-legacy`
 2. `make`
-   * Optionally, `make install`, to install into `/usr/local/bin`
+3. Optionally, `make install`, to install into `/usr/local/bin`
 
-If you are using the code directly from Git (rather than a distribution) then you will need to do a ./autogen.sh instead of the configure step. If assembly optimizations are available for your processor they will be automatically enabled, but if there is a problem with them then use the `--disable-asm` option to revert to pure C.
+If you are using the code directly from Git (rather than a distribution) then you will need to do a `./autogen.sh` instead of the configure step. If assembly optimizations are available for your processor they will be automatically enabled, but if there is a problem with them then use the `--disable-asm` option to revert to pure C.
 
 For Clang-based build systems (Darwin, FreeBSD, etc.), Clang version 3.5 or higher is required.
 
 If you get a WARNING about unexpected _libwavpack_ version when you run the command-line programs, you might try using `--enable-rpath` to hardcode the library location in the executables, or simply force static linking with `--disable-shared`.
 
-There is now a CLI program to do a full suite of stress tests for _libwavpack_, and this is particularly useful for packagers to make sure that the assembly language optimizations are working correctly on various platforms. It is built with the configure option `--enable-tests` and requires Pthreads (it worked out-of-the-box on all the platforms I tried it on). There are lots of options, but the default test suite (consisting of 192 tests) is executed with `wvtest --default`. There is also a seeking test. On Windows a third-party Pthreads library is required, so I am not including this in the build for now.
+There is now a CLI program to do a full suite of stress tests for _libwavpack_, and this is particularly useful for packagers to make sure that the C code and assembly language optimizations are working correctly on various platforms. It is built and a quick test is run with `make check`. Once the program is built then more extensive testing can be done with `wvtest --default` and there is also a seeking test. On Windows a third-party Pthreads library is required, so I am not including this in the build for now.
 
 ---
 
@@ -120,15 +109,15 @@ However, some functionality could not be easily excluded in this way and so ther
 
 Note that this has been tested on many platforms.
 
-## Tiny Decoder
+## Tiny Versions
 
-There are alternate versions of this library available specifically designed for resource limited CPUs, and hardware encoding and decoding.
+There are alternate versions of this library available specifically designed for resource limited CPUs (i.e., portable devices).
 
-There is the _Tiny Decoder_ library which works with less than 32k of code and less than 4k of data, and has assembly language optimizations for the ARM and Freescale ColdFire CPUs.
+There is the _Tiny Decoder_ library which works with less than 32k of code and less than 4k of data, and has assembly language optimizations for the ARM and Freescale ColdFire CPUs. It is also the basis for a WebAssembly WavPack player [on GitHub](https://github.com/soiaf/WebAssembly-WavPack). The Tiny Decoder can be downloaded [here](https://www.wavpack.com/tiny_decoder.zip).
 
-The _Tiny Decoder_ is also designed for embedded use and handles the pure lossless, lossy, and hybrid lossless modes.
+The _Tiny Encoder_ is also designed for embedded use and handles the pure lossless, lossy, and hybrid lossless modes. It can be downloaded [here](https://www.wavpack.com/tiny_encoder.zip).
 
-Neither of these versions use any memory allocation functions, nor do they require floating-point arithmetic support.
+Neither of these versions use any memory allocation functions, nor do they require floating-point arithmetic support. Version of them appear in the [Rockbox project](https://www.rockbox.org/).
 
 ---
 

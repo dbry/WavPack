@@ -6,7 +6,7 @@
 #include "Winamp/wa_ipc.h"
 #include "api/service/waservicefactory.h"
 #include "Agave/AlbumArt/svc_albumArtProvider.h"
-#include "Wasabi.h"
+#include "wasabi.h"
 
 class AlbumArtFactory : public waServiceFactory
 {
@@ -24,7 +24,9 @@ protected:
 	RECVS_DISPATCH;
 };
 
-extern "C" extern In_Module mod; // TODO: change if you called yours something else
+extern "C" {
+extern In_Module mod; // TODO: change if you called yours something else
+}
 #define WASABI_API_MEMMGR memmgr
 
 static api_config *AGAVE_API_CONFIG = 0;

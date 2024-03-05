@@ -99,8 +99,8 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
     int tcount;
 
     for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++) {
-        CLEAR (dpp->samples_A);
-        CLEAR (dpp->samples_B);
+        CLEARA (dpp->samples_A);
+        CLEARA (dpp->samples_B);
     }
 
     if (wps->wphdr.version == 0x402 && (wps->wphdr.flags & HYBRID_FLAG)) {

@@ -21,7 +21,7 @@
 
 #include <windows.h>
 #include <stddef.h>
-#if (_MSC_VER <= 1200)
+#if defined(_MSC_VER) && (_MSC_VER <= 1200)
 typedef int intptr_t;
 #endif
 /*
@@ -1406,11 +1406,11 @@ class IVideoOutput
     virtual void setcallback(LRESULT (*msgcallback)(void *token, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam), void *token) { (void)token; (void)msgcallback; /* to eliminate warning C4100 */ }
     virtual void close()=0;
     virtual void draw(void *frame)=0;
-    virtual void drawSubtitle(SubsItem *item) {UNREFERENCED_PARAMETER(item);  }
-    virtual void showStatusMsg(const char *text) {UNREFERENCED_PARAMETER(text);  }
+    virtual void drawSubtitle(SubsItem *item) { (void)(item);  }
+    virtual void showStatusMsg(const char *text) { (void)(text);  }
     virtual int get_latency() { return 0; }
-    virtual void notifyBufferState(int bufferstate) { UNREFERENCED_PARAMETER(bufferstate); } /* 0-255*/
-	virtual INT_PTR extended(INT_PTR param1, INT_PTR param2, INT_PTR param3) { UNREFERENCED_PARAMETER(param1); UNREFERENCED_PARAMETER(param2); UNREFERENCED_PARAMETER(param3); return 0; } // Dispatchable, eat this!
+    virtual void notifyBufferState(int bufferstate) { (void)(bufferstate); } /* 0-255*/
+	virtual INT_PTR extended(INT_PTR param1, INT_PTR param2, INT_PTR param3) { (void)(param1); (void)(param2); (void)(param3); return 0; } // Dispatchable, eat this!
 };
 
 class ITrackSelector 

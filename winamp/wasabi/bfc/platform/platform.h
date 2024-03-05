@@ -4,7 +4,16 @@
 #include "types.h"
 #include "../std_mkncc.h"  // for MKnCC
 
-#ifdef WIN32
+#include <stdio.h>
+#include <stdlib.h>
+#ifdef __cplusplus
+#include <new>
+#else
+#include <new.h>
+#endif
+#include <limits.h>
+
+#ifdef _WIN32
 # include "win32.h"
 
 #define OSMODULEHANDLE  HINSTANCE
@@ -472,17 +481,8 @@ RGNDATA, *PRGNDATA;
 
 #endif /* not WIN32 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#ifdef __cplusplus
-#include <new>
-#else
-#include <new.h>
-#endif
-#include <limits.h>
 
-
-#ifdef WIN32
+#ifdef _WIN32
 #define OSPIPE HANDLE
 #define OSPROCESSID int
 #endif

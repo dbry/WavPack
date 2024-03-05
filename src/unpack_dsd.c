@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** DSDPACK ****                            //
 //         Lossless DSD (Direct Stream Digital) Audio Compressor          //
-//                Copyright (c) 2013 - 2016 David Bryant.                 //
+//                Copyright (c) 2013 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -27,10 +27,8 @@ static int init_dsd_block_high (WavpackStream *wps, WavpackMetadata *wpmd);
 static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count);
 static int decode_high (WavpackStream *wps, int32_t *output, int sample_count);
 
-int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
+int init_dsd_block (WavpackStream *wps, WavpackMetadata *wpmd)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
-
     if (wpmd->byte_length < 2)
         return FALSE;
 
@@ -40,7 +38,12 @@ int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
     if (*wps->dsd.byteptr > 31)
         return FALSE;
 
-    wpc->dsd_multiplier = 1U << *wps->dsd.byteptr++;
+    // safe to cast away const on stream 0 only
+    if (!wps->stream_index)
+        ((WavpackContext *)wps->wpc)->dsd_multiplier = 1U << *wps->dsd.byteptr++;
+    else
+        wps->dsd.byteptr++;
+
     wps->dsd.mode = *wps->dsd.byteptr++;
 
     if (!wps->dsd.mode) {
@@ -60,9 +63,8 @@ int init_dsd_block (WavpackContext *wpc, WavpackMetadata *wpmd)
         return FALSE;
 }
 
-int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sample_count)
+int32_t unpack_dsd_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_count)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     uint32_t flags = wps->wphdr.flags;
 
     // don't attempt to decode past the end of the block, but watch out for overflow!
@@ -91,11 +93,18 @@ int32_t unpack_dsd_samples (WavpackContext *wpc, int32_t *buffer, uint32_t sampl
         }
         else if (!decode_high (wps, buffer, sample_count))
             wps->mute_error = TRUE;
+
+        // If we just finished this block, then it's time to check if the applicable checksum matches. Like
+        // other decoding errors, this is indicated by setting the mute_error flag.
+
+        if (wps->sample_index + sample_count == GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples &&
+            !wps->mute_error && wps->crc != wps->wphdr.crc)
+                wps->mute_error = TRUE;
     }
 
     if (wps->mute_error) {
         int samples_to_null;
-        if (wpc->reduced_channels == 1 || wpc->config.num_channels == 1 || (flags & MONO_FLAG))
+        if (wps->wpc->reduced_channels == 1 || wps->wpc->config.num_channels == 1 || (flags & MONO_FLAG))
             samples_to_null = sample_count;
         else
             samples_to_null = sample_count * 2;
@@ -498,8 +507,10 @@ typedef struct {
 typedef struct {
     int32_t conv_tables [HISTORY_BYTES] [256];
     DecimationChannel *chans;
-    int num_channels;
+    int num_channels, reset;
 } DecimationContext;
+
+static void extrapolate_pcm (int32_t *samples, int samples_to_extrapolate, int samples_visible, int num_channels);
 
 void *decimate_dsd_init (int num_channels)
 {
@@ -557,19 +568,22 @@ void decimate_dsd_reset (void *decimate_context)
     for (chan = 0; chan < context->num_channels; ++chan)
         for (i = 0; i < HISTORY_BYTES; ++i)
             context->chans [chan].delay [i] = 0x55;
+
+    context->reset = 1;
 }
 
 void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples)
 {
     DecimationContext *context = (DecimationContext *) decimate_context;
-    int chan = 0;
+    int chan = 0, scount = num_samples;
+    int32_t *samptr = samples;
 
     if (!context)
         return;
 
-    while (num_samples) {
+    while (scount) {
         DecimationChannel *sp = context->chans + chan;
-        int sum = 0;
+        int32_t sum = 0;
 
 #if (HISTORY_BYTES == 10)
         sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
@@ -581,7 +595,7 @@ void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples
         sum += context->conv_tables [6] [sp->delay [6] = sp->delay [7]];
         sum += context->conv_tables [7] [sp->delay [7] = sp->delay [8]];
         sum += context->conv_tables [8] [sp->delay [8] = sp->delay [9]];
-        sum += context->conv_tables [9] [sp->delay [9] = *samples];
+        sum += context->conv_tables [9] [sp->delay [9] = *samptr];
 #elif (HISTORY_BYTES == 7)
         sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
         sum += context->conv_tables [1] [sp->delay [1] = sp->delay [2]];
@@ -589,22 +603,74 @@ void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples
         sum += context->conv_tables [3] [sp->delay [3] = sp->delay [4]];
         sum += context->conv_tables [4] [sp->delay [4] = sp->delay [5]];
         sum += context->conv_tables [5] [sp->delay [5] = sp->delay [6]];
-        sum += context->conv_tables [6] [sp->delay [6] = *samples];
+        sum += context->conv_tables [6] [sp->delay [6] = *samptr];
 #else
         int i;
 
         for (i = 0; i < HISTORY_BYTES-1; ++i)
             sum += context->conv_tables [i] [sp->delay [i] = sp->delay [i+1]];
 
-        sum += context->conv_tables [i] [sp->delay [i] = *samples];
+        sum += context->conv_tables [i] [sp->delay [i] = *samptr];
 #endif
 
-        *samples++ = sum >> 4;
+        *samptr++ = (sum + 8) >> 4;
 
         if (++chan == context->num_channels) {
-            num_samples--;
+            scount--;
             chan = 0;
         }
+    }
+
+    if (context->reset) {
+        extrapolate_pcm (samples, HISTORY_BYTES - 1, num_samples, context->num_channels);
+        context->reset = 0;
+    }
+}
+
+// This function is used to linearly extrapolate some samples at the beginning of the first
+// decoded frame because we don't have the previous DSD data to prefill the decimation filter.
+// Currently we only extrapolate at the beginning of the file because we have an implicit
+// delay in the decimation. It might be better, but more complicated, to have zero delay in
+// the decimation and split the extrapolated samples between the beginning and end of the
+// file.
+
+static void extrapolate_pcm (int32_t *samples, int samples_to_extrapolate, int samples_visible, int num_channels)
+{
+    int scount = num_channels, min_period = 5, max_period = 10;
+
+    if (samples_visible < samples_to_extrapolate + min_period * 2)
+        return;
+
+    if (samples_visible < samples_to_extrapolate + max_period * 2)
+        max_period = (samples_visible - samples_to_extrapolate) / 2;
+
+    while (scount--) {
+        float left_value_ave = 0.0, right_value_ave = 0.0, slope;
+        int period, i;
+
+        for (period = min_period; period <= max_period; ++period) {
+            float left_ratio = (samples_to_extrapolate + period / 2.0F) / period, right_ratio = (period / 2.0F) / period;
+            int32_t *sam1 = samples + samples_to_extrapolate * num_channels, *sam2 = sam1 + period * num_channels;
+            float ave1 = 0.0, ave2 = 0.0;
+            int i;
+
+            for (i = 0; i < period; ++i) {
+                ave1 += (float) sam1 [i * num_channels] / period;
+                ave2 += (float) sam2 [i * num_channels] / period;
+            }
+
+            left_value_ave += ave1 + (ave1 - ave2) * left_ratio;
+            right_value_ave += ave1 + (ave1 - ave2) * right_ratio;
+        }
+
+        right_value_ave /= (max_period - min_period + 1);
+        left_value_ave /= (max_period - min_period + 1);
+        slope = (right_value_ave - left_value_ave) / (samples_to_extrapolate - 1);
+
+        for (i = 0; i < samples_to_extrapolate; ++i)
+            samples [i * num_channels] = (int32_t) (left_value_ave + i * slope + 0.5);
+
+        samples++;
     }
 }
 

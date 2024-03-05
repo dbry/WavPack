@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2013 Conifer Software.               //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -33,6 +33,13 @@
 #include <io.h>
 #endif
 
+#if defined(__OS2__) && defined(__WATCOMC__)
+#define INCL_DOSMODULEMGR
+#define INCL_LONGLONG
+#define INCL_DOSFILEMGR
+#include <os2.h>
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -41,7 +48,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#if (defined(__GNUC__) || defined(__sun)) && !defined(_WIN32)
+#if (defined(__GNUC__) || defined(__sun)) && !defined(_WIN32) && !defined(__WATCOMC__)
 #include <unistd.h>
 #endif
 
@@ -50,7 +57,6 @@
 #endif
 
 #ifdef _WIN32
-#define fileno _fileno
 static FILE *fopen_utf8 (const char *filename_utf8, const char *mode_utf8);
 #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
 #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
@@ -62,6 +68,11 @@ static FILE *fopen_utf8 (const char *filename_utf8, const char *mode_utf8);
 #define ftell ftello
 #endif
 
+#ifdef __MINGW32__              // mingw32's _ftelli64() and _fseeki64() are defective
+#define _ftelli64 ftello64
+#define _fseeki64 fseeko64
+#endif
+
 static int32_t read_bytes (void *id, void *data, int32_t bcount)
 {
     return (int32_t) fread (data, 1, bcount, (FILE*) id);
@@ -69,7 +80,7 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
 
 static int64_t get_pos (void *id)
 {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__WATCOMC__)
     return _ftelli64 ((FILE*) id);
 #else
     return ftell ((FILE*) id);
@@ -78,7 +89,7 @@ static int64_t get_pos (void *id)
 
 static int set_pos_abs (void *id, int64_t pos)
 {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__WATCOMC__)
     return _fseeki64 (id, pos, SEEK_SET);
 #else
     return fseek (id, pos, SEEK_SET);
@@ -87,7 +98,7 @@ static int set_pos_abs (void *id, int64_t pos)
 
 static int set_pos_rel (void *id, int64_t delta, int mode)
 {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__WATCOMC__)
     return _fseeki64 (id, delta, mode);
 #else
     return fseek (id, delta, mode);
@@ -99,29 +110,34 @@ static int push_back_byte (void *id, int c)
     return ungetc (c, id);
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__WATCOMC__)
+
+static int can_seek (void *id)
+{
+    struct _stati64 statbuf;
+    return id && !_fstati64 (_fileno ((FILE *)id), &statbuf) && S_ISREG(statbuf.st_mode);
+}
 
 static int64_t get_length (void *id)
 {
-    LARGE_INTEGER Size;
-    HANDLE        fHandle;
+    FILE *file = id;
+    struct _stati64 statbuf;
 
-    if (id == NULL)
+    if (!file || _fstati64 (_fileno (file), &statbuf) || !S_ISREG(statbuf.st_mode))
         return 0;
 
-    fHandle = (HANDLE)_get_osfhandle(_fileno((FILE*) id));
-    if (fHandle == INVALID_HANDLE_VALUE)
-        return 0;
-
-    Size.u.LowPart = GetFileSize(fHandle, &Size.u.HighPart);
-
-    if (Size.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
-        return 0;
-
-    return (int64_t)Size.QuadPart;
+    return statbuf.st_size;
 }
 
 #else
+
+static int can_seek (void *id)
+{
+    FILE *file = id;
+    struct stat statbuf;
+
+    return file && !fstat (fileno (file), &statbuf) && S_ISREG(statbuf.st_mode);
+}
 
 static int64_t get_length (void *id)
 {
@@ -136,27 +152,60 @@ static int64_t get_length (void *id)
 
 #endif
 
-static int can_seek (void *id)
-{
-    FILE *file = id;
-    struct stat statbuf;
-
-    return file && !fstat (fileno (file), &statbuf) && S_ISREG(statbuf.st_mode);
-}
-
 static int32_t write_bytes (void *id, void *data, int32_t bcount)
 {
     return (int32_t) fwrite (data, 1, bcount, (FILE*) id);
 }
 
-#ifdef _WIN32
+#if defined(__WATCOMC__) && defined(_WIN32) /* no _chsize_s() in watcom... */
+
+static int truncate_here (void *id)
+{
+    int fd = _fileno ((FILE *)id);
+    HANDLE handle = (HANDLE) _get_osfhandle (fd);
+    return (SetEndOfFile(handle) != 0) ? 0 : -1;
+}
+
+#elif defined(__WATCOMC__) && defined(__OS2__)
+
+static int chk_DosSetFileSizeL = 0;
+#define ORD_DosSetFileSizeL  989
+typedef APIRET (APIENTRY *DosSetFileSizeL_t)(HFILE,LONGLONG);
+static DosSetFileSizeL_t pDosSetFileSizeL = NULL;
+
+static void init_os2file64api (void)
+{
+    HMODULE handle;
+    if (DosQueryModuleHandle("DOSCALLS", &handle) == 0) {
+        if (DosQueryProcAddr(handle, ORD_DosSetFileSizeL, NULL, (PFN *)&pDosSetFileSizeL) != 0) {
+            pDosSetFileSizeL = NULL;
+        }
+    }
+    chk_DosSetFileSizeL = 1;
+}
+
+static int truncate_here (void *id)
+{
+    int fd = fileno ((FILE *)id);
+    HFILE handle = (HFILE) _get_osfhandle (fd);
+    int64_t pos = _lseeki64 (fd, 0, SEEK_CUR);
+    if (!chk_DosSetFileSizeL) {
+        init_os2file64api();
+    }
+    if (pDosSetFileSizeL) {
+        return (pDosSetFileSizeL(handle, pos) == 0) ? 0 : -1;
+    }
+    return (DosSetFileSize(handle,(ULONG)pos) == 0) ? 0 : -1;
+}
+
+#elif defined(_WIN32)
 
 static int truncate_here (void *id)
 {
     FILE *file = id;
     int64_t curr_pos = _ftelli64 (file);
 
-    return _chsize_s (fileno (file), curr_pos);
+    return _chsize_s (_fileno (file), curr_pos);
 }
 
 #else
@@ -236,7 +285,7 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
     if (*infilename == '-') {
         wv_id = stdin;
 #if defined(_WIN32)
-        _setmode (fileno (stdin), O_BINARY);
+        _setmode (_fileno (stdin), O_BINARY);
 #endif
 #if defined(__OS2__)
         setmode (fileno (stdin), O_BINARY);

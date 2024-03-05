@@ -1,12 +1,12 @@
-dnl wavpack 5.4.0 configure.ac
+dnl wavpack 5.7.0 configure.ac
 
-AC_INIT([wavpack], [5.4.0], [bryant@wavpack.com])
+AC_INIT([wavpack], [5.7.0], [bryant@wavpack.com])
 AC_CONFIG_SRCDIR([src/pack.c])
 AM_INIT_AUTOMAKE([-Wall 1.15 serial-tests subdir-objects foreign no-dist-gzip dist-xz])
 AM_MAINTAINER_MODE
 
 LIBWAVPACK_MAJOR=5
-LIBWAVPACK_MINOR=4
+LIBWAVPACK_MINOR=7
 LIBWAVPACK_MICRO=0
 LIBWAVPACK_VERSION_STRING="${LIBWAVPACK_MAJOR}.${LIBWAVPACK_MINOR}.${LIBWAVPACK_MICRO}"
 
@@ -21,7 +21,7 @@ dnl +1 :  0 :  0   == changed/removed an interface. Breaks old apps.
 dnl  ? : +1 :  ?   == internal changes that doesn't break anything.
 dnl CURRENT : REVISION : AGE
 LT_CURRENT=3
-LT_REVISION=3
+LT_REVISION=6
 LT_AGE=2
 
 AC_SUBST([LT_CURRENT])
@@ -34,22 +34,19 @@ AC_DEFINE_UNQUOTED([VERSION_OS], ["${host_os}"], [os version])
 
 dnl Checks for programs.
 AC_PROG_CC
-AC_PROG_INSTALL
 AM_PROG_AR
 AM_PROG_AS
+AC_CHECK_TOOL(RC,[windres],[:])
+AC_PROG_INSTALL
 
 LT_INIT([win32-dll disable-static])
 
 dnl Checks for libraries.
-AC_CHECK_LIBM
-AC_SUBST([LIBM])
+LT_LIB_M
 
 dnl Check for large files support
 AC_SYS_LARGEFILE
 AC_FUNC_FSEEKO
-
-AC_ARG_ENABLE([libcrypto],
-  [AS_HELP_STRING([--enable-libcrypto], [use libcrypto MD5 if available (breaks Mac build)])])
 
 AC_ARG_ENABLE([apps],
   [AS_HELP_STRING([--disable-apps], [build only libwavpack (removes ICONV dependency)])])
@@ -70,10 +67,6 @@ AS_IF([test "x${enable_apps}" != "xno" && test "x${windows_host}" != "xyes"], [
   ])
 ])
 
-AS_IF([test "x${enable_libcrypto}" = "xyes"], [
-  AC_CHECK_LIB([crypto],[MD5_Init])
-])
-
 AC_ARG_ENABLE([legacy],
   [AS_HELP_STRING([--enable-legacy], [decode legacy (< 4.0) WavPack files])])
 AS_IF([test "x${enable_legacy}" = "xyes"], [
@@ -87,6 +80,17 @@ AS_IF([test "x${enable_dsd}" != "xno"], [
   AC_DEFINE([ENABLE_DSD])
 ])
 AM_CONDITIONAL([ENABLE_DSD], [test "x${enable_dsd}" != "xno"])
+
+AC_ARG_ENABLE([threads],
+  [AS_HELP_STRING([--disable-threads], [disable use of threading in libwavpack])])
+AS_IF([test "x${enable_threads}" != "xno"], [
+  AC_DEFINE([ENABLE_THREADS])
+  AS_IF([test "x${windows_host}" != "xyes"], [
+    LIBTHREAD="-lpthread"
+  ])
+])
+AC_SUBST([LIBTHREAD])
+AM_CONDITIONAL([ENABLE_THREADS], [test "x${enable_threads}" != "xno"])
 
 AC_ARG_ENABLE([rpath],
   [AS_HELP_STRING([--enable-rpath], [hardcode library path in executables])])
@@ -141,24 +145,14 @@ AS_IF([test "x${ac_cv_have___builtin_ctz}" = "xyes"], [
   AC_DEFINE([HAVE___BUILTIN_CTZ])
 ])
 
-AC_ARG_ENABLE([man],
-  [AS_HELP_STRING([--enable-man], [regenerate man pages from Docbook [default=no]])])
-
-AS_IF([test "x${enable_man}" = "xyes"], [
-  dnl
-  dnl Check for xsltproc
-  dnl
-  AC_PATH_PROG([XSLTPROC], [xsltproc])
-  AS_IF([test -z "${XSLTPROC}"], [enable_man=no])
-
-  dnl check for DocBook DTD and stylesheets in the local catalog.
-  JH_CHECK_XML_CATALOG([-//OASIS//DTD DocBook XML V4.1.2//EN],
-    [DocBook XML DTD V4.1.2], [], [enable_man=no])
-  JH_CHECK_XML_CATALOG([http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl],
-    [DocBook XSL Stylesheets], [],[enable_man=no])
+AS_IF([test "x${ac_cv_c_compiler_gnu}" = "xyes"], [
+  CFLAGS="$CFLAGS -Wall"
 ])
 
-AM_CONDITIONAL([ENABLE_MAN], [test "x${enable_man}" != "xno"])
+AS_IF([test "x${windows_host}" = "xyes"], [
+  AS_IF([test "x$RC" != "x:"],[have_windres=true])
+])
+AM_CONDITIONAL([HAVE_WINDRES],[test "x$have_windres" = "xtrue"])
 
 AC_CONFIG_LINKS([
   cli/all-tests:cli/all-tests

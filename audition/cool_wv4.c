@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2019 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -31,6 +31,9 @@
 // Version 2.15b - Sept 27, 2016 (library ver 5.0.0-alpha5, new "high" DSD, broken!)
 // Version 3.0 - Dec 1, 2016 (library ver 5.0.0)
 // Version 3.1 - Jan 18, 2017 (library ver 5.1.0)
+// Version 4.0 - June 22, 2023 (library ver 5.6.6, multithreading)
+// Version 4.1 - July 4, 2023 (fixed bug with handling of Type 3 "normalized" float setting)
+// Version 4.2 - Feb 26, 2024 (library ver 5.7.0)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -61,6 +64,9 @@
 #define OPTIONS_EXTRA           0x1000  // extra processing mode (version 2.9+, range = 0-6, else 0-1)
 #define OPTIONS_VERY_HIGH       0x8000  // "very high" mode specified
 #define OPTIONS_BITRATE         0xfff00000 // hybrid bits/sample (5.7 fixed pt)
+
+#define WAV_IEEE_FLOAT_NORMAL   127         // +/- 1.0
+#define COOL_EDIT_FLOAT_NORMAL  (127+15)    // +/- 32768.0
 
 #define CLEAR(destin) memset (&destin, 0, sizeof (destin));
 
@@ -188,7 +194,13 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
     if (!total_samples)
         return 0;
 
-    *lplChunkSize = CHUNKSIZE;
+    // set the chunk size large enough for multithreading to kick in
+
+    if (wChannels > 2)
+        *lplChunkSize = 262144;
+    else
+        *lplChunkSize = 240000 * wChannels * (wBitsPerSample / 8);
+
     CLEAR (config);
 
     if ((out = malloc (sizeof (OUTPUT))) == NULL)
@@ -268,17 +280,18 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
     config.bits_per_sample = wBitsPerSample;
     config.bytes_per_sample = (wBitsPerSample + 7) / 8;
     config.channel_mask = 0x5 - wChannels;
+    config.worker_threads = 4;
 
     if (wBitsPerSample == 32)
-        config.float_norm_exp = (format == 3) ? 127 : 127 + 15;
+        config.float_norm_exp = (format == 3) ? WAV_IEEE_FLOAT_NORMAL : COOL_EDIT_FLOAT_NORMAL;
 
     WavpackSetConfiguration64 (wpc, &config, total_samples, NULL);
 
-    strncpy (riffhdr.ckID, "RIFF", sizeof (riffhdr.ckID));
+    memcpy (riffhdr.ckID, "RIFF", sizeof (riffhdr.ckID));
     riffhdr.ckSize = sizeof (riffhdr) + wavhdrsize + sizeof (datahdr) + lSize;
-    strncpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
+    memcpy (riffhdr.formType, "WAVE", sizeof (riffhdr.formType));
 
-    strncpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
+    memcpy (fmthdr.ckID, "fmt ", sizeof (fmthdr.ckID));
     fmthdr.ckSize = wavhdrsize;
 
     wavhdr.FormatTag = format;
@@ -293,7 +306,7 @@ HANDLE PASCAL OpenFilterOutput (LPSTR lpszFilename, long lSamprate,
         wavhdr.ValidBitsPerSample = 1;
     }
 
-    strncpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
+    memcpy (datahdr.ckID, "data", sizeof (datahdr.ckID));
     datahdr.ckSize = lSize;
 
     // write the RIFF chunks up to just before the data starts
@@ -417,8 +430,9 @@ DWORD PASCAL WriteFilterOutput (HANDLE hOutput, BYTE *lpbData, long lBytes)
 
             out->random = random;
         }
-        else if (WavpackGetFloatNormExp (wpc) == 127)
-            WavpackFloatNormalize ((int32_t *) lpbData, samples * num_channels, -15);
+        else if (WavpackGetFloatNormExp (wpc) == WAV_IEEE_FLOAT_NORMAL)
+            WavpackFloatNormalize ((int32_t *) lpbData, samples * num_channels,
+                WAV_IEEE_FLOAT_NORMAL - COOL_EDIT_FLOAT_NORMAL);
 
         result = WavpackPackSamples (wpc, buffer, samples);
 
@@ -527,7 +541,7 @@ typedef struct {
     RiffChunkHeader listhdr;
     WavpackContext *wpc;
     uint32_t special_bytes;
-    char *special_data;
+    unsigned char *special_data;
     int legacy_warned;
 } WavpackInput;
 
@@ -543,7 +557,8 @@ HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
 
     CLEAR (*in);
 
-    wpc = in->wpc = WavpackOpenFileInput (lpszFilename, error, OPEN_WVC | OPEN_WRAPPER | OPEN_NORMALIZE | OPEN_DSD_AS_PCM, 15);
+    wpc = in->wpc = WavpackOpenFileInput (lpszFilename, error,
+        OPEN_WVC | OPEN_WRAPPER | OPEN_DSD_AS_PCM | (4 << OPEN_THREADS_SHFT), 0);
 
     if (!wpc) {
         free (in);
@@ -555,11 +570,17 @@ HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
         return WavpackCloseFile (wpc);
     }
 
-    *lplChunkSize = CHUNKSIZE;
     *lplSamprate = WavpackGetSampleRate (wpc);
     *lpwChannels = WavpackGetNumChannels (wpc);
     *lpwBitsPerSample = WavpackGetBitsPerSample (wpc) > 16 ? 32 :
         (WavpackGetBitsPerSample (wpc) > 8 ? 16 : 8);
+
+    // set the chunk size large enough for multithreading to kick in
+
+    if (*lpwChannels > 2)
+        *lplChunkSize = 262144;
+    else
+        *lplChunkSize = 240000 * *lpwChannels * (*lpwBitsPerSample / 8);
 
     return in;
 }
@@ -630,7 +651,7 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
                 *out++ = *inp++;
         }
         else if (!(WavpackGetMode (wpc) & MODE_FLOAT)) {
-            int32_t samcnt = samples_to_read * num_channels, *inp = buffer;
+            int32_t samcnt = samples_to_read * num_channels;
             float *out = (float *) buffer, factor = 1.0 / 256.0;
 
             if (WavpackGetBitsPerSample (wpc) > 24)
@@ -639,6 +660,9 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
             while (samcnt--)
                 *out++ = *buffer++ * factor;
         }
+        else if ((WavpackGetMode (wpc) & MODE_FLOAT) && WavpackGetFloatNormExp (wpc) != COOL_EDIT_FLOAT_NORMAL)
+            WavpackFloatNormalize (buffer, samples_to_read * num_channels,
+                COOL_EDIT_FLOAT_NORMAL - WavpackGetFloatNormExp (wpc));
 
         if (bytes_per_sample != 4)
             free (buffer);
@@ -673,7 +697,7 @@ void PASCAL CloseFilterInput (HANDLE hInput)
 }
 
 
-static BOOL CALLBACK WavPackDlgProc (HWND, UINT, WPARAM, LPARAM);
+static INT_PTR CALLBACK WavPackDlgProc (HWND, UINT, WPARAM, LPARAM);
 static int std_bitrate (int bitrate);
 
 // these variables are use to communicate with the dialog routines
@@ -807,7 +831,7 @@ DWORD PASCAL FilterGetOptions (HWND hWnd, HINSTANCE hInst, long lSamprate, WORD 
 // the return value indicates whether the user chose OK or CANCEL.          //
 //////////////////////////////////////////////////////////////////////////////
 
-static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     char str [160];
     int i;
@@ -833,7 +857,7 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
             for (i = iMinBitrate; i <= iMinBitrate * 6; ++i)
                 if (i == iMinBitrate || std_bitrate (i)) {
                     sprintf (str, "%d", i);
-                    SendDlgItemMessage (hDlg, IDC_BITRATE, CB_ADDSTRING, 0, (long) str);
+                    SendDlgItemMessage (hDlg, IDC_BITRATE, CB_ADDSTRING, 0, (LPARAM) str);
                 }
 
             sprintf (str, "%d", iCurrentBitrate);
@@ -935,8 +959,8 @@ static BOOL CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, LPA
                     return TRUE;
 
                 case IDABOUT:
-					sprintf (str, "Cool Edit / Audition Filter Version 3.1\n" "WavPack Library Version %s\n"
-                        "Copyright (c) 2017 David Bryant", WavpackGetLibraryVersionString());
+                    sprintf (str, "Cool Edit / Audition Filter Version 4.2\n" "WavPack Library Version %s\n"
+                        "Copyright (c) 2024 David Bryant", WavpackGetLibraryVersionString());
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
             }
@@ -1003,7 +1027,7 @@ DWORD PASCAL FilterOptions (HANDLE hInput)
         else if (WavpackGetBitsPerSample (wpc) == 24)
             dwOptions |= OPTIONS_FLOAT24;
 
-        if ((mode & MODE_FLOAT) && WavpackGetFloatNormExp (wpc) == 127)
+        if ((mode & MODE_FLOAT) && WavpackGetFloatNormExp (wpc) == WAV_IEEE_FLOAT_NORMAL)
             dwOptions |= OPTIONS_NORMALIZE;
     }
 
@@ -1063,7 +1087,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
     if (out) {
         if (!strncmp (szListType, "INFO", 4)) {
 
-            strncpy (ChunkHeader.ckID, szType, 4);
+            memcpy (ChunkHeader.ckID, szType, 4);
             ChunkHeader.ckSize = dwSize;
             return write_special_riff_chunk (out, szListType, &ChunkHeader, pData);
         }
@@ -1081,7 +1105,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                     if (length > 16)
                         memcpy (pBuffer + 20, cp + 16, length - 16);
 
-                    strncpy (ChunkHeader.ckID, szType, 4);
+                    memcpy (ChunkHeader.ckID, szType, 4);
                     ChunkHeader.ckSize = length + 4;
                     write_special_riff_chunk (out, szListType, &ChunkHeader, pBuffer);
                     free (pBuffer);
@@ -1092,7 +1116,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                 char *cp = pData, *ep = pData + dwSize;
 
                 while (ep - cp > 4) {
-                    strncpy (ChunkHeader.ckID, szType, 4);
+                    memcpy (ChunkHeader.ckID, szType, 4);
                     ChunkHeader.ckSize = strlen (cp + 4) + 5;
                     write_special_riff_chunk (out, szListType, &ChunkHeader, cp);
                     cp += ChunkHeader.ckSize;
@@ -1107,7 +1131,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                 struct cue_type *pCue;
                 char *pBuffer;
 
-                strncpy (ChunkHeader.ckID, szType, 4);
+                memcpy (ChunkHeader.ckID, szType, 4);
                 ChunkHeader.ckSize = num_cues * sizeof (*pCue) + sizeof (DWORD);
                 pBuffer = malloc (ChunkHeader.ckSize);
                 * (DWORD*) pBuffer = num_cues;
@@ -1115,7 +1139,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
 
                 while (num_cues--) {
                     CLEAR (*pCue);
-                    strncpy ((char *) &pCue->fccChunk, "data", 4);
+                    memcpy ((char *) &pCue->fccChunk, "data", 4);
                     pCue->dwName = *dwPtr++;
                     pCue->dwPosition = pCue->dwSampleOffset = *dwPtr++;
                     pCue++;
@@ -1130,7 +1154,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                 struct play_type *pPlay;
                 char *pBuffer;
 
-                strncpy (ChunkHeader.ckID, szType, 4);
+                memcpy (ChunkHeader.ckID, szType, 4);
                 ChunkHeader.ckSize = num_plays * sizeof (*pPlay) + sizeof (num_plays);
                 pBuffer = malloc (ChunkHeader.ckSize);
                 * (DWORD*) pBuffer = num_plays;
@@ -1150,7 +1174,7 @@ DWORD PASCAL FilterWriteSpecialData (HANDLE hOutput, LPCSTR szListType,
                 return 1;
             }
 
-            strncpy (ChunkHeader.ckID, szType, 4);
+            memcpy (ChunkHeader.ckID, szType, 4);
             ChunkHeader.ckSize = dwSize;
             return write_special_riff_chunk (out, szListType, &ChunkHeader, pData);
         }
@@ -1185,8 +1209,8 @@ static DWORD write_special_riff_chunk (OUTPUT *out, LPCSTR szListType, ChunkHead
             dump_list_chunk (out);
 
         if (!out->listdata) {
-            strncpy (out->listhdr.formType, szListType, 4);
-            strncpy (out->listhdr.ckID, "LIST", 4);
+            memcpy (out->listhdr.formType, szListType, 4);
+            memcpy (out->listhdr.ckID, "LIST", 4);
             out->listhdr.ckSize = 4;
         }
 
@@ -1297,13 +1321,13 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
             else
                 in->listhdr.ckSize = 0;
 
-            strncpy (psp->szListType, in->listhdr.formType, 4);
+            memcpy (psp->szListType, in->listhdr.formType, 4);
             psp->szListType [4] = 0;
         }
         else
             strcpy (psp->szListType, "WAVE");
 
-        strncpy (psp->szType, ChunkHeader.ckID, 4);
+        memcpy (psp->szType, ChunkHeader.ckID, 4);
         psp->szType [4] = 0;
         psp->dwSize = ChunkHeader.ckSize;
         psp->dwExtra = 1;
@@ -1321,11 +1345,12 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
         in->special_data += (psp->dwSize + 1) & ~1;
         in->special_bytes -= (psp->dwSize + 1) & ~1;
 
-        if (in->listhdr.ckSize)
+        if (in->listhdr.ckSize) {
             if (in->listhdr.ckSize >= ((ChunkHeader.ckSize + 1) & ~1))
                 in->listhdr.ckSize -= (ChunkHeader.ckSize + 1) & ~1;
             else
                 in->listhdr.ckSize = 0;
+        }
 
         if (!strncmp (ChunkHeader.ckID, "cue ", 4)) {
             int num_cues = (psp->dwExtra = * (DWORD *) pData);

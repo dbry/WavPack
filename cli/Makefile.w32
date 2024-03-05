@@ -1,0 +1,72 @@
+# OpenWatcom makefile to build WawPack for Win32
+
+CC = wcc386
+
+CFLAGS = -bt=nt -d0 -zq -bm -5s -fp5 -fpi87 -sg -oeatxh -ei
+#CFLAGS+= -j
+# warnings:
+CFLAGS+= -wx
+# newer OpenWatcom versions enable W303 by default:
+CFLAGS+= -wcd=303
+# include paths:
+CFLAGS+= -I"$(%WATCOM)/h/nt" -I"$(%WATCOM)/h"
+CFLAGS+= -I"../include"
+
+PACKSRCS = wavpack.c &
+	riff.c &
+	wave64.c &
+	caff.c &
+	dsdiff.c &
+	dsf.c &
+	aiff.c
+
+UNPACKSRCS = wvunpack.c &
+	riff_write.c &
+	wave64_write.c &
+	caff_write.c &
+	dsdiff_write.c &
+	dsf_write.c &
+	aiff_write.c
+
+GAINSRCS = wvgain.c
+
+TAGSRCS = wvtag.c
+
+UTILSRCS = utils.c &
+	md5.c &
+	import_id3.c &
+	win32_unicode_support.c
+
+.extensions:
+.extensions: .obj .c
+
+PACKOBJS = $(PACKSRCS:.c=.obj)
+UNPACKOBJS = $(UNPACKSRCS:.c=.obj)
+GAINOBJS = $(GAINSRCS:.c=.obj)
+TAGOBJS = $(TAGSRCS:.c=.obj)
+UTILOBJS = $(UTILSRCS:.c=.obj)
+
+all: wavpack.exe wvunpack.exe wvgain.exe wvtag.exe
+
+wvutil.lib: $(UTILOBJS)
+  wlib -q -b -n -c -pa -s -t -zld -ii -io $@ $(UTILOBJS)
+wavpack.exe: wvutil.lib $(PACKOBJS)
+  wlink N wavpack.exe SYS nt OP QUIET LIBR {wvutil.lib wavpack.lib} F {$(PACKOBJS)}
+wvunpack.exe: wvutil.lib $(UNPACKOBJS)
+  wlink N wvunpack.exe SYS nt OP QUIET LIBR {wvutil.lib wavpack.lib} F {$(UNPACKOBJS)}
+wvgain.exe: wvutil.lib $(GAINOBJS)
+  wlink N wvgain.exe SYS nt OP QUIET LIBR {wvutil.lib wavpack.lib} F {$(GAINOBJS)}
+wvtag.exe: wvutil.lib $(TAGOBJS)
+  wlink N wvtag.exe SYS nt OP QUIET LIBR {wvutil.lib wavpack.lib} F {$(TAGOBJS)}
+
+.c.obj:
+  $(CC) $(CFLAGS) -Fo=$^@ $<
+
+clean: .SYMBOLIC
+  @if exist *.obj rm *.obj
+  @if exist *.err rm *.err
+
+distclean: .SYMBOLIC clean
+  @if exist wvutil.lib rm wvutil.lib
+  @if exist *.exe rm *.exe
+  @if exist *.map rm *.map

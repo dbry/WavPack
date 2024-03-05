@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2019 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -21,11 +21,6 @@
 #ifdef _WIN32
 #define strdup(x) _strdup(x)
 #endif
-
-
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
 
 extern int debug_logging_mode;
 
@@ -232,10 +227,9 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
 
             if (strncmp (caf_audio_format.mFormatID, "lpcm", 4) || (caf_audio_format.mFormatFlags & ~3))
                 supported = FALSE;
-            else if (caf_audio_format.mSampleRate < 1.0 || caf_audio_format.mSampleRate > 16777215.0 ||
-                caf_audio_format.mSampleRate != floor (caf_audio_format.mSampleRate))
-                    supported = FALSE;
-            else if (!caf_audio_format.mChannelsPerFrame || caf_audio_format.mChannelsPerFrame > 256)
+            else if (caf_audio_format.mSampleRate <= 0.0 || caf_audio_format.mSampleRate > 16777215.0)
+                supported = FALSE;
+            else if (!caf_audio_format.mChannelsPerFrame || caf_audio_format.mChannelsPerFrame > WAVPACK_MAX_CLI_CHANS)
                 supported = FALSE;
             else if (caf_audio_format.mBitsPerChannel < 1 || caf_audio_format.mBitsPerChannel > 32 ||
                 ((caf_audio_format.mFormatFlags & CAF_FORMAT_FLOAT) && caf_audio_format.mBitsPerChannel != 32))
@@ -255,7 +249,17 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             config->float_norm_exp = (caf_audio_format.mFormatFlags & CAF_FORMAT_FLOAT) ? 127 : 0;
             config->bits_per_sample = caf_audio_format.mBitsPerChannel;
             config->num_channels = caf_audio_format.mChannelsPerFrame;
-            config->sample_rate = (int) caf_audio_format.mSampleRate;
+
+            if ((config->qmode & QMODE_EVEN_BYTE_DEPTH) && (config->bits_per_sample % 8))
+                config->bits_per_sample += 8 - (config->bits_per_sample % 8);
+
+            if (caf_audio_format.mSampleRate != floor (caf_audio_format.mSampleRate))
+                error_line ("warning: the nonintegral sample rate of %s will be rounded", infilename);
+
+            if (caf_audio_format.mSampleRate < 1.0)
+                config->sample_rate = 1;
+            else
+                config->sample_rate = (int) floor (caf_audio_format.mSampleRate + 0.5);
 
             if (!(caf_audio_format.mFormatFlags & CAF_FORMAT_LITTLE_ENDIAN) && config->bytes_per_sample > 1)
                 config->qmode |= QMODE_BIG_ENDIAN;

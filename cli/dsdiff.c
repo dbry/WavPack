@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2019 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -16,10 +16,6 @@
 
 #include "wavpack.h"
 #include "utils.h"
-
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
 
 extern int debug_logging_mode;
 
@@ -196,7 +192,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 
                             chansSpecified = (int)(dff_chunk_header.ckDataSize - sizeof (numChannels)) / 4;
 
-                            if (numChannels < chansSpecified || numChannels < 1 || numChannels > 256) {
+                            if (numChannels < chansSpecified || numChannels < 1 || numChannels > WAVPACK_MAX_CLI_CHANS) {
                                 error_line ("%s is not a valid .DFF file!", infilename);
                                 free (prop_chunk);
                                 return WAVPACK_SOFT_ERROR;
@@ -261,7 +257,7 @@ int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
                 config->bits_per_sample = 8;
                 config->bytes_per_sample = 1;
                 config->num_channels = numChannels;
-                config->sample_rate = sampleRate / 8;
+                config->sample_rate = (sampleRate + 7) / 8;
                 config->qmode |= QMODE_DSD_MSB_FIRST;
             }
             else if (debug_logging_mode)

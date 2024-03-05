@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2020 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -146,6 +146,15 @@ typedef struct {
 #define MIN_STREAM_VERS     0x402       // lowest stream version we'll decode
 #define MAX_STREAM_VERS     0x410       // highest stream version we'll decode or encode
 
+#define WAVPACK_MAX_CHANS       4096    // max channels handled by WavPack format & library
+
+// This sets the maximum number of channels that the current WavPack CLI applications
+// accept. It's somewhat arbitrary because the actual WavPack format and library can
+// handle up to 4096 channels. However, anything beyond 256 channels is obviously
+// a niche case and is not well tested, so this lower limit is defined for now.
+
+#define WAVPACK_MAX_CLI_CHANS   256
+
 // These are the mask bit definitions for the metadata chunk id byte (see format.txt)
 
 #define ID_UNIQUE               0x3f
@@ -180,6 +189,7 @@ typedef struct {
 #define ID_ALT_MD5_CHECKSUM     (ID_OPTIONAL_DATA | 0x9)
 #define ID_NEW_CONFIG_BLOCK     (ID_OPTIONAL_DATA | 0xa)
 #define ID_CHANNEL_IDENTITIES   (ID_OPTIONAL_DATA | 0xb)
+#define ID_WVX_NEW_BITSTREAM    (ID_OPTIONAL_DATA | ID_WVX_BITSTREAM)
 #define ID_BLOCK_CHECKSUM       (ID_OPTIONAL_DATA | 0xf)
 
 ///////////////////////// WavPack Configuration ///////////////////////////////
@@ -192,7 +202,7 @@ typedef struct {
     float bitrate, shaping_weight;
     int bits_per_sample, bytes_per_sample;
     int qmode, flags, xmode, num_channels, float_norm_exp;
-    int32_t block_samples, extra_flags, sample_rate, channel_mask;
+    int32_t block_samples, worker_threads, sample_rate, channel_mask;
     unsigned char md5_checksum [16], md5_read;
     int num_tag_strings;                // this field is not used
     char **tag_strings;                 // this field is not used
@@ -219,6 +229,7 @@ typedef struct {
 #define CONFIG_MD5_CHECKSUM     0x8000000 // store MD5 signature
 #define CONFIG_MERGE_BLOCKS     0x10000000 // merge blocks of equal redundancy (for lossyWAV)
 #define CONFIG_PAIR_UNDEF_CHANS 0x20000000 // encode undefined channels in stereo pairs
+#define CONFIG_OPTIMIZE_32BIT   0x40000000 // new optimizations for 32-bit integer files
 #define CONFIG_OPTIMIZE_MONO    0x80000000 // optimize for mono streams posing as stereo
 
 // The lower 8 bits of qmode indicate the use of new features in version 5 that (presently)
@@ -246,6 +257,7 @@ typedef struct {
 #define QMODE_CHANS_UNASSIGNED  0x400   // user specified "..." in --channel-order option
 #define QMODE_IGNORE_LENGTH     0x800   // user specified to ignore length in file header
 #define QMODE_RAW_PCM           0x1000  // user specified raw PCM format (no header present)
+#define QMODE_EVEN_BYTE_DEPTH   0x2000  // user specified to force even byte bit-depth
 
 ////////////// Callbacks used for reading & writing WavPack streams //////////
 
@@ -317,6 +329,11 @@ WavpackContext *WavpackOpenFileInput (const char *infilename, char *error, int f
 #define OPEN_ALT_TYPES  0x400   // application is aware of alternate file types & qmode
                                 // (just affects retrieving wrappers & MD5 checksums)
 #define OPEN_NO_CHECKSUM 0x800  // don't verify block checksums before decoding
+
+// new for multithreaded
+
+#define OPEN_THREADS_SHFT 12     // specify number of additional worker threads here for
+#define OPEN_THREADS_MASK 0xF000 // decode; 0 to disable, otherwise 1-15 added threads
 
 int WavpackGetMode (WavpackContext *wpc);
 
@@ -392,6 +409,7 @@ void WavpackSetFileInformation (WavpackContext *wpc, char *file_extension, unsig
 #define WP_FORMAT_CAF   2       // Apple CoreAudio
 #define WP_FORMAT_DFF   3       // Philips DSDIFF
 #define WP_FORMAT_DSF   4       // Sony DSD Format
+#define WP_FORMAT_AIF   5       // Apple AIFF
 
 int WavpackSetConfiguration (WavpackContext *wpc, WavpackConfig *config, uint32_t total_samples);
 int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64_t total_samples, const unsigned char *chan_ids);

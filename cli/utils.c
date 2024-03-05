@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2006 Conifer Software.               //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -12,6 +12,9 @@
 // utilities and the self-extraction module.
 
 #if defined(_WIN32)
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0500 /* for GetConsoleWindow() */
+#endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <io.h>
@@ -36,6 +39,11 @@
 #define fprintf fprintf_utf8
 #define fputs fputs_utf8
 #define remove(f) unlink_utf8(f)
+#endif
+
+#ifdef __MINGW32__              // mingw32's _ftelli64() and _fseeki64() are defective
+#define _ftelli64 ftello64
+#define _fseeki64 fseeko64
 #endif
 
 #ifdef _WIN32
@@ -376,12 +384,15 @@ extern int debug_logging_mode;
 
 #ifdef _WIN32
 
+typedef HRESULT (WINAPI *getfolderpath_t)(HWND,int,HANDLE,DWORD,LPSTR); /* SHGetFolderPathA */
+typedef BOOL (WINAPI *getspecialfolderpath_t)(HWND,LPSTR,int,BOOL);     /* SHGetSpecialFolderPathA */
+
 int get_app_path (char *app_path)
 {
     static char file_path [MAX_PATH], tried, result;
 
     HINSTANCE hinstLib;
-    FARPROC ProcAdd;
+    getfolderpath_t getfolderpath;
 
     if (tried) {
         if (result)
@@ -394,15 +405,15 @@ int get_app_path (char *app_path)
     hinstLib = LoadLibrary ("shell32.dll");
 
     if (hinstLib) {
-        ProcAdd = GetProcAddress (hinstLib, "SHGetFolderPathA");
+        getfolderpath = (getfolderpath_t) GetProcAddress (hinstLib, "SHGetFolderPathA");
 
-        if (ProcAdd && SUCCEEDED ((ProcAdd) (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
+        if (getfolderpath && SUCCEEDED (getfolderpath (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
             result = TRUE;
 
         if (!result) {
-            ProcAdd = GetProcAddress (hinstLib, "SHGetSpecialFolderPathA");
-
-            if (ProcAdd && SUCCEEDED ((ProcAdd) (NULL, file_path, CSIDL_APPDATA, TRUE)))
+            getspecialfolderpath_t getspecialfolderpath;
+            getspecialfolderpath = (getspecialfolderpath_t) GetProcAddress (hinstLib, "SHGetSpecialFolderPathA");
+            if (getspecialfolderpath && getspecialfolderpath (NULL, file_path, CSIDL_APPDATA, TRUE) != 0)
                 result = TRUE;
         }
 
@@ -413,9 +424,9 @@ int get_app_path (char *app_path)
         hinstLib = LoadLibrary ("shfolder.dll");
 
         if (hinstLib) {
-            ProcAdd = GetProcAddress (hinstLib, "SHGetFolderPathA");
+            getfolderpath = (getfolderpath_t) GetProcAddress (hinstLib, "SHGetFolderPathA");
 
-            if (ProcAdd && SUCCEEDED ((ProcAdd) (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
+            if (getfolderpath && SUCCEEDED (getfolderpath (NULL, CSIDL_APPDATA | 0x8000, NULL, 0, file_path)))
                 result = TRUE;
 
             FreeLibrary (hinstLib);
@@ -426,6 +437,26 @@ int get_app_path (char *app_path)
         strcpy (app_path, file_path);
 
     return result;
+}
+
+void do_pause_mode (void)
+{
+    HWND consoleWnd = GetConsoleWindow ();
+    DWORD dwProcessId;
+
+    if (!consoleWnd)    // if there's no console window, don't pause
+        return;
+
+    GetWindowThreadProcessId (consoleWnd, &dwProcessId);
+
+    if (GetCurrentProcessId () != dwProcessId)
+        return;         // if there's a console window, but we don't own it, don't pause
+
+    fprintf (stderr, "\nPress any key to continue . . . ");
+    fflush (stderr);
+    while (!_kbhit ()) Sleep (100);
+    _getch ();
+    fprintf (stderr, "\n");
 }
 
 void error_line (char *error, ...)
@@ -549,10 +580,12 @@ void finish_line (void)
 
     if (hConIn && GetConsoleScreenBufferInfo (hConIn, &coninfo) &&
         (coninfo.dwCursorPosition.X || coninfo.dwCursorPosition.Y)) {
-            unsigned char spaces = coninfo.dwSize.X - coninfo.dwCursorPosition.X;
-
-            while (spaces--)
-                fputc (' ', stderr);
+            DWORD spaces = coninfo.dwSize.X - coninfo.dwCursorPosition.X, written;
+            COORD cpos;
+            cpos.X = coninfo.dwCursorPosition.X;
+            cpos.Y = coninfo.dwCursorPosition.Y;
+            FillConsoleOutputCharacter (hConIn, ' ', spaces, cpos, &written);
+            fprintf (stderr, "\n");
     }
     else
         fprintf (stderr, "                                \n");
@@ -662,7 +695,7 @@ int64_t DoGetFileSize (FILE *hFile)
     if (fHandle == INVALID_HANDLE_VALUE)
         return 0;
 
-    Size.u.LowPart = GetFileSize(fHandle, &Size.u.HighPart);
+    Size.u.LowPart = GetFileSize(fHandle, (DWORD *) &Size.u.HighPart);
 
     if (Size.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
         return 0;

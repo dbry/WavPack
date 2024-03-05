@@ -11,7 +11,7 @@
 // NULL: 65
 // mm2: 69
 
-#if (_MSC_VER <= 1200)
+#if defined(_MSC_VER) && (_MSC_VER <= 1200)
 typedef int intptr_t;
 #endif
 

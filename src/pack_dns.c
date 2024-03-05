@@ -21,9 +21,8 @@
 
 static void best_floating_line (short *values, int num_values, double *initial_y, double *final_y, short *max_error);
 
-void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening_allowed)
+void dynamic_noise_shaping (WavpackStream *wps, int32_t *buffer, int shortening_allowed)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
     int32_t sample_count = wps->wphdr.block_samples;
     struct decorr_pass *ap = &wps->analysis_pass;
     uint32_t flags = wps->wphdr.flags;
@@ -83,8 +82,8 @@ void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening
         wps->dc.shaping_samples = sample_count;
     }
 
-    if (wpc->wvc_flag) {
-        int max_allowed_error = 1000000 / wpc->ave_block_samples;
+    if (wps->wpc->wvc_flag) {
+        int max_allowed_error = 1000000 / wps->wpc->ave_block_samples;
         short max_error, trial_max_error;
         double initial_y, final_y;
 
@@ -126,14 +125,14 @@ void dynamic_noise_shaping (WavpackContext *wpc, int32_t *buffer, int shortening
         else if (final_y > 1024) final_y = 1024;
 #if 0
         error_line ("%.2f sec, sample count = %5d, max error = %3d, range = %5d, %5d, actual = %5d, %5d",
-            (double) wps->sample_index / wpc->config.sample_rate, sample_count, max_error,
+            (double) wps->sample_index / wps->wpc->config.sample_rate, sample_count, max_error,
             (int) floor (initial_y), (int) floor (final_y),
             wps->dc.shaping_data [0], wps->dc.shaping_data [sample_count-1]);
 #endif
         if (sample_count != wps->wphdr.block_samples)
             wps->wphdr.block_samples = sample_count;
 
-        if (wpc->wvc_flag) {
+        if (wps->wpc->wvc_flag) {
             wps->dc.shaping_acc [0] = wps->dc.shaping_acc [1] = (int32_t) floor (initial_y * 65536.0 + 0.5);
 
             wps->dc.shaping_delta [0] = wps->dc.shaping_delta [1] =

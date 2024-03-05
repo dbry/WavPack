@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** DSDPACK ****                            //
 //         Lossless DSD (Direct Stream Digital) Audio Compressor          //
-//                Copyright (c) 2013 - 2016 David Bryant.                 //
+//                Copyright (c) 2013 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -23,11 +23,8 @@
 // This function initializes everything required to pack WavPack DSD bitstreams
 // and must be called BEFORE any other function in this module.
 
-void pack_dsd_init (WavpackContext *wpc)
+void pack_dsd_init (WavpackStream *wps)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
-
-    wps->sample_index = 0;
 }
 
 // Pack an entire block of samples (either mono or stereo) into a completed
@@ -53,10 +50,9 @@ void pack_dsd_init (WavpackContext *wpc)
 static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination);
 static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samples, unsigned char *destination);
 
-int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
+int pack_dsd_block (WavpackStream *wps, int32_t *buffer)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
-    uint32_t flags = wps->wphdr.flags, mult = wpc->dsd_multiplier, data_count;
+    uint32_t flags = wps->wphdr.flags, mult = wps->wpc->dsd_multiplier, data_count;
     uint32_t sample_count = wps->wphdr.block_samples;
     unsigned char *dsd_encoding, dsd_power = 0;
     int32_t res;
@@ -86,24 +82,13 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
     wps->wphdr.ckSize = sizeof (WavpackHeader) - 8;
     memcpy (wps->blockbuff, &wps->wphdr, sizeof (WavpackHeader));
 
-    if (wpc->metacount) {
-        WavpackMetadata *wpmdp = wpc->metadata;
-
-        while (wpc->metacount) {
-            copy_metadata (wpmdp, wps->blockbuff, wps->blockend);
-            wpc->metabytes -= wpmdp->byte_length;
-            free_metadata (wpmdp++);
-            wpc->metacount--;
-        }
-
-        free (wpc->metadata);
-        wpc->metadata = NULL;
-    }
+    if (!wps->stream_index && wps->wpc->metacount)
+        send_pending_metadata (wps);
 
     if (!sample_count)
         return TRUE;
 
-    send_general_metadata (wpc);
+    send_general_metadata (wps);
     memcpy (&wps->wphdr, wps->blockbuff, sizeof (WavpackHeader));
 
     dsd_encoding = wps->blockbuff + ((WavpackHeader *) wps->blockbuff)->ckSize + 12;
@@ -113,8 +98,11 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
 
     *dsd_encoding++ = dsd_power;
 
-    if (wpc->config.flags & CONFIG_HIGH_FLAG) {
+    if (wps->wpc->config.flags & CONFIG_HIGH_FLAG) {
         int fast_res = encode_buffer_fast (wps, buffer, sample_count, dsd_encoding);
+
+        if (wps->pre_sample_buffer && wps->num_pre_samples && wps->num_pre_samples <= sample_count)
+            encode_buffer_high (wps, wps->pre_sample_buffer, wps->num_pre_samples, dsd_encoding);
 
         res = encode_buffer_high (wps, buffer, sample_count, dsd_encoding);
 
@@ -157,7 +145,6 @@ int pack_dsd_block (WavpackContext *wpc, int32_t *buffer)
         ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
     }
 
-    wps->sample_index += sample_count;
     return TRUE;
 }
 
@@ -517,10 +504,8 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
     *dp++ = 3;
     ep = destination + num_samples * (stereo + 1) - 10;
 
-    if (!wps->sample_index) {
-        if (!wps->dsd.ptable)
-            wps->dsd.ptable = malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
-
+    if (!wps->dsd.ptable) {
+        wps->dsd.ptable = malloc (PTABLE_BINS * sizeof (*wps->dsd.ptable));
         init_ptable (wps->dsd.ptable, INITIAL_TERM, RATE_S);
 
         for (channel = 0; channel < 2; ++channel) {

@@ -1,3 +1,77 @@
+                     ---------------------------------
+                     Release 5.7.0 - February 29, 2024
+                     ---------------------------------
+
+ WavPack Library Source Code - 5.7.0
+ wavpack.exe (command-line encoder) - 5.7.0
+ wvunpack.exe (command-line decoder) - 5.7.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.7.0
+ wvtag.exe (command-line tagging utility) - 5.7.0
+ cool_wv4.flt (Cool Edit / Audition filter) - 4.2
+ ----------------------------------------------------
+  added: multithreaded encoding and decoding to libwavpack (optional)
+  added: option to specify multithreading in CLI programs (--threads)
+  added: multithreading support to Cool Edit filter (always enabled)
+  added: support for ID3v2.4 when importing tags (--import-id3)
+  added: optional bitrate specification to wavpack -c option
+  added: Windows native threads in wvtest, builds with MSVC
+  added: recognize WAV files with new fourcc of 'BW64'
+  fixed: seeking issue on very large files (Windows only)
+  fixed: decode non-compliant FFmpeg files over 8 channels
+  fixed: accept some common but non-compliant AIFF files
+  fixed: automatically delete newly obsolete correction files
+  fixed: don't delete source files if data loss warnings occur
+  improved: ID3v2 tag support (more items, multiple values, pics, etc)
+  improved: use MinGW to build official Windows executables (faster)
+  improved: compression of 32-bit integer files (--optimize-int32)
+  improved: convert the man pages to mdoc(7)
+  improved: cmake & autoconf support
+
+
+                     ---------------------------------
+                     Release 5.6.0 - November 23, 2022
+                     ---------------------------------
+
+ WavPack Library Source Code - 5.6.0
+ wavpack.exe (command-line encoder) - 5.6.0
+ wvunpack.exe (command-line decoder) - 5.6.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.6.0
+ wvtag.exe (command-line tagging utility) - 5.6.0
+ ----------------------------------------------------
+  added: AIFF file import/export support
+  added: WATCOM compiler and OS/2 support
+  added: cmake support for mingw, builds Cooledit + Winamp plugins
+  added: --force-even-byte-depth option for rounding up bit depths
+  fixed: detect and report PCM files having non-zero padding bits
+  fixed: possible crash when displaying long channel assignments
+  fixed: big-endian-sourced "raw" files gave big-endian "wav"s
+  fixed: numerous minor issues
+
+
+                       ----------------------------
+                       Release 5.5.0 - July 7, 2022
+                       ----------------------------
+
+ WavPack Library Source Code - 5.5.0
+ wavpack.exe (command-line encoder) - 5.5.0
+ wvunpack.exe (command-line decoder) - 5.5.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.5.0
+ wvtag.exe (command-line tagging utility) - 5.5.0
+ ----------------------------------------------------
+  fixed: CVE-2021-44269 (encoding crafted DSD file triggers OOB read crash)
+  fixed: very long filenames cause stack-overflow crash in all CLI programs
+  fixed: the length stored in WAV headers not always corrected when using -i
+  fixed: attempting to encode raw DSD audio from stdin sometimes causes crash
+  fixed: DSD to PCM decimation: small clicks between tracks and tiny DC offset
+  fixed: length update in library-generated WAV headers on big-endian machines
+  fixed: sanitize custom extensions read from WavPack files to be alphanumeric
+  added: accepting brace-delimited options in the wavpack executable filename
+  added: "--drop" option to Windows executables for multi-file "drag-and-drop"
+  added" "--raw-pcm" option to wvunpack executable (does DSD --> 24-bit PCM)
+  added: "--no-overwrite" option to wavpack executable (to resume sessions)
+  improved: build system clean-up including switch to non-recursive "make"
+
+
                      --------------------------------
                      Release 5.4.0 - January 10, 2021
                      --------------------------------

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2020 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -65,7 +65,7 @@
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2020 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2024 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WAVPACK using libwavpack version %s, expected %s (see README)\n\n";
@@ -73,6 +73,7 @@ static const char *version_warning = "\n"
 static const char *usage =
 #if defined (_WIN32)
 " Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
+"          WAVPACK --drop [-options] infile[.wav]|infile.ext [...]\n"
 "             (default is lossless; infile may contain wildcards: ?,*)\n\n"
 #else
 " Usage:   WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n"
@@ -82,18 +83,30 @@ static const char *usage =
 "          WVUNPACK: unpack or verify existing WavPack files\n"
 "          WVGAIN:   apply ReplayGain to WavPack files\n"
 "          WVTAG:    apply or edit metadata tags on WavPack files\n\n"
-" Formats: .wav (default, bwf/rf64 okay)  .wv (transcode, with tags)\n"
+" Formats: .wav (default, bwf/rf64 okay)  .aif (Apple AIFF)\n"
 "          .w64 (Sony Wave64)             .caf (Core Audio Format)\n"
-"          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n\n"
-" Options: -bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
-"                                           n = 24-9600 kbits/second (kbps)\n"
-"          -c  = create correction file (.wvc) for hybrid mode (=lossless)\n"
+"          .dff (Philips DSDIFF)          .dsf (Sony DSD stream)\n"
+"          .wv (transcode from existing WavPack file, with tags)\n\n"
+" Options: -b<n> = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or\n"
+"                                             n = 24-9600 kbits/second (kbps)\n"
+"                  (unless combined with -c this will be a lossy operation)\n"
+"          -c  = create correction file (.wvc) for hybrid lossless mode\n"
+"          -c<n> = shortcut for '-b<n> -c' to specify hybrid lossless mode\n"
+"                  with a single option, n = 2.0 to 23.9 bits/sample, or\n"
+"                                        n = 24-9600 kbits/second (kbps)\n"
+#ifdef _WIN32
+"          --drop = drag-and-drop (multiple infiles only, no outfile spec)\n"
+#endif
 "          -f  = fast mode (fast, but some compromise in compression ratio)\n"
 "          -h  = high quality (better compression ratio, but slower)\n"
+"          -m  = compute & store MD5 signature of raw audio data\n"
 #ifdef _WIN32
 "          --pause = pause before exiting (if console window disappears)\n"
 #else
 "          -o FILENAME | PATH = specify output filename or path\n"
+#endif
+#ifdef ENABLE_THREADS
+"          --threads = use multiple threads for faster operation\n"
 #endif
 "          -v  = verify output file integrity after write (no pipes)\n"
 "          -x  = extra encode processing (no decoding speed penalty)\n"
@@ -103,23 +116,25 @@ static const char *usage =
 static const char *help =
 #if defined (_WIN32)
 " Usage:\n"
-"    WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n\n"
+"    WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]\n"
+"    WAVPACK --drop [-options] infile[.wav]|infile.ext [...]\n\n"
 "    The default operation is lossless. Wildcard characters (*,?) may be included\n"
 "    in the filename and the source file type is automatically determined (see\n"
-"    accepted formats below). Raw PCM may also be used (see --raw-pcm option).\n\n"
+"    accepted formats below). Raw PCM or DSD may also be used (see --raw-pcm option).\n\n"
 #else
 " Usage:\n"
 "    WAVPACK [-options] infile[.wav]|infile.ext|- [...] [-o outfile[.wv]|outpath|-]\n\n"
 "    The default operation is lossless. Multiple input files may be specified\n"
 "    and the source file type is automatically determined (see accepted formats\n"
-"    below). Raw PCM data may also be used (see --raw-pcm option).\n\n"
+"    below). Raw PCM or DSD data may also be used (see --raw-pcm option).\n\n"
 #endif
 " All Utilities:             WAVPACK:  create or transcode WavPack files\n"
 "                            WVUNPACK: unpack or verify existing WavPack files\n"
 "                            WVGAIN:   apply ReplayGain to WavPack files\n"
 "                            WVTAG:    apply or edit metadata tags on WavPack files\n\n"
 " Input Formats:             .wav (default, includes bwf/rf64 variants)\n"
-"                            .wv  (transcode operation, tags copied)\n"
+"                            .wv  (WavPack transcode operation, tags copied)\n"
+"                            .aif (Apple AIFF)\n"
 "                            .caf (Core Audio Format)\n"
 "                            .w64 (Sony Wave64)\n"
 "                            .dff (Philips DSDIFF)\n"
@@ -129,14 +144,19 @@ static const char *help =
 "    --allow-huge-tags       allow tag data up to 16 MB (embedding > 1 MB is not\n"
 "                             recommended for portable devices and may not work\n"
 "                             with some programs including WavPack pre-4.70)\n"
-"    -bn                     enable hybrid compression\n"
+"    -b<n>                   enable hybrid compression with specified bitrate:\n"
+"                             n = 2.0 to 23.9 bits/sample, or\n"
+"                             n = 24-9600 kbits/second (kbps)\n"
+"                              add -c to create correction file (.wvc), otherwise\n"
+"                              operation is lossy\n"
+"    --blocksize=<n>         specify block size in samples (max = 131072 and\n"
+"                               min = 16 with --merge-blocks, otherwise 128)\n"
+"    -c                      hybrid lossless mode (use with -b<n> to create\n"
+"                             correction file (.wvc) in hybrid mode)\n"
+"    -c<n>                   shortcut for '-b<n> -c' to specify two-file hybrid\n"
+"                             lossless mode (i.e., wv+wvc) with a single option:\n"
 "                              n = 2.0 to 23.9 bits/sample, or\n"
 "                              n = 24-9600 kbits/second (kbps)\n"
-"                              add -c to create correction file (.wvc)\n"
-"    --blocksize=n           specify block size in samples (max = 131072 and\n"
-"                               min = 16 with --merge-blocks, otherwise 128)\n"
-"    -c                      hybrid lossless mode (use with -b to create\n"
-"                             correction file (.wvc) in hybrid mode)\n"
 "    -cc                     maximum hybrid lossless compression (but degrades\n"
 "                             decode speed and may result in lower quality)\n"
 "    --channel-order=<list>  specify (comma separated) channel order if not\n"
@@ -149,17 +169,24 @@ static const char *help =
 "    --cross-decorr          use cross-channel correlation in hybrid mode (on by\n"
 "                             default in lossless mode and with -cc option)\n"
 "    -d                      delete source file if successful (use with caution!)\n"
+#ifdef _WIN32
+"    --drop                  drag-and-drop (multiple infiles only, no outfile spec)\n"
+#endif
 "    -f                      fast mode (faster encode and decode, but some\n"
 "                             compromise in compression ratio)\n"
-"    -h                      high quality (better compression ratio, but slower\n"
-"                             encode and decode than default mode)\n"
+"    --force-even-byte-depth ignore non-whole-byte bit depths (e.g., 12-bit or\n"
+"                             20-bit) and round up to the next whole byte\n"
+"    -g                      general/normal mode (cancels -f and -h options)\n"
+"    -h                      high quality (better compression ratio, but slightly\n"
+"                             slower encode and decode than normal mode)\n"
 "    -hh                     very high quality (best compression, but slowest\n"
-"                             and NOT recommended for portable hardware use)\n"
+"                             and not recommended for vintage hardware use)\n"
 "    --help                  this extended help display\n"
-"    -i                      ignore length in file header (no pipe output allowed)\n"
+"    -i                      parse header for audio format but ignore length in\n"
+"                             header and just assume everything to EOF is audio\n"
 "    --import-id3            attempt to import ID3v2 tags from the trailer of files\n"
-"                             (standard on DSF, optional on WAV and DSDIFF)\n"
-"    -jn                     joint-stereo override (0 = left/right, 1 = mid/side)\n"
+"                             (standard on DSF and AIF, optional on WAV and DSDIFF)\n"
+"    -j<n>                   joint-stereo override (0 = left/right, 1 = mid/side)\n"
 #if defined (_WIN32) || defined (__OS2__)
 "    -l                      run at lower priority for smoother multitasking\n"
 #endif
@@ -170,6 +197,7 @@ static const char *help =
 "                             decoded HDCD files)\n"
 "    -n                      calculate average and peak quantization noise\n"
 "                             (for hybrid mode only, reference fullscale sine)\n"
+"    --no-overwrite          never overwrite existing files (and don't ask)\n"
 #ifdef _WIN32
 "    --no-utf8-convert       assume tag values read from files are already UTF-8,\n"
 "                             don't attempt to convert from local encoding\n"
@@ -178,6 +206,12 @@ static const char *help =
 "                             UTF-8, assume they are in UTF-8 already\n"
 "    -o FILENAME | PATH      specify output filename or path\n"
 #endif
+"    --optimize-int32        optimizations for some specific 32-bit integer files\n"
+"                             (e.g., integer files sourced from float data);\n"
+"                             decoding files so created with previous revisions\n"
+"                             will result in output with only 24-bit equivalent\n"
+"                             resolution (but appropriately formatted); applies\n"
+"                             only to the lossless compression mode\n"
 "    --pair-unassigned-chans encode unassigned channels into stereo pairs\n"
 #ifdef _WIN32
 "    --pause                 pause before exiting (if console window disappears)\n"
@@ -186,8 +220,8 @@ static const char *help =
 "                             (common use would be --pre-quantize=20 for 24-bit or\n"
 "                             float material recorded with typical converters)\n"
 "    -q                      quiet (keep console output to a minimum)\n"
-"    -r                      remove file headers (file-appropriate headers\n"
-"                             will be regenerated during unpacking)\n"
+"    -r                      parse headers for audio information but do not store in\n"
+"                             WavPack file (minimum header regenerated on unpack)\n"
 "    --raw-pcm               input data is raw pcm (default is 44100 Hz, 16-bit\n"
 "                             signed, 2-channels, little-endian)\n"
 "    --raw-pcm=sr,bps[f|s|u],nch,[le|be]\n"
@@ -198,10 +232,14 @@ static const char *help =
 "    --raw-pcm-skip=begin[,end]\n"
 "                            skip <begin> bytes before encoding (i.e., a header)\n"
 "                             and <end> bytes at the end-of-file (i.e., a trailer)\n"
-"    -sn                     override default noise shaping where n is a float\n"
+"    -s<n>                   override default noise shaping where n is a float\n"
 "                             value between -1.0 and 1.0; negative values move noise\n"
 "                             lower in freq, positive values move noise higher\n"
 "                             in freq, use '0' for no shaping (white noise)\n"
+#ifdef ENABLE_THREADS
+"    --threads[=n]           use multiple threads for faster operation, optional\n"
+"                             'n' must be 1 - 12, 1 = single thread only\n"
+#endif
 "    -t                      copy input file's time stamp to output file(s)\n"
 "    --use-dns               force use of dynamic noise shaping (hybrid mode only)\n"
 "    -v                      verify output file integrity after write (no pipes)\n"
@@ -216,7 +254,8 @@ static const char *help =
 "                            write the specified binary metadata file to APEv2\n"
 "                             tag, normally used for cover art with the specified\n"
 "                             field name \"Cover Art (Front)\"\n"
-"    -x[n]                   extra encode processing (optional n = 1 to 6, 1=default)\n"
+"    -x[n]                   extra encode processing (optional n = 0 to 6, 1=default)\n"
+"                             -x0 no extra processing (fastest encode speed)\n"
 "                             -x1 to -x3 to choose best of predefined filters\n"
 "                             -x4 to -x6 to generate custom filters (very slow!)\n"
 "    -y                      yes to all warnings (use with caution!)\n"
@@ -240,6 +279,7 @@ int ParseWave64HeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpa
 int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 int ParseDsdiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
+int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackContext *wpc, WavpackConfig *config);
 
 static struct {
     unsigned char id;
@@ -249,10 +289,12 @@ static struct {
 } file_formats [] = {
     { WP_FORMAT_WAV,  "RIFF", "wav", ParseRiffHeaderConfig,   2 },
     { WP_FORMAT_WAV,  "RF64", "wav", ParseRiffHeaderConfig,   2 },
+    { WP_FORMAT_WAV,  "BW64", "wav", ParseRiffHeaderConfig,   2 },
     { WP_FORMAT_W64,  "riff", "w64", ParseWave64HeaderConfig, 8 },
     { WP_FORMAT_CAF,  "caff", "caf", ParseCaffHeaderConfig,   1 },
     { WP_FORMAT_DFF,  "FRM8", "dff", ParseDsdiffHeaderConfig, 2 },
-    { WP_FORMAT_DSF,  "DSD ", "dsf", ParseDsfHeaderConfig,    1 }
+    { WP_FORMAT_DSF,  "DSD ", "dsf", ParseDsfHeaderConfig,    1 },
+    { WP_FORMAT_AIF,  "FORM", "aif", ParseAiffHeaderConfig,   2 }
 };
 
 #define NUM_FILE_FORMATS (sizeof (file_formats) / sizeof (file_formats [0]))
@@ -262,9 +304,9 @@ static struct {
 
 int debug_logging_mode;
 
-static int overwrite_all, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
+static int overwrite_all, no_overwrite, num_files, file_index, copy_time, quiet_mode, verify_mode, delete_source,
     no_utf8_convert, set_console_title, allow_huge_tags, quantize_bits, quantize_round, import_id3,
-    raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end;
+    raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end, worker_threads;
 
 static int num_channels_order;
 static unsigned char channel_order [18];
@@ -283,7 +325,7 @@ static struct tag_item {
 } *tag_items;
 
 #if defined (_WIN32)
-static int pause_mode;
+static int pause_mode, drop_mode;
 #endif
 
 /////////////////////////// local function declarations ///////////////////////
@@ -299,10 +341,6 @@ static void make_settings_string (char *settings, WavpackConfig *config);
 static void display_progress (double file_progress);
 static void TextToUTF8 (void *string, int len);
 
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
-
 // The "main" function for the command-line WavPack compressor. Note that on Windows
 // this is actually a static function that is called from the "real" main() defined
 // immediately afterward that converts the wchar argument list into UTF-8 strings
@@ -317,32 +355,57 @@ int main (int argc, char **argv)
 #ifdef __EMX__ /* OS/2 */
     _wildcard (&argc, &argv);
 #endif
-    int error_count = 0, tag_next_arg = 0, output_spec = 0;
+    int error_count = 0, tag_next_arg = 0, output_spec = 0, argc_fn = 0, use_stdin = 0, use_stdout = 0;
     char *outfilename = NULL, *out2filename = NULL;
+    char selfname [PATH_MAX];
+    char **argv_fn = NULL;
     char **matches = NULL;
     WavpackConfig config;
-    int result, i;
+    int result, argi, i;
+    int warnings = 0;
 
 #if defined(_WIN32)
-    char selfname [MAX_PATH];
-
-    if (GetModuleFileName (NULL, selfname, sizeof (selfname)) && filespec_name (selfname) &&
-        _strupr (filespec_name (selfname)) && strstr (filespec_name (selfname), "DEBUG"))
-            debug_logging_mode = TRUE;
-
-    strcpy (selfname, *argv);
-#else
-    if (filespec_name (*argv) &&
-        (strstr (filespec_name (*argv), "ebug") || strstr (filespec_name (*argv), "DEBUG")))
-            debug_logging_mode = TRUE;
+    if (!GetModuleFileName (NULL, selfname, sizeof (selfname)))
 #endif
+    strncpy (selfname, *argv, sizeof (selfname) - 1);
+    selfname [sizeof (selfname) - 1] = '\0';
+
+    if (filespec_name (selfname)) {
+        char *filename = filespec_name (selfname);
+
+        if (strstr (filename, "ebug") || strstr (filename, "DEBUG"))
+            debug_logging_mode = TRUE;
+
+        while (strchr (filename, '{')) {
+            char *open_brace = strchr (filename, '{');
+            char *close_brace = strchr (open_brace, '}');
+
+            if (!close_brace)
+                break;
+
+            if (close_brace - open_brace > 1) {
+                int option_len = (int)(close_brace - open_brace) - 1;
+                char *option = malloc (option_len + 1);
+
+                argv_fn = realloc (argv_fn, sizeof (char *) * ++argc_fn);
+                memcpy (option, open_brace + 1, option_len);
+                argv_fn [argc_fn - 1] = option;
+                option [option_len] = 0;
+
+                if (debug_logging_mode)
+                    error_line ("file arg %d: %s", argc_fn, option);
+            }
+
+            filename = close_brace;
+        }
+    }
 
     if (debug_logging_mode) {
         char **argv_t = argv;
         int argc_t = argc;
 
         while (--argc_t)
-            error_line ("arg %d: %s", argc - argc_t, *++argv_t);
+            error_line ("cli arg %d: %s", argc - argc_t, *++argv_t);
     }
 
 #if defined (_WIN32)
@@ -353,9 +416,16 @@ int main (int argc, char **argv)
 
     // loop through command-line arguments
 
-    while (--argc)
-        if (**++argv == '-' && (*argv)[1] == '-' && (*argv)[2]) {
-            char *long_option = *argv + 2, *long_param = long_option;
+    for (argi = 0; argi < argc + argc_fn - 1; ++argi) {
+        char *argcp;
+
+        if (argi < argc_fn)
+            argcp = argv_fn [argi];
+        else
+            argcp = argv [argi - argc_fn + 1];
+
+        if (argcp [0] == '-' && argcp [1] == '-' && argcp [2]) {
+            char *long_option = argcp + 2, *long_param = long_option;
 
             while (*long_param)
                 if (*long_param++ == '=')
@@ -373,7 +443,11 @@ int main (int argc, char **argv)
 #ifdef _WIN32
             else if (!strcmp (long_option, "pause"))                    // --pause
                 pause_mode = 1;
+            else if (!strcmp (long_option, "drop"))                     // --drop
+                drop_mode = 1;
 #endif
+            else if (!strcmp (long_option, "optimize-int32"))           // --optimize-int32
+                config.flags |= CONFIG_OPTIMIZE_32BIT;
             else if (!strcmp (long_option, "optimize-mono"))            // --optimize-mono
                 error_line ("warning: --optimize-mono deprecated, now enabled by default");
             else if (!strcmp (long_option, "dns")) {                    // --dns
@@ -388,10 +462,14 @@ int main (int argc, char **argv)
                 config.flags |= CONFIG_MERGE_BLOCKS;
             else if (!strcmp (long_option, "pair-unassigned-chans"))    // --pair-unassigned-chans
                 config.flags |= CONFIG_PAIR_UNDEF_CHANS;
+            else if (!strcmp (long_option, "force-even-byte-depth"))    // --force-even-byte_depth
+                config.qmode |= QMODE_EVEN_BYTE_DEPTH;
             else if (!strcmp (long_option, "import-id3"))               // --import-id3
                 import_id3 = 1;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
+            else if (!strcmp (long_option, "no-overwrite"))             // --no-overwrite
+                no_overwrite = 1;
             else if (!strcmp (long_option, "allow-huge-tags"))          // --allow-huge-tags
                 allow_huge_tags = 1;
             else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
@@ -409,7 +487,8 @@ int main (int argc, char **argv)
 
                 error_line ("raw_pcm_skip = %d, %d bytes", raw_pcm_skip_bytes_begin, raw_pcm_skip_bytes_end);
             }
-            else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm
+            else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm & --raw-pcm-ex
+                int extended = !strncmp (long_option, "raw-pcm-ex", 10);
                 int params [] = { 44100, 16, 2 };
                 int pi, fp = 0, be = 0, us = 0, s = 0;
 
@@ -453,12 +532,12 @@ int main (int argc, char **argv)
                 }
                 else if (params [0] < 1 || params [0] > 1000000000 ||
                     params [1] < 1 || params [1] > 32 || (fp && params [1] != 32) ||
-                    params [2] < 1 || params [2] > 256) {
+                    params [2] < 1 || params [2] > (extended ? WAVPACK_MAX_CHANS : WAVPACK_MAX_CLI_CHANS)) {
                         error_line ("argument range error in raw PCM specification!");
                         ++error_count;
                 }
                 else if (params [1] == 1) {
-                    config.sample_rate = params [0] / 8;
+                    config.sample_rate = (params [0] + 7) / 8;
                     config.bits_per_sample = params [1] * 8;
                     config.bytes_per_sample = 1;
                     config.num_channels = params [2];
@@ -571,18 +650,37 @@ int main (int argc, char **argv)
                     ++error_count;
                 }
             }
+            else if (!strncmp (long_option, "threads", 7)) {                // --threads
+#ifdef ENABLE_THREADS
+                if (isdigit (*long_param)) {
+                    // "worker_threads" doesn't include main thread, so subtract 1 from user value
+                    worker_threads = strtol (long_param, &long_param, 10) - 1;
+
+                    if (worker_threads < 0 || worker_threads > 11) {
+                        error_line ("specified thread count must be 1 - 12!");
+                        ++error_count;
+                    }
+                }
+                else
+                    worker_threads = 4;             // 4 is a good default for now
+
+                config.worker_threads = worker_threads;
+#else
+                error_line ("warning: --threads not enabled, ignoring option!");
+#endif
+            }
             else {
                 error_line ("unknown option: %s !", long_option);
                 ++error_count;
             }
         }
 #if defined (_WIN32)
-        else if ((**argv == '-' || **argv == '/') && (*argv)[1])
+        else if ((argcp [0] == '-' || argcp [0] == '/') && argcp [1])
 #else
-        else if ((**argv == '-') && (*argv)[1])
+        else if (argcp [0] == '-' && argcp [1])
 #endif
-            while (*++*argv)
-                switch (**argv) {
+            while (*++argcp)
+                switch (*argcp) {
 
                     case 'Y': case 'y':
                         overwrite_all = 1;
@@ -592,32 +690,36 @@ int main (int argc, char **argv)
                         delete_source = 1;
                         break;
 
-                    case 'C': case 'c':
-                        if (config.flags & CONFIG_CREATE_WVC)
-                            config.flags |= CONFIG_OPTIMIZE_WVC;
-                        else
-                            config.flags |= CONFIG_CREATE_WVC;
-
-                        break;
-
                     case 'X': case 'x':
-                        config.xmode = strtol (++*argv, argv, 10);
+                        if (isdigit (*++argcp))
+                            config.xmode = strtol (argcp, &argcp, 10);
+                        else
+                            config.xmode = 1;   // 'x' with no value specified = 1
 
                         if (config.xmode < 0 || config.xmode > 6) {
-                            error_line ("extra mode only goes from 1 to 6!");
+                            error_line ("extra mode only goes from 0 to 6!");
                             ++error_count;
                         }
-                        else
+                        else if (config.xmode)
                             config.flags |= CONFIG_EXTRA_MODE;
+                        else
+                            config.flags &= ~CONFIG_EXTRA_MODE;
 
-                        --*argv;
+                        --argcp;
                         break;
 
                     case 'F': case 'f':
+                        config.flags &= ~(CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG);
                         config.flags |= CONFIG_FAST_FLAG;
                         break;
 
+                    case 'G': case 'g':
+                        config.flags &= ~(CONFIG_FAST_FLAG | CONFIG_HIGH_FLAG | CONFIG_VERY_HIGH_FLAG);
+                        break;
+
                     case 'H': case 'h':
+                        config.flags &= ~CONFIG_FAST_FLAG;
+
                         if (config.flags & CONFIG_HIGH_FLAG)
                             config.flags |= CONFIG_VERY_HIGH_FLAG;
                         else
@@ -658,8 +760,8 @@ int main (int argc, char **argv)
                         break;
 
                     case 'Z': case 'z':
-                        set_console_title = strtol (++*argv, argv, 10);
-                        --*argv;
+                        set_console_title = strtol (++argcp, &argcp, 10);
+                        --argcp;
                         break;
 
                     case 'M': case 'm':
@@ -678,10 +780,19 @@ int main (int argc, char **argv)
                         verify_mode = 1;
                         break;
 
+                    case 'C': case 'c':
+                        if (config.flags & CONFIG_CREATE_WVC)
+                            config.flags |= CONFIG_OPTIMIZE_WVC;
+                        else
+                            config.flags |= CONFIG_CREATE_WVC;
+
+                        if (!isdigit (argcp [1]))       // if no number follows, we're done; otherwise
+                            break;                      // use numeric parameter for -b option
+
                     case 'B': case 'b':
                         config.flags |= CONFIG_HYBRID_FLAG;
-                        config.bitrate = (float) strtod (++*argv, argv);
-                        --*argv;
+                        config.bitrate = (float) strtod (++argcp, &argcp);
+                        --argcp;
 
                         if (config.bitrate < 2.0 || config.bitrate > 9600.0) {
                             error_line ("hybrid spec must be 2.0 to 9600!");
@@ -694,7 +805,7 @@ int main (int argc, char **argv)
                         break;
 
                     case 'J': case 'j':
-                        switch (strtol (++*argv, argv, 10)) {
+                        switch (strtol (++argcp, &argcp, 10)) {
 
                             case 0:
                                 config.flags |= CONFIG_JOINT_OVERRIDE;
@@ -710,11 +821,11 @@ int main (int argc, char **argv)
                                 ++error_count;
                         }
 
-                        --*argv;
+                        --argcp;
                         break;
 
                     case 'S': case 's':
-                        config.shaping_weight = (float) strtod (++*argv, argv);
+                        config.shaping_weight = (float) strtod (++argcp, &argcp);
 
                         if (!config.shaping_weight) {
                             config.flags |= CONFIG_SHAPE_OVERRIDE;
@@ -727,7 +838,7 @@ int main (int argc, char **argv)
                             ++error_count;
                         }
 
-                        --*argv;
+                        --argcp;
                         break;
 
                     case 'W': case 'w':
@@ -739,7 +850,7 @@ int main (int argc, char **argv)
                         break;
 
                     default:
-                        error_line ("illegal option: %c !", **argv);
+                        error_line ("illegal option: %c !", *argcp);
                         ++error_count;
                 }
         else if (tag_next_arg) {
@@ -748,29 +859,29 @@ int main (int argc, char **argv)
             // check for and allow "encoder" or "settings" without a value and create
             // an appropriate value for them (otherwise missing value is an error)
 
-            if (!stricmp (*argv, "encoder")) {
+            if (!stricmp (argcp, "encoder")) {
                 char *tag_arg = malloc (80);
-                sprintf (tag_arg, "%s=WavPack %s", *argv, PACKAGE_VERSION);
-                *argv = tag_arg;
+                sprintf (tag_arg, "%s=WavPack %s", argcp, PACKAGE_VERSION);
+                argcp = tag_arg;
             }
-            else if (!stricmp (*argv, "settings")) {
+            else if (!stricmp (argcp, "settings")) {
                 char settings [256], *tag_arg;
 
                 make_settings_string (settings, &config);
                 tag_arg = malloc (strlen (settings) + 16);
-                sprintf (tag_arg, "%s=%s", *argv, settings);
-                *argv = tag_arg;
+                sprintf (tag_arg, "%s=%s", argcp, settings);
+                argcp = tag_arg;
             }
 
-            cp = strchr (*argv, '=');
+            cp = strchr (argcp, '=');
 
-            if (cp && cp > *argv) {
+            if (cp && cp > argcp) {
                 int i = num_tag_items;
 
                 tag_items = realloc (tag_items, ++num_tag_items * sizeof (*tag_items));
-                tag_items [i].item = malloc (cp - *argv + 1);
-                memcpy (tag_items [i].item, *argv, cp - *argv);
-                tag_items [i].item [cp - *argv] = 0;
+                tag_items [i].item = malloc (cp - argcp + 1);
+                memcpy (tag_items [i].item, argcp, cp - argcp);
+                tag_items [i].item [cp - argcp] = 0;
                 tag_items [i].vsize = (int) strlen (cp + 1);
                 tag_items [i].value = malloc (tag_items [i].vsize + 1);
                 strcpy (tag_items [i].value, cp + 1);
@@ -778,17 +889,22 @@ int main (int argc, char **argv)
                 tag_items [i].ext = NULL;
             }
             else {
-                error_line ("error in tag spec: %s !", *argv);
+                error_line ("error in tag spec: %s !", argcp);
                 ++error_count;
             }
 
             tag_next_arg = 0;
         }
+        else if (argi < argc_fn) {
+            error_line ("invalid use of filename-embedded args: %s !", argcp);
+            ++error_count;
+        }
 #if defined (_WIN32)
-        else if (!num_files) {
+        else if (drop_mode || !num_files) {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
-            matches [num_files] = malloc (strlen (*argv) + 10);
-            strcpy (matches [num_files], *argv);
+            matches [num_files] = malloc (strlen (argcp) + 10);
+            strcpy (matches [num_files], argcp);
+            use_stdin |= (*argcp == '-');
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
@@ -797,27 +913,30 @@ int main (int argc, char **argv)
             num_files++;
         }
         else if (!outfilename) {
-            outfilename = malloc (strlen (*argv) + PATH_MAX);
-            strcpy (outfilename, *argv);
+            outfilename = malloc (strlen (argcp) + PATH_MAX);
+            strcpy (outfilename, argcp);
+            use_stdout = (*argcp == '-');
         }
         else if (!out2filename) {
-            out2filename = malloc (strlen (*argv) + PATH_MAX);
-            strcpy (out2filename, *argv);
+            out2filename = malloc (strlen (argcp) + PATH_MAX);
+            strcpy (out2filename, argcp);
         }
         else {
-            error_line ("extra unknown argument: %s !", *argv);
+            error_line ("extra unknown argument: %s !", argcp);
             ++error_count;
         }
 #else
         else if (output_spec) {
-            outfilename = malloc (strlen (*argv) + PATH_MAX);
-            strcpy (outfilename, *argv);
+            outfilename = malloc (strlen (argcp) + PATH_MAX);
+            strcpy (outfilename, argcp);
+            use_stdout = (*argcp == '-');
             output_spec = 0;
         }
         else {
             matches = realloc (matches, (num_files + 1) * sizeof (*matches));
-            matches [num_files] = malloc (strlen (*argv) + 10);
-            strcpy (matches [num_files], *argv);
+            matches [num_files] = malloc (strlen (argcp) + 10);
+            strcpy (matches [num_files], argcp);
+            use_stdin |= (*argcp == '-');
 
             if (*(matches [num_files]) != '-' && *(matches [num_files]) != '@' &&
                 !filespec_ext (matches [num_files]))
@@ -826,6 +945,11 @@ int main (int argc, char **argv)
             num_files++;
         }
 #endif
+        if (argi < argc_fn)
+            free (argv_fn [argi]);
+    }
+
+    free (argv_fn);
 
     setup_break ();     // set up console and detect ^C and ^Break
 
@@ -836,28 +960,45 @@ int main (int argc, char **argv)
         ++error_count;
     }
 
+    if (use_stdin && num_files > 1) {
+        error_line ("when stdin is used for input, it must be the only file!");
+        ++error_count;
+    }
+
+    if (use_stdin && !outfilename)  // for stdin source, no output specification implies stdout
+        use_stdout = 1;
+
+    if (overwrite_all && no_overwrite) {
+        error_line ("overwrite all and no overwrite and mutually exclusive!");
+        ++error_count;
+    }
+
     if (tag_next_arg) {
         error_line ("no tag specified with %s option!", tag_next_arg == 1 ? "-w" : "--write-binary-tag");
         ++error_count;
     }
 
-    if (!(~config.flags & (CONFIG_HIGH_FLAG | CONFIG_FAST_FLAG))) {
-        error_line ("high and fast modes are mutually exclusive!");
+    if ((config.qmode & QMODE_IGNORE_LENGTH) && use_stdin && use_stdout && !overwrite_all) {
+        error_line ("can't ignore length in header when both input and output are pipes, '-y' to override");
         ++error_count;
     }
 
-    if ((config.qmode & QMODE_IGNORE_LENGTH) && outfilename && *outfilename == '-') {
-        error_line ("can't ignore length in header when using stdout!");
+    if ((config.qmode & QMODE_RAW_PCM) && use_stdin && use_stdout && !overwrite_all) {
+        error_line ("can't process raw PCM when both input and output are pipes, '-y' to override");
         ++error_count;
     }
 
-    if (verify_mode && outfilename && *outfilename == '-') {
+    if (verify_mode && use_stdout) {
         error_line ("can't verify output file when using stdout!");
         ++error_count;
     }
 
     if (config.flags & CONFIG_HYBRID_FLAG) {
-        if ((config.flags & CONFIG_CREATE_WVC) && outfilename && *outfilename == '-') {
+        if ((config.flags & CONFIG_OPTIMIZE_32BIT) && !(config.flags & CONFIG_CREATE_WVC)) {
+            error_line ("--optimize-int32 option is for lossless mode only!");
+            ++error_count;
+        }
+        if ((config.flags & CONFIG_CREATE_WVC) && use_stdout) {
             error_line ("can't create correction file when using stdout!");
             ++error_count;
         }
@@ -1272,13 +1413,23 @@ int main (int argc, char **argv)
                 fflush (stderr);
             }
 
-            if (filespec_ext (matches [file_index]) && !stricmp (filespec_ext (matches [file_index]), ".wv"))
-                result = repack_file (matches [file_index], outfilename, out2filename, &config);
+            if (filespec_ext (matches [file_index]) && !stricmp (filespec_ext (matches [file_index]), ".wv")) {
+                if (config.qmode & QMODE_RAW_PCM) {
+                    error_line ("can't interpret a WavPack file as raw PCM (doesn't make sense)!");
+                    result = WAVPACK_SOFT_ERROR;
+                }
+                else
+                    result = repack_file (matches [file_index], outfilename, out2filename, &config);
+            }
             else
                 result = pack_file (matches [file_index], outfilename, out2filename, &config);
 
-            if (result != WAVPACK_NO_ERROR)
-                ++error_count;
+            if (result != WAVPACK_NO_ERROR) {
+                if (result == WAVPACK_WARNINGS)
+                    ++warnings;
+                else
+                    ++error_count;
+            }
 
             if (result == WAVPACK_HARD_ERROR)
                 break;
@@ -1301,8 +1452,15 @@ int main (int argc, char **argv)
         }
 
         if (num_files > 1) {
-            if (error_count) {
-                fprintf (stderr, "\n **** warning: errors occurred in %d of %d files! ****\n", error_count, num_files);
+            if (warnings || error_count) {
+                fprintf (stderr, "\n");
+
+                if (error_count)
+                    fprintf (stderr, " **** errors occurred in %d of %d files! ****\n", error_count, num_files);
+
+                if (warnings)
+                    fprintf (stderr, " **** warnings occurred in %d of %d files! ****\n", warnings, num_files);
+
                 fflush (stderr);
             }
             else if (!quiet_mode) {
@@ -1337,33 +1495,11 @@ int main(int argc, char **argv)
 {
     int ret = -1, argc_utf8 = -1;
     char **argv_utf8 = NULL;
-    char **argv_copy = NULL;
 
     init_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
-
-    // we have to make a copy of the argv pointer array because the command parser
-    // sometimes modifies them, which is problematic when it comes time to free them
-
-    if (argc_utf8 && argv_utf8) {
-        argv_copy = malloc (sizeof (char*) * argc_utf8);
-        memcpy (argv_copy, argv_utf8, sizeof (char*) * argc_utf8);
-    }
-
-    ret = wavpack_main(argc_utf8, argv_copy);
-
-    if (argv_copy)
-        free (argv_copy);
-
+    ret = wavpack_main(argc_utf8, argv_utf8);
     free_commandline_arguments_utf8(&argc_utf8, &argv_utf8);
-
-    if (pause_mode) {
-        fprintf (stderr, "\nPress any key to continue . . . ");
-        fflush (stderr);
-        while (!_kbhit ());
-        _getch ();
-        fprintf (stderr, "\n");
-    }
-
+    if (pause_mode) do_pause_mode ();
     return ret;
 }
 
@@ -1509,18 +1645,21 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 {
     char *outfilename_temp = NULL, *out2filename_temp = NULL, dummy;
     int use_tempfiles = (out2filename != NULL), chunk_alignment = 1;
+    char imported_tag_type [16] = "";
     int imported_tag_items = 0;
     uint32_t bcount;
     WavpackConfig loc_config = *config;
     unsigned char *new_channel_order = NULL;
     unsigned char md5_digest [16];
     write_id wv_file, wvc_file;
+    int warnings = 0, result;
     WavpackContext *wpc;
     double dtime;
     FILE *infile;
-    int result;
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    struct _timeb time1, time2;
+#elif defined(_WIN32)
     struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
@@ -1564,9 +1703,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 return WAVPACK_SOFT_ERROR;
             }
 
-            if (infilesize % sample_size)
+            if (infilesize % sample_size) {
                 error_line ("warning: raw PCM infile length does not divide evenly, %d bytes will be discarded",
                     (int)(infilesize % sample_size));
+                warnings++;
+            }
         }
         else {
             if (raw_pcm_skip_bytes_end) {
@@ -1608,6 +1749,13 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         DoCloseHandle (wv_file.file);
 
         if (res == 1) {
+            if (no_overwrite) {
+                error_line ("not overwriting %s", FN_FIT (outfilename));
+                DoCloseHandle (infile);
+                WavpackCloseFile (wpc);
+                return WAVPACK_SOFT_ERROR;
+            }
+
             use_tempfiles = 1;
 
             if (!overwrite_all) {
@@ -1636,6 +1784,13 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         DoCloseHandle (wvc_file.file);
 
         if (res == 1) {
+            if (no_overwrite) {
+                error_line ("not overwriting %s", FN_FIT (outfilename));
+                DoCloseHandle (infile);
+                WavpackCloseFile (wpc);
+                return WAVPACK_SOFT_ERROR;
+            }
+
             fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
             fflush (stderr);
 
@@ -1716,7 +1871,9 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time1);
+#elif defined(_WIN32)
     _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
@@ -1762,7 +1919,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // if not in "raw" mode, process RIFF form header and set configuration
 
     if (!(loc_config.qmode & QMODE_RAW_PCM)) {
-        char fourcc [4];
+        char fourcc [4], fourcc_str [5];
         int i;
 
         if (!DoReadFile (infile, fourcc, sizeof (fourcc), &bcount) || bcount != sizeof (fourcc)) {
@@ -1775,6 +1932,15 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             free (out2filename_temp);
             return WAVPACK_SOFT_ERROR;
         }
+
+        strcpy (fourcc_str, "????");
+
+        for (i = 0; i < 4 && fourcc [i]; ++i)
+            if (fourcc [i] >= 0x20 && fourcc [i] <= 0x7f)
+                fourcc_str [i] = fourcc [i];
+
+        if (debug_logging_mode)
+            error_line ("fourcc is \"%s\"", fourcc_str);
 
         for (i = 0; i < NUM_FILE_FORMATS; ++i)
             if (!strncmp (fourcc, file_formats [i].fourcc, 4)) {
@@ -1798,7 +1964,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             }
 
         if (i == NUM_FILE_FORMATS)  {
-            error_line ("%s is not a recognized file type!", infilename);
+            error_line ("%s is not a recognized file type, fourcc is \"%s\"!", infilename, fourcc_str);
             DoCloseHandle (infile);
             DoCloseHandle (wv_file.file);
             DoDeleteFile (use_tempfiles ? outfilename_temp : outfilename);
@@ -1910,6 +2076,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     else
         result = pack_audio (wpc, infile, loc_config.qmode, new_channel_order, ((loc_config.flags & CONFIG_MD5_CHECKSUM) || verify_mode) ? md5_digest : NULL);
 
+    if (result == WAVPACK_WARNINGS) {
+        result = WAVPACK_NO_ERROR;
+        warnings++;
+    }
+
     if (new_channel_order)
         free (new_channel_order);
 
@@ -1957,13 +2128,15 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             error_line ("%s", WavpackGetErrorMessage (wpc));
             result = WAVPACK_HARD_ERROR;
         }
+        else if (wrapper_size && debug_logging_mode)
+            error_line ("%d bytes of trailing data stored in file", wrapper_size);
 
         // if we're supposed to try to import ID3 tags, check for and do that now
         // (but only error on a bad tag, not just a missing one or one with no applicable items)
 
         if (result == WAVPACK_NO_ERROR && import_id3 && wrapper_size > 10) {
             int32_t bytes_used, id3_res;
-            char error [80];
+            char error [80] = "";
 
             // first we do a "dry run" pass through the ID3 tag, and only if that passes do we try to write the tag items
 
@@ -1985,8 +2158,16 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                     error_line ("ID3v2 import: %s", error);
                     result = WAVPACK_SOFT_ERROR;
                 }
-                else if (id3_res > 0)
+                else if (id3_res > 0) {
                     imported_tag_items = id3_res;
+
+                    if (strlen (error) < sizeof (imported_tag_type))
+                        strcpy (imported_tag_type, error);
+                    else
+                        imported_tag_type [0] = 0;
+                }
+                else if (!quiet_mode)
+                    error_line ("warning: no tag or importable tag items found");
             }
         }
 
@@ -2022,14 +2203,24 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         }
     }
 
-    // At this point we're done writing to the output files. However, in some
-    // situations we might have to back up and re-write the initial block. Currently
-    // the only case is if we're ignoring length or reading raw pcm data from stdin
-    // (which sets the ignore-length flag); otherwise it's an error.
+    // At this point we're done writing to the output files. If the number of samples converted
+    // did not match the number we were expecting, and the "ignore length" option was NOT specified,
+    // then that's an error.
 
-    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples64 (wpc) != WavpackGetSampleIndex64 (wpc)) {
-        if (loc_config.qmode & QMODE_IGNORE_LENGTH) {
+    if (result == WAVPACK_NO_ERROR && WavpackGetNumSamples64 (wpc) != WavpackGetSampleIndex64 (wpc) &&
+        !(loc_config.qmode & QMODE_IGNORE_LENGTH)) {
+            error_line ("couldn't read all samples; specify '-i' to ignore length in header");
+            result = WAVPACK_SOFT_ERROR;
+        }
+
+    // If we're ignoring the length in the header, or we were not able to determine the length of
+    // a "raw" file in advance, then we'll need to back up and read the first frame written and
+    // update the length stored there and potentially fix the header stored from the source file.
+
+    if (result == WAVPACK_NO_ERROR &&
+        ((loc_config.qmode & QMODE_IGNORE_LENGTH) || WavpackGetNumSamples64 (wpc) == -1)) {
             char *block_buff = malloc (wv_file.first_block_size);
+            int update_error = 0;
 
             if (block_buff && !DoSetFilePositionAbsolute (wv_file.file, 0) &&
                 DoReadFile (wv_file.file, block_buff, wv_file.first_block_size, &bcount) &&
@@ -2057,9 +2248,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                             if (!strncmp (chunk_header.ckID, "data", 4)) {
                                 chunk_header.ckSize = (uint32_t) data_size;
                                 WavpackNativeToLittleEndian (&chunk_header, ChunkHeaderFormat);
+                                memcpy (wrapper_location + wrapper_size - sizeof (ChunkHeader), &chunk_header, sizeof (ChunkHeader));
                             }
-
-                            memcpy (wrapper_location + wrapper_size - sizeof (ChunkHeader), &chunk_header, sizeof (ChunkHeader));
                         }
                     }
 
@@ -2070,20 +2260,16 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
                     if (DoSetFilePositionAbsolute (wv_file.file, 0) ||
                         !DoWriteFile (wv_file.file, block_buff, wv_file.first_block_size, &bcount) ||
-                        bcount != wv_file.first_block_size) {
-                            error_line ("couldn't update WavPack header with actual length!!");
-                            result = WAVPACK_SOFT_ERROR;
-                    }
+                        bcount != wv_file.first_block_size)
+                            update_error = 1;
             }
-            else {
-                error_line ("couldn't update WavPack header with actual length!!");
-                result = WAVPACK_SOFT_ERROR;
-            }
+            else
+                update_error = 1;
 
             if (block_buff)
                 free (block_buff);
 
-            if (result == WAVPACK_NO_ERROR && wvc_file.file) {
+            if (!update_error && wvc_file.file) {
                 block_buff = malloc (wvc_file.first_block_size);
 
                 if (block_buff && !DoSetFilePositionAbsolute (wvc_file.file, 0) &&
@@ -2094,24 +2280,27 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
 
                         if (DoSetFilePositionAbsolute (wvc_file.file, 0) ||
                             !DoWriteFile (wvc_file.file, block_buff, wvc_file.first_block_size, &bcount) ||
-                            bcount != wvc_file.first_block_size) {
-                                error_line ("couldn't update WavPack header with actual length!!");
-                                result = WAVPACK_SOFT_ERROR;
-                        }
+                            bcount != wvc_file.first_block_size)
+                                update_error = 1;
                 }
-                else {
-                    error_line ("couldn't update WavPack header with actual length!!");
-                    result = WAVPACK_SOFT_ERROR;
-                }
+                else
+                    update_error = 1;
 
                 if (block_buff)
                     free (block_buff);
             }
-        }
-        else {
-            error_line ("couldn't read all samples, file may be corrupt!!");
-            result = WAVPACK_SOFT_ERROR;
-        }
+
+            // If we're writing to stdout then we really shouldn't be too surprised that we can't rewrite the
+            // header, and we can't delete the output file either, so let them off with a warning this time.
+
+            if (update_error) {
+                if (*outfilename != '-') {
+                    error_line ("couldn't update WavPack header with actual length!!");
+                    result = WAVPACK_SOFT_ERROR;
+                }
+                else
+                    error_line ("warning: couldn't update WavPack header with actual length!");
+            }
     }
 
     // at this point we're completely done with the files, so close 'em whether there
@@ -2204,17 +2393,48 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // delete source file if that option is enabled
 
     if (result == WAVPACK_NO_ERROR && delete_source) {
-        int res = DoDeleteFile (infilename);
+        if (warnings) {
+            if (!quiet_mode)
+                error_line ("not deleting source file %s because of warnings", infilename);
+        }
+        else {
+            int res = DoDeleteFile (infilename);
 
-        if (!quiet_mode || !res)
-            error_line ("%s source file %s", res ?
+            if (!quiet_mode || !res)
+                error_line ("%s source file %s", res ?
                 "deleted" : "can't delete", infilename);
+        }
+    }
+
+    // if we're not creating a correction file but there's an existing one
+    // with the appropriate name, delete it because it's now very obsolete
+
+    if (!out2filename && outfilename && *outfilename != '-') {
+        char out2filename_obsolete [PATH_MAX];
+        FILE *testfile;
+        int res;
+
+        strcpy (out2filename_obsolete, outfilename);
+        strcat (out2filename_obsolete, "c");
+
+        if ((testfile = fopen (out2filename_obsolete, "rb")) != NULL) {
+            fclose (testfile);
+            res = DoDeleteFile (out2filename_obsolete);
+
+            if (!quiet_mode || !res)
+                error_line ("%s obsolete correction file %s",
+                    res ? "deleted" : "can't delete", out2filename_obsolete);
+        }
     }
 
     // compute and display the time consumed along with some other details of
     // the packing operation, and then return WAVPACK_NO_ERROR
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time2);
+    dtime = time2.time + time2.millitm / 1000.0;
+    dtime -= time1.time + time1.millitm / 1000.0;
+#elif defined(_WIN32)
     _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;
@@ -2243,7 +2463,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         char *file, *fext, *oper, *cmode, cratio [16] = "";
 
         if (imported_tag_items)
-            error_line ("successfully imported %d items from ID3v2 tag", imported_tag_items);
+            error_line ("successfully imported %d items from %s tag", imported_tag_items, imported_tag_type);
 
         if (loc_config.flags & CONFIG_MD5_CHECKSUM) {
             char md5_string [] = "original md5 signature: 00000000000000000000000000000000";
@@ -2283,7 +2503,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     }
 
     WavpackCloseFile (wpc);
-    return WAVPACK_NO_ERROR;
+    return warnings ? WAVPACK_WARNINGS : WAVPACK_NO_ERROR;
 }
 
 // This function handles the actual audio data compression. It assumes that the
@@ -2309,13 +2529,14 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
     int32_t *sample_buffer;
     unsigned char *input_buffer;
     MD5_CTX md5_context;
-    int32_t quantize_bit_mask = 0;
+    int32_t padding_error_bit_mask = 0, quantize_bit_mask = 0;
     double fquantize_scale = 1.0, fquantize_iscale = 1.0;
 
-    // don't use an absurd amount of memory just because we have an absurd number of channels
-
-    while (input_samples * sizeof (int32_t) * WavpackGetNumChannels (wpc) > 2048*1024)
-        input_samples >>= 1;
+    if (worker_threads && WavpackGetNumChannels (wpc) <= 2)
+        input_samples = (worker_threads + 1) * 48000;
+    else
+        while (input_samples * WavpackGetNumChannels (wpc) > 8388608 / sizeof (int32_t))
+            input_samples >>= 1;
 
     if (md5_digest_source)
         MD5_Init (&md5_context);
@@ -2334,6 +2555,9 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
             fquantize_iscale = exp2 (float_norm_exp - 126 - quantize_bits);
         }
     }
+
+    if (WavpackGetBitsPerSample (wpc) % 8)
+        padding_error_bit_mask = (1 << (8 - (WavpackGetBitsPerSample (wpc) % 8))) - 1;
 
     while (1) {
         uint32_t bytes_to_read, bytes_read = 0;
@@ -2401,6 +2625,22 @@ static int pack_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned ch
                     store_samples (input_buffer, sample_buffer, qmode, bps, sample_count * WavpackGetNumChannels (wpc));
                     MD5_Update (&md5_context, input_buffer, WavpackGetBytesPerSample (wpc) * l);
                 }
+            }
+
+            if (padding_error_bit_mask) {
+                unsigned int x,l = sample_count * WavpackGetNumChannels (wpc);
+
+                for (x = 0; x < l; x ++)
+                    if (sample_buffer[x] & padding_error_bit_mask) {
+                        int bits = WavpackGetBitsPerSample (wpc);
+                        error_line ("\"%d-bit\" file has non-zero PCM padding bits!!", bits);
+                        error_line ("use --force-even-byte-depth to encode as %d-bit", (bits + 7) / 8 * 8);
+                        if (bits >= 4)
+                            error_line ("or --pre-quantize=%d to zero those bits before encoding", bits);
+                        free (sample_buffer);
+                        free (input_buffer);
+                        return WAVPACK_SOFT_ERROR;
+                    }
             }
         }
 
@@ -2475,9 +2715,10 @@ static const unsigned char bit_reverse_table [] = {
 
 static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigned char *new_order, unsigned char *md5_digest_source)
 {
+    int res = WAVPACK_NO_ERROR, dsd_blocks = 1;
     int64_t samples_remaining;
     double progress = -1.0;
-    int num_channels;
+    int num_channels = WavpackGetNumChannels (wpc);
     int32_t *sample_buffer;
     unsigned char *input_buffer;
     MD5_CTX md5_context;
@@ -2485,84 +2726,95 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
     if (md5_digest_source)
         MD5_Init (&md5_context);
 
+    if (worker_threads && num_channels <= 2)
+        dsd_blocks = (worker_threads + 1) * 12;
+
     WavpackPackInit (wpc);
-    num_channels = WavpackGetNumChannels (wpc);
     input_buffer = malloc (DSD_BLOCKSIZE * num_channels);
-    sample_buffer = malloc (DSD_BLOCKSIZE * sizeof (int32_t) * num_channels);
+    sample_buffer = malloc (DSD_BLOCKSIZE * dsd_blocks * sizeof (int32_t) * num_channels);
     samples_remaining = WavpackGetNumSamples64 (wpc);
 
     while (samples_remaining) {
-        uint32_t bytes_to_read, bytes_read = 0;
-        int32_t sample_count;
+        int32_t buffer_sample_count = 0, dsd_block;
+        int32_t *sptr = sample_buffer;
 
-        if ((qmode & QMODE_DSD_IN_BLOCKS) || samples_remaining > DSD_BLOCKSIZE)
-            bytes_to_read = DSD_BLOCKSIZE * num_channels;
-        else
-            bytes_to_read = (uint32_t) samples_remaining * num_channels;
+        for (dsd_block = 0; dsd_block < dsd_blocks && samples_remaining; dsd_block++) {
+            uint32_t bytes_to_read, bytes_read = 0;
+            int32_t sample_count;
 
-        DoReadFile (infile, input_buffer, bytes_to_read, &bytes_read);
-
-        if (qmode & QMODE_DSD_IN_BLOCKS) {
-            if (bytes_read != bytes_to_read) {
-                error_line ("incomplete DSD block!");
-                samples_remaining = sample_count = 0;
-            }
-            else if (samples_remaining < DSD_BLOCKSIZE)
-                sample_count = (int32_t) samples_remaining;
+            if ((qmode & (QMODE_DSD_IN_BLOCKS | QMODE_IGNORE_LENGTH)) || samples_remaining > DSD_BLOCKSIZE)
+                bytes_to_read = DSD_BLOCKSIZE * num_channels;
             else
-                sample_count = DSD_BLOCKSIZE;
-        }
-        else
-            sample_count = bytes_read / num_channels;
+                bytes_to_read = (uint32_t) samples_remaining * num_channels;
 
-        samples_remaining -= sample_count;
+            DoReadFile (infile, input_buffer, bytes_to_read, &bytes_read);
 
-        // if we have reordering to do because the user used the --channel-order option to define
-        // an order that does not match the Microsoft order, then we do that BEFORE the MD5 because
-        // this reordering is permanent (i.e., we will not unreorder on decode) and we want the
-        // MD5 to match the new order
-
-        if (new_order && !(qmode & QMODE_REORDERED_CHANS)) {
-            if (qmode & QMODE_DSD_IN_BLOCKS)
-                reorder_channels (input_buffer, new_order, num_channels, 1, DSD_BLOCKSIZE);
-            else
-                reorder_channels (input_buffer, new_order, num_channels, sample_count, 1);
-        }
-
-        if (md5_digest_source)
-            MD5_Update (&md5_context, input_buffer, bytes_read);
-
-        if (!sample_count)
-            break;
-
-        if (sample_count) {
             if (qmode & QMODE_DSD_IN_BLOCKS) {
-                int32_t sindex, *sptr = sample_buffer, non_null = 0;
-
-                for (sindex = 0; sindex < DSD_BLOCKSIZE; ++sindex) {
-                    unsigned char *srcp = input_buffer + sindex;
-                    int cc;
-
-                    for (cc = num_channels; cc--; srcp += DSD_BLOCKSIZE)
-                        if (sindex < sample_count)
-                            *sptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*srcp] : *srcp;
-                        else if (*srcp)
-                            non_null++;
+                if (bytes_read != bytes_to_read) {
+                    error_line ("incomplete DSD block!");
+                    samples_remaining = sample_count = 0;
                 }
-
-                if (non_null)
-                    error_line ("blocks not padded with NULLs, MD5 will not match!");
+                else if (samples_remaining < DSD_BLOCKSIZE)
+                    sample_count = (int32_t) samples_remaining;
+                else
+                    sample_count = DSD_BLOCKSIZE;
             }
-            else {
-                int32_t scount = sample_count * num_channels, *sptr = sample_buffer;
-                unsigned char *iptr = input_buffer;
+            else
+                sample_count = bytes_read / num_channels;
 
-                while (scount--)
-                    *sptr++ = *iptr++;
+            samples_remaining -= sample_count;
+
+            // if we have reordering to do because the user used the --channel-order option to define
+            // an order that does not match the Microsoft order, then we do that BEFORE the MD5 because
+            // this reordering is permanent (i.e., we will not unreorder on decode) and we want the
+            // MD5 to match the new order
+
+            if (new_order && !(qmode & QMODE_REORDERED_CHANS)) {
+                if (qmode & QMODE_DSD_IN_BLOCKS)
+                    reorder_channels (input_buffer, new_order, num_channels, 1, DSD_BLOCKSIZE);
+                else
+                    reorder_channels (input_buffer, new_order, num_channels, sample_count, 1);
             }
+
+            if (md5_digest_source)
+                MD5_Update (&md5_context, input_buffer, bytes_read);
+
+            if (!sample_count)
+                break;
+
+            if (sample_count) {
+                if (qmode & QMODE_DSD_IN_BLOCKS) {
+                    int32_t sindex, non_null = 0;
+
+                    for (sindex = 0; sindex < DSD_BLOCKSIZE; ++sindex) {
+                        unsigned char *srcp = input_buffer + sindex;
+                        int cc;
+
+                        for (cc = num_channels; cc--; srcp += DSD_BLOCKSIZE)
+                            if (sindex < sample_count)
+                                *sptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*srcp] : *srcp;
+                            else if (*srcp)
+                                non_null++;
+                    }
+
+                    if (non_null) {
+                        error_line ("blocks not padded with NULLs, MD5 will not match!");
+                        res = WAVPACK_WARNINGS;
+                    }
+                }
+                else {
+                    int32_t scount = sample_count * num_channels;
+                    unsigned char *iptr = input_buffer;
+
+                    while (scount--)
+                        *sptr++ = *iptr++;
+                }
+            }
+
+            buffer_sample_count += sample_count;
         }
 
-        if (!WavpackPackSamples (wpc, sample_buffer, sample_count)) {
+        if (!WavpackPackSamples (wpc, sample_buffer, buffer_sample_count)) {
             error_line ("%s", WavpackGetErrorMessage (wpc));
             free (sample_buffer);
             free (input_buffer);
@@ -2607,7 +2859,7 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
     if (md5_digest_source)
         MD5_Final (md5_digest_source, &md5_context);
 
-    return WAVPACK_NO_ERROR;
+    return res;
 }
 
 // This function transcodes a single WavPack file "infilename" and stores the resulting
@@ -2633,7 +2885,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     double dtime;
     int result;
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    struct _timeb time1, time2;
+#elif defined(_WIN32)
     struct __timeb64 time1, time2;
 #else
     struct timeval time1, time2;
@@ -2646,6 +2900,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 #if defined(_WIN32)
     flags |= OPEN_FILE_UTF8;
 #endif
+
+    if (worker_threads)
+        flags |= worker_threads << OPEN_THREADS_SHFT;
 
     // use library to open input WavPack file
 
@@ -2684,6 +2941,13 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         DoCloseHandle (wv_file.file);
         use_tempfiles = 1;
 
+        if (no_overwrite) {
+            error_line ("not overwriting %s", FN_FIT (outfilename));
+            WavpackCloseFile (infile);
+            WavpackCloseFile (outfile);
+            return WAVPACK_SOFT_ERROR;
+        }
+
         if (!overwrite_all) {
             if (output_lossless)
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (outfilename));
@@ -2709,6 +2973,14 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     if (out2filename && !overwrite_all && (wvc_file.file = fopen (out2filename, "rb")) != NULL) {
         DoCloseHandle (wvc_file.file);
+
+        if (no_overwrite) {
+            error_line ("not overwriting %s", FN_FIT (outfilename));
+            WavpackCloseFile (infile);
+            WavpackCloseFile (outfile);
+            return WAVPACK_SOFT_ERROR;
+        }
+
         fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (out2filename));
         fflush (stderr);
 
@@ -2780,7 +3052,9 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         }
     }
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time1);
+#elif defined(_WIN32)
     _ftime64 (&time1);
 #else
     gettimeofday(&time1,&timez);
@@ -2838,6 +3112,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     loc_config.num_channels = WavpackGetNumChannels (infile);
     loc_config.sample_rate = WavpackGetSampleRate (infile);
     loc_config.qmode |= WavpackGetQualifyMode (infile);
+    loc_config.worker_threads = worker_threads;
     chan_ids = malloc (loc_config.num_channels + 1);
     WavpackGetChannelIdentities (infile, chan_ids);
 
@@ -2895,7 +3170,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             result = WAVPACK_SOFT_ERROR;
         }
 
-        if (WavpackGetNumSamples64 (outfile) != total_samples) {
+        if (WavpackGetSampleIndex64 (outfile) != total_samples) {
             error_line ("incorrect number of samples read from source file!");
             result = WAVPACK_SOFT_ERROR;
         }
@@ -3165,10 +3440,35 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         }
     }
 
+    // if we're not creating a correction file but there's an existing one
+    // with the appropriate name, delete it because it's now very obsolete
+
+    if (!out2filename && outfilename && *outfilename != '-') {
+        char out2filename_obsolete [PATH_MAX];
+        FILE *testfile;
+        int res;
+
+        strcpy (out2filename_obsolete, outfilename);
+        strcat (out2filename_obsolete, "c");
+
+        if ((testfile = fopen (out2filename_obsolete, "rb")) != NULL) {
+            fclose (testfile);
+            res = DoDeleteFile (out2filename_obsolete);
+
+            if (!quiet_mode || !res)
+                error_line ("%s obsolete correction file %s",
+                    res ? "deleted" : "can't delete", out2filename_obsolete);
+        }
+    }
+
     // compute and display the time consumed along with some other details of
     // the packing operation, and then return WAVPACK_NO_ERROR
 
-#if defined(_WIN32)
+#if defined(__WATCOMC__)
+    _ftime (&time2);
+    dtime = time2.time + time2.millitm / 1000.0;
+    dtime -= time1.time + time1.millitm / 1000.0;
+#elif defined(_WIN32)
     _ftime64 (&time2);
     dtime = time2.time + time2.millitm / 1000.0;
     dtime -= time1.time + time1.millitm / 1000.0;
@@ -3261,12 +3561,10 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     int32_t quantize_bit_mask = 0;
     double fquantize_scale = 1.0, fquantize_iscale = 1.0;
 
-    // modify input_samples if we're doing blocked DSD, or we have a large number of channels
-
-    if (qmode & QMODE_DSD_IN_BLOCKS)
-        input_samples = DSD_BLOCKSIZE;
+    if (worker_threads && num_channels <= 2)
+        input_samples = (worker_threads + 1) * DSD_BLOCKSIZE * 12;
     else
-        while (input_samples * sizeof (int32_t) * WavpackGetNumChannels (outfile) > 2048*1024)
+        while (input_samples * num_channels > 8388608 / sizeof (int32_t))
             input_samples >>= 1;
 
     if (md5_digest_source) {
@@ -3300,7 +3598,7 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
     }
 
     while (1) {
-        int32_t sample_count = WavpackUnpackSamples (infile, sample_buffer, input_samples);
+        uint32_t sample_count = WavpackUnpackSamples (infile, sample_buffer, input_samples);
 
         if (!sample_count)
             break;
@@ -3342,21 +3640,32 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
                 int32_t *sptr = sample_buffer;
 
                 if (qmode & QMODE_DSD_IN_BLOCKS) {
-                    int cc = num_channels;
+                    while (sample_count) {
+                        uint32_t samples_this_block = sample_count > DSD_BLOCKSIZE ? DSD_BLOCKSIZE : sample_count;
+                        int cc = num_channels;
 
-                    while (cc--) {
-                        int si;
+                        while (cc--) {
+                            uint32_t si;
 
-                        for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
-                            if (si < sample_count)
-                                *dptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*sptr & 0xff] : *sptr;
+                            for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
+                                if (si < samples_this_block)
+                                    *dptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*sptr & 0xff] : *sptr;
+                                else
+                                    *dptr++ = 0;
+
+                            if (cc)
+                                sptr -= (DSD_BLOCKSIZE * num_channels) - 1;
                             else
-                                *dptr++ = 0;
+                                sptr -= num_channels - 1;
+                        }
 
-                        sptr -= (DSD_BLOCKSIZE * num_channels) - 1;
+                        if (samples_this_block < sample_count)
+                            sample_count -= samples_this_block;
+                        else
+                            sample_count = 0;
                     }
 
-                    sample_count = DSD_BLOCKSIZE;
+                    sample_count = (uint32_t) ((dptr - format_buffer) / num_channels);
                 }
                 else {
                     int scount = sample_count * num_channels;
@@ -3476,6 +3785,7 @@ static void unreorder_channels (int32_t *data, unsigned char *order, int num_cha
 
 static int verify_audio (char *infilename, unsigned char *md5_digest_source)
 {
+    int open_flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, blocks = 1;
     int num_channels, bps, qmode, result = WAVPACK_NO_ERROR;
     unsigned char *new_channel_order = NULL;
     int64_t total_unpacked_samples = 0;
@@ -3489,10 +3799,13 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     // use library to open WavPack file
 
 #ifdef _WIN32
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_FILE_UTF8 | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
-#else
-    wpc = WavpackOpenFileInput (infilename, error, OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES, 0);
+    open_flags |= OPEN_FILE_UTF8;
 #endif
+
+    if (worker_threads)
+        open_flags |= worker_threads << OPEN_THREADS_SHFT;
+
+    wpc = WavpackOpenFileInput (infilename, error, open_flags, 0);
 
     if (!wpc) {
         error_line (error);
@@ -3505,7 +3818,11 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     qmode = WavpackGetQualifyMode (wpc);
     num_channels = WavpackGetNumChannels (wpc);
     bps = WavpackGetBytesPerSample (wpc);
-    temp_buffer = malloc (VERIFY_BLOCKSIZE * num_channels * 4);
+
+    if (worker_threads && num_channels <= 2)
+        blocks = (worker_threads + 1) * 12;
+
+    temp_buffer = malloc (VERIFY_BLOCKSIZE * blocks * num_channels * 4);
 
     if (qmode & QMODE_REORDERED_CHANS) {
         int layout = WavpackGetChannelLayout (wpc, NULL), i;
@@ -3521,56 +3838,68 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
     }
 
     while (result == WAVPACK_NO_ERROR) {
-        int32_t samples_unpacked;
+        int32_t *sptr = temp_buffer;
+        uint32_t samples_unpacked;
 
-        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, VERIFY_BLOCKSIZE);
+        samples_unpacked = WavpackUnpackSamples (wpc, temp_buffer, VERIFY_BLOCKSIZE * blocks);
         total_unpacked_samples += samples_unpacked;
 
-        if (samples_unpacked) {
-            if (md5_digest_source) {
-                if (new_channel_order)
-                    unreorder_channels (temp_buffer, new_channel_order, num_channels, samples_unpacked);
+        if (!samples_unpacked)
+            break;
 
+        if (md5_digest_source && new_channel_order)
+            unreorder_channels (temp_buffer, new_channel_order, num_channels, samples_unpacked);
+
+        while (samples_unpacked) {
+            uint32_t samples_this_block = samples_unpacked > VERIFY_BLOCKSIZE ? VERIFY_BLOCKSIZE : samples_unpacked;
+
+            if (md5_digest_source) {
                 if (qmode & QMODE_DSD_AUDIO) {
                     unsigned char *dsd_buffer = malloc (DSD_BLOCKSIZE * num_channels);
                     unsigned char *dptr = dsd_buffer;
-                    int32_t *sptr = temp_buffer;
 
                     if (qmode & QMODE_DSD_IN_BLOCKS) {
                         int cc = num_channels;
 
                         while (cc--) {
-                            int si;
+                            uint32_t si;
 
                             for (si = 0; si < DSD_BLOCKSIZE; si++, sptr += num_channels)
-                                if (si < samples_unpacked)
+                                if (si < samples_this_block)
                                     *dptr++ = (qmode & QMODE_DSD_LSB_FIRST) ? bit_reverse_table [*sptr & 0xff] : *sptr;
                                 else
                                     *dptr++ = 0;
 
-                            sptr -= (DSD_BLOCKSIZE * num_channels) - 1;
+                            if (cc)
+                                sptr -= (DSD_BLOCKSIZE * num_channels) - 1;
+                            else
+                                sptr -= num_channels - 1;
                         }
 
-                        samples_unpacked = DSD_BLOCKSIZE;   // count the entire block for MD5 (even if partial/last)
+                        samples_this_block = DSD_BLOCKSIZE;   // count the entire block for MD5 (even if partial/last)
                     }
                     else {
-                        int scount = samples_unpacked * num_channels;
+                        int scount = samples_this_block * num_channels;
 
                         while (scount--)
                             *dptr++ = *sptr++;
                     }
 
-                    MD5_Update (&md5_context, dsd_buffer, samples_unpacked * num_channels);
+                    MD5_Update (&md5_context, dsd_buffer, samples_this_block * num_channels);
                     free (dsd_buffer);
                 }
                 else {
-                    store_samples (temp_buffer, temp_buffer, qmode, bps, samples_unpacked * num_channels);
-                    MD5_Update (&md5_context, (unsigned char *) temp_buffer, bps * samples_unpacked * num_channels);
+                    store_samples (sptr, sptr, qmode, bps, samples_this_block * num_channels);
+                    MD5_Update (&md5_context, (unsigned char *) sptr, bps * samples_this_block * num_channels);
+                    sptr += samples_this_block * num_channels;
                 }
             }
+
+            if (samples_this_block < samples_unpacked)
+                samples_unpacked -= samples_this_block;
+            else
+                samples_unpacked = 0;
         }
-        else
-            break;
 
         if (check_break ()) {
 #if defined(_WIN32)

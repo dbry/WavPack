@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2019 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -16,10 +16,6 @@
 
 #include "wavpack.h"
 #include "utils.h"
-
-#define WAVPACK_NO_ERROR    0
-#define WAVPACK_SOFT_ERROR  1
-#define WAVPACK_HARD_ERROR  2
 
 extern int debug_logging_mode;
 
@@ -164,7 +160,7 @@ int ParseDsfHeaderConfig (FILE *infile, char *infilename, char *fourcc, WavpackC
     config->bytes_per_sample = 1;
     config->num_channels = format_chunk.numChannels;
     config->channel_mask = channel_masks [format_chunk.chanType - 1];
-    config->sample_rate = format_chunk.sampleRate / 8;
+    config->sample_rate = (format_chunk.sampleRate + 7) / 8;
 
     if (format_chunk.bitsPerSample == 1)
         config->qmode |= QMODE_DSD_LSB_FIRST | QMODE_DSD_IN_BLOCKS;

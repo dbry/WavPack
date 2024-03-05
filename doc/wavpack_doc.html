@@ -11,7 +11,7 @@
 	background: #ffffff;
 	color: #000000;
 	font-family: "Verdana", sans-serif;
-	font-size: 9pt;
+	font-size: 10pt;
 	text-align: center;
 }
 
@@ -20,7 +20,7 @@
 	bottom: 0;
 	left: 0;
 	right: 0;
-	width: 760px;
+	width: 960px;
 	margin-left: auto; 
 	margin-right: auto;
 }
@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 5.4.0</div>
+				<div class="pageHeader">Using WavPack Version 5.7.0</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -145,7 +145,11 @@ a:hover {
 					<br/>
 					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WAVPACK [-options] infile[.wav]|infile.ext|- [outfile[.wv]|outpath|-]</tt></b>
 					<br/>
+					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WAVPACK --drop [-options] infile[.wav]|infile.ext [...]</tt></b>
+					<br/>
 					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WVUNPACK [-options] infile[.wv]|- [outfile[.ext]|outpath|-]</tt></b>
+					<br/>
+					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WVUNPACK --drop [-options] infile[.wv] [...]</tt></b>
 					<br/>
      <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WVGAIN [-options] infile[.wv] [...]</tt></b>
 					<br/>
@@ -167,13 +171,13 @@ a:hover {
      The input files for WavPack may be either Microsoft .wav files (as mentioned above), or
      any of the other formats listed below, including existing WavPack files.
      They may also be raw PCM files (specified with the --raw-pcm option).
-     In the case of transcoding from existing WavPack files, all tags are
+     In the case of re&#235;ncoding from existing WavPack files, all tags are
      copied (and may be modified with the tag specification options) and unless an alternate output
      name or directory is specified, the source files will be overwritten (safely). Used with the
-     filename wildcards, this can be used to easily transcode an entire directory of WavPack
-     files with a single command. Transcoding from lossy to lossless is not allowed, but other
+     filename wildcards, this can be used to easily re&#235;ncode an entire directory of WavPack
+     files with a single command. Re&#235;ncoding from lossy to lossless is not allowed, but other
      combinations like pure lossless to hybrid lossless (or lossy) are fine. Note that when
-     transcoding from a configuration with a correction file to a configuration without a
+     re&#235;ncoding from a configuration with a correction file to a configuration without a
      correction file, the source correction file will <i>not</i> be automatically deleted even if
      the source WavPack file is being overwritten. Adding the -d option will accomplish this,
      however.
@@ -185,7 +189,9 @@ a:hover {
 					<br/>
 					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;WavPack Compressed Audio, extension ".wv", PCM audio</tt></b>
 					<br/>
-     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apple Core Audio Format, "extension ".caf", PCM or DSD audio</tt></b>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apple AIFF Audio Format, "extension ".aif", PCM audio</tt></b>
+					<br/>
+     <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apple Core Audio Format, "extension ".caf", PCM audio</tt></b>
 					<br/>
      <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sony Wave64 Audio Format, extension ".w64", PCM audio</tt></b>
 					<br/>
@@ -194,7 +200,7 @@ a:hover {
      <b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sony DSD Stream Format, "extension ".dsf", 1-bit DSD audio</tt></b>
 				</p>
 				<p>
-					Both programs will warn before overwriting any file (unless the -y switch is 
+					Both programs will warn before overwriting any file (unless the -y or --no-overwrite switch is 
 					specified) and file overwriting is implemented with temp files so that the overwritten
      file is not deleted until the operation is successful (including the verification pass
      if that has been requested with the -v switch). The programs will also (unless the -q
@@ -214,10 +220,32 @@ a:hover {
 					WavPack files natively like Foobar2000 or JRiver Media Center, or a player that can play WavPack
      files using a plugin like Winamp, dBpowerAMP, or Apollo. Also, there are plugins
      available to read and write WavPack files with Adobe Audition (and CoolEdit) and Nero
-     Burning ROM.
+     Burning ROM. Many DAW programs also support WavPack natively like Reaper, Steinberg WaveLab, and
+     Audacity.
 				</p>
+    <p>
+     Starting with version 5.5.0, the WavPack and WvUnpack programs allow options to be added to the
+     executable (exe) filename and these options are parsed first every time the command is executed.
+     This is useful when the programs are run by dropping files into their respective icons in the
+     Windows File Explorer rather than using the Command Prompt to run them. For example, the WavPack
+     executables might be renamed (see below for the exact meaning of the options listed):
+    </p>
+    <b><tt>&nbsp;&nbsp;&nbsp;wavpack{--pause}{--drop}{-hxvm}{--import-id3}.exe</tt></b>
+					<br/>
+    <b><tt>&nbsp;&nbsp;&nbsp;wvunpack{--pause}{--drop}.exe</tt></b>
+    <p>
+     When multiple input files are specified for the WavPack and WvUnpack programs (using wildcards)
+     and the output is specified as stdout ("-") then the resulting output from all the files
+     processed is sent to stdout in a continuous concatenated stream. Normally this is not very
+     useful because data is interleaved with file headers, however one case can be. If the --raw or
+     --raw-pcm option is used in WvUnpack then just the audio from all the files will be send to
+     stdout, and this can be captured in a file or piped directly back to WavPack for re&#235;ncoding:
+    </p>
+    <b><tt>&nbsp;&nbsp;&nbsp;wvunpack --raw *.wv - > merged.raw</tt></b>
+					<br/>
+    <b><tt>&nbsp;&nbsp;&nbsp;wvunpack --raw *.wv - | wavpack --raw-pcm - merged.wv</tt></b>
 				<p>
-				 A debugging mode is provided for the programs which is enabled by simply appending
+				 Finally, a debugging mode is provided for the programs which is enabled by simply appending
 				 "_debug" to the the name of the executable (for example, wavpack.exe becomes
      wavpack_debug.exe). The debugging versions work exactly like the normal versions except
 				 that they report more detailed information about their operation. For instance, they
@@ -237,10 +265,10 @@ a:hover {
 				<div class="boxHeader">Linux</div>
 				<div class="boxContent">
 					<p>This documentation was written specifically for the Windows command-line version of
-      WavPack, however the version for Linux (and OS X) is essentially the same. There are
+      WavPack, however the version for Linux (and MacOS) is essentially the same. There are
       some Windows-specific commands missing from the Linux version like the -l switch to run
-      at low priority or --pause to pause before exiting. The "debug" mode described above
-      does not create a log file, but it does provide the extra information.
+      at low priority or the --pause and --drop options helpful with drag and drop. The "debug"
+      mode described above does not create a log file, but it <i>does</i> provide the extra information.
      </p>
      <p>
       The most significant change is in the specification of the output filename or directory,
@@ -281,11 +309,11 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-bn = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or</tt></b>
+					<b><tt>-b&lt;n&gt; = enable hybrid compression, n = 2.0 to 23.9 bits/sample, or</tt></b>
 					<br/>
 					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n = 24-9600 kbits/second (kbps)</tt></b>
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;n = 24-9600 kbits/second (kbps)</tt></b>
 				</p>
 				<p>
 					The default operation of WavPack is pure lossless, which means that the .wv file 
@@ -302,6 +330,11 @@ a:hover {
 					with CD-audio sampled at 44.1k the lower limit is about 196 kbps.
 				</p>
 				<p>
+     When this option is used in combination with the <b>-c</b> option, then a "correction"
+     file is also created and the result is hybrid lossless compression. Without the <b>-c</b>
+     option the operation is lossy.
+				</p>
+				<p>
 					The hybrid mode can be used quite successfully with floating-point audio, however
 					it should <b>not</b> be used for scientific type floating-point
 					data because the hybrid algorithm might not be application appropriate (and
@@ -314,7 +347,7 @@ a:hover {
 				</p>
 
 				<p>
-     <b><tt>--blocksize=n = specify block size in samples (n = 128 - 131072)</tt></b>
+     <b><tt>--blocksize=&lt;n&gt; = specify block size in samples (n = 128 - 131072)</tt></b>
 				</p>
 				<p>
      WavPack normally determines the optimum number of samples to place into each
@@ -345,6 +378,22 @@ a:hover {
 					used or not.
 				</p>
 
+				<p>
+					<b><tt>-c&lt;n&gt; = enable hybrid lossless compression, n = 2.0 to 23.9 bits/sample, or</tt></b>
+					<br/>
+					<b><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+     &nbsp;&nbsp;&nbsp;n = 24-9600 kbits/second (kbps)</tt></b>
+				</p>
+    <p>
+     This is a new shortcut combining the <b>-b&lt;n&gt;</b> option to set hybrid bitrate and the
+     <b>-c</b> option to create a "correction" file for hybrid lossless operation. The
+     advantage of this new syntax is that it makes it harder to accidentally forget the
+     <b>-c</b> option and get lossy operation unintentionally.
+    </p>
+
+				<p>
 				<p>
 					<b><tt>-cc = maximum hybrid compression (hurts lossy quality &amp; decode speed)</tt></b>
 				</p>
@@ -415,12 +464,51 @@ a:hover {
 				</p>
 
 				<p>
+					<b><tt>--drop = accept multiple files, no output specification allowed</tt></b>
+				</p>
+				<p>
+					This Windows-only option should be specified before any source files and alters the syntax to allow multiple
+     input files instead of just one. This is useful for using the WavPack executable icon as the target
+     of a "drag and drop" operation in which case the option is added to the executable filename using
+     braces (e.g., <b>wavpack{--drop}.exe</b>). Because this is mostly intended for drap and drop support,
+     the specification of output names or folders is not supported.
+				</p>
+
+				<p>
 					<b><tt>-f = fast mode (fast, but some compromise in compression ratio)</tt></b>
 				</p>
 				<p>
 					The "fast" mode should be used when compression (or decompression) speed is more 
 					important than compression ratio (or, in lossy mode, audio quality). This option
      has no effect on DSD audio.
+				</p>
+
+				<p>
+					<b><tt>--force-even-byte-depth = round the bit-depth of source PCM files up to the next whole byte</tt></b>
+				</p>
+				<p>
+     File formats that store uncompressed PCM allow the specification of bit depths
+     that are not multiples of 8 (e.g., 12-bit or 20-bit). WavPack accepts these files,
+     however it also checks to make sure that the appropriate LSB "padding" bits are zero
+     in the source file (as they should be), and if not reports this as an error. One
+     method of getting around this rare situation is to specify this option which will
+     round up the bit depth to the next full byte and thereby save the non-zero padding
+     bits. These files will restore losslessly (assuming a lossless mode is used) even
+     though they are technically invalid. Note that the WavPack files will report as the
+     rounded bit depth and be otherwise fine, and this does not result in worse
+     compression. The other method is to use the <b><tt>--pre-quantize</tt></b> option
+     to zero the padding bits before encoding, but that's only recommended if it's
+     known that the padding bits are not valid audio.
+				</p>
+
+				<p>
+					<b><tt>-g = general/normal mode (cancels any previously specified -f or -h options)</tt></b>
+				</p>
+				<p>
+     This option is provided to revert to the normal default speed mode after having
+     specified one of the other modes (i.e., "fast" or "high"). It really only makes sense
+     if one of the other modes has been encoded directly into the executable filename using
+     braces, but it could be specified to be unambiguous.
 				</p>
 
 				<p>
@@ -438,9 +526,10 @@ a:hover {
 				<p>
 					The "very high" mode should be used when compression ratio (or, in lossy mode, audio 
 					quality) is much more important than compression (or decompression) speed. This option 
-					slows both by about a factor of about 2, and is <b>not recommended for use on
-     portable devices</b> because of the high CPU load required for decoding. This option
-     simply actives the <b>high</b> mode for DSD audio files.
+					slows both by about a factor of about 2, and is not recommended for use on
+     vintage portable devices because of the high CPU load required for decoding, but should
+     be fine for anything modern. This option simply activates the <b>high</b> mode for DSD
+     audio files.
 				</p>
 
 				<p>
@@ -457,22 +546,33 @@ a:hover {
 					Some programs that pipe data to encoders do not always give the correct length in
 					the wav headers that they provide (foobar's client and CDex are examples). In these
 					cases use this option to force WavPack to ignore the header and accept the actual
-					length. Because WavPack must seek to the beginning of the file to write the correct
-					length, this option cannot be used with piped output. <b>Only use this option when it's
-					really needed; using with a valid header will cause any trailing metadata to be
-					interpreted as audio.</b>
+					length. Because WavPack must seek to the beginning of the output file to write the correct
+					length, this option cannot be used with piped output (override with <b>-y</b>). Note that
+     WavPack will attempt to fix the supplied header with the correct length if it can do
+     so safely (and of course in this case it's not strictly lossless, but we're just fixing
+     an invalid header). <b>Only use this option when it's really needed; using with a valid
+     header will cause any trailing metadata to be interpreted as audio.</b>
 				</p>
+    <p>
+     When using <b>-i</b> it is not allowed to use pipes for both the input and output because the actual
+     audio length will not be known in the beginning and there's no way to rewind the output file when
+     we're done to update the length stored there. You can use the <b>-y</b> to override this but you will
+     end up with sub-standard files that must be seeked to the end on decode to determine their length.
+     A warning to this effect will be displayed when the operation completes.
+    <p>
 
 				<p>
-					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF and other files</tt></b>
+					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 or ID3v2.4 tag on DSF and other files</tt></b>
 				</p>
 				<p>
-					Sony's DSF file format specifies that these files may contain an ID3v2 tag at the end. WavPack
-     considers this a trailing "wrapper" and stores it in the WavPack file as such so that the DSF
-     file can be restored verbatim. However, stored this way it is not easily accessible for
-     reading (and it is certainly not writable) because WavPack uses APEv2 (or, sometimes, ID3v1) tags
-     for metadata. This option causes any trailing ID3v2.3 tag in the DSF file (or other file type) to be
-     scanned and all applicable items imported into the APEv2 tag, including cover art.
+					Sony's DSF file format specifies that these files may contain an ID3v2 tag at the end, and it
+     is not uncommon for other files to contain these tags even though it's not part of their official
+     specs (e.g., WAV and DSDIFF files). WavPack considers this a trailing "wrapper" and stores it in the
+     WavPack file as such so that the original file can be restored verbatim. However, stored this way
+     it is not easily accessible for reading (and it is certainly not writable) because WavPack uses
+     APEv2 tags for metadata. This option causes any trailing ID3v2.3 or ID3v2.4 tag in the DSF file (or
+     any other file type) to be scanned and all applicable items imported into the APEv2 tag,
+     including cover art.
     </p>
 				<p>
      Note that if over 1 MB of image data is present, then the <b>--allow-huge-tags</b> option must
@@ -484,14 +584,15 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-jn = joint-stereo override (0 = left/right, 1 = mid/side)</tt></b>
+					<b><tt>-j&lt;n&gt; = joint-stereo override (0 = left/right, 1 = mid/side)</tt></b>
 				</p>
 				<p>
 					WavPack normally defaults to joint stereo (sometimes called mid/side) in which 
 					the left and right channels are combined to form an alternate representation 
 					(essentially L+R and L-R) that compresses better in lossless mode and improves 
-					quality in lossy mode. This option allows this feature to be forced either on or 
-					off.
+					quality in lossy mode. In the "extra" modes WavPack will choose whether or not to
+     use joint-stereo on a block by block basis. This option allows this feature to be
+     forced either always on or always off.
 				</p>
 
 				<p>
@@ -510,7 +611,8 @@ a:hover {
 					it in the compressed file. These sums are commonly used in file trading communities 
 					to compare versions of tracks, and as such the sums generated by WavPack match those 
 					of FLAC, OptimFROG, Shntool, and get_id3(). They can also be used by WvUnpack during
-					decompression to verify the data integrity of lossless files.
+					decompression to verify the data integrity of lossless files, but this is a secondary
+     function because WavPack already verifies each block as they are decoded.
 				</p>
 
 				<p>
@@ -550,6 +652,17 @@ a:hover {
 				</p>
 
     <p>
+     <b><tt>--no-overwrite = don't overwrite existing files, and don't ask to</tt></b>
+    </p>
+    <p>
+     Normally WavPack checks that a file it is about to create already exists, and if it
+     does will prompt the user before overwriting it. When this option is specified
+     WavPack will skip this prompt and simply go to the next file (if there are any).
+     This might be useful to resume a long, multi-file WavPack operation that was cancelled
+     because in that case all the previously encoded files are quickly skipped.
+    </p>
+
+    <p>
      <b><tt>--no-utf8-convert = don't recode passed tags to UTF-8, assume they are UTF-8 already</tt></b>
     </p>
     <p>
@@ -557,6 +670,19 @@ a:hover {
      tag information is passed in on the command-line they are converted to UTF-8 before
      being stored. If your system is already passing the strings in UTF-8, use this option
      to prevent double conversion.
+    </p>
+
+    <p>
+     <b><tt>--optimize-int32 = enable new optimizations for certain 32-bit integer files</tt></b>
+    </p>
+    <p>
+     32-bit integer files are often originally sourced from floating-point audio, and
+     previously these were not optimally compressed by WavPack. This option enables a
+     new check for these (and similar) files and compresses them up to 10% more.
+     Unfortunately this new mode is not 100% backward compatible, so files created
+     with this option will decode with only 24 bits of resolution with older WavPack
+     decoders or 3rd party decoders like FFmpeg. Of course, this difference is very
+     likely inaudible, and in fact will be non-existent with common 24-bit DACs.
     </p>
 
 				<p>
@@ -580,7 +706,7 @@ a:hover {
      Pause before exiting the console program (Windows only), allowing the user to press
      any key to continue. This might be useful to include in situations where the console
      window disappears before the completion status can be seen (like with EAC or the
-     WavPack FrontEnd).
+     WavPack FrontEnd) or when using the program icon as "drag and drop".
 				</p>
 
 				<p>
@@ -602,7 +728,7 @@ a:hover {
      do much (at least not with reasonable parameters).
      In the hybrid lossless mode, this pre-quantizing <i>would</i> reduce the size of the
      correction file, but wouldn't have much effect on the lossy portion. It also works
-     well as a transcoding operation (with a WavPack source file), although it <i>will</i>
+     well as a re&#235;ncoding operation (with a WavPack source file), although it <i>will</i>
      modify the MD5 checksum stored in the file (which WavPack's lossy mode does not do).
 				</p>
 				<p>
@@ -622,13 +748,13 @@ a:hover {
 				<p>
 				 WavPack normally saves all the header information contained in the audio file
 				 (including any chunks after the audio data). This is done so that WvUnpack.exe can
-				 restore the original audio file exactly. The -r option causes WavPack to discard the
+				 restore the original audio file <i>exactly</i>. The -r option causes WavPack to discard the
 				 header contained in the source file (and any extra chunks). Obviously the source
      header is still used to determine the format and size of the file (i.e. this is not
      a "raw" mode). When the file is restored with WvUnpack, a generic header will be
      generated appropriate for the format. Note that if this option is used with
      certain floating-point WAV files generated by CoolEdit or Audition that are not
-					normalized, the --normalize-floats option of WvUnpack will have to be used when
+					normalized, the <b>--normalize-floats</b> option of WvUnpack will have to be used when
 					converting them back to standard PCM formats.
 				</p>
 
@@ -641,9 +767,15 @@ a:hover {
      audio (i.e., little endian and signed). 
 				</p>
     <p>
-     Note that WavPack files created in this
-     way will still normally decode to WAV files (with headers) when unpacked. To avoid
-     this, use the "-r" option with the WvUnpack program to force raw unpacking.
+     When encoding raw PCM, it is not allowed to use pipes for both the input and output because the actual
+     audio length will not be known in the beginning and there's no way to rewind the output file when we're
+     done to update the length stored there. You can use the <b>-y</b> to override this but you will end
+     up with sub-standard files that must be seeked to the end on decode to determine their length.
+     A warning to this effect will be displayed when the operation completes.
+    <p>
+     Note that WavPack files created in this way will still normally decode to WAV files (with headers)
+     when unpacked. To avoid this, use the <b>-r</b>, <b>--raw</b>, or <b>--raw-pcm</b> option with the
+     WvUnpack program to force raw unpacking.
 				</p>
 
 				<p>
@@ -655,7 +787,7 @@ a:hover {
      matching the default (44100,16,2,le) can be omitted. The valid range of bit-depths
      is from 1 to 32. The default data format can be overridden with "f" for floating-point
      audio (32-bit only) or "s" or "u" for signed/unsigned integers. The number of channels
-     may be from 1 to 256.
+     may be from 1 to 4096.
     </p>
     <p>
      To compress DSD audio, specify bps=1. Note that DSD audio must be in Philips DSDIFF
@@ -664,12 +796,12 @@ a:hover {
     </p>
 				<p>
      Note that WavPack files created in this way will still normally decode to WAV files (with
-     headers) when unpacked (or DFF files for DSD audio). To avoid this, use the "-r" option
+     headers) when unpacked (or DFF files for DSD audio). To avoid this, use the <b>-r</b> option
      with the WvUnpack program to force raw unpacking.
 				</p>
 
 				<p>
-					<b><tt>-sn = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)</tt></b>
+					<b><tt>-s&lt;n&gt; = noise shaping override (hybrid only, n = -1.0 to 1.0, 0 = off)</tt></b>
 				</p>
 				<p>
 					WavPack uses first-order noise shaping to improve the perceived quality of lossy 
@@ -689,6 +821,17 @@ a:hover {
 				</p>
 				<p>
 					Self explanatory.
+				</p>
+
+				<p>
+     <b><tt>--threads[=n] = enable multithreaded operation (optional n = 1 for no threading to 12 threads maximum)</tt></b>
+				</p>
+				<p>
+     On modern multicore CPUs WavPack can get a significant performance boost by utilizing
+     multiple threads. This is fully applicable to the pure lossless mode, but in the hybrid
+     modes it is only applicable to multichannel files. If the parameter <b>n</b> is omitted
+     then the number of threads is determined automatically as a balance between operational
+     speed and energy consumption.
 				</p>
 
 				<p>
@@ -722,7 +865,7 @@ a:hover {
 					<b><tt>--version = display program version to stdout</tt></b>
 				</p>
 				<p>
-					Self explanatory.
+					Both the version of the command-line program and the WavPack library are displayed.
 				</p>
 
 				<p>
@@ -730,8 +873,8 @@ a:hover {
 				</p>
 				<p>
      Write a metadata item to the APEv2 tag for the actual encoder being used
-     (e.g., "Encoder=WavPack 5.0.0"). It's also possible to specify a value to override
-     the default. Note that when transcoding WavPack files this metadata item is
+     (e.g., "Encoder=WavPack 5.7.0"). It's also possible to specify a value to override
+     the default. Note that when re&#235;ncoding WavPack files this metadata item is
      <b>not</b> simply copied from source to destination, but is recreated with the
      appropriate value.
 				</p>
@@ -742,7 +885,7 @@ a:hover {
 				<p>
      Write a metadata item to the APEv2 tag for the actual encoder settings being used
      (e.g., "Settings=-hb384cx3"). It's also possible to specify a value to override
-     the default. Note that when transcoding WavPack files this metadata item is
+     the default. Note that when re&#235;ncoding WavPack files this metadata item is
      <b>not</b> simply copied from source to destination, but is recreated with the
      appropriate value.
 				</p>
@@ -775,10 +918,10 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-x[n] = extra encode processing (optional n = 1-6, 1 = default)</tt></b>
+					<b><tt>-x[n] = extra encode processing (optional n = 0-6, 1 = default)</tt></b>
 				</p>
 				<p>
-					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 4.80 normally
+					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 5.7.0 normally
 					works "symmetrically" in that encoding and decoding operate at about the same rate
 					(regardless of the mode used). However, WavPack has an option to work
 					"asymmetrically", so that extra processing can be done during encoding to
@@ -794,7 +937,8 @@ a:hover {
      cost in encoding speed and is recommended for all but the most time critical encoding.
      Higher levels provide some marginal improvement with an increasing cost of encoding
      speed. The highest levels (n = 4-6) are extremely slow but can provide significant
-     improvement in special situations (i.e. synthesized sounds).
+     improvement in special situations (i.e. synthesized sounds). Use -x0 to specify no
+     extra processing.
 				</p>
     <p>
      This option is not applicable to DSD audio and is simply ignored.
@@ -820,6 +964,15 @@ a:hover {
 			<div class="box" id="wvunpack">
 				<div class="boxHeader">WvUnpack Options</div>
 				<div class="boxContent">
+				<p>
+     <b><tt>--aif or --aif-le = force output to Apple AIFF Audio format</tt></b>
+				</p>
+				<p>
+     Output an Apple AIFF Audio file, either legacy AIFF or AIFF-C/sowt (little-endian),
+     regardless of the input file format. All extra information in the original file's
+     header and trailer will be lost and a "fresh" AIFF Audio header will be generated.
+     Note that DSD audio files will be decimated 8X and output as 24-bit PCM.
+				</p>
 				<p>
      <b><tt>-b  = blindly decode all stream blocks &amp; ignore length info</tt></b>
 				</p>
@@ -884,6 +1037,17 @@ a:hover {
 				</p>
 
 				<p>
+					<b><tt>--drop = accept multiple files, no output specification allowed</tt></b>
+				</p>
+				<p>
+					This option should be specified before any source files and alters the syntax to allow multiple
+     input files instead of just one. This is useful for using the WvUnpack executable icon as the target
+     of a "drag and drop" operation in which case the option is added to the executable filename using
+     braces (e.g., <b>wvunpack{--drop}.exe</b>). Because this is mostly intended for drap and drop support,
+     the specification of output names or folders is not supported.
+				</p>
+
+				<p>
      <b><tt>--dsf = force output to Sony DSD format</tt></b>
 				</p>
 				<p>
@@ -910,7 +1074,7 @@ a:hover {
      &nbsp;&nbsp;5. channel mask (in hex because it's a mask, always prefixed with "0x")<br/>
      &nbsp;&nbsp;6. number of samples (missing if unknown)<br/>
      &nbsp;&nbsp;7. md5sum (technically is hex, but not prefixed with "0x", might be missing)<br/>
-     &nbsp;&nbsp;8. encoder version (basically this will always be 4, but there are some old files out there, could be 5 one day)<br/>
+     &nbsp;&nbsp;8. encoder version (this will be 4 or 5 as older files require a specially built decoder)<br/>
      &nbsp;&nbsp;9. encoding mode (in hex because it's a bitfield, always prefixed with "0x") <br/>
      &nbsp;&nbsp;10. filename (if available)<br/>
 				</p>
@@ -985,8 +1149,8 @@ a:hover {
 				<p>
      Pause before exiting the console program (Windows only), allowing the user to press
      any key to continue. This might be useful to include in situations where the console
-     window disappears before the completion status can be seen (like with EAC or the
-     WavPack FrontEnd).
+     window disappears before the completion status can be seen (like the
+     WavPack FrontEnd) or when using the program icon as "drag and drop".
 				</p>
 				<p>
 					<b><tt>-q = quiet (keep console output to a minimum)</tt></b>
@@ -1003,7 +1167,18 @@ a:hover {
 					will be given the .raw extension instead of the extension on the original file. Note that
      the raw data still conforms to standard WAV audio data (i.e., little-endian and signed,
      except for 8-bit data which is unsigned). DSD audio data is output in Philips DSDIFF
-     format (i.e., channels interleaved by bytes, MSB first temporally).
+     format (i.e., channels interleaved by bytes, MSB first temporally) unless the
+     <b>--raw-pcm</b> option is used instead.
+				</p>
+				<p>
+					<b><tt>--raw-pcm = force raw PCM audio decode (results in .raw extension)</tt></b>
+				</p>
+				<p>
+					This option is identical to the <b>-r</b> and <b>--raw</b> option above except in the
+     case of DSD-encoded WavPack files which are decimated 8x to 24-bit PCM instead of being
+     output in raw DSD. Note that the decimated PCM audio still contains large amounts of
+     DSD quantization noise above the audible range and should be filtered or downsampled
+     appropriately.
 				</p>
 				<p>
 					<b><tt>-s = display summary information only to stdout (no decode)</tt></b>
@@ -1040,6 +1215,16 @@ a:hover {
 				</p>
 				<p>
 					Self explanatory.
+				</p>
+
+				<p>
+     <b><tt>--threads[=n] = enable multithreaded operation (optional n = 1 for no threading to 12 threads maximum)</tt></b>
+				</p>
+				<p>
+     On modern multicore CPUs WavPack can get a significant performance boost by utilizing
+     multiple threads. This is applicable to all modes, including verify. If the parameter
+     <b>n</b> is omitted then the number of threads is determined automatically as a balance
+     between operational speed and energy consumption.
 				</p>
 
 				<p>
@@ -1086,10 +1271,21 @@ a:hover {
 				</p>
 
 				<p>
+					<b><tt>-vvv = quick verify verbose</tt></b>
+				</p>
+				<p>
+				 This is similar to the -vv option above but also displays additional information that
+     may be useful or interesting, like the channel count or chunks of unknown data between
+     the WavPack blocks (which is valid up to 1 MB). This will also display whether the total
+     length of the WavPack file is missing from the first block (which is valid, but means
+     that the file requires an extra seek to the end to determine the length).
+				</p>
+
+				<p>
 					<b><tt>--version = display program version to stdout</tt></b>
 				</p>
 				<p>
-					Self explanatory.
+					Both the version of the command-line program and the WavPack library are displayed.
 				</p>
 
 				<p>
@@ -1230,10 +1426,17 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>-v = display program version to stdout</tt></b>
+					<b><tt>-t = use multiple threads for faster operation</tt></b>
 				</p>
 				<p>
 					Self explanatory.
+				</p>
+
+				<p>
+					<b><tt>-v = display program version to stdout</tt></b>
+				</p>
+				<p>
+					Both the version of the command-line program and the WavPack library are displayed.
 				</p>
 
 				<p>
@@ -1302,15 +1505,15 @@ a:hover {
 				</p>
 
 				<p>
-					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 tag on DSF and other files</tt></b>
+					<b><tt>--import-id3 = import applicable tag items from ID3v2.3 or ID3v2.4 tag on DSF and other files</tt></b>
 				</p>
 				<p>
 					Sony's DSF file format specifies that these files may contain an ID3v2 tag at the end. WavPack
      considers this a trailing "wrapper" and stores it in the WavPack file as such so that the DSF
      file can be restored verbatim. However, stored this way it is not easily accessible for
      reading (and it is certainly not writable) because WavPack uses APEv2 (or, sometimes, ID3v1) tags
-     for metadata. This option causes any trailing ID3v2.3 tag in the DSF file (or other file type) to be
-     scanned and all applicable items imported into the APEv2 tag, including cover art.
+     for metadata. This option causes any trailing ID3v2.3 or ID3v2.4 tag in the DSF file (or other
+     file type) to be scanned and all applicable items imported into the APEv2 tag, including cover art.
     </p>
     <p>
      Note that if over 1 MB of image data is present, then the <b>--allow-huge-tags</b> option must be included
@@ -1344,7 +1547,7 @@ a:hover {
 					<b><tt>-v or --version = display program version to stdout</tt></b>
 				</p>
 				<p>
-					Self explanatory.
+					Both the version of the command-line program and the WavPack library are displayed.
 				</p>
 
 				<p>
@@ -1548,7 +1751,7 @@ a:hover {
 				<div class="boxContent">
 					<p>
 						WavPack and its associated utilities are free programs; feel free to give them 
-						to anyone who may find them useful. There is no warrantee provided and you agree 
+						to anyone who may find them useful. There is no warranty provided and you agree 
 						to use them completely at your own risk. Be sure to visit <a 
 						href="http://www.wavpack.com">www.wavpack.com</a> for the latest version of WavPack.
 					</p>

@@ -158,11 +158,11 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
         return WavpackCloseFile (wpc);
     }
 
-    if (((char *) &wphdr) [8] == 2 && (wpc->reader->read_bytes (wpc->wv_in, ((char *) &wphdr) + 10, 2) != 2)) {
+    if (*(char *) &wphdr.version == 2 && (wpc->reader->read_bytes (wpc->wv_in, ((char *) &wphdr) + 10, 2) != 2)) {
         if (error) strcpy (error, "not a valid WavPack file!");
         return WavpackCloseFile (wpc);
     }
-    else if (((char *) &wphdr) [8] == 3 && (wpc->reader->read_bytes (wpc->wv_in, ((char *) &wphdr) + 10,
+    else if (*(char *) &wphdr.version == 3 && (wpc->reader->read_bytes (wpc->wv_in, ((char *) &wphdr) + 10,
         sizeof (wphdr) - 10) != sizeof (wphdr) - 10)) {
             if (error) strcpy (error, "not a valid WavPack file!");
             return WavpackCloseFile (wpc);

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2019 David Bryant.                 //
+//                Copyright (c) 1998 - 2024 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "wavpack_local.h"
 
@@ -89,12 +90,13 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         return WavpackCloseFile (wpc);
     }
 
-    wpc->streams [0] = wps = (WavpackStream *)malloc (sizeof (WavpackStream));
+    wpc->streams [0] = wps = (WavpackStream *)calloc (1, sizeof (WavpackStream));
     if (!wps) {
         if (error) strcpy (error, "can't allocate memory");
         return WavpackCloseFile (wpc);
     }
-    CLEAR (*wps);
+
+    wps->wpc = wpc;
 
     while (!wps->wphdr.block_samples) {
 
@@ -165,12 +167,12 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             }
         }
 
-        if (wpc->wvc_flag && !read_wvc_block (wpc)) {
+        if (wpc->wvc_flag && !read_wvc_block (wpc, 0)) {
             if (error) strcpy (error, "not compatible with this version of correction file!");
             return WavpackCloseFile (wpc);
         }
 
-        if (!wps->init_done && !unpack_init (wpc)) {
+        if (!wps->init_done && !unpack_init (wpc, 0)) {
             if (error) strcpy (error, wpc->error_message [0] ? wpc->error_message :
                 "not compatible with this version of WavPack file!");
 
@@ -233,6 +235,23 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             wpc->config.sample_rate = sample_rates [(wps->wphdr.flags & SRATE_MASK) >> SRATE_LSB];
     }
 
+#ifdef ENABLE_THREADS
+    if (!wpc->reduced_channels && (wpc->open_flags & OPEN_THREADS_MASK)) {
+        wpc->num_workers = ((wpc->open_flags & OPEN_THREADS_MASK) >> OPEN_THREADS_SHFT) & 0xf;
+
+        // for multichannel files we can limit the number of workers
+        // because we only do spatial multithreading (not temporal)
+
+        if (!(wps->wphdr.flags & FINAL_BLOCK)) {
+            if (wpc->num_workers > wpc->max_streams - 1)
+                wpc->num_workers = wpc->max_streams - 1;
+
+            if (wpc->num_workers > wpc->config.num_channels - 1)
+                wpc->num_workers = wpc->config.num_channels - 1;
+        }
+    }
+#endif
+
     return wpc;
 }
 
@@ -286,12 +305,12 @@ char *WavpackGetFileExtension (WavpackContext *wpc)
 // bitstream data.
 
 static int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, unsigned char **buffptr);
-static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd);
+static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd, int stream);
 static void bs_open_read (Bitstream *bs, void *buffer_start, void *buffer_end);
 
-int unpack_init (WavpackContext *wpc)
+int unpack_init (WavpackContext *wpc, int stream)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    WavpackStream *wps = wpc->streams [stream];
     unsigned char *blockptr, *block2ptr;
     WavpackMetadata wpmd;
 
@@ -302,7 +321,7 @@ int unpack_init (WavpackContext *wpc)
     CLEAR (wps->wvbits);
     CLEAR (wps->wvcbits);
     CLEAR (wps->wvxbits);
-    CLEAR (wps->decorr_passes);
+    CLEARA(wps->decorr_passes);
     CLEAR (wps->dc);
     CLEAR (wps->w);
 
@@ -320,7 +339,7 @@ int unpack_init (WavpackContext *wpc)
     blockptr = wps->blockbuff + sizeof (WavpackHeader);
 
     while (read_metadata_buff (&wpmd, wps->blockbuff, &blockptr))
-        if (!process_metadata (wpc, &wpmd)) {
+        if (!process_metadata (wpc, &wpmd, stream)) {
             wps->mute_error = TRUE;
             return FALSE;
         }
@@ -329,7 +348,7 @@ int unpack_init (WavpackContext *wpc)
         block2ptr = wps->block2buff + sizeof (WavpackHeader);
 
         while (read_metadata_buff (&wpmd, wps->block2buff, &block2ptr))
-            if (!process_metadata (wpc, &wpmd)) {
+            if (!process_metadata (wpc, &wpmd, stream)) {
                 wps->mute_error = TRUE;
                 return FALSE;
             }
@@ -407,6 +426,22 @@ static int init_wvx_bitstream (WavpackStream *wps, WavpackMetadata *wpmd)
     wps->crc_wvx |= (uint32_t) *cp++ << 24;
 
     bs_open_read (&wps->wvxbits, cp, (unsigned char *) wpmd->data + wpmd->byte_length);
+
+    // the new WVX bitstream format starts with one or two new 5-bit fields
+
+    if (wpmd->id == ID_WVX_NEW_BITSTREAM) {
+        if (wps->wphdr.flags & FLOAT_DATA) {
+            getbits (&wps->float_min_shifted_zeros, 5, &wps->wvxbits);
+            wps->float_min_shifted_zeros &= 0x1f;
+            getbits (&wps->float_max_shifted_ones, 5, &wps->wvxbits);
+            wps->float_max_shifted_ones &= 0x1f;
+        }
+        else {
+            getbits (&wps->int32_max_width, 5, &wps->wvxbits);
+            wps->int32_max_width &= 0x1f;
+        }
+    }
+
     return TRUE;
 }
 
@@ -484,6 +519,14 @@ static int read_channel_info (WavpackContext *wpc, WavpackMetadata *wpmd)
                 mask |= (uint32_t) *byteptr++ << shift;
                 shift += 8;
             }
+
+            // FFmpeg 6.1 generates non-compliant multichannel WavPack files that do not use the
+            // new (2016) channel format form introduced in WavPack 5.0. This hack allows those
+            // files to be decoded by the reference decoder. Surprisingly, the last time I
+            // checked, FFmpeg itself can't decode many of them either!
+
+            if (wpc->config.num_channels > OLD_MAX_STREAMS)
+                wpc->max_streams = wpc->config.num_channels;
         }
 
         if (wpc->config.num_channels > wpc->max_streams * 2)
@@ -710,9 +753,9 @@ static int read_metadata_buff (WavpackMetadata *wpmd, unsigned char *blockbuff, 
     return TRUE;
 }
 
-static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
+static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd, int stream)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    WavpackStream *wps = wpc->streams [stream];
 
     switch (wpmd->id) {
         case ID_DUMMY:
@@ -764,11 +807,12 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
             return init_wvc_bitstream (wps, wpmd);
 
         case ID_WVX_BITSTREAM:
+        case ID_WVX_NEW_BITSTREAM:
             return init_wvx_bitstream (wps, wpmd);
 
         case ID_DSD_BLOCK:
 #ifdef ENABLE_DSD
-            return init_dsd_block (wpc, wpmd);
+            return init_dsd_block (wps, wpmd);
 #else
             strcpy (wpc->error_message, "not configured to handle DSD WavPack files!");
             return FALSE;
@@ -796,8 +840,13 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd)
 
         case ID_ALT_EXTENSION:
             if (wpmd->byte_length && wpmd->byte_length < sizeof (wpc->file_extension)) {
-                memcpy (wpc->file_extension, wpmd->data, wpmd->byte_length);
-                wpc->file_extension [wpmd->byte_length] = 0;
+                int i, j;
+
+                for (i = j = 0; i < wpmd->byte_length; ++i)
+                    if (isalnum (((char *) wpmd->data) [i]))
+                        wpc->file_extension [j++] = ((char *) wpmd->data) [i];
+
+                wpc->file_extension [j] = 0;
             }
 
             return TRUE;
@@ -978,9 +1027,9 @@ static int match_wvc_header (WavpackHeader *wv_hdr, WavpackHeader *wvc_hdr)
 // we flag this as an error). A return of FALSE indicates a serious
 // error (not just that we missed one wvc block).
 
-int read_wvc_block (WavpackContext *wpc)
+int read_wvc_block (WavpackContext *wpc, int stream)
 {
-    WavpackStream *wps = wpc->streams [wpc->current_stream];
+    WavpackStream *wps = wpc->streams [stream];
     int64_t bcount, file2pos;
     WavpackHeader orig_wphdr;
     WavpackHeader wphdr;

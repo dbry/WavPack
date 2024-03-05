@@ -340,7 +340,7 @@ int32_t wp_exp2s (int log)
     uint32_t value;
 
     if (log < 0)
-        return -wp_exp2s (-log);
+        return ~((uint32_t) wp_exp2s (-log) - 1);
 
     value = exp2_table [log & 0xff] | 0x100;
 

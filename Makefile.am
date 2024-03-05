@@ -1,12 +1,12 @@
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = wavpack.pc
 
-dist_doc_data = README.md
-dist_pdf_data = \
+dist_doc_DATA = README.md
+dist_pdf_DATA = \
 	doc/WavPack5FileFormat.pdf \
 	doc/WavPack5LibraryDoc.pdf \
 	doc/WavPack5PortingGuide.pdf
-dist_html_data = \
+dist_html_DATA = \
 	doc/wavpack_doc.html \
 	doc/style.css
 
@@ -14,7 +14,25 @@ EXTRA_DIST = \
 	CMakeLists.txt \
 	cmake/CheckCLinkerFlag.cmake \
 	cmake/modules/FindIconv.cmake \
-	cmake/TestLargeFiles.cmake
+	cmake/TestLargeFiles.cmake \
+	\
+	cli/Makefile.w32 \
+	src/Makefile.os2 \
+	src/Makefile.w32 \
+	src/wavpack.exports \
+	src/pack_x64.asm \
+	src/pack_x86.asm \
+	src/unpack_x64.asm \
+	src/unpack_x86.asm \
+	\
+	src/libwavpack.vcxproj \
+	wavpackexe/wavpack.vcxproj \
+	wavpackdll/wavpackdll.vcxproj \
+	wvgainexe/wvgain.vcxproj \
+	wvunpackexe/wvunpack.vcxproj \
+	wvtagexe/wvtag.vcxproj \
+	wvtestexe/wvtest.vcxproj \
+	wavpack.sln masm.rules
 
 MAINTAINERCLEANFILES = \
 	aclocal.m4 \
@@ -38,7 +56,7 @@ if ENABLE_APPS
 bin_PROGRAMS = cli/wavpack cli/wvunpack cli/wvgain cli/wvtag
 endif
 
-cli_wavpack_SOURCES = cli/wavpack.c cli/riff.c cli/wave64.c cli/caff.c cli/dsdiff.c cli/dsf.c cli/utils.c cli/md5.c cli/import_id3.c
+cli_wavpack_SOURCES = cli/wavpack.c cli/riff.c cli/wave64.c cli/caff.c cli/dsdiff.c cli/dsf.c cli/aiff.c cli/utils.c cli/md5.c cli/import_id3.c
 if WINDOWS_HOST
 cli_wavpack_SOURCES += cli/win32_unicode_support.c
 endif
@@ -48,7 +66,7 @@ cli_wavpack_LDFLAGS = -rpath $(libdir)
 endif
 cli_wavpack_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
 
-cli_wvunpack_SOURCES = cli/wvunpack.c cli/riff_write.c cli/wave64_write.c cli/caff_write.c cli/dsdiff_write.c cli/dsf_write.c cli/utils.c cli/md5.c
+cli_wvunpack_SOURCES = cli/wvunpack.c cli/riff_write.c cli/wave64_write.c cli/caff_write.c cli/dsdiff_write.c cli/aiff_write.c cli/dsf_write.c cli/utils.c cli/md5.c
 if WINDOWS_HOST
 cli_wvunpack_SOURCES += cli/win32_unicode_support.c
 endif
@@ -78,13 +96,14 @@ cli_wvtag_LDFLAGS = -rpath $(libdir)
 endif
 cli_wvtag_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBICONV)
 
+# FIXME: wvtest relies on pthreads only and doesn't use win32 threads
 check_PROGRAMS = cli/wvtest
 cli_wvtest_SOURCES = cli/wvtest.c cli/md5.c
 cli_wvtest_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
 if ENABLE_RPATH
 cli_wvtest_LDFLAGS = -rpath $(libdir)
 endif
-cli_wvtest_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) -lpthread
+cli_wvtest_LDADD = $(AM_LDADD) src/libwavpack.la $(LIBM) $(LIBTHREAD)
 
 TESTS = cli/fast-tests
 TESTS_ENVIRONMENT = $(SHELL)
@@ -102,26 +121,11 @@ pkginclude_HEADERS = include/wavpack.h
 ########
 # man/ #
 ########
-if ENABLE_MAN
-.xml.1:
-	$(XSLTPROC) -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
-
-SUFFIXES = .1 .xml
-endif
-
 dist_man_MANS = \
 	man/wavpack.1 \
 	man/wvgain.1 \
 	man/wvunpack.1 \
 	man/wvtag.1
-
-EXTRA_DIST += \
-	man/wavpack.xml \
-	man/wvgain.xml \
-	man/wvunpack.xml \
-	man/wvtag.xml
-
-MAINTAINERCLEANFILES += $(man_MANS)
 
 ########
 # src/ #
@@ -175,6 +179,18 @@ if ENABLE_ARMASM
 src_libwavpack_la_SOURCES += src/unpack_armv7.S
 endif
 
+if WINDOWS_HOST
+if HAVE_WINDRES
+src_libwavpack_la_SOURCES += wavpackdll/dummy.c wavpackdll/wavpackdll.rc wavpackdll/resource.h
+src_libwavpack_la_DEPENDENCIES = wavpackdll/wavpackdll.o
+win32res_link = -Wl,wavpackdll/wavpackdll.o
+wavpackdll/wavpackdll.o: wavpackdll/wavpackdll.rc
+endif
+endif
+
 src_libwavpack_la_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include
-src_libwavpack_la_LIBADD = $(AM_LDADD) $(LIBM)
-src_libwavpack_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -export-symbols-regex '^Wavpack.*$$' -no-undefined
+src_libwavpack_la_LIBADD = $(AM_LDADD) $(LIBM) $(LIBTHREAD)
+src_libwavpack_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) $(win32res_link) -export-symbols-regex '^Wavpack.*$$' -no-undefined
+
+.rc.o:
+	$(RC) $(AM_CPPFLAGS) -i $< $@
