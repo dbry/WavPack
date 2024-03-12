@@ -822,6 +822,7 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd, int str
             if (!(wpc->open_flags & OPEN_ALT_TYPES))
                 return TRUE;
 
+            // fall through
         case ID_RIFF_HEADER: case ID_RIFF_TRAILER:
             return read_wrapper_data (wpc, wpmd);
 
@@ -829,6 +830,7 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd, int str
             if (!(wpc->open_flags & OPEN_ALT_TYPES))
                 return TRUE;
 
+            // fall through
         case ID_MD5_CHECKSUM:
             if (wpmd->byte_length == 16) {
                 memcpy (wpc->config.md5_checksum, wpmd->data, 16);
