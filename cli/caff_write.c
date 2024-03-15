@@ -92,12 +92,12 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
     int float_norm_exp = WavpackGetFloatNormExp (wpc);
     uint32_t channel_layout_tag = WavpackGetChannelLayout (wpc, NULL);
     unsigned char *channel_identities = malloc (num_channels + 1);
+    unsigned char *new_channel_order = NULL;
     int num_identified_chans, i;
 
     if (float_norm_exp && float_norm_exp != 127) {
         error_line ("invalid float data for CAFF, use --normalize-floats and omit MD5 check!");
-        free (channel_identities);
-        return FALSE;
+        goto error_exit;
     }
 
     // get the channel identities (including Microsoft) and count up the defined ones
@@ -117,7 +117,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
     if (!DoWriteFile (outfile, &caf_file_header, sizeof (caf_file_header), &bcount) ||
         bcount != sizeof (caf_file_header))
-            return FALSE;
+            goto error_exit;
 
     // format and write the Audio Description Chunk
 
@@ -127,7 +127,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
     if (!DoWriteFile (outfile, &caf_desc_chunk_header, sizeof (caf_desc_chunk_header), &bcount) ||
         bcount != sizeof (caf_desc_chunk_header))
-            return FALSE;
+            goto error_exit;
 
     caf_audio_format.mSampleRate = (double) sample_rate;
     memcpy (caf_audio_format.mFormatID, "lpcm", sizeof (caf_audio_format.mFormatID));
@@ -144,7 +144,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
     if (!DoWriteFile (outfile, &caf_audio_format, sizeof (caf_audio_format), &bcount) ||
         bcount != sizeof (caf_audio_format))
-            return FALSE;
+            goto error_exit;
 
     // we write the Channel Layout Chunk if any of these are true:
     // 1. a specific CAF layout was specified (100 - 147)
@@ -170,7 +170,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
             if (!DoWriteFile (outfile, &caf_chan_chunk_header, sizeof (caf_chan_chunk_header), &bcount) ||
                 bcount != sizeof (caf_chan_chunk_header))
-                    return FALSE;
+                    goto error_exit;
 
             if (channel_layout_tag) {
                 if (debug_logging_mode)
@@ -192,11 +192,10 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
             if (!DoWriteFile (outfile, &caf_channel_layout, sizeof (caf_channel_layout), &bcount) ||
                 bcount != sizeof (caf_channel_layout))
-                    return FALSE;
+                    goto error_exit;
         }
         else {  // write a channel description array because a single layout or bitmap won't do it...
             CAFChannelDescription caf_channel_description;
-            unsigned char *new_channel_order = NULL;
             int i;
 
             if (debug_logging_mode)
@@ -220,7 +219,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
             if (!DoWriteFile (outfile, &caf_chan_chunk_header, sizeof (caf_chan_chunk_header), &bcount) ||
                 bcount != sizeof (caf_chan_chunk_header))
-                    return FALSE;
+                    goto error_exit;
 
             caf_channel_layout.mChannelLayoutTag = kCAFChannelLayoutTag_UseChannelDescriptions;
             caf_channel_layout.mChannelBitmap = 0;
@@ -229,7 +228,7 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
             if (!DoWriteFile (outfile, &caf_channel_layout, sizeof (caf_channel_layout), &bcount) ||
                 bcount != sizeof (caf_channel_layout))
-                    return FALSE;
+                    goto error_exit;
 
             for (i = 0; i < num_channels; ++i) {
                 unsigned char chan_id = new_channel_order ? channel_identities [new_channel_order [i]] : channel_identities [i];
@@ -247,11 +246,8 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
                 if (!DoWriteFile (outfile, &caf_channel_description, sizeof (caf_channel_description), &bcount) ||
                     bcount != sizeof (caf_channel_description))
-                        return FALSE;
+                        goto error_exit;
             }
-
-            if (new_channel_order)
-                free (new_channel_order);
         }
     }
 
@@ -268,16 +264,21 @@ int WriteCaffHeader (FILE *outfile, WavpackContext *wpc, int64_t total_samples, 
 
     if (!DoWriteFile (outfile, &caf_data_chunk_header, sizeof (caf_data_chunk_header), &bcount) ||
         bcount != sizeof (caf_data_chunk_header))
-            return FALSE;
+            goto error_exit;
 
     mEditCount = 0;
     WavpackNativeToBigEndian (&mEditCount, "L");
 
     if (!DoWriteFile (outfile, &mEditCount, sizeof (mEditCount), &bcount) ||
         bcount != sizeof (mEditCount))
-            return FALSE;
+            goto error_exit;
 
+    free (new_channel_order);
     free (channel_identities);
-
     return TRUE;
+
+error_exit:
+    free (new_channel_order);
+    free (channel_identities);
+    return FALSE;
 }
