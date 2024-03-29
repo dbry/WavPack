@@ -197,8 +197,7 @@ int ParseRiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 supported = FALSE;
 
             if (!WaveHeader.NumChannels || WaveHeader.NumChannels > WAVPACK_MAX_CLI_CHANS ||
-                WaveHeader.BlockAlign / WaveHeader.NumChannels < (config->bits_per_sample + 7) / 8 ||
-                WaveHeader.BlockAlign / WaveHeader.NumChannels > 4 ||
+                WaveHeader.BlockAlign / WaveHeader.NumChannels != (config->bits_per_sample + 7) / 8 ||
                 WaveHeader.BlockAlign % WaveHeader.NumChannels)
                     supported = FALSE;
 
