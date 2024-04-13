@@ -34,6 +34,7 @@
 // Version 4.0 - June 22, 2023 (library ver 5.6.6, multithreading)
 // Version 4.1 - July 4, 2023 (fixed bug with handling of Type 3 "normalized" float setting)
 // Version 4.2 - Feb 26, 2024 (library ver 5.7.0)
+// Version 4.3 - April 13, 2024 (fixed bug with files > 24 chans, restored legacy support)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -959,7 +960,7 @@ static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, 
                     return TRUE;
 
                 case IDABOUT:
-                    sprintf (str, "Cool Edit / Audition Filter Version 4.2\n" "WavPack Library Version %s\n"
+                    sprintf (str, "Cool Edit / Audition Filter Version 4.3\n" "WavPack Library Version %s\n"
                         "Copyright (c) 2024 David Bryant", WavpackGetLibraryVersionString());
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
@@ -1429,9 +1430,8 @@ DWORD PASCAL FilterGetFirstSpecialData (HANDLE hInput, SPECIALDATA *psp)
 
     if (in && in->wpc) {
         WavpackContext *wpc = in->wpc;
-        int32_t buffer [24];
 
-        WavpackUnpackSamples (wpc, buffer, 1);
+        WavpackSeekTrailingWrapper (wpc);
         in->special_bytes = WavpackGetWrapperBytes (wpc);
         in->special_data = WavpackGetWrapperData (wpc);
 
