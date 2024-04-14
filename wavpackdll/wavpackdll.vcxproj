@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|ARM64">
-      <Configuration>Debug</Configuration>
-      <Platform>ARM64</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
@@ -12,10 +8,6 @@
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|ARM64">
-      <Configuration>Release</Configuration>
-      <Platform>ARM64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
@@ -44,15 +36,7 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v142</PlatformToolset>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v142</PlatformToolset>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
@@ -69,13 +53,7 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -92,22 +70,12 @@
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
-    <LinkIncremental>true</LinkIncremental>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
-    <LinkIncremental>false</LinkIncremental>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
@@ -223,61 +191,6 @@
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention />
       <TargetMachine>MachineX64</TargetMachine>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <Midl />
-    <ClCompile>
-      <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <MinimalRebuild>false</MinimalRebuild>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <CompileAs>Default</CompileAs>
-    </ClCompile>
-    <Link>
-      <AdditionalOptions>/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode
-/export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples
-/export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem
-/export:WavpackGetEncodedNoise
-
-/export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput
-/export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples
-/export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum
-/export:WavpackUpdateNumSamples /export:WavpackGetWrapperLocation
-/export:WavpackAppendTagItem /export:WavpackAppendBinaryTagItem /export:WavpackDeleteTagItem /export:WavpackWriteTag
-/export:WavpackGetNumSamples /export:WavpackGetSampleIndex /export:WavpackGetNumErrors
-/export:WavpackLossyBlocks /export:WavpackGetProgress /export:WavpackGetFileSize
-/export:WavpackGetRatio /export:WavpackGetAverageBitrate /export:WavpackGetInstantBitrate
-/export:WavpackCloseFile /export:WavpackGetSampleRate /export:WavpackGetNumChannels
-/export:WavpackGetChannelMask /export:WavpackGetFloatNormExp
-/export:WavpackGetBitsPerSample /export:WavpackGetBytesPerSample
-/export:WavpackGetReducedChannels /export:WavpackGetWrapperBytes
-/export:WavpackGetWrapperData /export:WavpackFreeWrapper
-/export:WavpackSeekTrailingWrapper /export:WavpackGetMD5Sum
-/export:WavpackBigEndianToNative /export:WavpackNativeToBigEndian
-/export:WavpackLittleEndianToNative /export:WavpackNativeToLittleEndian
-/export:WavpackGetLibraryVersion /export:WavpackGetLibraryVersionString
-
-/export:WavpackOpenRawDecoder /export:WavpackOpenFileInputEx64
-/export:WavpackGetNumSamples64 /export:WavpackGetSampleIndex64
-/export:WavpackSeekSample64 /export:WavpackGetFileSize64
-/export:WavpackGetQualifyMode /export:WavpackGetFileExtension
-/export:WavpackGetFileFormat /export:WavpackGetNumSamplesInFrame
-/export:WavpackGetNativeSampleRate /export:WavpackGetChannelIdentities
-/export:WavpackGetChannelLayout /export:WavpackSetFileInformation
-/export:WavpackSetConfiguration64 /export:WavpackSetChannelLayout
-/export:WavpackVerifySingleBlock
- %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)wavpackdll.dll</OutputFile>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Windows</SubSystem>
-      <DataExecutionPrevention>
-      </DataExecutionPrevention>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -401,67 +314,6 @@
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention />
       <TargetMachine>MachineX64</TargetMachine>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <Midl />
-    <ClCompile>
-      <Optimization>MaxSpeed</Optimization>
-      <AdditionalIncludeDirectories>..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <OmitFramePointers>true</OmitFramePointers>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <CompileAs>Default</CompileAs>
-    </ClCompile>
-    <Link>
-      <AdditionalOptions>/export:WavpackOpenFileInput /export:WavpackOpenFileInputEx /export:WavpackGetMode
-/export:WavpackGetVersion /export:WavpackGetErrorMessage /export:WavpackUnpackSamples
-/export:WavpackSeekSample /export:WavpackGetNumTagItems /export:WavpackGetNumBinaryTagItems /export:WavpackGetTagItem /export:WavpackGetBinaryTagItem
-/export:WavpackGetEncodedNoise
-
-/export:WavpackGetTagItemIndexed /export:WavpackGetBinaryTagItemIndexed /export:WavpackOpenFileOutput
-/export:WavpackSetConfiguration /export:WavpackPackInit /export:WavpackPackSamples
-/export:WavpackFlushSamples /export:WavpackAddWrapper /export:WavpackStoreMD5Sum
-/export:WavpackUpdateNumSamples /export:WavpackGetWrapperLocation
-/export:WavpackAppendTagItem /export:WavpackAppendBinaryTagItem /export:WavpackDeleteTagItem /export:WavpackWriteTag
-/export:WavpackGetNumSamples /export:WavpackGetSampleIndex /export:WavpackGetNumErrors
-/export:WavpackLossyBlocks /export:WavpackGetProgress /export:WavpackGetFileSize
-/export:WavpackGetRatio /export:WavpackGetAverageBitrate /export:WavpackGetInstantBitrate
-/export:WavpackCloseFile /export:WavpackGetSampleRate /export:WavpackGetNumChannels
-/export:WavpackGetChannelMask /export:WavpackGetFloatNormExp
-/export:WavpackGetBitsPerSample /export:WavpackGetBytesPerSample
-/export:WavpackGetReducedChannels /export:WavpackGetWrapperBytes
-/export:WavpackGetWrapperData /export:WavpackFreeWrapper
-/export:WavpackSeekTrailingWrapper /export:WavpackGetMD5Sum
-/export:WavpackBigEndianToNative /export:WavpackNativeToBigEndian
-/export:WavpackLittleEndianToNative /export:WavpackNativeToLittleEndian
-/export:WavpackGetLibraryVersion /export:WavpackGetLibraryVersionString
-
-/export:WavpackOpenRawDecoder /export:WavpackOpenFileInputEx64
-/export:WavpackGetNumSamples64 /export:WavpackGetSampleIndex64
-/export:WavpackSeekSample64 /export:WavpackGetFileSize64
-/export:WavpackGetQualifyMode /export:WavpackGetFileExtension
-/export:WavpackGetFileFormat /export:WavpackGetNumSamplesInFrame
-/export:WavpackGetNativeSampleRate /export:WavpackGetChannelIdentities
-/export:WavpackGetChannelLayout /export:WavpackSetFileInformation
-/export:WavpackSetConfiguration64 /export:WavpackSetChannelLayout
-/export:WavpackVerifySingleBlock
- %(AdditionalOptions)</AdditionalOptions>
-      <OutputFile>$(OutDir)wavpackdll.dll</OutputFile>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
-      <SubSystem>Windows</SubSystem>
-      <OptimizeReferences>true</OptimizeReferences>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <RandomizedBaseAddress>false</RandomizedBaseAddress>
-      <DataExecutionPrevention>
-      </DataExecutionPrevention>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
