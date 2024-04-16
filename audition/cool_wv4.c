@@ -625,6 +625,7 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
         WavpackContext *wpc = in->wpc;
         int bytes_per_sample = WavpackGetBitsPerSample (wpc) > 16 ? 4 :
             (WavpackGetBitsPerSample (wpc) > 8 ? 2 : 1);
+        int padding_bits = (WavpackGetBytesPerSample (wpc) - (WavpackGetBitsPerSample (wpc) + 7) / 8) * 8;
         int num_channels = WavpackGetNumChannels (wpc);
         int32_t samples_to_read = lBytes / bytes_per_sample / num_channels;
         int32_t *buffer = (int32_t *) lpbData;
@@ -641,15 +642,23 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
             int32_t samcnt = samples_to_read * num_channels, *inp = buffer;
             unsigned char *out = (unsigned char *) lpbData;
 
-            while (samcnt--)
-                *out++ = *inp++ + 128;
+            if (padding_bits)
+                while (samcnt--)
+                    *out++ = (*inp++ >> padding_bits) + 128;
+            else
+                while (samcnt--)
+                    *out++ = *inp++ + 128;
         }
         else if (bytes_per_sample == 2) {
             int32_t samcnt = samples_to_read * num_channels, *inp = buffer;
             short *out = (short *) lpbData;
 
-            while (samcnt--)
-                *out++ = *inp++;
+            if (padding_bits)
+                while (samcnt--)
+                    *out++ = *inp++ >> padding_bits;
+            else
+                while (samcnt--)
+                    *out++ = *inp++;
         }
         else if (!(WavpackGetMode (wpc) & MODE_FLOAT)) {
             int32_t samcnt = samples_to_read * num_channels;
@@ -658,8 +667,12 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
             if (WavpackGetBitsPerSample (wpc) > 24)
                 factor /= 256.0;
 
-            while (samcnt--)
-                *out++ = *buffer++ * factor;
+            if (padding_bits)
+                while (samcnt--)
+                    *out++ = (*buffer++ >> padding_bits) * factor;
+            else
+                while (samcnt--)
+                    *out++ = *buffer++ * factor;
         }
         else if ((WavpackGetMode (wpc) & MODE_FLOAT) && WavpackGetFloatNormExp (wpc) != COOL_EDIT_FLOAT_NORMAL)
             WavpackFloatNormalize (buffer, samples_to_read * num_channels,
