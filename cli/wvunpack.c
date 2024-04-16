@@ -2768,9 +2768,13 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 
     if ((WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO) && !raw_pcm)
         fprintf (dst, "source:            1-bit DSD at %u Hz\n", WavpackGetNativeSampleRate (wpc));
-    else
+    else if ((WavpackGetBitsPerSample (wpc) + 7) / 8 == WavpackGetBytesPerSample (wpc))
         fprintf (dst, "source:            %d-bit %s at %u Hz\n", WavpackGetBitsPerSample (wpc),
             (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints",
+            WavpackGetSampleRate (wpc));
+    else
+        fprintf (dst, "source:            %d-bit %s (in %d bytes each) at %u Hz\n", WavpackGetBitsPerSample (wpc),
+            (WavpackGetMode (wpc) & MODE_FLOAT) ? "floats" : "ints", WavpackGetBytesPerSample (wpc),
             WavpackGetSampleRate (wpc));
 
     if (!channel_mask)
