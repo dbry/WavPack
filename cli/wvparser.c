@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <ctype.h>
 #ifdef _WIN32
 #include <io.h>
 #endif
@@ -131,30 +132,72 @@ static void parse_wavpack_block (unsigned char *block_data);
 static int verify_wavpack_block (unsigned char *buffer);
 
 static const char *sign_on = "\n"
-" WVPARSER  WavPack Audio File Parser Test Filter  Version 1.10\n"
+" WVPARSER  WavPack Audio File Parser Test Filter  Version 1.20\n"
 " Copyright (c) 1998 - 2024 David Bryant.  All Rights Reserved.\n\n";
+
+static const char *usage =
+" Usage:     WVPARSER [-options] < infile.wv [> outfile.txt]\n\n"
+" Operation: WavPack file at stdin is parsed and displayed to stdout\n\n"
+" Options:  -h     = display this help message and exit\n"
+"           -v0    = show basic frame information only\n"
+"           -v1    = also list metadata blocks found (default)\n"
+"           -v2    = also display up to 16 bytes of each metadata block\n\n"
+" Web:      Visit www.github.com/dbry/WavPack for latest version and info\n\n";
+
+static int verbosity = 1;
 
 int main (int argc, char **argv)
 {
     uint32_t bcount, total_bytes, sample_rate, first_sample, last_sample = -1L;
-    int channel_count, block_count;
+    int channel_count, block_count, asked_help = 0;
     char flags_list [256];
-    FILE *outfile = NULL;
     WavpackHeader wphdr;
-
-    if (argc > 1) {
-        outfile = fopen (argv [1], "wb");
-
-        if (!outfile) {
-            fprintf (stderr, "can't open file '%s'!\n", argv [1]);
-            return 1;
-        }
-    }
 
 #ifdef _WIN32
     setmode (_fileno (stdin), O_BINARY);
 #endif
     fprintf (stderr, "%s", sign_on);
+
+    // loop through command-line arguments
+
+    while (--argc) {
+#if defined (_WIN32)
+        if ((**++argv == '-' || **argv == '/') && (*argv)[1])
+#else
+        if ((**++argv == '-') && (*argv)[1])
+#endif
+            while (*++*argv)
+                switch (**argv) {
+
+                    case 'H': case 'h':
+                        asked_help = 1;
+                        break;
+
+                    case 'V': case 'v':
+                        verbosity = strtol (++*argv, argv, 10);
+
+                        if (verbosity < 0 || verbosity > 2) {
+                            fprintf (stderr, "\nverbosity  must be 0, 1, or 2!\n");
+                            return -1;
+                        }
+
+                        --*argv;
+                        break;
+
+                    default:
+                        fprintf (stderr, "\nillegal option: %c !\n", **argv);
+                        return 1;
+                }
+        else {
+            fprintf (stderr, "\nextra unknown argument: %s !\n", *argv);
+            return 1;
+        }
+    }
+
+    if (asked_help) {
+        printf ("%s", usage);
+        return 0;
+    }
 
     while (1) {
 
@@ -235,10 +278,6 @@ int main (int argc, char **argv)
 
             memcpy (block_buff, &wphdr, sizeof (WavpackHeader));
 	    read_bytes (block_buff + sizeof (WavpackHeader), block_size - sizeof (WavpackHeader));
-
-            if (outfile)    // add condition here if desired to select only certain blocks be written
-                fwrite (block_buff, block_size, 1, outfile);
-
             parse_wavpack_block (block_buff);
 	    free (block_buff);
 	}
@@ -272,9 +311,6 @@ int main (int argc, char **argv)
 	    }
 	}
     }
-
-    if (outfile)
-        fclose (outfile);
 
     return 0;
 }
@@ -335,12 +371,24 @@ static void parse_wavpack_block (unsigned char *block_data)
 
     while (read_metadata_buff (&wpmd, block_data, &blockptr)) {
         metadata_count++;
-        if (wpmd.id & 0x10)
-            printf ("  metadata: ID = 0x%02x (UNASSIGNED), size = %d bytes\n", wpmd.id, wpmd.byte_length);
-        else if (wpmd.id & 0x20)
-            printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id - 0x10], wpmd.byte_length);
-        else
-            printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id], wpmd.byte_length);
+
+        if (verbosity >= 1) {
+            if (wpmd.id & 0x10)
+                printf ("  metadata: ID = 0x%02x (UNASSIGNED), size = %d bytes\n", wpmd.id, wpmd.byte_length);
+            else if (wpmd.id & 0x20)
+                printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id - 0x10], wpmd.byte_length);
+            else
+                printf ("  metadata: ID = 0x%02x (%s), size = %d bytes\n", wpmd.id, metadata_names [wpmd.id], wpmd.byte_length);
+
+            if (verbosity >= 2 && wpmd.data && wpmd.byte_length) {
+                int i;
+                printf ("   0x0:");
+                for (i = 0; i < 16 && i < wpmd.byte_length; ++i)
+                    printf (" %02x", ((unsigned char *) wpmd.data) [i]);
+
+                if (wpmd.byte_length > i) printf (" ...\n"); else printf ("\n");
+            }
+        }
     }
 
     if (blockptr != block_data + wphdr->ckSize + 8)
