@@ -324,6 +324,15 @@ static struct tag_item {
     int vsize, binary;
 } *tag_items;
 
+#ifndef MAX_NTERMS
+#define MAX_NTERMS 16
+typedef struct {
+    signed char joint_stereo, delta, terms [MAX_NTERMS+1];
+} WavpackDecorrSpec;
+#endif
+
+static WavpackDecorrSpec override_specs = { 1, 2, {18,18, 2,17, 3} };
+
 #if defined (_WIN32)
 static int pause_mode, drop_mode;
 #endif
@@ -668,6 +677,44 @@ int main (int argc, char **argv)
 #else
                 error_line ("warning: --threads not enabled, ignoring option!");
 #endif
+            }
+            else if (!strncmp (long_option, "delta", 5)) {                  // --delta
+                override_specs.delta = strtol (long_param, NULL, 10);
+
+                if (override_specs.delta < 0 || override_specs.delta > 7) {
+                    error_line ("invalid delta!");
+                    ++error_count;
+                }
+            }
+            else if (!strncmp (long_option, "terms", 5)) {                  // --terms
+                int ti = -1;
+
+                memset (override_specs.terms, 0, sizeof (override_specs.terms));
+
+                for (ti = 0; *long_param && (*long_param == '-' || isdigit (*long_param)) && ti < MAX_NTERMS; ++ti) {
+                    int term = strtol (long_param, &long_param, 10);
+
+                    if (!term || term < -3 || term > 18 || (term > 8 && term < 17)) {
+                        error_line ("invalid term %d specified!", term);
+                        ti = -1;
+                        break;
+                    }
+
+                    override_specs.terms [ti] = term;
+
+                    if (*long_param == ',')
+                        long_param++;
+                }
+
+                if (*long_param) {
+                    error_line ("syntax error in decorrelation terms!");
+                    ti = -1;
+                }
+
+                if (ti >= 0)
+                    config.decorr_override = (void*) &override_specs;
+                else
+                    error_count++;
             }
             else {
                 error_line ("unknown option: %s !", long_option);
@@ -2459,7 +2506,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             log10 (peak / full_scale_rms) * 10);
     }
 
-    if (!quiet_mode) {
+    if (!quiet_mode || quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
 
         if (imported_tag_items)
@@ -2936,11 +2983,11 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     input_mode = WavpackGetMode (infile);
 
-    if (!(input_mode & MODE_LOSSLESS) && output_lossless) {
-        error_line ("can't transcode lossy file %s to lossless...not allowed!", infilename);
-        WavpackCloseFile (infile);
-        return WAVPACK_SOFT_ERROR;
-    }
+    // if (!(input_mode & MODE_LOSSLESS) && output_lossless) {
+    //     error_line ("can't transcode lossy file %s to lossless...not allowed!", infilename);
+    //     WavpackCloseFile (infile);
+    //     return WAVPACK_SOFT_ERROR;
+    // }
 
     total_samples = WavpackGetNumSamples64 (infile);
 
