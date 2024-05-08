@@ -205,7 +205,7 @@ typedef struct {
     int32_t block_samples, worker_threads, sample_rate, channel_mask;
     unsigned char md5_checksum [16], md5_read;
     int num_tag_strings;                // this field is not used
-    char **tag_strings;                 // this field is not used
+    void *decorr_override;              // decorrelator override
 } WavpackConfig;
 
 #define CONFIG_HYBRID_FLAG      8       // hybrid mode

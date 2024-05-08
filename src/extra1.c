@@ -471,8 +471,9 @@ static void analyze_mono (WavpackStream *wps, int32_t *samples, int do_samples)
         free (info.sampleptrs [i]);
 }
 
-static void mono_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
+static void mono_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr, double input_sum)
 {
+    double residual_sum = 0.0, unshaped_sum = 0.0, shaped_sum = 0.0;
     int shaping_weight, is_new = wps->wphdr.flags & NEW_SHAPING;
     short *shaping_array = wps->dc.shaping_array;
     int32_t error = 0, temp, cnt;
@@ -482,6 +483,8 @@ static void mono_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
 
     if (wps->wphdr.flags & HYBRID_SHAPE) {
         while (cnt--) {
+            int32_t lvalue = lptr [0];
+
             if (shaping_array)
                 shaping_weight = *shaping_array++;
             else
@@ -494,10 +497,15 @@ static void mono_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
                     temp = (temp < 0) ? temp + 1 : temp - 1;
 
                 lptr [0] += (error = nosend_word (wps, rptr [0], 0) - rptr [0] + temp);
+                unshaped_sum += (double)(error - temp) * (error - temp);
             }
-            else
+            else {
                 lptr [0] += (error = nosend_word (wps, rptr [0], 0) - rptr [0]) + temp;
+                unshaped_sum += (double)error * error;
+            }
 
+            residual_sum += (double)rptr [0] * rptr [0];
+            shaped_sum += (double)(lptr [0] - lvalue) * (lptr [0] - lvalue);
             lptr++;
             rptr++;
         }
@@ -507,10 +515,19 @@ static void mono_add_noise (WavpackStream *wps, int32_t *lptr, int32_t *rptr)
     }
     else
         while (cnt--) {
+            int32_t lvalue = lptr [0];
             lptr [0] += nosend_word (wps, rptr [0], 0) - rptr [0];
+            residual_sum += (double)rptr [0] * rptr [0];
+            unshaped_sum = shaped_sum += (double)(lptr [0] - lvalue) * (lptr [0] - lvalue);
             lptr++;
             rptr++;
         }
+
+    fprintf (stderr, "input ave = %.0f, residual ave = %.0f, added noise = %.0f unshaped / %.0f shaped\n",
+        sqrt (input_sum / wps->wphdr.block_samples),
+        sqrt (residual_sum / wps->wphdr.block_samples),
+        sqrt (unshaped_sum / wps->wphdr.block_samples),
+        sqrt (shaped_sum / wps->wphdr.block_samples));
 }
 
 void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_samples)
@@ -554,9 +571,13 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
     best_buffer = malloc (buf_size);
 
     if (wps->num_passes > 1 && (wps->wphdr.flags & HYBRID_FLAG)) {
+        double input_sum = 0.0;
         CLEAR (temp_decorr_pass);
         temp_decorr_pass.delta = 2;
         temp_decorr_pass.term = 18;
+
+        for (int i = 0; i < num_samples; ++i)
+            input_sum += (double)samples [i] * samples [i];
 
         decorr_mono_pass (samples, temp_buffer [0],
             num_samples > 2048 ? 2048 : num_samples, &temp_decorr_pass, -1);
@@ -573,7 +594,8 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
         decorr_mono_pass (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass, 1);
         noisy_buffer = malloc (buf_size);
         memcpy (noisy_buffer, samples, buf_size);
-        mono_add_noise (wps, noisy_buffer, temp_buffer [1]);
+
+        mono_add_noise (wps, noisy_buffer, temp_buffer [1], input_sum);
         no_history = 1;
     }
 

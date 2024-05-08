@@ -264,6 +264,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
     wpc->config.sample_rate = config->sample_rate;
     wpc->config.num_channels = config->num_channels;
     wpc->config.channel_mask = config->channel_mask;
+    wpc->config.decorr_override = config->decorr_override;
     wpc->config.bits_per_sample = config->bits_per_sample;
     wpc->config.bytes_per_sample = config->bytes_per_sample;
     wpc->config.worker_threads = config->worker_threads;
