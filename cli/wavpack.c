@@ -1059,7 +1059,7 @@ int main (int argc, char **argv)
         }
     }
     else {
-        if (config.flags & (CONFIG_CALC_NOISE | CONFIG_SHAPE_OVERRIDE | CONFIG_CREATE_WVC | CONFIG_DYNAMIC_SHAPING)) {
+        if (config.flags & (CONFIG_SHAPE_OVERRIDE | CONFIG_CREATE_WVC | CONFIG_DYNAMIC_SHAPING)) {
             error_line ("-c, -n, -s, and --use-dns options are for hybrid mode (-b) only!");
             ++error_count;
         }
@@ -3561,7 +3561,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             log10 (peak / full_scale_rms) * 10);
     }
 
-    if (!quiet_mode) {
+    if (!quiet_mode || quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
 
         if (imported_tag_items)

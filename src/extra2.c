@@ -872,8 +872,11 @@ void execute_stereo (WavpackStream *wps, int32_t *samples, int no_history, int d
         else if (noisy_buffer) {
             analyze_stereo (wps, noisy_buffer, do_samples);
 
-            if (do_samples)
+            if (do_samples) {
+                fprintf (stderr, "execute_stereo(): do_samples with hybrid should ever happen!\n");
+                exit (1);
                 memcpy (samples, noisy_buffer, buf_size);
+            }
         }
         else
             analyze_stereo (wps, samples, do_samples);

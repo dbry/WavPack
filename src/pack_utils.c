@@ -311,6 +311,18 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         if (config->flags & CONFIG_HYBRID_FLAG) {
             flags |= HYBRID_FLAG | HYBRID_BITRATE | HYBRID_BALANCE;
 
+            if (wpc->config.flags & (CONFIG_CROSS_DECORR | CONFIG_OPTIMIZE_WVC))
+                flags |= CROSS_DECORR;
+
+            if (config->flags & CONFIG_BITRATE_KBPS) {
+                bps = (uint32_t) floor (config->bitrate * 256000.0 / config->sample_rate / config->num_channels + 0.5);
+
+                if (bps > (64 << 8))
+                    bps = 64 << 8;
+            }
+            else
+                bps = (uint32_t) floor (config->bitrate * 256.0 + 0.5);
+
             // the noise-shaping override is used to specify a fixed shaping value, or to select no shaping
 
             if (config->flags & CONFIG_SHAPE_OVERRIDE) {
@@ -327,26 +339,14 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
                 if (!(config->flags & CONFIG_DYNAMIC_SHAPING)) {    // if nothing specified, use defaults
                     if (config->flags & CONFIG_OPTIMIZE_WVC)
                         wpc->config.shaping_weight = -0.5;
-                    else if (config->sample_rate >= 64000)
-                        wpc->config.shaping_weight = 1.0;
+                    else if (config->sample_rate >= 88200 && bps >= 1152)   // for high sample rates with high bitrates (>= 4.5
+                        wpc->config.shaping_weight = 1.0;                   // bits/sample) use 1st-order positive noise shaping
                     else
                         wpc->config.flags |= CONFIG_DYNAMIC_SHAPING;
                 }
 
                 flags |= HYBRID_SHAPE | NEW_SHAPING;
             }
-
-            if (wpc->config.flags & (CONFIG_CROSS_DECORR | CONFIG_OPTIMIZE_WVC))
-                flags |= CROSS_DECORR;
-
-            if (config->flags & CONFIG_BITRATE_KBPS) {
-                bps = (uint32_t) floor (config->bitrate * 256000.0 / config->sample_rate / config->num_channels + 0.5);
-
-                if (bps > (64 << 8))
-                    bps = 64 << 8;
-            }
-            else
-                bps = (uint32_t) floor (config->bitrate * 256.0 + 0.5);
         }
         else
             flags |= CROSS_DECORR;
