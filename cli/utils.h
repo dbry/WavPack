@@ -39,7 +39,7 @@
 #define WAVPACK_SOFT_ERROR  2
 #define WAVPACK_HARD_ERROR  3
 
-#define CLEAR(destin) memset (&destin, 0, sizeof (destin));
+#define CLEAR(destin) memset (&destin, 0, sizeof (destin))
 
 int copy_timestamp (const char *src_filename, const char *dst_filename);
 char *filespec_ext (char *filespec), *filespec_path (char *filespec);

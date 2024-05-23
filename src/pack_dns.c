@@ -19,8 +19,9 @@
 
 #include "wavpack_local.h"
 
-// #define NEW_DNS_METHOD
-#define VERBOSE
+#define NEW_DNS_METHOD
+// #define RMS_WINDOW_AVERAGE
+// #define VERBOSE
 
 #ifdef NEW_DNS_METHOD
 static void generate_dns_values (const int32_t *samples, int sample_count, uint32_t flags, short *values, short min_value);
@@ -181,7 +182,7 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
 
         best_floating_line (wps->dc.shaping_data, sample_count, &initial_y, &final_y, &max_error);
 
-#define MIN_BLOCK_SAMPLES 2
+#define MIN_BLOCK_SAMPLES 16
 
         if (shortening_allowed && max_error > max_allowed_error && sample_count > MIN_BLOCK_SAMPLES) {
             int min_samples = 0, max_samples = sample_count, trial_count;
@@ -255,10 +256,10 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
 
 #define HALF_WINDOW_WIDTH 50
 
-static void rms_average_buffer (float *samples, int sample_count)
+static void win_average_buffer (float *samples, int sample_count)
 {
     float *output = malloc (sample_count * sizeof (float));
-    double rms_sum = 0.0;
+    double sum = 0.0;
     int m = 0, n = 0;
     int i, j, k;
 
@@ -269,17 +270,31 @@ static void rms_average_buffer (float *samples, int sample_count)
         if (k > sample_count) k = sample_count;
         if (j < 0) j = 0;
 
+#ifdef RMS_WINDOW_AVERAGE
         while (m < j) {
-            rms_sum -= samples [m] * samples [m];
+            sum -= samples [m] * samples [m];
             m++;
         }
 
         while (n < k) {
-            rms_sum += samples [n] * samples [n];
+            sum += samples [n] * samples [n];
             n++;
         }
 
-        output [i] = sqrt (rms_sum / (n - m));
+        output [i] = sqrt (sum / (n - m));
+#else
+        while (m < j) {
+            sum -= fabs (samples [m]);
+            m++;
+        }
+
+        while (n < k) {
+            sum += fabs (samples [n]);
+            n++;
+        }
+
+        output [i] = sum / (n - m);
+#endif
     }
 
     memcpy (samples, output, sample_count * sizeof (float));
@@ -339,8 +354,8 @@ static void generate_dns_values (const int32_t *samples, int sample_count, uint3
 
     low_freq [0] = low_freq [1];
 
-    rms_average_buffer (low_freq, filtered_count);
-    rms_average_buffer (high_freq, filtered_count);
+    win_average_buffer (low_freq, filtered_count);
+    win_average_buffer (high_freq, filtered_count);
 
     for (i = 0; i < filtered_count; ++i) {
         float ratio = high_freq [i] / low_freq [i];

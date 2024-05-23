@@ -17,7 +17,7 @@
 
 #include "wavpack_local.h"
 
-#define VERBOSE
+// #define VERBOSE
 
 // This flag causes this module to take into account the size of the header
 // (which grows with more decorrelation passes) when making decisions about
@@ -33,8 +33,6 @@
 // are wildly unstable.
 
 #define LOG_LIMIT 6912
-
-// #define HANDLE_SHORT_BLOCKS
 
 //#define EXTRA_DUMP        // dump generated filter data  error_line()
 
@@ -143,7 +141,8 @@ static void decorr_mono_pass (int32_t *in_samples, int32_t *out_samples, uint32_
 
 static void decorr_mono_pass_reverse (int32_t *in_samples, int32_t *out_samples, uint32_t num_samples, struct decorr_pass *dpp)
 {
-#ifdef HANDLE_SHORT_BLOCKS
+    // decorr_mono_pass (in_samples, out_samples, num_samples > 2048 ? 2048 : num_samples, dpp, -1); return;
+
     if (num_samples < 2048) {
         int passes = (2048 + num_samples - 1) / num_samples;    // i.e., ceil (2048.0 / num_samples)
 
@@ -152,9 +151,6 @@ static void decorr_mono_pass_reverse (int32_t *in_samples, int32_t *out_samples,
     }
     else
         decorr_mono_pass (in_samples, out_samples, 2048, dpp, -1);
-#else
-    decorr_mono_pass (in_samples, out_samples, num_samples > 2048 ? 2048 : num_samples, dpp, -1);
-#endif
 }
 
 static void reverse_mono_decorr (struct decorr_pass *dpp)
@@ -272,7 +268,7 @@ static void recurse_mono (WavpackStream *wps, WavpackExtraInfo *info, int depth,
         decorr_mono_buffer (samples, outsamples, wps->wphdr.block_samples, info->dps, depth);
         bits = LOG2BUFFER (outsamples, wps->wphdr.block_samples, info->log_limit);
 
-        if (bits != (uint32_t) -1)
+        if (bits != (uint32_t) -1 && !(wps->wphdr.flags & HYBRID_FLAG))
             bits += log2overhead (info->dps [0].term, depth + 1);
 
         if (bits < info->best_bits) {
@@ -336,7 +332,7 @@ static void delta_mono (WavpackStream *wps, WavpackExtraInfo *info)
 
         bits = LOG2BUFFER (info->sampleptrs [i], wps->wphdr.block_samples, info->log_limit);
 
-        if (bits != (uint32_t) -1)
+        if (bits != (uint32_t) -1 && !(wps->wphdr.flags & HYBRID_FLAG))
             bits += log2overhead (wps->decorr_passes [0].term, i);
 
         if (bits < info->best_bits) {
@@ -361,7 +357,7 @@ static void delta_mono (WavpackStream *wps, WavpackExtraInfo *info)
 
         bits = LOG2BUFFER (info->sampleptrs [i], wps->wphdr.block_samples, info->log_limit);
 
-        if (bits != (uint32_t) -1)
+        if (bits != (uint32_t) -1 && !(wps->wphdr.flags & HYBRID_FLAG))
             bits += log2overhead (wps->decorr_passes [0].term, i);
 
         if (bits < info->best_bits) {
@@ -404,7 +400,7 @@ static void sort_mono (WavpackStream *wps, WavpackExtraInfo *info)
 
             bits = LOG2BUFFER (info->sampleptrs [i], wps->wphdr.block_samples, info->log_limit);
 
-            if (bits != (uint32_t) -1)
+            if (bits != (uint32_t) -1 && !(wps->wphdr.flags & HYBRID_FLAG))
                 bits += log2overhead (wps->decorr_passes [0].term, i);
 
             if (bits < info->best_bits) {
@@ -425,7 +421,7 @@ static void sort_mono (WavpackStream *wps, WavpackExtraInfo *info)
 
 static const uint32_t xtable [] = { 91, 123, 187, 251 };
 
-static void analyze_mono (WavpackStream *wps, int32_t *samples, int do_samples)
+static void analyze_mono (WavpackStream *wps, int32_t *samples, int32_t *best_buffer)
 {
     WavpackExtraInfo info;
     int i;
@@ -456,7 +452,10 @@ static void analyze_mono (WavpackStream *wps, int32_t *samples, int do_samples)
         decorr_mono_pass (info.sampleptrs [i], info.sampleptrs [i + 1], wps->wphdr.block_samples, info.dps + i, 1);
 
     info.best_bits = LOG2BUFFER (info.sampleptrs [info.nterms], wps->wphdr.block_samples, 0) * 1;
-    info.best_bits += log2overhead (info.dps [0].term, i);
+
+    if (!(wps->wphdr.flags & HYBRID_FLAG))
+        info.best_bits += log2overhead (info.dps [0].term, i);
+
     memcpy (info.sampleptrs [info.nterms + 1], info.sampleptrs [i], wps->wphdr.block_samples * 4);
 
     if (wps->extra_flags & EXTRA_BRANCHES)
@@ -478,8 +477,8 @@ static void analyze_mono (WavpackStream *wps, int32_t *samples, int do_samples)
     if (wps->extra_flags & EXTRA_SORT_LAST)
         sort_mono (wps, &info);
 
-    if (do_samples)
-        memcpy (samples, info.sampleptrs [info.nterms + 1], wps->wphdr.block_samples * 4);
+    if (best_buffer)
+        memcpy (best_buffer, info.sampleptrs [info.nterms + 1], wps->wphdr.block_samples * 4);
 
     for (i = 0; i < info.nterms; ++i)
         if (!wps->decorr_passes [i].term)
@@ -617,7 +616,7 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
         temp_decorr_pass.term = 17;
 
         decorr_mono_pass_reverse (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass);
-        // reverse_mono_decorr (&temp_decorr_pass);
+        reverse_mono_decorr (&temp_decorr_pass);
         decorr_mono_pass (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass, 1);
         noisy_buffer = malloc (buf_size);
         memcpy (noisy_buffer, samples, buf_size);
@@ -681,7 +680,8 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
             break;
         }
 
-        size += log2overhead (wpds->terms [0], nterms);
+        if (!(wps->wphdr.flags & HYBRID_FLAG))
+            size += log2overhead (wpds->terms [0], nterms);
 
         if (size < best_size) {
             memcpy (best_buffer, temp_buffer [j&1], buf_size);
@@ -695,20 +695,10 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
             wps->mask_decorr = wps->mask_decorr ? ((wps->mask_decorr << 1) & (wps->num_decorrs - 1)) : 1;
     }
 
-    if (wps->wpc->config.xmode > 3) {
-        if (noisy_buffer) {
-            analyze_mono (wps, noisy_buffer, do_samples);
+    if (wps->wpc->config.xmode > 3)
+        analyze_mono (wps, noisy_buffer ? noisy_buffer : samples, best_buffer);
 
-            if (do_samples) {
-                fprintf (stderr, "execute_mono(): do_samples with hybrid should ever happen!!\n");
-                exit (1);
-                memcpy (samples, noisy_buffer, buf_size);
-            }
-        }
-        else
-            analyze_mono (wps, samples, do_samples);
-    }
-    else if (do_samples)
+    if (do_samples)
         memcpy (samples, best_buffer, buf_size);
 
     if (no_history || wps->wpc->config.xmode > 3)
