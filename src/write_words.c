@@ -29,7 +29,7 @@
 
 #include "wavpack_local.h"
 
-#define VERBOSE
+// #define VERBOSE
 
 ///////////////////////////// executable code ////////////////////////////////
 

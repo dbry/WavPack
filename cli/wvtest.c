@@ -27,8 +27,6 @@
 #include "utils.h"                  // for PACKAGE_VERSION, etc.
 #include "md5.h"
 
-#define CLEAR(destin) memset (&destin, 0, sizeof (destin));
-
 #ifndef M_PI
 #define M_PI 3.14159265358979323
 #endif

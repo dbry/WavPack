@@ -21,7 +21,7 @@
 #include "wavpack_local.h"
 #include "decorr_tables.h"      // contains data, only include from this module!
 
-#define VERBOSE
+// #define VERBOSE
 
 ///////////////////////////// executable code ////////////////////////////////
 
