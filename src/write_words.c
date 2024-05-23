@@ -29,6 +29,8 @@
 
 #include "wavpack_local.h"
 
+#define VERBOSE
+
 ///////////////////////////// executable code ////////////////////////////////
 
 // Initialize entropy encoder for the specified stream. In lossless mode there
@@ -677,6 +679,24 @@ static void scan_word_pass (WavpackStream *wps, int32_t *samples, uint32_t num_s
 void scan_word (WavpackStream *wps, int32_t *samples, uint32_t num_samples, int dir)
 {
     init_words (wps);
+
+#ifdef VERBOSE
+    fprintf (stderr, "scan_word(): dir = %d, %d samples\n", dir, num_samples);
+    char samstring [256] = { 0 };
+    if (wps->wphdr.flags & MONO_DATA) {
+        for (int j = 0; j < num_samples && j < 16; ++j)
+            sprintf (samstring + strlen (samstring), " %d", samples [j]);
+        fprintf (stderr, "    %s%s\n", samstring, num_samples > 16 ? " ..." : "");
+    }
+    else {
+        for (int j = 0; j < num_samples && j < 16; ++j)
+            sprintf (samstring + strlen (samstring), " %d", samples [j*2]);
+        fprintf (stderr, "    %s%s\n", samstring, num_samples > 16 ? " ..." : "");
+        for (int j = samstring [0] = 0; j < num_samples && j < 16; ++j)
+            sprintf (samstring + strlen (samstring), " %d", samples [j*2+1]);
+        fprintf (stderr, "    %s%s\n", samstring, num_samples > 16 ? " ..." : "");
+    }
+#endif
 
     if (num_samples) {
         int passes = (2048 + num_samples - 1) / num_samples;    // i.e., ceil (2048.0 / num_samples)

@@ -21,6 +21,8 @@
 #include "wavpack_local.h"
 #include "decorr_tables.h"      // contains data, only include from this module!
 
+#define VERBOSE
+
 ///////////////////////////// executable code ////////////////////////////////
 
 // This function initializes everything required to pack WavPack bitstreams and
@@ -243,6 +245,14 @@ static void write_shaping_info (WavpackStream *wps, WavpackMetadata *wpmd)
 
     byteptr = wpmd->data = malloc (12);
     wpmd->id = ID_SHAPING_WEIGHTS;
+
+#ifdef VERBOSE
+    if (wps->wphdr.flags & MONO_DATA)
+        fprintf (stderr, "mono shaping initial error = %d\n", wps->dc.error [0]);
+    else
+        fprintf (stderr, "stereo shaping initial error = %d, %d\n",
+            wps->dc.error [0], wps->dc.error [1]);
+#endif
 
     wps->dc.error [0] = wp_exp2s (temp = wp_log2s (wps->dc.error [0]));
     *byteptr++ = temp;
@@ -471,6 +481,10 @@ int pack_block (WavpackStream *wps, int32_t *buffer)
     int32_t sample_count = wps->wphdr.block_samples, *orig_data = NULL;
     int dynamic_shaping_done = FALSE;
 
+#ifdef VERBOSE
+    fprintf (stderr, "\n");
+#endif
+
     // This is done first because this code can potentially change the size of the block about to
     // be encoded. This can happen because the dynamic noise shaping algorithm wants to send a
     // shorter block because the desired noise-shaping profile is changing quickly. It can also
@@ -613,6 +627,9 @@ int pack_block (WavpackStream *wps, int32_t *buffer)
         scan_int32_quick (wps, buffer, (flags & MONO_DATA) ? sample_count : sample_count * 2);
 
         if (wps->shift != wps->int32_zeros + wps->int32_ones + wps->int32_dups) {   // detect a change in any redundancy shifting here
+#ifdef VERBOSE
+            fprintf (stderr, "change of INT32 status triggers entropy reset\n");
+#endif
             wps->shift = wps->int32_zeros + wps->int32_ones + wps->int32_dups;
             wps->dc.error [0] = wps->dc.error [1] = 0;                              // on a change, clear the noise-shaping error term and
             wps->num_terms = 0;                                                     // also reset the entropy encoder (which this does)
@@ -724,6 +741,7 @@ static void scan_int32_quick (WavpackStream *wps, int32_t *values, int32_t num_v
     int32_t *dp, count;
 
     wps->int32_sent_bits = wps->int32_zeros = wps->int32_ones = wps->int32_dups = 0;
+    // return;
 
     for (dp = values, count = num_values; count--; dp++) {
         magdata |= (*dp < 0) ? ~*dp : *dp;
@@ -1182,6 +1200,19 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
             bs_open_write (&wps->wvcbits, wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 12, wps->block2end);
         }
 
+#ifdef VERBOSE
+        char termstring [128] = { 0 };
+        for (int j = 0; j < wps->num_terms; ++j)
+            sprintf (termstring + strlen (termstring), " %d", wps->decorr_passes [j].term);
+
+        fprintf (stderr, "initial medians = %d %d %d\n", (wps->w.c [0].median [0] >> 4) + 1,
+            (wps->w.c [0].median [1] >> 4) + 1, (wps->w.c [0].median [2] >> 4) + 1);
+
+        if (flags & HYBRID_FLAG)
+            fprintf (stderr, "initial slow level = %d, bitrate = %d, delta = %d\n",
+                wp_exp2s ((wps->w.c [0].slow_level + SLO) >> SLS), wps->w.bitrate_acc [0], wps->w.bitrate_delta [0]);
+#endif
+
         /////////////////////// handle lossless mono mode /////////////////////////
 
         if (!(flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
@@ -1191,14 +1222,12 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
             }
 
             send_words_lossless (wps, buffer, sample_count);
-
+#ifdef VERBOSE
             uint32_t bytes_written = (uint32_t)(wps->wvbits.ptr - wps->wvbits.buf) * sizeof (*(wps->wvbits.ptr));
 
-            fprintf (stderr, "%d: %d samples, %d bytes, %g noise, %d terms (\u0394%d), begin = %d %d %d %d %d ...\n",
-                block_index, sample_count, bytes_written, sqrt (noise_acc / sample_count),
-                wps->num_terms, wps->decorr_passes [0].delta, wps->decorr_passes [0].term,
-                wps->decorr_passes [1].term, wps->decorr_passes [2].term,
-                wps->decorr_passes [3].term, wps->decorr_passes [4].term);
+            fprintf (stderr, "%d: %d samples, %d bytes, %d terms (\u0394%d):%s\n", block_index, sample_count,
+                bytes_written, wps->num_terms, wps->decorr_passes [0].delta, termstring);
+#endif
         }
 
         //////////////////// handle the lossless stereo mode //////////////////////
@@ -1222,6 +1251,12 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
             }
 
             send_words_lossless (wps, buffer, sample_count);
+#ifdef VERBOSE
+            uint32_t bytes_written = (uint32_t)(wps->wvbits.ptr - wps->wvbits.buf) * sizeof (*(wps->wvbits.ptr));
+
+            fprintf (stderr, "%d: %d samples, %d bytes, %d terms (%s,\u0394%d):%s\n", block_index, sample_count, bytes_written,
+                wps->num_terms, (flags & JOINT_STEREO) ? "MS" : "LR", wps->decorr_passes [0].delta, termstring);
+#endif
         }
 
         /////////////////// handle the lossy/hybrid mono mode /////////////////////
@@ -1232,7 +1267,9 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                 int shaping_weight;
 
                 crc2 += (crc2 << 1) + (code = *bptr++);
-
+#ifdef VERBOSE
+                if (sample_count == 2) fprintf (stderr, "index %d: input sample %d\n", i, code);
+#endif
                 if (flags & HYBRID_SHAPE) {
                     if (shaping_array)
                         shaping_weight = *shaping_array++;
@@ -1265,8 +1302,14 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                         code -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [m]));
 
                 max_magnitude |= (code < 0 ? ~code : code);
-                code = send_word (wps, code, 0);
 
+#ifdef VERBOSE
+                int32_t input_code = code;
+#endif
+                code = send_word (wps, code, 0);
+#ifdef VERBOSE
+                if (sample_count == 2) fprintf (stderr, "index %d: %d --> %d\n", i, input_code, code);
+#endif
                 while (--dpp >= wps->decorr_passes) {
                     if (dpp->term > MAX_TERM) {
                         update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [2], code);
@@ -1280,6 +1323,10 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                         dpp->samples_A [(m + dpp->term) & (MAX_TERM - 1)] = (code += dpp->aweight_A);
                     }
                 }
+
+#ifdef VERBOSE
+                if (sample_count == 2) fprintf (stderr, "index %d: output sample %d\n", i, code);
+#endif
 
                 wps->dc.error [0] += code;
                 m = (m + 1) & (MAX_TERM - 1);
@@ -1297,31 +1344,28 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                         wps->dc.noise_max = wps->dc.noise_ave;
                 }
             }
-
+#ifdef VERBOSE
             if (wps->wpc->wvc_flag) {
                 uint32_t wvc_bytes = (uint32_t)(wps->wvcbits.ptr - wps->wvcbits.buf) * sizeof (*(wps->wvcbits.ptr));
                 uint32_t bytes = (uint32_t)(wps->wvbits.ptr - wps->wvbits.buf) * sizeof (*(wps->wvbits.ptr));
 
-                fprintf (stderr, "%d: %d samples, %d+%d bytes, %g noise, %d terms (\u0394%d), begin = %d %d %d %d %d ...\n",
+                fprintf (stderr, "%d: %d samples, %d+%d bytes, %g noise, %d terms (\u0394%d):%s\n",
                     block_index, sample_count, bytes, wvc_bytes, sqrt (noise_acc / sample_count),
-                    wps->num_terms, wps->decorr_passes [0].delta, wps->decorr_passes [0].term,
-                    wps->decorr_passes [1].term, wps->decorr_passes [2].term,
-                    wps->decorr_passes [3].term, wps->decorr_passes [4].term);
+                    wps->num_terms, wps->decorr_passes [0].delta, termstring);
             }
             else {
                 uint32_t bytes_written = (uint32_t)(wps->wvbits.ptr - wps->wvbits.buf) * sizeof (*(wps->wvbits.ptr));
 
-                fprintf (stderr, "%d: %d samples, %d bytes, %g noise, %d terms (\u0394%d), begin = %d %d %d %d %d ...\n",
+                fprintf (stderr, "%d: %d samples, %d bytes, %g noise, %d terms (\u0394%d):%s\n",
                     block_index, sample_count, bytes_written, sqrt (noise_acc / sample_count),
-                    wps->num_terms, wps->decorr_passes [0].delta, wps->decorr_passes [0].term,
-                    wps->decorr_passes [1].term, wps->decorr_passes [2].term,
-                    wps->decorr_passes [3].term, wps->decorr_passes [4].term);
+                    wps->num_terms, wps->decorr_passes [0].delta, termstring);
             }
+#endif
         }
 
         /////////////////// handle the lossy/hybrid stereo mode ///////////////////
 
-        else if ((flags & HYBRID_FLAG) && !(flags & MONO_DATA))
+        else if ((flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
             for (bptr = buffer, i = 0; i < sample_count; ++i) {
                 int32_t left, right, temp;
                 int shaping_weight;
@@ -1456,6 +1500,25 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                 }
             }
 
+#ifdef VERBOSE
+            if (wps->wpc->wvc_flag) {
+                uint32_t wvc_bytes = (uint32_t)(wps->wvcbits.ptr - wps->wvcbits.buf) * sizeof (*(wps->wvcbits.ptr));
+                uint32_t bytes = (uint32_t)(wps->wvbits.ptr - wps->wvbits.buf) * sizeof (*(wps->wvbits.ptr));
+
+                fprintf (stderr, "%d: %d samples, %d+%d bytes, %g noise, %d terms (%s,\u0394%d):%s\n",
+                    block_index, sample_count, bytes, wvc_bytes, sqrt (noise_acc / sample_count), wps->num_terms,
+                    (flags & JOINT_STEREO) ? "MS" : "LR", wps->decorr_passes [0].delta, termstring);
+            }
+            else {
+                uint32_t bytes_written = (uint32_t)(wps->wvbits.ptr - wps->wvbits.buf) * sizeof (*(wps->wvbits.ptr));
+
+                fprintf (stderr, "%d: %d samples, %d bytes, %g noise, %d terms (\u0394%d,%s):%s\n",
+                    block_index, sample_count, bytes_written, sqrt (noise_acc / sample_count),
+                    wps->num_terms, wps->decorr_passes [0].delta, (flags & JOINT_STEREO) ? "MS" : "LR", termstring);
+            }
+#endif
+        }
+
         if (m)
             for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
                 if (dpp->term > 0 && dpp->term <= MAX_TERM) {
@@ -1497,7 +1560,10 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
         if (wps->wpc->wvc_flag) {
             data_count = bs_close_write (&wps->wvcbits);
 
-            if (data_count && lossy) {
+#ifdef VERBOSE
+            fprintf (stderr, "wvc-bitstream, data_count = %d, lossy = %d\n", data_count, lossy);
+#endif
+            if (data_count) {
                 if (data_count != (uint32_t) -1) {
                     unsigned char *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
 
@@ -1548,6 +1614,7 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
             if (saved_buffer)
                 free (saved_buffer);
 
+#ifdef VERBOSE
             if ((flags & HYBRID_FLAG) && (flags & HYBRID_SHAPE)) {
                 shaping_array = wps->dc.shaping_array;
                 if (shaping_array) {
@@ -1576,6 +1643,14 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                         fprintf (stderr, "fixed noise shaping: %0.3f\n", (wps->dc.shaping_acc [0] >> 16) / 1024.0);
                 }
             }
+
+            fprintf (stderr, "final medians = %d %d %d\n",
+                (wps->w.c [0].median [0] >> 4) + 1, (wps->w.c [0].median [1] >> 4) + 1, (wps->w.c [0].median [2] >> 4) + 1);
+
+            if (flags & HYBRID_FLAG)
+                fprintf (stderr, "final slow level = %d, bitrate = %d, delta = %d\n",
+                    wp_exp2s ((wps->w.c [0].slow_level + SLO) >> SLS), wps->w.bitrate_acc [0], wps->w.bitrate_delta [0]);
+#endif
 
             break;
         }

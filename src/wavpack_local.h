@@ -425,8 +425,8 @@ struct WavpackContext {
 
 //////////////////////// function prototypes and macros //////////////////////
 
-#define CLEAR(destin) memset (&destin, 0, sizeof (destin));
-#define CLEARA(destin) memset (destin, 0, sizeof (destin)); /* for arrays */
+#define CLEAR(destin) memset (&destin, 0, sizeof (destin))
+#define CLEARA(destin) memset (destin, 0, sizeof (destin))  /* for arrays */
 
 //////////////////////////////// decorrelation //////////////////////////////
 // modules: pack.c, unpack.c, unpack_floats.c, extra1.c, extra2.c
@@ -495,7 +495,7 @@ int32_t unpack_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_cou
 int scan_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
 void send_float_data (WavpackStream *wps, f32 *values, int32_t num_values);
 void float_values (WavpackStream *wps, int32_t *values, int32_t num_values);
-void dynamic_noise_shaping (WavpackStream *wps, int32_t *buffer, int shortening_allowed);
+void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int shortening_allowed);
 void execute_stereo (WavpackStream *wps, int32_t *samples, int no_history, int do_samples);
 void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_samples);
 
