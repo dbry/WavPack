@@ -1267,9 +1267,7 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                 int shaping_weight;
 
                 crc2 += (crc2 << 1) + (code = *bptr++);
-#ifdef VERBOSE
-                if (sample_count == 2) fprintf (stderr, "index %d: input sample %d\n", i, code);
-#endif
+
                 if (flags & HYBRID_SHAPE) {
                     if (shaping_array)
                         shaping_weight = *shaping_array++;
@@ -1302,14 +1300,8 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                         code -= (dpp->aweight_A = apply_weight (dpp->weight_A, dpp->samples_A [m]));
 
                 max_magnitude |= (code < 0 ? ~code : code);
-
-#ifdef VERBOSE
-                int32_t input_code = code;
-#endif
                 code = send_word (wps, code, 0);
-#ifdef VERBOSE
-                if (sample_count == 2) fprintf (stderr, "index %d: %d --> %d\n", i, input_code, code);
-#endif
+
                 while (--dpp >= wps->decorr_passes) {
                     if (dpp->term > MAX_TERM) {
                         update_weight (dpp->weight_A, dpp->delta, dpp->samples_A [2], code);
@@ -1323,10 +1315,6 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                         dpp->samples_A [(m + dpp->term) & (MAX_TERM - 1)] = (code += dpp->aweight_A);
                     }
                 }
-
-#ifdef VERBOSE
-                if (sample_count == 2) fprintf (stderr, "index %d: output sample %d\n", i, code);
-#endif
 
                 wps->dc.error [0] += code;
                 m = (m + 1) & (MAX_TERM - 1);

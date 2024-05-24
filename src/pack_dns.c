@@ -62,13 +62,13 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
                 temp = *bptr-- - apply_weight (ap->weight_A, sam);
                 update_weight (ap->weight_A, 2, sam, temp);
             }
-            // fprintf (stderr, "dynamic_noise_shaping(1): reverse scan, weight = %d\n", ap->weight_A);
+
             for (bptr = buffer + sample_count - 3, sc = sample_count - 2; sc--;) {
                 sam = (3 * bptr [1] - bptr [2]) >> 1;
                 temp = *bptr-- - apply_weight (ap->weight_A, sam);
                 update_weight (ap->weight_A, 2, sam, temp);
             }
-            // fprintf (stderr, "dynamic_noise_shaping(2): reverse scan, weight = %d\n", ap->weight_A);
+
         }
         else {
             for (bptr = buffer + (sample_count - 3) * 2 + 1, sc = sample_count - 2; sc--;) {
@@ -79,7 +79,6 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
                 temp = *bptr-- - apply_weight (ap->weight_A, sam);
                 update_weight (ap->weight_A, 2, sam, temp);
             }
-            // fprintf (stderr, "dynamic_noise_shaping(): reverse scan, weights = %d, %d\n", ap->weight_A, ap->weight_B);
         }
     }
 #endif
@@ -101,7 +100,6 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
                 ap->samples_A [0] = *bptr++;
                 *swptr++ = (ap->weight_A < 256) ? 1024 : 1536 - ap->weight_A * 2;
             }
-            // fprintf (stderr, "dynamic_noise_shaping(): forward scan, weight = %d\n", ap->weight_A);
         }
         else {
             while (sc--) {
@@ -119,7 +117,6 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
 
                 *swptr++ = (ap->weight_A + ap->weight_B < 512) ? 1024 : 1536 - ap->weight_A - ap->weight_B;
             }
-            // fprintf (stderr, "dynamic_noise_shaping(): foward scan, weights = %d, %d\n", ap->weight_A, ap->weight_B);
         }
 #else
         short *new_values = malloc (sample_count * sizeof (short));

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2...3.5)
 
-project(WavPack VERSION 5.7.0)
+project(WavPack VERSION 5.7.2)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/configure.ac" CONFIGURE_AC)
 string(REGEX MATCH "LT_CURRENT=([0-9]+)" LT_CURRENT "${CONFIGURE_AC}")

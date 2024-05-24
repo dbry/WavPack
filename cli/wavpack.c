@@ -65,7 +65,8 @@
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2024 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2024 David Bryant.  All Rights Reserved.\n\n"
+" **** THIS IS A VERY EXPERIMENTAL VERSION FOR TESTING ONLY ****\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WAVPACK using libwavpack version %s, expected %s (see README)\n\n";
@@ -128,6 +129,7 @@ static const char *help =
 "    and the source file type is automatically determined (see accepted formats\n"
 "    below). Raw PCM or DSD data may also be used (see --raw-pcm option).\n\n"
 #endif
+"    **** THIS IS A VERY EXPERIMENTAL VERSION FOR TESTING ONLY ****\n\n"
 " All Utilities:             WAVPACK:  create or transcode WavPack files\n"
 "                            WVUNPACK: unpack or verify existing WavPack files\n"
 "                            WVGAIN:   apply ReplayGain to WavPack files\n"
