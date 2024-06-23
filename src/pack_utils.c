@@ -1222,6 +1222,9 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
                 break;
             }
 
+            if (wps->decorr_passes [0].term)
+                wps->delta_decay = (float)((wps->delta_decay * 2.0 + wps->decorr_passes [0].delta) / 3.0);
+
             wpc->lossy_blocks |= wps->lossy_blocks;
 
 #ifdef ENABLE_THREADS
@@ -1795,8 +1798,13 @@ static int write_completed_blocks (WavpackContext *wpc, int write_all_blocks, in
         // if the lowest stream is done, then we can send it now, otherwise wait
 
         if (next_worker && next_worker->state == Done) {
-            wp_mutex_release (wpc->mutex);
+            WavpackStream *parent = wpc->streams [next_worker->wps->stream_index];
+
+            if (next_worker->wps->decorr_passes [0].term)
+                parent->delta_decay = (float)((parent->delta_decay * 2.0 + next_worker->wps->decorr_passes [0].delta) / 3.0);
+
             wpc->lossy_blocks |= next_worker->wps->lossy_blocks;
+            wp_mutex_release (wpc->mutex);
 
             if (result && !next_worker->result) {
                 strcpy (wpc->error_message, "output buffer overflowed!");
