@@ -1076,7 +1076,9 @@ uint32_t SCAN_MAX_MAGNITUDE (int32_t *values, int32_t num_values);
 
 static int pack_samples (WavpackStream *wps, int32_t *buffer)
 {
+#ifdef VERBOSE
     static int block_index; block_index++;
+#endif
 
     WavpackStream saved_stream;
     uint32_t flags = wps->wphdr.flags, repack_possible, data_count, crc, crc2, i;

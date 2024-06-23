@@ -620,21 +620,20 @@ static void analyze_stereo (WavpackStream *wps, int32_t *samples, int32_t *best_
 
     memcpy (info.sampleptrs [info.nterms + 1], info.sampleptrs [i], wps->wphdr.block_samples * 8);
 
-    if (wps->extra_flags & EXTRA_BRANCHES)
-        recurse_stereo (wps, &info, 0, (int) floor (wps->delta_decay + 0.5),
-            LOG2BUFFER (info.sampleptrs [0], wps->wphdr.block_samples * 2, 0));
+    if (wps->extra_flags & EXTRA_BRANCHES) {
+        int recurse_delta = 2;  // default delta
+
+        if ((wps->extra_flags & EXTRA_TRY_DELTAS) && (wps->extra_flags & EXTRA_ADJUST_DELTAS))
+            recurse_delta = (int) floor (wps->delta_decay + 0.5);
+
+        recurse_stereo (wps, &info, 0, recurse_delta, LOG2BUFFER (info.sampleptrs [0], wps->wphdr.block_samples * 2, 0));
+    }
 
     if (wps->extra_flags & EXTRA_SORT_FIRST)
         sort_stereo (wps, &info);
 
-    if (wps->extra_flags & EXTRA_TRY_DELTAS) {
+    if (wps->extra_flags & EXTRA_TRY_DELTAS)
         delta_stereo (wps, &info);
-
-        if ((wps->extra_flags & EXTRA_ADJUST_DELTAS) && wps->decorr_passes [0].term)
-            wps->delta_decay = (float)((wps->delta_decay * 2.0 + wps->decorr_passes [0].delta) / 3.0);
-        else
-            wps->delta_decay = 2.0;
-    }
 
     if (wps->extra_flags & EXTRA_SORT_LAST)
         sort_stereo (wps, &info);
