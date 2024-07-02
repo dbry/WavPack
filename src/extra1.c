@@ -342,8 +342,12 @@ static void delta_mono (WavpackStream *wps, WavpackExtraInfo *info)
             memcpy (wps->decorr_passes, info->dps, sizeof (info->dps [0]) * i);
             memcpy (info->sampleptrs [info->nterms + 1], info->sampleptrs [i], wps->wphdr.block_samples * 4);
         }
-        else
+        else {
+#ifdef VERBOSE
+            fprintf (stderr, "tried delta %d and got %u bits\n", d, bits);
+#endif
             break;
+        }
     }
 
     for (d = delta + 1; !lower && d <= 7; ++d) {
@@ -366,8 +370,12 @@ static void delta_mono (WavpackStream *wps, WavpackExtraInfo *info)
             memcpy (wps->decorr_passes, info->dps, sizeof (info->dps [0]) * i);
             memcpy (info->sampleptrs [info->nterms + 1], info->sampleptrs [i], wps->wphdr.block_samples * 4);
         }
-        else
+        else {
+#ifdef VERBOSE
+            fprintf (stderr, "tried delta %d and got %u bits\n", d, bits);
+#endif
             break;
+        }
     }
 }
 
@@ -458,23 +466,68 @@ static void analyze_mono (WavpackStream *wps, int32_t *samples, int32_t *best_bu
 
     memcpy (info.sampleptrs [info.nterms + 1], info.sampleptrs [i], wps->wphdr.block_samples * 4);
 
+#ifdef VERBOSE
+    {
+        char termstring [128] = { 0 }; unsigned int j;
+        for (j = 0; j < wps->num_terms && wps->decorr_passes [j].term; ++j)
+            sprintf (termstring + strlen (termstring), " %d", wps->decorr_passes [j].term);
+        fprintf (stderr, "analyze_mono (init): %d terms (\u0394%d):%s, best_bits = %u\n",
+            j, wps->decorr_passes [0].delta, termstring, info.best_bits);
+    }
+#endif
+
     if (wps->extra_flags & EXTRA_BRANCHES) {
+#ifdef VERBOSE
+        fprintf (stderr, "calling recurse_mono(), decay = %g, input_bits = %u\n", wps->delta_decay,
+            LOG2BUFFER (info.sampleptrs [0], wps->wphdr.block_samples, 0));
+#endif
         int recurse_delta = 2;  // default delta
 
         if ((wps->extra_flags & EXTRA_TRY_DELTAS) && (wps->extra_flags & EXTRA_ADJUST_DELTAS))
             recurse_delta = (int) floor (wps->delta_decay + 0.5);
 
         recurse_mono (wps, &info, 0, recurse_delta, LOG2BUFFER (info.sampleptrs [0], wps->wphdr.block_samples, 0));
+#ifdef VERBOSE
+        char termstring [128] = { 0 }; unsigned int j;
+        for (j = 0; j < wps->num_terms && wps->decorr_passes [j].term; ++j)
+            sprintf (termstring + strlen (termstring), " %d", wps->decorr_passes [j].term);
+        fprintf (stderr, "analyze_mono (recurse): %d terms (\u0394%d):%s, best_bits = %u\n",
+            j, wps->decorr_passes [0].delta, termstring, info.best_bits);
+#endif
     }
 
-    if (wps->extra_flags & EXTRA_SORT_FIRST)
+    if (wps->extra_flags & EXTRA_SORT_FIRST) {
         sort_mono (wps, &info);
+#ifdef VERBOSE
+        char termstring [128] = { 0 }; unsigned int j;
+        for (j = 0; j < wps->num_terms && wps->decorr_passes [j].term; ++j)
+            sprintf (termstring + strlen (termstring), " %d", wps->decorr_passes [j].term);
+        fprintf (stderr, "analyze_mono (pre-sort): %d terms (\u0394%d):%s, best_bits = %u\n",
+            j, wps->decorr_passes [0].delta, termstring, info.best_bits);
+#endif
+    }
 
-    if (wps->extra_flags & EXTRA_TRY_DELTAS)
+    if (wps->extra_flags & EXTRA_TRY_DELTAS) {
         delta_mono (wps, &info);
+#ifdef VERBOSE
+        char termstring [128] = { 0 }; unsigned int j;
+        for (j = 0; j < wps->num_terms && wps->decorr_passes [j].term; ++j)
+            sprintf (termstring + strlen (termstring), " %d", wps->decorr_passes [j].term);
+        fprintf (stderr, "analyze_mono (delta): %d terms (\u0394%d):%s, best_bits = %u\n",
+            j, wps->decorr_passes [0].delta, termstring, info.best_bits);
+#endif
+    }
 
-    if (wps->extra_flags & EXTRA_SORT_LAST)
+    if (wps->extra_flags & EXTRA_SORT_LAST) {
         sort_mono (wps, &info);
+#ifdef VERBOSE
+        char termstring [128] = { 0 }; unsigned int j;
+        for (j = 0; j < wps->num_terms && wps->decorr_passes [j].term; ++j)
+            sprintf (termstring + strlen (termstring), " %d", wps->decorr_passes [j].term);
+        fprintf (stderr, "analyze_mono (port-sort): %d terms (\u0394%d):%s, best_bits = %u\n",
+            j, wps->decorr_passes [0].delta, termstring, info.best_bits);
+#endif
+    }
 
     if (best_buffer)
         memcpy (best_buffer, info.sampleptrs [info.nterms + 1], wps->wphdr.block_samples * 4);
@@ -648,7 +701,7 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
         wpds = &wps->decorr_specs [c];
         nterms = (int) strlen ((char *) wpds->terms);
 
-        while (1) {
+      while (1) {
         memcpy (temp_buffer [0], noisy_buffer ? noisy_buffer : samples, buf_size);
         CLEARA (save_decorr_passes);
 
@@ -677,8 +730,11 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
             nterms >>= 1;
         else
             break;
-        }
+      }
 
+#ifdef VERBOSE
+        fprintf (stderr, "execute_mono(): pass %d, spec [%d], size = %u, best_size = %u, number of terms = %d\n", pi, c, size, best_size, nterms);
+#endif
         if (!(wps->wphdr.flags & HYBRID_FLAG))
             size += log2overhead (wpds->terms [0], nterms);
 
@@ -694,8 +750,26 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
             wps->mask_decorr = wps->mask_decorr ? ((wps->mask_decorr << 1) & (wps->num_decorrs - 1)) : 1;
     }
 
+#ifdef VERBOSE
+    {
+        char termstring [128] = { 0 };
+        for (int j = 0; j < wps->num_terms; ++j)
+            sprintf (termstring + strlen (termstring), " %d", wps->decorr_passes [j].term);
+        fprintf (stderr, "pre-analyze: %d terms (\u0394%d):%s\n", wps->num_terms, wps->decorr_passes [0].delta, termstring);
+    }
+#endif
+
     if (wps->wpc->config.xmode > 3)
         analyze_mono (wps, noisy_buffer ? noisy_buffer : samples, best_buffer);
+
+#ifdef VERBOSE
+    {
+        char termstring [128] = { 0 };
+        for (int j = 0; j < wps->num_terms; ++j)
+            sprintf (termstring + strlen (termstring), " %d", wps->decorr_passes [j].term);
+        fprintf (stderr, "post-analyze: %d terms (\u0394%d):%s\n", wps->num_terms, wps->decorr_passes [0].delta, termstring);
+    }
+#endif
 
     if (do_samples)
         memcpy (samples, best_buffer, buf_size);
