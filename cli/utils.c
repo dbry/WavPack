@@ -692,7 +692,8 @@ int64_t DoGetFileSize (FILE *hFile)
         return 0;
 
     fHandle = (HANDLE)_get_osfhandle(_fileno(hFile));
-    if (fHandle == INVALID_HANDLE_VALUE)
+
+    if (fHandle == INVALID_HANDLE_VALUE || GetFileType(fHandle) != FILE_TYPE_DISK)
         return 0;
 
     Size.u.LowPart = GetFileSize(fHandle, (DWORD *) &Size.u.HighPart);
