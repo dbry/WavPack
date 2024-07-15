@@ -36,6 +36,7 @@ static const struct {
     { "TSOT", "TitleSort" },
     { "TSO2", "AlbumArtistSort" },
     { "TSOP", "ArtistSort" },
+    { "TSOC", "ComposerSort" },
     { "TSST", "DiscSubtitle" },
     { "TPOS", "Disc" },
     { "TRCK", "Track" },
