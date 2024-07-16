@@ -145,6 +145,12 @@ calculate and display MD5 signature; verify if lossless
 no audio decoding (use with
 .Fl xx
 to extract tags only)
+.It Fl -no-overwrite
+Never overwrite, nor ask to overwrite, an existing file.
+This is handy for resuming a cancelled batch operation
+and obviously cannot be mixed with the
+.Fl y
+option.
 .It Fl -normalize-floats
 normalize float audio to +/-1.0 if it isn't normalized already
 (rarely the case, but alters audio and fails MD5)

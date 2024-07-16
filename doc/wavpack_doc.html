@@ -1120,6 +1120,18 @@ a:hover {
 				<p>
 					Use this option with the <b>-xx</b> and <b>-cc</b> options to perform the tag extraction only.
 				</p>
+
+    <p>
+     <b><tt>--no-overwrite = don't overwrite existing files, and don't ask to</tt></b>
+    </p>
+    <p>
+     Normally WvUnpack checks that a file it is about to create already exists, and if it
+     does will prompt the user before overwriting it. When this option is specified
+     WvUnpack will skip this prompt and simply go to the next file (if there are any).
+     This might be useful to resume a long, multi-file WvUnpack operation that was cancelled
+     because in that case all the previously encoded files are quickly skipped.
+    </p>
+
     <p>
      <b><tt>--normalize-floats = normalize floating-point audio if it isn't already</tt></b>
     </p>

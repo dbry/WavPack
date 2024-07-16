@@ -164,6 +164,7 @@ static const char *help =
 #endif
 "    -m                    calculate and display MD5 signature; verify if lossless\n"
 "    -n                    no audio decoding (use with -xx to extract tags only)\n"
+"    --no-overwrite        never overwrite existing files (and don't ask)\n"
 "    --normalize-floats    normalize float audio to +/-1.0 if it isn't already\n"
 "                           (rarely the case, but alters audio and fails MD5)\n"
 #ifdef _WIN32
@@ -237,9 +238,9 @@ static struct {
 
 int debug_logging_mode;
 
-static int overwrite_all, delete_source, raw_decode, raw_pcm, normalize_floats, no_utf8_convert, no_audio_decode, file_info, summary,
-    ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode, decode_format, format_specified, caf_be, aif_le, set_console_title,
-    worker_threads;
+static int overwrite_all, no_overwrite, delete_source, raw_decode, raw_pcm, normalize_floats, no_utf8_convert,
+   no_audio_decode, file_info, summary, ignore_wvc, quiet_mode, calc_md5, copy_time, blind_decode,
+   decode_format, format_specified, caf_be, aif_le, set_console_title, worker_threads;
 
 static int num_files, file_index;
 
@@ -370,6 +371,8 @@ int main(int argc, char **argv)
                 normalize_floats = 1;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
                 no_utf8_convert = 1;
+            else if (!strcmp (long_option, "no-overwrite"))             // --no-overwrite
+                no_overwrite = 1;
             else if (!strncmp (long_option, "skip", 4)) {               // --skip
                 parse_sample_time_index (&skip, long_param);
 
@@ -648,6 +651,11 @@ int main(int argc, char **argv)
     if (delete_source && (verify_only || skip.value_is_valid || until.value_is_valid)) {
         error_line ("can't delete in verify mode or when --skip or --until are used!");
         delete_source = 0;
+    }
+
+    if (overwrite_all && no_overwrite) {
+        error_line ("overwrite all and no overwrite and mutually exclusive!");
+        ++error_count;
     }
 
     if (raw_decode && format_specified) {
@@ -1065,6 +1073,11 @@ static FILE *open_output_file (char *filename, char **tempfilename)
 
         if (res == 1) {
             int count = 0;
+
+            if (no_overwrite) {
+                error_line ("not overwriting %s", FN_FIT (filename));
+                return NULL;
+            }
 
             if (!overwrite_all) {
                 fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (filename));
@@ -2478,20 +2491,27 @@ static int do_tag_extractions (WavpackContext *wpc, char *outfilename)
 
             if (!overwrite_all && (outfile = fopen (full_filename, "r")) != NULL) {
                 DoCloseHandle (outfile);
-                fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (full_filename));
-                fflush (stderr);
 
-                if (set_console_title)
-                    DoSetConsoleTitle ("overwrite?");
+                if (no_overwrite) {
+                    error_line ("not overwriting %s", FN_FIT (full_filename));
+                    *full_filename = 0;
+                }
+                else {
+                    fprintf (stderr, "overwrite %s (yes/no/all)? ", FN_FIT (full_filename));
+                    fflush (stderr);
 
-                switch (yna ()) {
+                    if (set_console_title)
+                        DoSetConsoleTitle ("overwrite?");
 
-                    case 'n':
-                        *full_filename = 0;
-                        break;
+                    switch (yna ()) {
 
-                    case 'a':
-                        overwrite_all = 1;
+                        case 'n':
+                            *full_filename = 0;
+                            break;
+
+                        case 'a':
+                            overwrite_all = 1;
+                    }
                 }
             }
 
