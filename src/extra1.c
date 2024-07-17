@@ -653,28 +653,53 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
 
     if (wps->num_passes > 1 && (wps->wphdr.flags & HYBRID_FLAG)) {
         double input_sum = 0.0;
-        CLEAR (temp_decorr_pass);
-        temp_decorr_pass.delta = 2;
-        temp_decorr_pass.term = 18;
 
         for (int i = 0; i < num_samples; ++i)
             input_sum += (double)samples [i] * samples [i];
 
+        noisy_buffer = malloc (buf_size);
+        memcpy (noisy_buffer, samples, buf_size);
+        no_history = 1;
+
+        // we generate residuals for noise estimation using the default decorrelation terms
+        // (i.e., 18, 18, 2, 17, 3)
+
+        CLEAR (temp_decorr_pass);
+        temp_decorr_pass.delta = 2;
+        temp_decorr_pass.term = 18;
         decorr_mono_pass_reverse (samples, temp_buffer [0], num_samples, &temp_decorr_pass);
         reverse_mono_decorr (&temp_decorr_pass);
         decorr_mono_pass (samples, temp_buffer [0], num_samples, &temp_decorr_pass, 1);
+
         CLEAR (temp_decorr_pass);
         temp_decorr_pass.delta = 2;
-        temp_decorr_pass.term = 17;
-
+        temp_decorr_pass.term = 18;
         decorr_mono_pass_reverse (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass);
         reverse_mono_decorr (&temp_decorr_pass);
         decorr_mono_pass (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass, 1);
-        noisy_buffer = malloc (buf_size);
-        memcpy (noisy_buffer, samples, buf_size);
 
-        mono_add_noise (wps, noisy_buffer, temp_buffer [1], input_sum);
-        no_history = 1;
+        CLEAR (temp_decorr_pass);
+        temp_decorr_pass.delta = 2;
+        temp_decorr_pass.term = 2;
+        decorr_mono_pass_reverse (temp_buffer [1], temp_buffer [0], num_samples, &temp_decorr_pass);
+        reverse_mono_decorr (&temp_decorr_pass);
+        decorr_mono_pass (temp_buffer [1], temp_buffer [0], num_samples, &temp_decorr_pass, 1);
+
+        CLEAR (temp_decorr_pass);
+        temp_decorr_pass.delta = 2;
+        temp_decorr_pass.term = 17;
+        decorr_mono_pass_reverse (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass);
+        reverse_mono_decorr (&temp_decorr_pass);
+        decorr_mono_pass (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass, 1);
+
+        CLEAR (temp_decorr_pass);
+        temp_decorr_pass.delta = 2;
+        temp_decorr_pass.term = 3;
+        decorr_mono_pass_reverse (temp_buffer [1], temp_buffer [0], num_samples, &temp_decorr_pass);
+        reverse_mono_decorr (&temp_decorr_pass);
+        decorr_mono_pass (temp_buffer [1], temp_buffer [0], num_samples, &temp_decorr_pass, 1);
+
+        mono_add_noise (wps, noisy_buffer, temp_buffer [0], input_sum);
     }
 
     if (no_history || wps->num_passes >= 7)

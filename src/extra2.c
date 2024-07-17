@@ -761,24 +761,49 @@ void execute_stereo (WavpackStream *wps, int32_t *samples, int no_history, int d
     best_buffer = malloc (buf_size);
 
     if (wps->num_passes > 1 && (wps->wphdr.flags & HYBRID_FLAG)) {
+        noisy_buffer = malloc (buf_size);
+        memcpy (noisy_buffer, samples, buf_size);
+        no_history = 1;
+
+        // we generate residuals for noise estimation using the default decorrelation terms
+        // (i.e., 18, 18, 2, 17, 3)
+
         CLEAR (temp_decorr_pass);
         temp_decorr_pass.delta = 2;
         temp_decorr_pass.term = 18;
-
         decorr_stereo_pass_reverse (samples, temp_buffer [0], num_samples, &temp_decorr_pass);
         reverse_decorr (&temp_decorr_pass);
         decorr_stereo_pass (samples, temp_buffer [0], num_samples, &temp_decorr_pass, 1);
+
         CLEAR (temp_decorr_pass);
         temp_decorr_pass.delta = 2;
-        temp_decorr_pass.term = 17;
-
+        temp_decorr_pass.term = 18;
         decorr_stereo_pass_reverse (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass);
         reverse_decorr (&temp_decorr_pass);
         decorr_stereo_pass (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass, 1);
-        noisy_buffer = malloc (buf_size);
-        memcpy (noisy_buffer, samples, buf_size);
-        stereo_add_noise (wps, noisy_buffer, temp_buffer [1]);
-        no_history = 1;
+
+        CLEAR (temp_decorr_pass);
+        temp_decorr_pass.delta = 2;
+        temp_decorr_pass.term = 2;
+        decorr_stereo_pass_reverse (temp_buffer [1], temp_buffer [0], num_samples, &temp_decorr_pass);
+        reverse_decorr (&temp_decorr_pass);
+        decorr_stereo_pass (temp_buffer [1], temp_buffer [0], num_samples, &temp_decorr_pass, 1);
+
+        CLEAR (temp_decorr_pass);
+        temp_decorr_pass.delta = 2;
+        temp_decorr_pass.term = 17;
+        decorr_stereo_pass_reverse (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass);
+        reverse_decorr (&temp_decorr_pass);
+        decorr_stereo_pass (temp_buffer [0], temp_buffer [1], num_samples, &temp_decorr_pass, 1);
+
+        CLEAR (temp_decorr_pass);
+        temp_decorr_pass.delta = 2;
+        temp_decorr_pass.term = 3;
+        decorr_stereo_pass_reverse (temp_buffer [1], temp_buffer [0], num_samples, &temp_decorr_pass);
+        reverse_decorr (&temp_decorr_pass);
+        decorr_stereo_pass (temp_buffer [1], temp_buffer [0], num_samples, &temp_decorr_pass, 1);
+
+        stereo_add_noise (wps, noisy_buffer, temp_buffer [0]);
     }
 
     if (no_history || wps->num_passes >= 7)
