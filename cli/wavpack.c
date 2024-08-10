@@ -791,7 +791,7 @@ int main (int argc, char **argv)
 
                     case 'B': case 'b':
                         config.flags |= CONFIG_HYBRID_FLAG;
-                        config.bitrate = (float) strtod (++argcp, &argcp);
+                        config.bitrate = (float) strtod_hexfree (++argcp, &argcp);
                         --argcp;
 
                         if (config.bitrate < 2.0 || config.bitrate > 9600.0) {
@@ -825,7 +825,7 @@ int main (int argc, char **argv)
                         break;
 
                     case 'S': case 's':
-                        config.shaping_weight = (float) strtod (++argcp, &argcp);
+                        config.shaping_weight = (float) strtod_hexfree (++argcp, &argcp);
 
                         if (!config.shaping_weight) {
                             config.flags |= CONFIG_SHAPE_OVERRIDE;

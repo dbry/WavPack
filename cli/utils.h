@@ -41,6 +41,7 @@
 
 #define CLEAR(destin) memset (&destin, 0, sizeof (destin));
 
+double strtod_hexfree (const char *nptr, char **endptr);
 int copy_timestamp (const char *src_filename, const char *dst_filename);
 char *filespec_ext (char *filespec), *filespec_path (char *filespec);
 char *filespec_name (char *filespec), *filespec_wild (char *filespec);

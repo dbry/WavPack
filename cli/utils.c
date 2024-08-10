@@ -30,6 +30,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "wavpack.h"
 #include "utils.h"
@@ -45,6 +46,30 @@
 #define _ftelli64 ftello64
 #define _fseeki64 fseeko64
 #endif
+
+// The C-standard function strtod() also handles hex numbers prefixed
+// with [+-]0[xX]. Unfortunately this causes problems for us in rare
+// cases where a value of zero is specified for one option followed
+// by the 'x' option (e.g., -s0x1). This version of strtod() does not
+// allow hex specification, but otherwise should be identical.
+
+double strtod_hexfree (const char *nptr, char **endptr)
+{
+    const char *sptr = nptr;
+
+    // skip past any leading whitespace and possibly a sign
+    while isspace (*sptr) sptr++;
+    if (*sptr == '+' || *sptr == '-') sptr++;
+
+    // if hex detected ("0x" or "0X"), return 0.0 and end at the X
+    if (*sptr == '0' && tolower (sptr [1]) == 'x') {
+        if (endptr) *endptr = (char *) sptr + 1;
+        return 0.0;
+    }
+
+    // otherwise unmodified strtod() result
+    return strtod (nptr, endptr);
+}
 
 #ifdef _WIN32
 
@@ -801,4 +826,3 @@ void DoSetConsoleTitle (char *text)
 }
 
 #endif
-
