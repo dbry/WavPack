@@ -516,7 +516,7 @@ void *decimate_dsd_init (int num_channels)
 {
     DecimationContext *context = (DecimationContext *)malloc (sizeof (DecimationContext));
     double filter_sum = 0, filter_scale;
-    int skipped_terms, i, j;
+    int i, j;
 
     if (!context)
         return context;
@@ -534,9 +534,8 @@ void *decimate_dsd_init (int num_channels)
         filter_sum += decm_filter [i];
 
     filter_scale = ((1 << 23) - 1) / filter_sum * 16.0;
-    // fprintf (stderr, "convolution, %d terms, %f sum, %f scale\n", NUM_FILTER_TERMS, filter_sum, filter_scale);
 
-    for (skipped_terms = i = 0; i < NUM_FILTER_TERMS; ++i) {
+    for (i = 0; i < NUM_FILTER_TERMS; ++i) {
         int scaled_term = (int) floor (decm_filter [i] * filter_scale + 0.5);
 
         if (scaled_term) {
@@ -546,11 +545,7 @@ void *decimate_dsd_init (int num_channels)
                 else
                     context->conv_tables [i >> 3] [j] -= scaled_term;
         }
-        else
-            skipped_terms++;
     }
-
-    // fprintf (stderr, "%d terms skipped\n", skipped_terms);
 
     decimate_dsd_reset (context);
 

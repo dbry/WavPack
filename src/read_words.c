@@ -27,6 +27,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(_MSC_VER) && defined(__clang__)
+#include <intrin.h>
+#endif
+
 #include "wavpack_local.h"
 
 #if defined (HAVE___BUILTIN_CTZ) || defined (_WIN64)
