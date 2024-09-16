@@ -1,4 +1,4 @@
-<img src="http://www.rarewares.org/wavpack/logos/wavpacklogo.png" width="250"></img>
+<img src="https://www.wavpack.com/logos/wavpacklogo-with-theme.svg" width="250"></img>
 
 Hybrid Lossless Wavefile Compressor
 
