@@ -625,10 +625,21 @@ if(WAVPACK_INSTALL_CMAKE_MODULE)
 		write_basic_package_version_file(wavpack-config-version.cmake COMPATIBILITY SameMajorVersion)
 	else()
 		write_basic_package_version_file(wavpack-config-version.cmake COMPATIBILITY SameMinorVersion)
-	endif()
+    endif()
+
+    configure_package_config_file(
+        ${CMAKE_CURRENT_LIST_DIR}/wavpack-config.cmake.in
+        "${CMAKE_CURRENT_BINARY_DIR}/wavpack-config.cmake"
+        INSTALL_DESTINATION ${CMAKE_INSTALL_PACKAGEDIR}
+    )
+
+    install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/wavpack-config.cmake"
+        DESTINATION ${CMAKE_INSTALL_PACKAGEDIR}
+    )
 
 	install(EXPORT wavpack-targets
-		FILE wavpack-config.cmake
+		FILE wavpack-targets.cmake
 		NAMESPACE WavPack::
 		DESTINATION ${CMAKE_INSTALL_PACKAGEDIR}
 	)
