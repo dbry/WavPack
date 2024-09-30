@@ -201,6 +201,7 @@ target_include_directories(wavpack
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/wavpack>
 )
 target_link_libraries(wavpack
     PRIVATE
