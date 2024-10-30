@@ -1,0 +1,21 @@
+name: Build  to check
+
+on: [push, pull_request]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+           sudo apt-get update
+           sudo apt-get install -y make autoconf automake libtool
+    - name: Build WavPack
+      working-directory: ${{ github.workspace }}
+      run: |
+           ./autogen.sh
+           ./configure
+           make
