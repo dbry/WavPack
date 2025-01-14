@@ -664,6 +664,39 @@ int check_break (void)
 
 #endif
 
+///////////////////////////////////////////////////////////////////////////
+// Determine the number of processor cores available for multi-threading //
+// This number, up to four, will be the default number of worker threads //
+///////////////////////////////////////////////////////////////////////////
+
+#ifdef ENABLE_THREADS
+
+#if defined(__GNUC__) && !defined(_WIN32)
+#include <sys/sysinfo.h>
+#endif
+
+int get_default_worker_threads (void)
+{
+    int num_processors = 1;
+
+#ifdef _WIN32
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo (&sysinfo);
+    num_processors = sysinfo.dwNumberOfProcessors;
+#elif defined (__GNUC__)
+    num_processors = get_nprocs ();
+#endif
+
+    if (num_processors <= 1)
+        return 0;
+    else if (num_processors > 4)
+        return 4;
+    else
+        return num_processors;
+}
+
+#endif
+
 //////////////////////////// File I/O Wrapper ////////////////////////////////
 
 int DoReadFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToRead, uint32_t *lpNumberOfBytesRead)

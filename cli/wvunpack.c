@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2024 David Bryant.                 //
+//                Copyright (c) 1998 - 2025 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -63,7 +63,7 @@
 
 static const char *sign_on = "\n"
 " WVUNPACK  Hybrid Lossless Audio Decompressor  %s Version %s\n"
-" Copyright (c) 1998 - 2024 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2025 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVUNPACK using libwavpack version %s, expected %s (see README)\n\n";
@@ -96,7 +96,7 @@ static const char *usage =
 "          -s  = display summary information only to stdout (no audio decode)\n"
 "          -ss = display super summary (including tags) to stdout (no decode)\n"
 #ifdef ENABLE_THREADS
-"          --threads = use multiple threads for faster operation\n"
+"          --no-threads = do not use multiple threads for faster operation\n"
 #endif
 "          -v  = verify source data only (no output file created)\n"
 "          -vv = quick verify (no output, version 5+ files only)\n"
@@ -165,6 +165,10 @@ static const char *help =
 "    -m                    calculate and display MD5 signature; verify if lossless\n"
 "    -n                    no audio decoding (use with -xx to extract tags only)\n"
 "    --no-overwrite        never overwrite existing files (and don't ask)\n"
+#ifdef ENABLE_THREADS
+"    --no-threads          do not use multiple threads for faster operation\n"
+"                           (equivalent to --threads=1)\n"
+#endif
 "    --normalize-floats    normalize float audio to +/-1.0 if it isn't already\n"
 "                           (rarely the case, but alters audio and fails MD5)\n"
 #ifdef _WIN32
@@ -335,6 +339,10 @@ int main(int argc, char **argv)
     set_console_title = 1;      // on Windows, we default to messing with the console title
 #endif                          // on Linux, this is considered uncool to do by default
 
+#ifdef ENABLE_THREADS
+    worker_threads = get_default_worker_threads ();
+#endif
+
     // loop through command-line arguments
 
     for (argi = 0; argi < argc + argc_fn - 1; ++argi) {
@@ -406,6 +414,8 @@ int main(int argc, char **argv)
                 error_line ("warning: --threads not enabled, ignoring option!");
 #endif
             }
+            else if (!strcmp (long_option, "no-threads"))               // --no-threads
+                worker_threads = 0;                                     // harmless if threads not enabled
             else if (!strcmp (long_option, "caf-be")) {                 // --caf-be
                 decode_format = WP_FORMAT_CAF;
                 caf_be = format_specified = 1;

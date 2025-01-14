@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2024 David Bryant.                 //
+//                Copyright (c) 1998 - 2025 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -61,7 +61,7 @@
 
 static const char *sign_on = "\n"
 " WVGAIN  ReplayGain Scanner/Tagger for WavPack  %s Version %s\n"
-" Copyright (c) 2005 - 2024 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2005 - 2025 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVGAIN using libwavpack version %s, expected %s (see README)\n\n";
@@ -86,6 +86,7 @@ static const char *usage =
 "          -s  = show stored values only (no analysis)\n"
 #ifdef ENABLE_THREADS
 "          -t  = use multiple threads for faster operation\n"
+"          -1  = don't use multiple threads for faster operation\n"
 #endif
 "          -v  = write the version to stdout\n"
 #if defined (_WIN32)
@@ -165,6 +166,10 @@ int main(int argc, char **argv)
    set_console_title = 1;      // on Windows, we default to messing with the console title
 #endif                          // on Linux, this is considered uncool to do by default
 
+#ifdef ENABLE_THREADS
+    worker_threads = get_default_worker_threads ();
+#endif
+
     // loop through command-line arguments
 
     while (--argc) {
@@ -229,6 +234,10 @@ int main(int argc, char **argv)
 #else
                         error_line ("warning: threads not enabled, ignoring -t option!");
 #endif
+                        break;
+
+                    case '1':
+                        worker_threads = 0;
                         break;
 
                     default:

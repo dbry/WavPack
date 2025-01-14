@@ -63,6 +63,10 @@ int DoTruncateFile (FILE *hFile);
 int DoDeleteFile (char *filename);
 void DoSetConsoleTitle (char *text);
 
+#ifdef ENABLE_THREADS
+int get_default_worker_threads (void);
+#endif
+
 #define FN_FIT(fn) ((strlen (fn) > 30) ? filespec_name (fn) : fn)
 
 #endif

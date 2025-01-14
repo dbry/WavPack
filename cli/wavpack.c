@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2024 David Bryant.                 //
+//                Copyright (c) 1998 - 2025 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -65,7 +65,7 @@
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2024 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 1998 - 2025 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WAVPACK using libwavpack version %s, expected %s (see README)\n\n";
@@ -106,7 +106,7 @@ static const char *usage =
 "          -o FILENAME | PATH = specify output filename or path\n"
 #endif
 #ifdef ENABLE_THREADS
-"          --threads = use multiple threads for faster operation\n"
+"          --no-threads = do not use multiple threads for faster operation\n"
 #endif
 "          -v  = verify output file integrity after write (no pipes)\n"
 "          -x  = extra encode processing (no decoding speed penalty)\n"
@@ -198,6 +198,10 @@ static const char *help =
 "    -n                      calculate average and peak quantization noise\n"
 "                             (for hybrid mode only, reference fullscale sine)\n"
 "    --no-overwrite          never overwrite existing files (and don't ask)\n"
+#ifdef ENABLE_THREADS
+"    --no-threads            do not use multiple threads for faster operation\n"
+"                             (equivalent to --threads=1)\n"
+#endif
 #ifdef _WIN32
 "    --no-utf8-convert       assume tag values read from files are already UTF-8,\n"
 "                             don't attempt to convert from local encoding\n"
@@ -413,6 +417,10 @@ int main (int argc, char **argv)
 #endif                          // on Linux, this is considered uncool to do by default
 
     CLEAR (config);
+
+#ifdef ENABLE_THREADS
+    config.worker_threads = worker_threads = get_default_worker_threads ();
+#endif
 
     // loop through command-line arguments
 
@@ -669,6 +677,8 @@ int main (int argc, char **argv)
                 error_line ("warning: --threads not enabled, ignoring option!");
 #endif
             }
+            else if (!strcmp (long_option, "no-threads"))               // --no-threads
+                config.worker_threads = worker_threads = 0;             // harmless if threads not enabled
             else {
                 error_line ("unknown option: %s !", long_option);
                 ++error_count;
