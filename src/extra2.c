@@ -273,8 +273,6 @@ static void decorr_stereo_pass (int32_t *in_samples, int32_t *out_samples, int32
 
 static void decorr_stereo_pass_reverse (int32_t *in_samples, int32_t *out_samples, int32_t num_samples, struct decorr_pass *dpp)
 {
-    // decorr_stereo_pass (in_samples, out_samples, num_samples > 2048 ? 2048 : num_samples, dpp, -1); return;
-
     if (num_samples < 2048) {
         int passes = (2048 + num_samples - 1) / num_samples;    // i.e., ceil (2048.0 / num_samples)
 

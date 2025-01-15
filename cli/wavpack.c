@@ -65,8 +65,7 @@
 
 static const char *sign_on = "\n"
 " WAVPACK  Hybrid Lossless Audio Compressor  %s Version %s\n"
-" Copyright (c) 1998 - 2025 David Bryant.  All Rights Reserved.\n\n"
-" **** THIS IS A VERY EXPERIMENTAL VERSION FOR TESTING ONLY ****\n\n";
+" Copyright (c) 1998 - 2025 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WAVPACK using libwavpack version %s, expected %s (see README)\n\n";
@@ -129,7 +128,6 @@ static const char *help =
 "    and the source file type is automatically determined (see accepted formats\n"
 "    below). Raw PCM or DSD data may also be used (see --raw-pcm option).\n\n"
 #endif
-"    **** THIS IS A VERY EXPERIMENTAL VERSION FOR TESTING ONLY ****\n\n"
 " All Utilities:             WAVPACK:  create or transcode WavPack files\n"
 "                            WVUNPACK: unpack or verify existing WavPack files\n"
 "                            WVGAIN:   apply ReplayGain to WavPack files\n"
@@ -329,15 +327,6 @@ static struct tag_item {
     char *item, *value, *ext;
     int vsize, binary;
 } *tag_items;
-
-#ifndef MAX_NTERMS
-#define MAX_NTERMS 16
-typedef struct {
-    signed char joint_stereo, delta, terms [MAX_NTERMS+1];
-} WavpackDecorrSpec;
-#endif
-
-static WavpackDecorrSpec override_specs = { 1, 2, {18,18, 2,17, 3} };
 
 #if defined (_WIN32)
 static int pause_mode, drop_mode;
@@ -690,44 +679,6 @@ int main (int argc, char **argv)
             }
             else if (!strcmp (long_option, "no-threads"))               // --no-threads
                 config.worker_threads = worker_threads = 0;             // harmless if threads not enabled
-            else if (!strncmp (long_option, "delta", 5)) {                  // --delta
-                override_specs.delta = strtol (long_param, NULL, 10);
-
-                if (override_specs.delta < 0 || override_specs.delta > 7) {
-                    error_line ("invalid delta!");
-                    ++error_count;
-                }
-            }
-            else if (!strncmp (long_option, "terms", 5)) {                  // --terms
-                int ti = -1;
-
-                memset (override_specs.terms, 0, sizeof (override_specs.terms));
-
-                for (ti = 0; *long_param && (*long_param == '-' || isdigit (*long_param)) && ti < MAX_NTERMS; ++ti) {
-                    int term = strtol (long_param, &long_param, 10);
-
-                    if (!term || term < -3 || term > 18 || (term > 8 && term < 17)) {
-                        error_line ("invalid term %d specified!", term);
-                        ti = -1;
-                        break;
-                    }
-
-                    override_specs.terms [ti] = term;
-
-                    if (*long_param == ',')
-                        long_param++;
-                }
-
-                if (*long_param) {
-                    error_line ("syntax error in decorrelation terms!");
-                    ti = -1;
-                }
-
-                if (ti >= 0)
-                    config.decorr_override = (void*) &override_specs;
-                else
-                    error_count++;
-            }
             else {
                 error_line ("unknown option: %s !", long_option);
                 ++error_count;
@@ -1071,7 +1022,7 @@ int main (int argc, char **argv)
         }
     }
     else {
-        if (config.flags & (CONFIG_SHAPE_OVERRIDE | CONFIG_CREATE_WVC | CONFIG_DYNAMIC_SHAPING)) {
+        if (config.flags & (CONFIG_CALC_NOISE | CONFIG_SHAPE_OVERRIDE | CONFIG_CREATE_WVC | CONFIG_DYNAMIC_SHAPING)) {
             error_line ("-c, -n, -s, and --use-dns options are for hybrid mode (-b) only!");
             ++error_count;
         }
@@ -2518,7 +2469,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             log10 (peak / full_scale_rms) * 10);
     }
 
-    if (!quiet_mode || quiet_mode) {
+    if (!quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
 
         if (imported_tag_items)
@@ -2995,11 +2946,11 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
 
     input_mode = WavpackGetMode (infile);
 
-    // if (!(input_mode & MODE_LOSSLESS) && output_lossless) {
-    //     error_line ("can't transcode lossy file %s to lossless...not allowed!", infilename);
-    //     WavpackCloseFile (infile);
-    //     return WAVPACK_SOFT_ERROR;
-    // }
+    if (!(input_mode & MODE_LOSSLESS) && output_lossless) {
+        error_line ("can't transcode lossy file %s to lossless...not allowed!", infilename);
+        WavpackCloseFile (infile);
+        return WAVPACK_SOFT_ERROR;
+    }
 
     total_samples = WavpackGetNumSamples64 (infile);
 
@@ -3573,7 +3524,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             log10 (peak / full_scale_rms) * 10);
     }
 
-    if (!quiet_mode || quiet_mode) {
+    if (!quiet_mode) {
         char *file, *fext, *oper, *cmode, cratio [16] = "";
 
         if (imported_tag_items)

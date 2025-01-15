@@ -19,18 +19,11 @@
 
 #include "wavpack_local.h"
 
-// #define VERBOSE
-
-#define NEW_DNS_METHOD
-#define RMS_WINDOW_AVERAGE
 #define FILTER_LENGTH 15
 #define WINDOW_LENGTH 101
 #define MIN_BLOCK_SAMPLES 16
 
-#ifdef NEW_DNS_METHOD
 static void generate_dns_values (const int32_t *samples, int sample_count, int num_chans, int sample_rate, short *values, short min_value);
-#endif
-
 static void best_floating_line (short *values, int num_values, double *initial_y, double *final_y, short *max_error);
 
 void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int shortening_allowed)
@@ -39,13 +32,7 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
     int32_t sample_count = wps->wphdr.block_samples;
     int sample_rate = wps->wpc->config.sample_rate;
     short min_value = -512;
-#ifndef NEW_DNS_METHOD
-    const int32_t *bptr;
-    short *swptr;
-    int sc;
-#endif
 
-#ifdef NEW_DNS_METHOD
     int settle_distance = (WINDOW_LENGTH >> 1) + (FILTER_LENGTH >> 1) + 1;
 
     if (wps->bits < 768) {
@@ -56,76 +43,8 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
     }
     else
         min_value = -768;       // at 3 bits/sample and up minimum shaping is -0.75
-#endif
-
-#ifndef NEW_DNS_METHOD
-    if (!wps->num_terms && sample_count > 8) {
-        struct decorr_pass *ap = &wps->analysis_pass;
-        int32_t temp, sam;
-
-        if (num_chans == 1) {
-            for (bptr = buffer + sample_count - 3, sc = sample_count - 2; sc--;) {
-                sam = (3 * bptr [1] - bptr [2]) >> 1;
-                temp = *bptr-- - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, 2, sam, temp);
-            }
-
-            for (bptr = buffer + sample_count - 3, sc = sample_count - 2; sc--;) {
-                sam = (3 * bptr [1] - bptr [2]) >> 1;
-                temp = *bptr-- - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, 2, sam, temp);
-            }
-
-        }
-        else {
-            for (bptr = buffer + (sample_count - 3) * 2 + 1, sc = sample_count - 2; sc--;) {
-                sam = (3 * bptr [2] - bptr [4]) >> 1;
-                temp = *bptr-- - apply_weight (ap->weight_B, sam);
-                update_weight (ap->weight_B, 2, sam, temp);
-                sam = (3 * bptr [2] - bptr [4]) >> 1;
-                temp = *bptr-- - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, 2, sam, temp);
-            }
-        }
-    }
-#endif
 
     if (sample_count > wps->dc.shaping_samples) {
-#ifndef NEW_DNS_METHOD
-        sc = sample_count - wps->dc.shaping_samples;
-        swptr = wps->dc.shaping_data + wps->dc.shaping_samples;
-        bptr = buffer + wps->dc.shaping_samples * num_chans;
-        struct decorr_pass *ap = &wps->analysis_pass;
-        int32_t temp, sam;
-
-        if (num_chans == 1) {
-            while (sc--) {
-                sam = (3 * ap->samples_A [0] - ap->samples_A [1]) >> 1;
-                temp = *bptr - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, 2, sam, temp);
-                ap->samples_A [1] = ap->samples_A [0];
-                ap->samples_A [0] = *bptr++;
-                *swptr++ = (ap->weight_A < 256) ? 1024 : 1536 - ap->weight_A * 2;
-            }
-        }
-        else {
-            while (sc--) {
-                sam = (3 * ap->samples_A [0] - ap->samples_A [1]) >> 1;
-                temp = *bptr - apply_weight (ap->weight_A, sam);
-                update_weight (ap->weight_A, 2, sam, temp);
-                ap->samples_A [1] = ap->samples_A [0];
-                ap->samples_A [0] = *bptr++;
-
-                sam = (3 * ap->samples_B [0] - ap->samples_B [1]) >> 1;
-                temp = *bptr - apply_weight (ap->weight_B, sam);
-                update_weight (ap->weight_B, 2, sam, temp);
-                ap->samples_B [1] = ap->samples_B [0];
-                ap->samples_B [0] = *bptr++;
-
-                *swptr++ = (ap->weight_A + ap->weight_B < 512) ? 1024 : 1536 - ap->weight_A - ap->weight_B;
-            }
-        }
-#else
         short *new_values = malloc (sample_count * sizeof (short));
 
         int existing_values_to_use = wps->dc.shaping_samples > settle_distance ? wps->dc.shaping_samples - settle_distance : 0;
@@ -139,9 +58,8 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
 
         generate_dns_values (buffer + values_to_skip * num_chans, new_values_to_generate, num_chans, sample_rate, new_values, min_value);
         memcpy (wps->dc.shaping_data + existing_values_to_use, new_values + (new_values_to_generate - new_values_to_use), new_values_to_use * sizeof (short));
-        free (new_values);
-#endif
         wps->dc.shaping_samples = sample_count;
+        free (new_values);
     }
 
     if (wps->wpc->wvc_flag) {
@@ -151,14 +69,6 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
 
         if (max_allowed_error < 128)
             max_allowed_error = 128;
-
-#ifdef VERBOSE
-        for (int k = 0; k < sample_count; ++k)
-            if (k && wps->dc.shaping_data [k] == 0 && k < sample_count - 1) {
-                fprintf (stderr, "shaping_data [%d] = (%d) %d (%d)\n", k, wps->dc.shaping_data [k-1], 0, wps->dc.shaping_data [k+1]);
-                break;
-            }
-#endif
 
         best_floating_line (wps->dc.shaping_data, sample_count, &initial_y, &final_y, &max_error);
 
@@ -201,12 +111,6 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
         if (final_y < min_value) final_y = min_value;
         else if (final_y > 1024) final_y = 1024;
 
-#ifdef VERBOSE
-        fprintf (stderr, "%.5f sec, sample count = %5d / %5d, max error = %3d, range = %5d, %5d, actual = %5d, %5d\n",
-            (double) wps->sample_index / wps->wpc->config.sample_rate, sample_count, wps->wphdr.block_samples, max_error,
-            (int) floor (initial_y), (int) floor (final_y),
-            wps->dc.shaping_data [0], wps->dc.shaping_data [sample_count-1]);
-#endif
         if (sample_count != wps->wphdr.block_samples)
             wps->wphdr.block_samples = sample_count;
 
@@ -216,11 +120,8 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
             wps->dc.shaping_delta [0] = wps->dc.shaping_delta [1] =
                 (int32_t) floor ((final_y - initial_y) / (sample_count - 1) * 65536.0 + 0.5);
 
-#ifdef NEW_DNS_METHOD
             wps->dc.shaping_acc [0] -= wps->dc.shaping_delta [0];
             wps->dc.shaping_acc [1] -= wps->dc.shaping_delta [1];
-#endif
-
             wps->dc.shaping_array = NULL;
         }
         else
@@ -230,12 +131,9 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
         wps->dc.shaping_array = wps->dc.shaping_data;
 }
 
-#ifdef NEW_DNS_METHOD
-
 // Given a buffer of floating values, apply a simple box filter of specified half width
 // (total filter width is always odd) to determine the averaged magnitude at each point.
-// Depending on the #define above this can either be a true RMS average or an arithmetic
-// average of the absolute values. For the ends, we use only the visible samples.
+// This is a true RMS average. For the ends, we use only the visible samples.
 
 static void win_average_buffer (float *samples, int sample_count, int half_width)
 {
@@ -251,7 +149,6 @@ static void win_average_buffer (float *samples, int sample_count, int half_width
         if (k > sample_count) k = sample_count;
         if (j < 0) j = 0;
 
-#ifdef RMS_WINDOW_AVERAGE
         while (m < j) {
             if ((sum -= samples [m] * samples [m]) < 0.0) sum = 0.0;
             m++;
@@ -262,20 +159,7 @@ static void win_average_buffer (float *samples, int sample_count, int half_width
             n++;
         }
 
-        output [i] = sqrt (sum / (n - m));
-#else
-        while (m < j) {
-            if ((sum -= fabs (samples [m])) < 0.0) sum = 0.0;
-            m++;
-        }
-
-        while (n < k) {
-            sum += fabs (samples [n]);
-            n++;
-        }
-
-        output [i] = sum / (n - m);
-#endif
+        output [i] = (float) sqrt (sum / (n - m));
     }
 
     memcpy (samples, output, sample_count * sizeof (float));
@@ -305,12 +189,8 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
 
     memset (values, 0, sample_count * sizeof (values [0]));
 
-    if (filtered_count <= 0) {
-#ifdef VERBOSE
-        fprintf (stderr, "generate_dns_values() generated %d zeros!\n", sample_count);
-#endif
+    if (filtered_count <= 0)
         return;
-    }
 
     low_freq = malloc (filtered_count * sizeof (float));
     high_freq = malloc (filtered_count * sizeof (float));
@@ -323,26 +203,28 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
 
     if (num_chans == 1)
         for (i = 0; i < filtered_count; ++i, ++samples) {
-            float filter_sum =
+            float filter_sum = (float) (
                 (samples [0] + samples [14]) *  0.00150031 +
                 (samples [2] + samples [12]) * -0.01703392 +
                 (samples [3] + samples [11]) * -0.03449186 +
                 (samples [5] + samples [ 9]) *  0.11776258 +
                 (samples [6] + samples [ 8]) *  0.26543272 +
-                         samples [7]         *  0.33366033;
+                         samples [7]         *  0.33366033
+            );
 
             high_freq [i] = samples [FILTER_LENGTH >> 1] - filter_sum;
             low_freq [i] = filter_sum;
         }
     else
         for (i = 0; i < filtered_count; ++i, samples += 2) {
-            float filter_sum =
+            float filter_sum = (float) (
                 (samples [ 0] + samples [ 1] + samples [28] + samples [29]) *  0.00150031 +
                 (samples [ 4] + samples [ 5] + samples [24] + samples [25]) * -0.01703392 +
                 (samples [ 6] + samples [ 7] + samples [22] + samples [23]) * -0.03449186 +
                 (samples [10] + samples [11] + samples [18] + samples [19]) *  0.11776258 +
                 (samples [12] + samples [13] + samples [16] + samples [17]) *  0.26543272 +
-                               (samples [14] + samples [15])                *  0.33366033;
+                               (samples [14] + samples [15])                *  0.33366033
+            );
 
             high_freq [i] = samples [FILTER_LENGTH & ~1] + samples [FILTER_LENGTH] - filter_sum;
             low_freq [i] = filter_sum;
@@ -364,11 +246,6 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
     win_average_buffer (low_freq, filtered_count, WINDOW_LENGTH >> 1);
     win_average_buffer (high_freq, filtered_count, WINDOW_LENGTH >> 1);
 
-#ifdef VERBOSE
-    int valid_values = 0, valid_sum = 0, high_clips = 0, low_clips = 0;
-    double dB_sum = 0.0;
-#endif
-
     // Use the sample rate to calculate the desired offset:
     //   <= 22,050 Hz: we use offset of -8.7 dB which means the noise-shaping matches
     //                 the analysis results (i.e., white noise input gives zero shaping)
@@ -378,9 +255,9 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
 
     if (sample_rate < 44100) {
         if (sample_rate > 22050)
-            dB_offset = (sample_rate - 44100) / 2534.0;
+            dB_offset = (sample_rate - 44100) / 2534.0F;
         else
-            dB_offset = -8.7;
+            dB_offset = -8.7F;
     }
 
     // calculate the minimum and maximum ratios that won't be clipped so that we only
@@ -388,43 +265,23 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
 
     max_dB = 1024 / dB_scaler - dB_offset;
     min_dB = min_value / dB_scaler - dB_offset;
-    max_ratio = pow (10.0, max_dB / 20.0);
-    min_ratio = pow (10.0, min_dB / 20.0);
+    max_ratio = (float) pow (10.0, max_dB / 20.0);
+    min_ratio = (float) pow (10.0, min_dB / 20.0);
 
     for (i = 0; i < filtered_count; ++i)
         if (high_freq [i] > 1.0 && low_freq [i] > 1.0) {
             float ratio = high_freq [i] / low_freq [i];
             int shaping_value;
 
-            if (ratio >= max_ratio) {
+            if (ratio >= max_ratio)
                 shaping_value = 1024;
-#ifdef VERBOSE
-                high_clips++;
-#endif
-            }
-            else if (ratio <= min_ratio) {
+            else if (ratio <= min_ratio)
                 shaping_value = min_value;
-#ifdef VERBOSE
-                low_clips++;
-#endif
-            }
             else
                 shaping_value = (int) floor ((log10 (ratio) * 20.0 + dB_offset) * dB_scaler + 0.5);
 
             values [i + (FILTER_LENGTH >> 1)] = shaping_value;
-
-#ifdef VERBOSE
-            dB_sum += log10 (ratio) * 20.0 - 8.7;
-            valid_sum += values [i + (FILTER_LENGTH >> 1)];
-            valid_values++;
-#endif
         }
-
-#ifdef VERBOSE
-    if (valid_values)
-        fprintf (stderr, "%d valid values, average = %.2f dB, clips = %d/%d, value = %.1f (%.2f)\n",
-            valid_values, dB_sum / valid_values, low_clips, high_clips, (double) valid_sum / valid_values, valid_sum / 1024.0 / valid_values);
-#endif
 
     // finally, copy the value at each end into the 7 outermost positions on each side
 
@@ -437,8 +294,6 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
     free (low_freq);
     free (high_freq);
 }
-
-#endif
 
 // Given an array of integer data (in shorts), find the linear function that most closely
 // represents it (based on minimum sum of absolute errors). This is returned as the double
