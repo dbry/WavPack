@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2013 Conifer Software.               //
+//                Copyright (c) 1998 - 2025 David Bryant                  //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -635,7 +635,7 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
         wpds = &wps->decorr_specs [c];
         nterms = (int) strlen ((char *) wpds->terms);
 
-      while (1) {
+        while (1) {
         memcpy (temp_buffer [0], noisy_buffer ? noisy_buffer : samples, buf_size);
         CLEARA (save_decorr_passes);
 
@@ -664,7 +664,7 @@ void execute_mono (WavpackStream *wps, int32_t *samples, int no_history, int do_
             nterms >>= 1;
         else
             break;
-      }
+        }
 
         if (!(wps->wphdr.flags & HYBRID_FLAG))
             size += log2overhead (wpds->terms [0], nterms);

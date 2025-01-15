@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2024 David Bryant.                 //
+//                Copyright (c) 1998 - 2025 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -28,7 +28,7 @@
 #else
 #define VERSION_OS "Win32"
 #endif
-#define PACKAGE_VERSION "5.7.2"
+#define PACKAGE_VERSION "5.8.0"
 #endif
 
 #define FALSE 0

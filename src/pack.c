@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2013 Conifer Software.               //
+//                Copyright (c) 1998 - 2025 David Bryant                  //
 //               MMX optimizations (c) 2006 Joachim Henke                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
@@ -1208,7 +1208,7 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
 
         /////////////////// handle the lossy/hybrid mono mode /////////////////////
 
-        else if ((flags & HYBRID_FLAG) && (flags & MONO_DATA)) {
+        else if ((flags & HYBRID_FLAG) && (flags & MONO_DATA))
             for (bptr = buffer, i = 0; i < sample_count; ++i) {
                 int32_t code, temp;
                 int shaping_weight;
@@ -1279,11 +1279,10 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                         wps->dc.noise_max = wps->dc.noise_ave;
                 }
             }
-        }
 
         /////////////////// handle the lossy/hybrid stereo mode ///////////////////
 
-        else if ((flags & HYBRID_FLAG) && !(flags & MONO_DATA)) {
+        else if ((flags & HYBRID_FLAG) && !(flags & MONO_DATA))
             for (bptr = buffer, i = 0; i < sample_count; ++i) {
                 int32_t left, right, temp;
                 int shaping_weight;
@@ -1417,7 +1416,6 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
                         wps->dc.noise_max = wps->dc.noise_ave;
                 }
             }
-        }
 
         if (m)
             for (tcount = wps->num_terms, dpp = wps->decorr_passes; tcount--; dpp++)
