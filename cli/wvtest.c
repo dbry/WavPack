@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2024 David Bryant.                 //
+//                Copyright (c) 1998 - 2025 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -27,15 +27,13 @@
 #include "utils.h"                  // for PACKAGE_VERSION, etc.
 #include "md5.h"
 
-#define CLEAR(destin) memset (&destin, 0, sizeof (destin));
-
 #ifndef M_PI
 #define M_PI 3.14159265358979323
 #endif
 
 static const char *sign_on = "\n"
 " WVTEST  libwavpack Tester/Exerciser for WavPack  %s Version %s\n"
-" Copyright (c) 2024 David Bryant.  All Rights Reserved.\n\n";
+" Copyright (c) 2025 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *version_warning = "\n"
 " WARNING: WVTEST using libwavpack version %s, expected %s (see README)\n\n";

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2013 Conifer Software.               //
+//                Copyright (c) 1998 - 2025 David Bryant                  //
 //               MMX optimizations (c) 2006 Joachim Henke                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
@@ -1458,7 +1458,7 @@ static int pack_samples (WavpackStream *wps, int32_t *buffer)
         if (wps->wpc->wvc_flag) {
             data_count = bs_close_write (&wps->wvcbits);
 
-            if (data_count && lossy) {
+            if (data_count) {
                 if (data_count != (uint32_t) -1) {
                     unsigned char *cptr = wps->block2buff + ((WavpackHeader *) wps->block2buff)->ckSize + 8;
 

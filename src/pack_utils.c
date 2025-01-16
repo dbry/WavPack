@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//              Copyright (c) 1998 - 2013 Conifer Software.               //
+//                Copyright (c) 1998 - 2025 David Bryant                  //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -310,6 +310,18 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         if (config->flags & CONFIG_HYBRID_FLAG) {
             flags |= HYBRID_FLAG | HYBRID_BITRATE | HYBRID_BALANCE;
 
+            if (wpc->config.flags & (CONFIG_CROSS_DECORR | CONFIG_OPTIMIZE_WVC))
+                flags |= CROSS_DECORR;
+
+            if (config->flags & CONFIG_BITRATE_KBPS) {
+                bps = (uint32_t) floor (config->bitrate * 256000.0 / config->sample_rate / config->num_channels + 0.5);
+
+                if (bps > (64 << 8))
+                    bps = 64 << 8;
+            }
+            else
+                bps = (uint32_t) floor (config->bitrate * 256.0 + 0.5);
+
             // the noise-shaping override is used to specify a fixed shaping value, or to select no shaping
 
             if (config->flags & CONFIG_SHAPE_OVERRIDE) {
@@ -326,26 +338,14 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
                 if (!(config->flags & CONFIG_DYNAMIC_SHAPING)) {    // if nothing specified, use defaults
                     if (config->flags & CONFIG_OPTIMIZE_WVC)
                         wpc->config.shaping_weight = -0.5;
-                    else if (config->sample_rate >= 64000)
-                        wpc->config.shaping_weight = 1.0;
+                    else if (config->sample_rate >= 88200 && bps >= 1152)   // for high sample rates with high bitrates (>= 4.5
+                        wpc->config.shaping_weight = 1.0;                   // bits/sample) use 1st-order positive noise shaping
                     else
                         wpc->config.flags |= CONFIG_DYNAMIC_SHAPING;
                 }
 
                 flags |= HYBRID_SHAPE | NEW_SHAPING;
             }
-
-            if (wpc->config.flags & (CONFIG_CROSS_DECORR | CONFIG_OPTIMIZE_WVC))
-                flags |= CROSS_DECORR;
-
-            if (config->flags & CONFIG_BITRATE_KBPS) {
-                bps = (uint32_t) floor (config->bitrate * 256000.0 / config->sample_rate / config->num_channels + 0.5);
-
-                if (bps > (64 << 8))
-                    bps = 64 << 8;
-            }
-            else
-                bps = (uint32_t) floor (config->bitrate * 256.0 + 0.5);
         }
         else
             flags |= CROSS_DECORR;
@@ -1221,6 +1221,9 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
                 break;
             }
 
+            if (wps->decorr_passes [0].term)
+                wps->delta_decay = (float)((wps->delta_decay * 2.0 + wps->decorr_passes [0].delta) / 3.0);
+
             wpc->lossy_blocks |= wps->lossy_blocks;
 
 #ifdef ENABLE_THREADS
@@ -1794,8 +1797,13 @@ static int write_completed_blocks (WavpackContext *wpc, int write_all_blocks, in
         // if the lowest stream is done, then we can send it now, otherwise wait
 
         if (next_worker && next_worker->state == Done) {
-            wp_mutex_release (wpc->mutex);
+            WavpackStream *parent = wpc->streams [next_worker->wps->stream_index];
+
+            if (next_worker->wps->decorr_passes [0].term)
+                parent->delta_decay = (float)((parent->delta_decay * 2.0 + next_worker->wps->decorr_passes [0].delta) / 3.0);
+
             wpc->lossy_blocks |= next_worker->wps->lossy_blocks;
+            wp_mutex_release (wpc->mutex);
 
             if (result && !next_worker->result) {
                 strcpy (wpc->error_message, "output buffer overflowed!");
