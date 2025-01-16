@@ -39,6 +39,18 @@ When transcoding from existing WavPack files,
 all tags are copied, and may be modified with additional args;
 unless an alternate output file or directory is specified,
 the source files are safely overwritten.
+.Pp
+On multicore machines
+.Nm wavpack
+will attempt to use several threads to speed up the operation,
+often significantly.
+This does not apply to the hybrid mode
+(except with multichannel files).
+To force single-threaded operation use the
+.Fl -no-threads
+option, or use the
+.Fl -threads
+option to fine-tune the number of threads utilized.
 .Ss INPUT FORMATS
 .Bl -bullet -compact
 .It
@@ -107,7 +119,6 @@ and
 .Fl c
 options.
 The hybrid mode is not applicable to DSD audio (only PCM).
-.It Fl -blocksize= Ns Ar n
 .It Fl -channel-order= Ns Ar list
 Specify comma separated channel order if not the Microsoft standard,
 which is FL,FR,FC,LFE,BL,BR,FLC,FRC,BC,SL,SR,TC,TFL,TFC,TFR,TBL,TBC,TBR;
@@ -174,6 +185,9 @@ This is handy for resuming a cancelled batch operation
 and obviously cannot be mixed with the
 .Fl y
 option.
+.It Fl -no-threads
+force single-threaded operation, equivalent to
+.Fl -threads=1
 .It Fl -no-utf8-convert
 Don't recode passed tags from local encoding to UTF-8,
 assume they are in UTF-8 already.
@@ -227,12 +241,12 @@ use 0 for no shaping (white noise).
 .It Fl t
 Copy input file's time stamp to output files.
 .It Fl -threads= Ns Ar n
-Enable multithreaded operation with
+Enable (or disable) multithreaded operation with
 .Ar n=1
 (no threading) to
 .Ar n=12
 (max threads).
-Significantly improves performance of lossless compression on multicore CPUs.
+Significantly improves the speed of lossless compression on multicore CPUs.
 In the hybrid modes, only multichannel files can utilize multithreading.
 Omitting the parameter will select an optimum number of threads.
 .It Fl -use-dns
@@ -244,7 +258,7 @@ write program version to
 .Pa stdout
 .It Fl w Encoder
 write encoder metadata to APEv2 tag (e.g.,
-.Dq Encoder=WavPack 5.6.0 )
+.Dq Encoder=WavPack 5.8.0 )
 .It Fl w Settings
 write user settings metadata to APEv2 tag (e.g.,
 .Dq Settings=-hb384cx3 )

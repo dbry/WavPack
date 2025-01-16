@@ -47,6 +47,16 @@ This can be utilized as an easy way to concatenate WavPack files
 but only makes sense with raw output
 .Pf ( Fl -raw )
 to avoid headers being interleaved with the audio data.
+.Pp
+On multicore machines
+.Nm wvunpack
+will attempt to use multiple threads to speed up the operation,
+often by 3x or more.
+To force single-threaded operation use the
+.Fl -no-threads
+option, or use the
+.Fl -threads
+option to fine-tune the number of threads utilized.
 .Ss OUTPUT FORMATS
 .Bl -bullet -compact
 .It
@@ -154,6 +164,9 @@ option.
 .It Fl -normalize-floats
 normalize float audio to +/-1.0 if it isn't normalized already
 (rarely the case, but alters audio and fails MD5)
+.It Fl -no-threads
+force single-threaded operation, equivalent to
+.Fl -threads=1
 .It Fl -no-utf8-convert
 leave extracted text tags in UTF-8 encoding during extraction or display
 .It Fl o Ar OUTFILE
@@ -185,7 +198,7 @@ causes sample/time to be relative to EOF
 .It Fl t
 copy input file's time stamp to output file(s)
 .It Fl -threads= Ns Ar n
-Enable multithreaded operation with
+Enable (or disable) multithreaded operation with
 .Ar n=1
 (no threading) to
 .Ar n=12

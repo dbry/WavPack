@@ -17,6 +17,10 @@ ReplayGain-enabled players will use this information
 to produce the same perceived loudness on all tracks.
 Both individual track and whole album ReplayGain information
 can be calculated.
+On multicore machines multiple threads
+are used to improve the speed by about 2x, unless the
+.Fl 1
+option is specified.
 .Ss OPTIONS
 .Bl -tag -width Ds
 .It Fl a
@@ -36,6 +40,8 @@ quiet (keep console output to a minimum)
 show stored values only (no analysis)
 .It Fl t
 use multithreading to improve performance
+.It Fl 1
+don't use multithreading to improve performance
 .It Fl v
 write program version to
 .Pa stdout
