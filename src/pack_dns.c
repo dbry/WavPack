@@ -21,6 +21,7 @@
 
 #define FILTER_LENGTH 15
 #define WINDOW_LENGTH 101
+#define SETTLE_DISTANCE ((WINDOW_LENGTH >> 1) + (FILTER_LENGTH >> 1) + 1)
 #define MIN_BLOCK_SAMPLES 16
 
 static void generate_dns_values (const int32_t *samples, int sample_count, int num_chans, int sample_rate, short *values, short min_value);
@@ -33,8 +34,6 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
     int sample_rate = wps->wpc->config.sample_rate;
     short min_value = -512;
 
-    int settle_distance = (WINDOW_LENGTH >> 1) + (FILTER_LENGTH >> 1) + 1;
-
     if (wps->bits < 768) {
         min_value = -768 - ((768 - wps->bits) * 16 / 25);
 
@@ -45,11 +44,10 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
         min_value = -768;       // at 3 bits/sample and up minimum shaping is -0.75
 
     if (sample_count > wps->dc.shaping_samples) {
-        short *new_values = malloc (sample_count * sizeof (short));
-
-        int existing_values_to_use = wps->dc.shaping_samples > settle_distance ? wps->dc.shaping_samples - settle_distance : 0;
+        int existing_values_to_use = wps->dc.shaping_samples > SETTLE_DISTANCE ? wps->dc.shaping_samples - SETTLE_DISTANCE : 0;
         int new_values_to_use = sample_count - existing_values_to_use, values_to_skip;
-        int new_values_to_generate = new_values_to_use + settle_distance;
+        int new_values_to_generate = new_values_to_use + SETTLE_DISTANCE;
+        short *new_values = malloc (sample_count * sizeof (short));
 
         if (new_values_to_generate > sample_count)
             new_values_to_generate = sample_count;
