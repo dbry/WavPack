@@ -1,3 +1,98 @@
+2025-01-15  David Bryant  <david@wavpack.com>
+
+  * CMakeLists.txt, wavpackdll/wavpackdll.rc, cli/utils.h, configure.ac, src/wavpack_version.h:
+    bump versions to 5.8.0
+
+2025-01-15  David Bryant  <david@wavpack.com>
+
+  * src/pack.c, src/pack_dns.c, src/pack_utils.c, src/extra[12].c:
+    numerous enhancements to hybrid/lossy quality, the "extra" modes, and multithreading
+
+2025-01-13  David Bryant  <david@wavpack.com>
+
+  * cli/utils.[ch], cli/wavpack.c, cli/wvunpack.c, cli/wvgain.c:
+    use multiple cores by default if we can verify their existence (cli programs only)
+
+2024-11-20  Ozkan Sezer <sezeroz@gmail.com>
+
+  * CMakeLists.txt:
+    set maximum CMake policy to 3.10
+
+2024-11-20  Anonymous Maarten <anonymous.maarten@gmail.com>
+
+  * cmake/wavpackcpu.cmake:
+    fix wavpackcpu.cmake for C89 compilers
+
+2024-10-31  Anonymous Maarten <anonymous.maarten@gmail.com>
+
+  * CMakeList.txt, cmake/wavpackcpu.cmake:
+    CMAKE_SYSTEM_PROCESSOR is the architecture of the build machine
+
+2024-09-30  David Bryant  <david@wavpack.com>
+
+  * cli/utils.c:
+    fix syntax error caught with MinGW
+
+2024-08-10  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c:
+    fix option parsing error triggered by strtod() recognizing hex input
+
+2024-08-09  David Bryant  <david@wavpack.com>
+
+  * cli/wvtag.c, cli/wvunpack.c, src/read_words.c, src/unpack_dsd.c:
+    issue #184: fixes related to using Visual Studio 2022 with clang-cl
+
+2024-07-16  David Bryant  <david@wavpack.com>
+
+  * cli/wvunpack.c:
+    copy "--no-overwrite" option functionality from wavpack.c
+
+2024-07-15  David Bryant  <david@wavpack.com>
+
+  * cli/import_id3.c:
+    add TSOC (ComposerSort) to list of ID3v2 imported tags
+
+2024-07-09  David Bryant  <david@wavpack.com>
+
+  * cli/utils.c:
+    fix our DoGetFileSize() on Windows to return zero on anything other than a real file
+
+2024-04-15  David Bryant  <david@wavpack.com>
+
+  * cli/wavpack.c, cli/wvunpack.c, cli/riff.c, audition/cool_wv4.c:
+    better fix for WAV files containing unpacked samples
+
+2024-04-13  David Bryant  <david@wavpack.com>
+
+  * audition/cool_wv4.c:
+    fixed bug with files of over 24 channels
+
+2024-04-01  David Bryant  <david@wavpack.com>
+
+  * CMakeLists.txt:
+    fix dependency on libgcc when building shared Windows libs (wavpackdll.dll)
+
+2024-03-28  David Bryant  <david@wavpack.com>
+
+  * cli/riff.c:
+    do not allow unpacked audio samples in WAV (e.g., 24-bit samples in 32-bit container)
+
+2024-03-15  David Bryant  <david@wavpack.com>
+
+  * cli/write_caff.c:
+    issue #180: fix inconsequential memory leak found in static analysis
+
+2024-03-11  David Bryant  <david@wavpack.com>
+
+  * src/open_utils.c:
+    suppress gcc/clang fallthrough warnings (thanks Justin!)
+
+2024-03-01  David Bryant  <david@wavpack.com>
+
+  * src/unpack_seek.c:
+    issue #178: fix use-after-free warning from gcc 13.2 (false positive)
+
 2024-02-27  David Bryant  <david@wavpack.com>
 
   * cli/import_id3.c:

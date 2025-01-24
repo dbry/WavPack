@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2024 David Bryant.                 //
+//                Copyright (c) 1998 - 2025 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -35,6 +35,7 @@
 // Version 4.1 - July 4, 2023 (fixed bug with handling of Type 3 "normalized" float setting)
 // Version 4.2 - Feb 26, 2024 (library ver 5.7.0)
 // Version 4.3 - April 13, 2024 (fixed bug with files > 24 chans, restored legacy support)
+// Version 4.4 - January 23, 2025 (fixed bug with loading unpacked samples, library ver 5.8.0)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -973,8 +974,8 @@ static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, 
                     return TRUE;
 
                 case IDABOUT:
-                    sprintf (str, "Cool Edit / Audition Filter Version 4.3\n" "WavPack Library Version %s\n"
-                        "Copyright (c) 2024 David Bryant", WavpackGetLibraryVersionString());
+                    sprintf (str, "Cool Edit / Audition Filter Version 4.4\n" "WavPack Library Version %s\n"
+                        "Copyright (c) 2025 David Bryant", WavpackGetLibraryVersionString());
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
             }

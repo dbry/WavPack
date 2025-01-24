@@ -1,3 +1,27 @@
+                     --------------------------------
+                     Release 5.8.0 - January 2?, 2024
+                     --------------------------------
+
+ WavPack Library Source Code - 5.8.0
+ wavpack.exe (command-line encoder) - 5.8.0
+ wvunpack.exe (command-line decoder) - 5.8.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.8.0
+ wvtag.exe (command-line tagging utility) - 5.8.0
+ cool_wv4.flt (Cool Edit / Audition filter) - 4.4
+ ----------------------------------------------------
+  added: if present, use multiple cores by default (cli programs only)
+  added: option --no-threads to force single-threading (cli programs)
+  fixed: noise issue in lossy mode (low bitrate and high sample rate)
+  improved: all new DNS algorithm for better lossy mode quality
+  improved: "extra" mode with multithreading and lossy modes
+  added: TSOC (Composer Sort) added to handled ID3v2 tags
+  added: --no-overwrite command-line option to wvunpack
+  fixed: handling of 24+ channels (CoolEdit / Audition)
+  fixed: encoding raw audio from pipes (Windows only)
+  fixed: handling of unpacked samples in WAV files
+  fixed: rare command-line option parsing issue
+
+
                      ---------------------------------
                      Release 5.7.0 - February 29, 2024
                      ---------------------------------

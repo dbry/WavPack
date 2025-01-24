@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 5.7.0</div>
+				<div class="pageHeader">Using WavPack Version 5.8.0</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -244,6 +244,14 @@ a:hover {
     <b><tt>&nbsp;&nbsp;&nbsp;wvunpack --raw *.wv - > merged.raw</tt></b>
 					<br/>
     <b><tt>&nbsp;&nbsp;&nbsp;wvunpack --raw *.wv - | wavpack --raw-pcm - merged.wv</tt></b>
+				<p>
+     Starting with version 5.8.0, WavPack, WvUnpack, and WvGain will all automatically use multiple
+     threads to speed up their operations if they determine that they are running on a multicore
+     machine. If a different behavior is desired, use --no-threads to prevent multithreading or
+     --threads=&lt;n&gt; to fine-tune the number of threads utilized (from 1 to 12). Note that
+     multithreaded <i>encoding</i> is not supported for the hybrid mode (except for multichannel
+     files), but all modes of multithreaded <i>decoding</i> work fine.
+				</p>
 				<p>
 				 Finally, a debugging mode is provided for the programs which is enabled by simply appending
 				 "_debug" to the the name of the executable (for example, wavpack.exe becomes
@@ -663,6 +671,16 @@ a:hover {
     </p>
 
     <p>
+     <b><tt>--no-threads = do not use multiple threads for faster operation</tt></b>
+    </p>
+    <p>
+     Normally, if WavPack can determine that it is running on a multicore system, it will
+     use multiple threads to speed up the operation, sometimes significantly. Use this
+     option to force single-threaded operation, for example in cases where multithreading
+     is being done elsewhere. This is equivalent to specifing <b>--threads=1</b>.
+    </p>
+
+    <p>
      <b><tt>--no-utf8-convert = don't recode passed tags to UTF-8, assume they are UTF-8 already</tt></b>
     </p>
     <p>
@@ -831,7 +849,8 @@ a:hover {
      multiple threads. This is fully applicable to the pure lossless mode, but in the hybrid
      modes it is only applicable to multichannel files. If the parameter <b>n</b> is omitted
      then the number of threads is determined automatically as a balance between operational
-     speed and energy consumption.
+     speed and energy consumption. Using multiple threads is now the default operation on
+     multicore CPUs, so this option is really only needed to fine-tune the number of threads.
 				</p>
 
 				<p>
@@ -873,7 +892,7 @@ a:hover {
 				</p>
 				<p>
      Write a metadata item to the APEv2 tag for the actual encoder being used
-     (e.g., "Encoder=WavPack 5.7.0"). It's also possible to specify a value to override
+     (e.g., "Encoder=WavPack 5.8.0"). It's also possible to specify a value to override
      the default. Note that when re&#235;ncoding WavPack files this metadata item is
      <b>not</b> simply copied from source to destination, but is recreated with the
      appropriate value.
@@ -921,7 +940,7 @@ a:hover {
 					<b><tt>-x[n] = extra encode processing (optional n = 0-6, 1 = default)</tt></b>
 				</p>
 				<p>
-					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 5.7.0 normally
+					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 5.8.0 normally
 					works "symmetrically" in that encoding and decoding operate at about the same rate
 					(regardless of the mode used). However, WavPack has an option to work
 					"asymmetrically", so that extra processing can be done during encoding to
@@ -1147,6 +1166,27 @@ a:hover {
     </p>
 
     <p>
+     <b><tt>--no-overwrite = don't overwrite existing files, and don't ask to</tt></b>
+    </p>
+    <p>
+     Normally WvUnpack checks that a file it is about to create already exists, and if it
+     does will prompt the user before overwriting it. When this option is specified
+     WvUnpack will skip this prompt and simply go to the next file (if there are any).
+     This might be useful to resume a long, multi-file WvUnpack operation that was cancelled
+     because in that case all the previously decoded files are quickly skipped.
+    </p>
+
+    <p>
+     <b><tt>--no-threads = do not use multiple threads for faster operation</tt></b>
+    </p>
+    <p>
+     Normally, if WvUnpack can determine that it is running on a multicore system, it will
+     use multiple threads to speed up the operation, sometimes significantly. Use this
+     option to force single-threaded operation, for example in cases where multithreading
+     is being done elsewhere. This is equivalent to specifing <b>--threads=1</b>.
+    </p>
+
+    <p>
      <b><tt>--no-utf8-convert = leave tag items in UTF-8 on extract or display</tt></b>
     </p>
     <p>
@@ -1233,10 +1273,12 @@ a:hover {
      <b><tt>--threads[=n] = enable multithreaded operation (optional n = 1 for no threading to 12 threads maximum)</tt></b>
 				</p>
 				<p>
-     On modern multicore CPUs WavPack can get a significant performance boost by utilizing
+     On modern multicore CPUs WvUnPack can get a significant performance boost by utilizing
      multiple threads. This is applicable to all modes, including verify. If the parameter
      <b>n</b> is omitted then the number of threads is determined automatically as a balance
-     between operational speed and energy consumption.
+     between operational speed and energy consumption. Using multiple threads is now the
+     default operation on multicore systems, so this option is really only needed to fine-tune
+     the number of threads.
 				</p>
 
 				<p>
@@ -1439,6 +1481,13 @@ a:hover {
 
 				<p>
 					<b><tt>-t = use multiple threads for faster operation</tt></b>
+				</p>
+				<p>
+					Self explanatory.
+				</p>
+
+				<p>
+					<b><tt>-1 = don't use multiple threads for faster operation</tt></b>
 				</p>
 				<p>
 					Self explanatory.
