@@ -1,5 +1,5 @@
                      --------------------------------
-                     Release 5.8.0 - January 2?, 2024
+                     Release 5.8.0 - January 27, 2025
                      --------------------------------
 
  WavPack Library Source Code - 5.8.0
@@ -11,9 +11,9 @@
  ----------------------------------------------------
   added: if present, use multiple cores by default (cli programs only)
   added: option --no-threads to force single-threading (cli programs)
-  fixed: noise issue in lossy mode (low bitrate and high sample rate)
-  improved: all new DNS algorithm for better lossy mode quality
-  improved: "extra" mode with multithreading and lossy modes
+  fixed: noise issue in hybrid mode (low bitrate / high sample rate)
+  improved: all new DNS algorithm for better hybrid mode quality
+  improved: "extra" option with multithreading and hybrid modes
   added: TSOC (Composer Sort) added to handled ID3v2 tags
   added: --no-overwrite command-line option to wvunpack
   fixed: handling of 24+ channels (CoolEdit / Audition)
