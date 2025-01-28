@@ -1,13 +1,13 @@
-dnl wavpack 5.8.0 configure.ac
+dnl wavpack 5.8.1 configure.ac
 
-AC_INIT([wavpack], [5.8.0], [bryant@wavpack.com])
+AC_INIT([wavpack], [5.8.1], [bryant@wavpack.com])
 AC_CONFIG_SRCDIR([src/pack.c])
 AM_INIT_AUTOMAKE([-Wall 1.15 serial-tests subdir-objects foreign no-dist-gzip dist-xz])
 AM_MAINTAINER_MODE
 
 LIBWAVPACK_MAJOR=5
 LIBWAVPACK_MINOR=8
-LIBWAVPACK_MICRO=0
+LIBWAVPACK_MICRO=1
 LIBWAVPACK_VERSION_STRING="${LIBWAVPACK_MAJOR}.${LIBWAVPACK_MINOR}.${LIBWAVPACK_MICRO}"
 
 AC_DEFINE_UNQUOTED([LIBWAVPACK_MAJOR], [${LIBWAVPACK_MAJOR}], [libwavpack major version])

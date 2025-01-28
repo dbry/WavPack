@@ -22,13 +22,21 @@
 #endif
 
 #if defined(_WIN32)
-#undef VERSION_OS
-#ifdef _WIN64
-#define VERSION_OS "Win64"
-#else
-#define VERSION_OS "Win32"
-#endif
-#define PACKAGE_VERSION "5.8.0"
+    #undef VERSION_OS
+    #ifdef _WIN64
+        #ifdef ENABLE_THREADS
+            #define VERSION_OS "Win64"
+        #else
+            #define VERSION_OS "WinXP-64"
+        #endif
+    #else
+        #ifdef ENABLE_THREADS
+            #define VERSION_OS "Win32"
+        #else
+            #define VERSION_OS "WinXP-32"
+        #endif
+    #endif
+    #define PACKAGE_VERSION "5.8.1"
 #endif
 
 #define FALSE 0
