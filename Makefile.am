@@ -12,9 +12,11 @@ dist_html_DATA = \
 
 EXTRA_DIST = \
 	CMakeLists.txt \
+	wavpack-config.cmake.in \
 	cmake/CheckCLinkerFlag.cmake \
 	cmake/modules/FindIconv.cmake \
 	cmake/TestLargeFiles.cmake \
+	cmake/wavpackcpu.cmake \
 	\
 	cli/Makefile.w32 \
 	src/Makefile.os2 \
