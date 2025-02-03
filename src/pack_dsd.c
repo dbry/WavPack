@@ -25,6 +25,7 @@
 
 void pack_dsd_init (WavpackStream *wps)
 {
+    (void) wps;
 }
 
 // Pack an entire block of samples (either mono or stereo) into a completed
@@ -67,7 +68,7 @@ int pack_dsd_block (WavpackStream *wps, int32_t *buffer)
             if ((sptr [0] ^ sptr [1]) & 0xff)
                 break;
 
-        if (i == sample_count) {
+        if (i == (int32_t)sample_count) {
             wps->wphdr.flags = flags |= FALSE_STEREO;
             dptr = buffer;
             sptr = buffer;
@@ -121,7 +122,7 @@ int pack_dsd_block (WavpackStream *wps, int32_t *buffer)
         data_count = num_samples + 2;
 
         while (num_samples--)
-            crc += (crc << 1) + (*dsd_encoding++ = *buffer++);
+            crc += (crc << 1) + (*dsd_encoding++ = (unsigned char) *buffer++);
 
         ((WavpackHeader *) wps->blockbuff)->crc = crc;
     }
@@ -139,9 +140,9 @@ int pack_dsd_block (WavpackStream *wps, int32_t *buffer)
         else
             *cptr++ = ID_DSD_BLOCK | ID_LARGE;
 
-        *cptr++ = data_count >> 1;
-        *cptr++ = data_count >> 9;
-        *cptr++ = data_count >> 17;
+        *cptr++ = (unsigned char)(data_count >> 1);
+        *cptr++ = (unsigned char)(data_count >> 9);
+        *cptr++ = (unsigned char)(data_count >> 17);
         ((WavpackHeader *) wps->blockbuff)->ckSize += data_count + 4;
     }
 
@@ -167,7 +168,7 @@ static int rle_encode (unsigned char *src, int bcount, unsigned char *destinatio
     while (bcount--) {
         if (*src) {
             while (zcount) {
-                *dp++ = MAX_PROBABILITY + (zcount > max_rle_zeros ? max_rle_zeros : zcount);
+                *dp++ = (unsigned char)(MAX_PROBABILITY + (zcount > max_rle_zeros ? max_rle_zeros : zcount));
                 zcount -= (zcount > max_rle_zeros ? max_rle_zeros : zcount);
             }
 
@@ -180,7 +181,7 @@ static int rle_encode (unsigned char *src, int bcount, unsigned char *destinatio
     }
 
     while (zcount) {
-        *dp++ = MAX_PROBABILITY + (zcount > max_rle_zeros ? max_rle_zeros : zcount);
+        *dp++ = (unsigned char)(MAX_PROBABILITY + (zcount > max_rle_zeros ? max_rle_zeros : zcount));
         zcount -= (zcount > max_rle_zeros ? max_rle_zeros : zcount);
     }
 
@@ -234,8 +235,8 @@ static void calculate_probabilities (int hist [256], unsigned char probs [256], 
             else
                 value = 0;
 
-            prob_sums [i] = sum_values += value;
-            probs [i] = value;
+            prob_sums [i] = (unsigned short)(sum_values += value);
+            probs [i] = (unsigned char)value;
         }
 
         if (max_value > MAX_PROBABILITY) {
@@ -352,7 +353,7 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
         p0 = largest_bin;
 
         for (p1 = 0; p1 < 256; ++p1)
-            summed_probabilities [p0] [p1] = sum_values += probabilities [p0] [p1] = (probabilities [p0] [p1] + 1) >> 1;
+            summed_probabilities [p0] [p1] = (unsigned short)(sum_values += probabilities [p0] [p1] = (probabilities [p0] [p1] + 1) >> 1);
 
         total_summed_probabilities += summed_probabilities [p0] [255];
         // fprintf (stderr, "processed bin 0x%02x, bin: %d --> %d, new sum = %d\n",
@@ -521,30 +522,30 @@ static int encode_buffer_high (WavpackStream *wps, int32_t *buffer, int num_samp
     else {
         int rate = normalize_ptable (wps->dsd.ptable);
         init_ptable (wps->dsd.ptable, rate, RATE_S);
-        *dp++ = rate;
+        *dp++ = (unsigned char)rate;
         *dp++ = RATE_S;
     }
 
     for (channel = 0; channel <= stereo; ++channel) {
         sp = wps->dsd.filters + channel;
 
-        *dp = sp->filter1 >> (PRECISION - 8);
+        *dp = (unsigned char)(sp->filter1 >> (PRECISION - 8));
         sp->filter1 = *dp++ << (PRECISION - 8);
 
-        *dp = sp->filter2 >> (PRECISION - 8);
+        *dp = (unsigned char)(sp->filter2 >> (PRECISION - 8));
         sp->filter2 = *dp++ << (PRECISION - 8);
 
-        *dp = sp->filter3 >> (PRECISION - 8);
+        *dp = (unsigned char)(sp->filter3 >> (PRECISION - 8));
         sp->filter3 = *dp++ << (PRECISION - 8);
 
-        *dp = sp->filter4 >> (PRECISION - 8);
+        *dp = (unsigned char)(sp->filter4 >> (PRECISION - 8));
         sp->filter4 = *dp++ << (PRECISION - 8);
 
-        *dp = sp->filter5 >> (PRECISION - 8);
+        *dp = (unsigned char)(sp->filter5 >> (PRECISION - 8));
         sp->filter5 = *dp++ << (PRECISION - 8);
 
-        *dp++ = sp->factor;
-        *dp++ = sp->factor >> 8;
+        *dp++ = (unsigned char)sp->factor;
+        *dp++ = (unsigned char)(sp->factor >> 8);
         sp->filter6 = 0;
         sp->factor = (int32_t)((uint32_t) sp->factor << 16) >> 16;
     }

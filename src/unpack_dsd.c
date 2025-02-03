@@ -143,6 +143,8 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
     unsigned char history_bits, max_probability, *lb_ptr;
     int total_summed_probabilities = 0, bi, i;
 
+    (void) wpmd;
+
     if (wps->dsd.byteptr == wps->dsd.endptr)
         return FALSE;
 
@@ -176,7 +178,7 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
                     *outptr++ = 0;
             }
             else if (code)
-                *outptr++ = code;
+                *outptr++ = (unsigned char)code;
             else
                 break;
         }
@@ -195,7 +197,7 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
         int32_t sum_values;
 
         for (sum_values = i = 0; i < 256; ++i)
-            wps->dsd.summed_probabilities [bi] [i] = sum_values += wps->dsd.probabilities [bi] [i];
+            wps->dsd.summed_probabilities [bi] [i] = (uint16_t)(sum_values += wps->dsd.probabilities [bi] [i]);
 
         if (sum_values) {
             if ((total_summed_probabilities += sum_values) > wps->dsd.history_bins * MAX_BYTES_PER_BIN)
@@ -207,7 +209,7 @@ static int init_dsd_block_fast (WavpackStream *wps, WavpackMetadata *wpmd)
                 int c = wps->dsd.probabilities [bi] [i];
 
                 while (c--)
-                    *lb_ptr++ = i;
+                    *lb_ptr++ = (unsigned char)i;
             }
         }
     }
@@ -258,7 +260,7 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
         if (index >= wps->dsd.summed_probabilities [wps->dsd.p0] [255])
             return 0;
 
-        if ((*output++ = code = wps->dsd.value_lookup [wps->dsd.p0] [index]))
+        if ((*output++ = code = wps->dsd.value_lookup [wps->dsd.p0] [index]) != 0)
             wps->dsd.low += wps->dsd.summed_probabilities [wps->dsd.p0] [code-1] * mult;
 
         wps->dsd.high = wps->dsd.low + wps->dsd.probabilities [wps->dsd.p0] [code] * mult - 1;
@@ -321,6 +323,8 @@ static int init_dsd_block_high (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     uint32_t flags = wps->wphdr.flags;
     int channel, rate_i, rate_s, i;
+
+    (void) wpmd;
 
     if (wps->dsd.endptr - wps->dsd.byteptr < ((flags & MONO_DATA) ? 13 : 20))
         return FALSE;
@@ -590,7 +594,7 @@ void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples
         sum += context->conv_tables [6] [sp->delay [6] = sp->delay [7]];
         sum += context->conv_tables [7] [sp->delay [7] = sp->delay [8]];
         sum += context->conv_tables [8] [sp->delay [8] = sp->delay [9]];
-        sum += context->conv_tables [9] [sp->delay [9] = *samptr];
+        sum += context->conv_tables [9] [sp->delay [9] = (unsigned char)*samptr];
 #elif (HISTORY_BYTES == 7)
         sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
         sum += context->conv_tables [1] [sp->delay [1] = sp->delay [2]];
@@ -598,14 +602,14 @@ void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples
         sum += context->conv_tables [3] [sp->delay [3] = sp->delay [4]];
         sum += context->conv_tables [4] [sp->delay [4] = sp->delay [5]];
         sum += context->conv_tables [5] [sp->delay [5] = sp->delay [6]];
-        sum += context->conv_tables [6] [sp->delay [6] = *samptr];
+        sum += context->conv_tables [6] [sp->delay [6] = (unsigned char)*samptr];
 #else
         int i;
 
         for (i = 0; i < HISTORY_BYTES-1; ++i)
             sum += context->conv_tables [i] [sp->delay [i] = sp->delay [i+1]];
 
-        sum += context->conv_tables [i] [sp->delay [i] = *samptr];
+        sum += context->conv_tables [i] [sp->delay [i] = (unsigned char)*samptr];
 #endif
 
         *samptr++ = (sum + 8) >> 4;
@@ -647,7 +651,6 @@ static void extrapolate_pcm (int32_t *samples, int samples_to_extrapolate, int s
             float left_ratio = (samples_to_extrapolate + period / 2.0F) / period, right_ratio = (period / 2.0F) / period;
             int32_t *sam1 = samples + samples_to_extrapolate * num_channels, *sam2 = sam1 + period * num_channels;
             float ave1 = 0.0, ave2 = 0.0;
-            int i;
 
             for (i = 0; i < period; ++i) {
                 ave1 += (float) sam1 [i * num_channels] / period;
