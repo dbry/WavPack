@@ -1,0 +1,217 @@
+name: Build
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  release:
+    types: [published]
+
+jobs:
+
+  tarball:
+    name: Create tarball with distcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install packages
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: sudo apt install -y git tar gcc g++ make autoconf gettext
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Add safe git directory
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+      - name: Autogen
+        run: ./autogen.sh
+      - name: Distcheck
+        run: make distcheck
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarball
+          path: |
+            *.xz
+
+  build-test-linux:
+    name: Build Test Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install packages
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: sudo apt install -y git tar gcc g++ make cmake
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Add safe git directory
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE="Debug" -DBUILD_SHARED_LIBS=ON -DWAVPACK_BUILD_PROGRAMS=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Install
+        run: sudo cmake --install build
+
+  build-test-macos:
+    name: Build Test macOS
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ 'macos-13', 'macos-latest' ] # Use macos-13 for x86_64.
+        buildtype: [ 'debug', 'release' ]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Set arch
+        run: echo "arch=$(uname -m)" >> $GITHUB_ENV
+      - name: Set buildtype
+        run: echo "buildtype=$(echo ${{matrix.buildtype}} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Set cmake buildtype
+        run: echo "cmake_buildtype=$(echo ${{env.buildtype}} | awk '{print toupper(substr($0,0,1))tolower(substr($0,2))}')" >> $GITHUB_ENV
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Configure
+        run: cmake --log-level="DEBUG" -S . -B build -DCMAKE_BUILD_TYPE="${{env.cmake_buildtype}}" -DBUILD_SHARED_LIBS=ON -DWAVPACK_BUILD_PROGRAMS=ON
+      - name: Build
+        run: cmake --build build --config ${{env.cmake_buildtype}} --parallel
+      - name: Install
+        run: sudo cmake --install build
+
+  windows-binaries:
+    name: Create Windows binary
+    runs-on: windows-2022
+    needs:
+      - tarball
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ 'x86', 'x86_64' ]
+        buildtype: [ 'debug', 'release' ]
+    steps:
+      - name: Set buildtype
+        shell: bash
+        run: echo "buildtype=$(echo ${{matrix.buildtype}} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Set cmake buildtype
+        shell: bash
+        run: echo "cmake_buildtype=$(echo ${{env.buildtype}} | sed 's/.*/\u&/')" >> $GITHUB_ENV
+      - name: Set short arch
+        shell: bash
+        run: echo "short_arch=$(test "${{matrix.arch}}" = "x86_64" && echo "x64" || echo "${{matrix.arch}}")" >> $GITHUB_ENV
+      - name: Cleanup PATH
+        uses: egor-tensin/cleanup-path@v4
+        with:
+          dirs: C:\Windows;C:\Windows\system32;C:\Program Files\Git\bin;C:\Program Files\CMake\bin;C:\Program Files\GitHub CLI;C:\ProgramData\Chocolatey\bin
+      - name: Setup MSVC Environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{matrix.arch}}
+          sdk: 10.0.20348.0
+          vsversion: 2022
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: artifact
+      - name: Set tarball
+        shell: bash
+        run: echo "tarball=$(basename $(find artifact/tarball -name '*.xz'))" >> $GITHUB_ENV
+      - name: Set tarball version
+        shell: bash
+        run: echo "tarball_version=$(echo "${{env.tarball}}" | sed -n 's,^wavpack-\([0-9\.]*\)\.tar\..*,\1,p')" >> $GITHUB_ENV
+      - name: Set release version
+        if: github.event.release.tag_name == ''
+        shell: bash
+        run: echo "release_version=${{env.tarball_version}}" >> $GITHUB_ENV
+      - name: Set release version
+        if: github.event.release.tag_name != ''
+        shell: bash
+        run: echo "release_version=${{github.event.release.tag_name}}" >> $GITHUB_ENV
+      - name: Set release name
+        shell: bash
+        run: echo "release_name=WavPack-${{env.release_version}}-${{env.short_arch}}-${{env.buildtype}}" >> $GITHUB_ENV
+      - name: Extract
+        shell: bash
+        run: tar -xvf "artifact/tarball/${{env.tarball}}"
+      - name: Configure
+        shell: cmd
+        env:
+          CL: "/MP"
+        working-directory: wavpack-${{env.tarball_version}}
+        run: cmake -S . -B build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE="${{env.cmake_buildtype}}" -DCMAKE_INSTALL_PREFIX="c:\${{env.release_name}}" -DBUILD_SHARED_LIBS=ON -DWAVPACK_BUILD_PROGRAMS=ON
+      - name: Build
+        shell: cmd
+        working-directory: wavpack-${{env.tarball_version}}
+        run: cmake --build build --config "${{env.cmake_buildtype}}"
+      - name: Install
+        shell: cmd
+        working-directory: wavpack-${{env.tarball_version}}
+        run: cmake --install build
+      - name: Create Zip file
+        shell: cmd
+        run: 7z a ${{env.release_name}}.zip c:\${{env.release_name}}
+      - name: List files
+        shell: cmd
+        run: 7z l ${{env.release_name}}.zip
+      # - name: Upload artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ${{env.release_name}}
+      #     path: |
+      #       *.zip
+
+  add-release-files:
+    name: Add files to release
+    if: (success() || failure()) && github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs:
+      - tarball
+      - windows-binaries
+    steps:
+      - name: Install packages
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: sudo apt install -y git jq gh
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Show release assets
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: gh release view "${{github.event.release.tag_name}}" --json assets | jq -r '.assets[].name'
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: artifact
+      - name: Add artifact to release
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          echo "Release version: ${{github.event.release.tag_name}}"
+          filenames=()
+          files=()
+          for i in $(find artifact -type f); do
+            filename=$(basename $i)
+            if [[ ${filenames[@]} =~ ${filename} ]]; then
+              echo "Skipping duplicate file: ${filename}"
+              continue
+            fi
+            filenames+=("${filename}")
+            existing_asset=$(gh release view "${{github.event.release.tag_name}}" --json assets | jq -r '.assets[].name' | tr -d '[:blank:]' | grep ".*/${filename}\$" 2>/dev/null || true)
+            if [ "${existing_asset}" = "" ]; then
+              echo "Adding file: ${filename}"
+              files+=("${i}")
+            else
+              echo "Release already has file: ${filename}"
+            fi
+          done
+          files_list="${files[@]}"
+          if ! [ "${files_list}" = "" ]; then
+            echo "Adding files to GitHub release"
+            gh release upload "${{github.event.release.tag_name}}" ${files_list}
+          fi
