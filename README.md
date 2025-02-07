@@ -28,9 +28,7 @@ Additional references:
 | Branch         | Status                                                                                                                                                                          |
 |----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `master`       | [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/wavpack.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:wavpack)  |
-| `master`       | [![Build Status](https://travis-ci.org/dbry/WavPack.svg?branch=master)](https://travis-ci.org/dbry/WavPack)                                                                     |
-
-Branches [actively built](https://travis-ci.org/dbry/WavPack/branches) by TravisCI.
+| `master`       | [![Build Status](https://github.com/dbry/WavPack/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/dbry/WavPack/actions)                                                                     |
 
 ---
 
