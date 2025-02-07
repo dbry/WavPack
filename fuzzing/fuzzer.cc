@@ -128,7 +128,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #endif
 {
     static long long times_called, opens, seeks, tag_writes, samples_decoded, text_tags, binary_tags;
-    int flags = OPEN_TAGS | OPEN_EDIT_TAGS | OPEN_WRAPPER | OPEN_DSD_AS_PCM | OPEN_NO_CHECKSUM | OPEN_NORMALIZE;
+    int flags = OPEN_TAGS | OPEN_EDIT_TAGS | OPEN_WRAPPER | OPEN_DSD_AS_PCM | OPEN_NO_CHECKSUM | OPEN_NORMALIZE |
+        (4 << OPEN_THREADS_SHFT);   // spin up 4 worker threads for better fuzz coverage
     WavpackRawContext raw_wv;
     WavpackContext *wpc;
     char error [80];
