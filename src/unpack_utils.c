@@ -506,8 +506,10 @@ static void *unpack_samples_worker_thread (void *param)
         if (cxt->state == Quit)                     // break out if we're done
             break;
 
-        if (cxt->samcnt > temp_samples)             // reallocate temp buffer if not big enough
+        if (cxt->samcnt > temp_samples) {           // reallocate temp buffer if not big enough
             temp_buffer = (int32_t *) realloc (temp_buffer, (temp_samples = cxt->samcnt) * 8);
+            memset (temp_buffer, 0, temp_samples * 8);
+        }
 
         // this is where the work is done
         unpack_samples_interleave (cxt->wps, cxt->outbuf, cxt->offset, temp_buffer, cxt->samcnt);
