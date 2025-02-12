@@ -404,12 +404,13 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         }
 #ifdef ENABLE_THREADS
         // This is where temporal multithreaded decoding occurs. If there's a worker thread available, and no errors
-        // have been encountered, and there are samples beyond this block to be decoded during this same call to
-        // WavpackUnpackSamples(), then we give this block to a worker thread to decode to completion. Because we
-        // are going to continue decoding the next block in this stream before this one completes, we must make a
-        // copy of the stream that can decode in isolation, and we instruct the worker thread to free everything
-        // associated with the stream context when it's done.
+        // have been encountered, and we are going to finish this block, and there are samples beyond this block to
+        // be decoded during this same call to WavpackUnpackSamples(), then we give this block to a worker thread to
+        // decode to completion. Because we are going to continue decoding the next block in this stream before this
+        // one completes, we must make a copy of the stream that can decode in isolation, and we instruct the worker
+        // thread to free everything associated with the stream context when it's done.
         else if (worker_available (wpc) && !wps->mute_error &&
+            wps->sample_index + samples_to_unpack == GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples &&
             wps->sample_index + samples > GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples) {
                 WavpackStream *wps_copy = malloc (sizeof (WavpackStream));
 
