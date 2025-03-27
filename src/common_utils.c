@@ -590,7 +590,7 @@ void free_single_stream (WavpackStream *wps)
 
     if (wps->pre_sample_buffer) {
         free (wps->pre_sample_buffer);
-        wps->sample_buffer = NULL;
+        wps->pre_sample_buffer = NULL;
     }
 
     if (wps->dc.shaping_data) {
