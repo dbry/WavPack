@@ -216,6 +216,20 @@ int64_t WavpackGetFileSize64 (WavpackContext *wpc)
     return wpc ? wpc->filelen + wpc->file2len : 0;
 }
 
+// Get the actual number of total samples, or if writing a file this returns the number of
+// samples written so far. This allows WavpackGetRatio() and WavpackGetAverageBitrate() to
+// work during writing and specifically in cases where the initial length was unknown.
+
+static int64_t actual_total_samples (WavpackContext *wpc)
+{
+    int64_t total_samples = wpc->total_samples;
+
+    if (wpc->wv_out && wpc->streams && wpc->streams [0] && wpc->streams [0]->sample_index)
+        total_samples = wpc->streams [0]->sample_index;
+
+    return total_samples;
+}
+
 // Calculate the ratio of the specified WavPack file size to the size of the
 // original audio data as a double greater than 0.0 and (usually) smaller than
 // 1.0. A value greater than 1.0 represents "negative" compression and a
@@ -223,8 +237,8 @@ int64_t WavpackGetFileSize64 (WavpackContext *wpc)
 
 double WavpackGetRatio (WavpackContext *wpc)
 {
-    if (wpc && wpc->total_samples != -1 && wpc->filelen) {
-        double output_size = (double) wpc->total_samples * wpc->config.num_channels *
+    if (wpc && actual_total_samples (wpc) != -1 && wpc->filelen) {
+        double output_size = (double) actual_total_samples (wpc) * wpc->config.num_channels *
             wpc->config.bytes_per_sample;
         double input_size = (double) wpc->filelen + wpc->file2len;
 
@@ -241,8 +255,8 @@ double WavpackGetRatio (WavpackContext *wpc)
 
 double WavpackGetAverageBitrate (WavpackContext *wpc, int count_wvc)
 {
-    if (wpc && wpc->total_samples != -1 && wpc->filelen && WavpackGetSampleRate (wpc)) {
-        double output_time = (double) wpc->total_samples / WavpackGetSampleRate (wpc);
+    if (wpc && actual_total_samples (wpc) != -1 && wpc->filelen && WavpackGetSampleRate (wpc)) {
+        double output_time = (double) actual_total_samples (wpc) / WavpackGetSampleRate (wpc);
         double input_size = (double) wpc->filelen + (count_wvc ? wpc->file2len : 0);
 
         if (output_time >= 0.1 && input_size >= 1.0)
