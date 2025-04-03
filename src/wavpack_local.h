@@ -634,6 +634,9 @@ extern __inline int _bsr_watcom(uint32_t);
   modify exact [eax] nomemory;
 #define count_bits(av) ((av) ? _bsr_watcom((av)) + 1 : 0)
 #elif defined (_WIN64)
+ #ifdef _MSC_VER
+ #include <intrin.h>
+ #endif
 static __inline int count_bits (uint32_t av) { unsigned long res; return _BitScanReverse (&res, av) ? (int)(res + 1) : 0; }
 #else
 #define count_bits(av) ( \
