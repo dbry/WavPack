@@ -1,3 +1,5 @@
+SUBDIRS =
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = wavpack.pc
 
