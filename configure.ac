@@ -2,7 +2,10 @@ dnl wavpack 5.8.1 configure.ac
 
 AC_INIT([wavpack], [5.8.1], [bryant@wavpack.com])
 AC_CONFIG_SRCDIR([src/pack.c])
+AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([-Wall 1.15 serial-tests subdir-objects foreign no-dist-gzip dist-xz])
+AM_GNU_GETTEXT_VERSION([0.21])
+AM_GNU_GETTEXT([external])
 AM_MAINTAINER_MODE
 
 LIBWAVPACK_MAJOR=5
