@@ -2,10 +2,8 @@ dnl wavpack 5.8.1 configure.ac
 
 AC_INIT([wavpack], [5.8.1], [bryant@wavpack.com])
 AC_CONFIG_SRCDIR([src/pack.c])
-AC_CONFIG_MACRO_DIRS([m4])
+AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([-Wall 1.15 serial-tests subdir-objects foreign no-dist-gzip dist-xz])
-AM_GNU_GETTEXT_VERSION([0.21])
-AM_GNU_GETTEXT([external])
 AM_MAINTAINER_MODE
 
 LIBWAVPACK_MAJOR=5
@@ -44,9 +42,6 @@ AC_PROG_INSTALL
 
 LT_INIT([win32-dll disable-static])
 
-dnl Checks for libraries.
-LT_LIB_M
-
 dnl Check for large files support
 AC_SYS_LARGEFILE
 AC_FUNC_FSEEKO
@@ -54,6 +49,10 @@ AC_FUNC_FSEEKO
 AC_ARG_ENABLE([apps],
   [AS_HELP_STRING([--disable-apps], [build only libwavpack (removes ICONV dependency)])])
 AM_CONDITIONAL([ENABLE_APPS], [test "x${enable_apps}" != "xno"])
+
+dnl See whether we prefer libiconv over libc
+AC_ARG_ENABLE(libiconv,
+  [AS_HELP_STRING([--enable-libiconv], [Prefer iconv() from libiconv, if available, over libc version [default=no]])],, enable_libiconv=no)
 
 AC_MSG_CHECKING([if we are building for a Windows host])
 AS_CASE([${host_os}],
@@ -63,12 +62,52 @@ AC_MSG_RESULT([${windows_host}])
 
 AM_CONDITIONAL([WINDOWS_HOST], [test "x${windows_host}" = "xyes"])
 
+dnl Checks for libraries
+LT_LIB_M
+LIBICONV=
 AS_IF([test "x${enable_apps}" != "xno" && test "x${windows_host}" != "xyes"], [
-  AM_ICONV
-  AS_IF([test "x${am_cv_func_iconv}" != "xyes"], [
+  AC_MSG_CHECKING(for iconv in libc)
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+   #define LIBICONV_PLUG 1 /* in case libiconv header is in include path */
+   #include <stddef.h>
+   #include <iconv.h>
+  ]],[[
+   iconv_open(NULL,NULL);
+  ]])], [have_libc_iconv=yes],[have_libc_iconv=no])
+  AC_MSG_RESULT($have_libc_iconv)
+
+  AC_MSG_CHECKING(for iconv in libiconv)
+  save_LIBS="$LIBS"
+  LIBS="$LIBS -liconv"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+   #include <stddef.h>
+   #include <iconv.h>
+  ]],[[
+   iconv_open(NULL,NULL);
+  ]])], [have_libiconv=yes],[have_libiconv=no])
+  LIBS="$save_LIBS"
+  AC_MSG_RESULT($have_libiconv)
+
+  if test x$have_libc_iconv = xyes || test x$have_libiconv = xyes; then
+     if test x$have_libiconv = xyes; then
+        if test x$have_libc_iconv != xyes; then
+           use_libiconv=yes
+        elif test x$enable_libiconv = xyes; then
+           use_libiconv=yes
+        fi
+     fi
+     if test x$use_libiconv = xyes; then
+        AC_DEFINE(ENABLE_LIBICONV,1,[ ])
+        AS_ECHO(["-- Using iconv from libiconv"])
+        LIBICONV="-liconv"
+     else
+        AS_ECHO(["-- Using iconv from libc"])
+     fi
+  else
     AC_MSG_ERROR([iconv is required for apps, use --disable-apps to build only libwavpack])
-  ])
+  fi
 ])
+AC_SUBST([LIBICONV])
 
 AC_ARG_ENABLE([legacy],
   [AS_HELP_STRING([--enable-legacy], [decode legacy (< 4.0) WavPack files])])

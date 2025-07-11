@@ -17,6 +17,10 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 *************************************************************************************/
 
+#ifndef ENABLE_LIBICONV
+#define LIBICONV_PLUG 1
+#endif
+
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
