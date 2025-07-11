@@ -10,6 +10,10 @@
 
 // This is the main module for the WavPack command-line metadata tagging utility.
 
+#ifndef ENABLE_LIBICONV
+#define LIBICONV_PLUG 1
+#endif
+
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

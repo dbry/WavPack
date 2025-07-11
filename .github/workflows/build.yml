@@ -15,7 +15,7 @@ jobs:
       - name: Install packages
         env:
           DEBIAN_FRONTEND: noninteractive
-        run: sudo apt install -y git tar gcc g++ make autoconf autopoint gettext
+        run: sudo apt install -y git tar gcc g++ make autoconf automake libtool
       - name: Checkout
         uses: actions/checkout@v4
         with:

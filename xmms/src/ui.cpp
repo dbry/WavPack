@@ -1,3 +1,7 @@
+#ifndef ENABLE_LIBICONV
+#define LIBICONV_PLUG 1
+#endif
+
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>

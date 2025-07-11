@@ -11,6 +11,10 @@
 // This module provides limited support for importing existing ID3 tags
 // (from DSF files, for example) into WavPack files
 
+#ifndef ENABLE_LIBICONV
+#define LIBICONV_PLUG 1
+#endif
+
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <stdarg.h>
