@@ -1,4 +1,4 @@
-SUBDIRS =
+ACLOCAL_AMFLAGS = -I m4
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = wavpack.pc
@@ -16,7 +16,6 @@ EXTRA_DIST = \
 	CMakeLists.txt \
 	wavpack-config.cmake.in \
 	cmake/CheckCLinkerFlag.cmake \
-	cmake/modules/FindIconv.cmake \
 	cmake/TestLargeFiles.cmake \
 	cmake/wavpackcpu.cmake \
 	\
