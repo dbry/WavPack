@@ -116,7 +116,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v5
         with:
-          path: artifact
+          path: artifact/tarball
       - name: Set tarball
         shell: bash
         run: echo "tarball=$(basename $(find artifact/tarball -name '*.xz'))" >> $GITHUB_ENV
