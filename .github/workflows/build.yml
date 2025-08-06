@@ -114,7 +114,7 @@ jobs:
           sdk: 10.0.20348.0
           vsversion: 2022
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifact
       - name: Set tarball
@@ -185,7 +185,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         run: gh release view "${{github.event.release.tag_name}}" --json assets | jq -r '.assets[].name'
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifact
       - name: Add artifact to release
