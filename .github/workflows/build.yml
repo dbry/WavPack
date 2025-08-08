@@ -157,12 +157,12 @@ jobs:
       - name: List files
         shell: cmd
         run: 7z l ${{env.release_name}}.zip
-      # - name: Upload artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: ${{env.release_name}}
-      #     path: |
-      #       *.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{env.release_name}}
+          path: |
+            *.zip
 
   add-release-files:
     name: Add files to release
