@@ -111,7 +111,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{matrix.arch}}
-          sdk: 10.0.20348.0
+          sdk: 10.0.19041.0
           vsversion: 2022
       - name: Download artifact
         uses: actions/download-artifact@v5
