@@ -447,7 +447,7 @@ static int encode_buffer_fast (WavpackStream *wps, int32_t *buffer, int num_samp
 
 #define RATE_S 20
 
-static void init_ptable (int *table, int rate_i, int rate_s)
+static void init_ptable (int32_t *table, int rate_i, int rate_s)
 {
     int value = 0x808000, rate = rate_i << 8, c, i;
 
@@ -467,10 +467,10 @@ static void init_ptable (int *table, int rate_i, int rate_s)
     }
 }
 
-static int normalize_ptable (int *ptable)
+static int normalize_ptable (int32_t *ptable)
 {
     int rate = 0, min_error, error_sum, i;
-    int ntable [PTABLE_BINS];
+    int32_t ntable [PTABLE_BINS];
 
     init_ptable (ntable, rate, RATE_S);
 

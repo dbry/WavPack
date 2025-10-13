@@ -299,7 +299,7 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
 
 #define RATE_S 20
 
-static void init_ptable (int *table, int rate_i, int rate_s)
+static void init_ptable (int32_t *table, int rate_i, int rate_s)
 {
     int value = 0x808000, rate = rate_i << 8, c, i;
 
