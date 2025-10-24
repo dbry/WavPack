@@ -99,6 +99,8 @@ static const char *help =
 "    --clean or --clear    clean all items from tag (done first)\n"
 "    -d \"Field\"            delete specified metadata item (text or binary)\n"
 "    -h or --help          this help display\n"
+"    --import-file file.wv import all tag items from the specified WavPack file\n"
+"                           (except the \"encoder\" and \"version\" items)\n"
 "    --import-id3          import ID3v2 tags from the trailer of original file\n"
 "                           (default for DSF and AIF files, optional for other\n"
 "                            formats, add --allow-huge-tags for > 1 MB images)\n"
@@ -158,6 +160,7 @@ static struct tag_item {
 static char *tag_extract_stdout;    // extract single tag to stdout
 static char **tag_extractions;      // extract multiple tags to named files
 static int num_tag_extractions;
+static char *import_file;
 
 #if defined (_WIN32)
 static int pause_mode;
@@ -187,7 +190,7 @@ int main (int argc, char **argv)
     _wildcard (&argc, &argv);
 #endif
     int num_files = 0, file_index;
-    int error_count = 0, tag_next_arg = 0;
+    int error_count = 0, tag_next_arg = 0, import_file_next_arg = 0;
     int c_count = 0, x_count = 0;
     char **matches = NULL;
     int result, i;
@@ -243,6 +246,14 @@ int main (int argc, char **argv)
                 clean_tags = 1;
             else if (!strcmp (long_option, "list"))                     // --list
                 list_tags = 1;
+            else if (!strcmp (long_option, "import-file")) {            // --import-file file.wv
+                if (import_file) {
+                    error_line ("can't import tags from more than one file!");
+                    ++error_count;
+                }
+                else
+                    import_file_next_arg = 1;
+            }
             else if (!strcmp (long_option, "import-id3"))               // --import-id3
                 import_id3 = 1;
             else if (!strcmp (long_option, "no-utf8-convert"))          // --no-utf8-convert
@@ -328,6 +339,26 @@ int main (int argc, char **argv)
 
             x_count = 0;
         }
+        else if (import_file_next_arg) {
+            char error [80];
+            WavpackContext *wpc = WavpackOpenFileInput (*argv, error, OPEN_TAGS | OPEN_DSD_NATIVE, 0);
+
+            if (!wpc) {
+                error_line ("error in WavPack import file \"%s\": %s", *argv, error);
+                error_count++;
+            }
+            else if (!WavpackGetNumTagItems (wpc) && !WavpackGetNumBinaryTagItems (wpc)) {
+                error_line ("error in WavPack import file \"%s\": contains no tags", *argv);
+                error_count++;
+            }
+            else
+                import_file = *argv;
+
+            if (wpc)
+                WavpackCloseFile (wpc);
+
+            import_file_next_arg = 0;
+        }
         else if (tag_next_arg > 0) {
             char *cp = strchr (*argv, '=');
 
@@ -397,7 +428,7 @@ int main (int argc, char **argv)
             tag_extract_stdout = "cuesheet";
     }
 
-    if (num_files && !clean_tags && !import_id3 && !num_tag_items && !num_tag_extractions && !tag_extract_stdout && !list_tags) {
+    if (num_files && !clean_tags && !import_file && !import_id3 && !num_tag_items && !num_tag_extractions && !tag_extract_stdout && !list_tags) {
         error_line ("no operations specified!");
         error_count++;
     }
@@ -517,13 +548,13 @@ int main (int argc, char **argv)
         }
     }
 
+    if (error_count)
+        return 1;
+
     if (!num_files) {
         printf ("%s", help);
         return 1;
     }
-
-    if (error_count)
-        return 1;
 
     for (file_index = 0; file_index < num_files; ++file_index) {
         char *infilename = matches [file_index];
@@ -735,7 +766,7 @@ static int process_file (char *infilename)
     WavpackContext *wpc;
     char error [80];
 
-    if (clean_tags || num_tag_items || import_id3)
+    if (clean_tags || num_tag_items || import_file || import_id3)
         open_flags |= OPEN_EDIT_TAGS;
 
 #ifdef _WIN32
@@ -765,7 +796,7 @@ static int process_file (char *infilename)
 
     // enter here if the user wants to make tag changes (append, change, delete, import)
 
-    if (num_tag_items || import_id3) {
+    if (num_tag_items || import_file || import_id3) {
         int i, res = TRUE;
 
         // if the existing tag was only an ID3v1, convert it now (unless user wanted to start fresh)
@@ -800,6 +831,61 @@ static int process_file (char *infilename)
 
             error_line ("warning: ID3v1 tag converted to APEv2");
             write_tag = 1;
+        }
+
+        // this is where we import all tag items from an existing WavPack file
+        // Note: except "encoder" and "settings"
+
+        if (import_file) {
+            char error [80];
+            WavpackContext *import_wpc = WavpackOpenFileInput (import_file, error, OPEN_TAGS | OPEN_DSD_NATIVE, 0);
+
+            if (import_wpc) {
+                int num_binary_items = WavpackGetNumBinaryTagItems (import_wpc);
+                int num_items = WavpackGetNumTagItems (import_wpc);
+                int item_len, value_len;
+                char *item, *value;
+                int res = TRUE;
+
+                // loop through and import the text items
+
+                for (i = 0; i < num_items && res; ++i) {
+                    item_len = WavpackGetTagItemIndexed (import_wpc, i, NULL, 0);
+                    item = malloc (item_len + 1);
+                    WavpackGetTagItemIndexed (import_wpc, i, item, item_len + 1);
+
+                    // don't import the values from the "encoder" or "settings" items because
+                    // these should be based on the current encoder and user settings
+
+                    if (stricmp (item, "encoder") && stricmp (item, "settings")) {
+                        value_len = WavpackGetTagItem (import_wpc, item, NULL, 0);
+                        value = malloc (value_len + 1);
+                        WavpackGetTagItem (import_wpc, item, value, value_len + 1);
+                        res = WavpackAppendTagItem (wpc, item, value, value_len);
+                        write_tag = 1;
+                        free (value);
+                    }
+
+                    free (item);
+                }
+
+                // loop through and import the binary items
+
+                for (i = 0; i < num_binary_items && res; ++i) {
+                    item_len = WavpackGetBinaryTagItemIndexed (import_wpc, i, NULL, 0);
+                    item = malloc (item_len + 1);
+                    WavpackGetBinaryTagItemIndexed (import_wpc, i, item, item_len + 1);
+                    value_len = WavpackGetBinaryTagItem (import_wpc, item, NULL, 0);
+                    value = malloc (value_len);
+                    value_len = WavpackGetBinaryTagItem (import_wpc, item, value, value_len);
+                    res = WavpackAppendBinaryTagItem (wpc, item, value, value_len);
+                    write_tag = 1;
+                    free (value);
+                    free (item);
+                }
+
+                WavpackCloseFile (import_wpc);
+            }
         }
 
         // this is where we import from an ID3v2 tag that appears as the trailing wrapper of DSF files
