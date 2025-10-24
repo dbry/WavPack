@@ -61,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ 'macos-13', 'macos-latest' ] # Use macos-13 for x86_64.
+        runner: [ 'macos-15-intel', 'macos-latest' ] # Use macos-15-intel for x86_64.
         buildtype: [ 'debug', 'release' ]
     runs-on: ${{ matrix.runner }}
     steps:
