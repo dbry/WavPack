@@ -42,7 +42,6 @@ MAINTAINERCLEANFILES = \
 	ar-lib \
 	compile \
 	config.guess \
-	config.rpath \
 	config.sub \
 	configure \
 	depcomp \
