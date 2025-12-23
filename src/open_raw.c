@@ -237,6 +237,13 @@ WavpackContext *WavpackOpenRawDecoder (
                 corr_bytes -= 4;
 
                 if (multiple_blocks) {
+                    if (corr_bytes < 4) {
+                        if (error) strcpy (error, "correction block overran available data!");
+                        raw_close_stream (raw_wv);
+                        raw_close_stream (raw_wvc);
+                        return NULL;
+                    }
+
                     block_size = *ccp++;
                     block_size += *ccp++ << 8;
                     block_size += *ccp++ << 16;
