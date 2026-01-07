@@ -130,6 +130,7 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
         }
         else if (!strncmp (chunk_header.ckID, "COMM", 4)) {     // if it's the common chunk, we want to get some info out of there and
             int supported = TRUE, floatData = FALSE;            // make sure it's a .aiff file we can handle
+            int rawUnsigned = FALSE;
             double sampleRate;
 
             if (common_chunks++ || padded_chunk_size < 18 || padded_chunk_size > sizeof (common_chunk) ||
@@ -181,8 +182,11 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
 
             if (chunk_header.ckSize < 22)
                 config->qmode |= QMODE_BIG_ENDIAN;
-            else if (!strncmp (common_chunk.compressionType, "NONE", 4) || !strncmp (common_chunk.compressionType, "none", 4))
-                config->qmode |= QMODE_BIG_ENDIAN;
+            else if (!strncmp (common_chunk.compressionType, "NONE", 4) || !strncmp (common_chunk.compressionType, "none", 4) ||
+                     !strncmp (common_chunk.compressionType, "TWOS", 4) || !strncmp (common_chunk.compressionType, "twos", 4))
+                        config->qmode |= QMODE_BIG_ENDIAN;
+            else if (!strncmp (common_chunk.compressionType, "RAW ", 4) || !strncmp (common_chunk.compressionType, "raw ", 4))
+                rawUnsigned = TRUE;
             else if (!strncmp (common_chunk.compressionType, "FL32", 4) || !strncmp (common_chunk.compressionType, "fl32", 4)) {
                 config->qmode |= QMODE_BIG_ENDIAN;
                 floatData = TRUE;
@@ -231,7 +235,9 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                     config->channel_mask = 0x3ffff;
             }
 
-            if (common_chunk.sampleSize <= 8)
+            // 8-bit AIFF files are normally signed, but this can be overridden by undocumented "raw" compression
+
+            if (common_chunk.sampleSize <= 8 && !rawUnsigned)
                 config->qmode |= QMODE_SIGNED_BYTES;
 
             if (floatData)
@@ -241,8 +247,8 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
                 if (config->float_norm_exp == 127)
                     error_line ("data format: 32-bit big-endian floating point");
                 else if (config->bytes_per_sample == 1)
-                    error_line ("data format: %d-bit signed integers stored in %d byte",
-                        config->bits_per_sample, config->bytes_per_sample);
+                    error_line ("data format: %d-bit %s integers stored in %d byte",
+                        config->bits_per_sample, (config->qmode & QMODE_SIGNED_BYTES) ? "signed" : "unsigned", config->bytes_per_sample);
                 else
                     error_line ("data format: %d-bit %s-endian integers stored in %d byte(s)",
                         config->bits_per_sample, (config->qmode & QMODE_BIG_ENDIAN) ? "big" : "little", config->bytes_per_sample);
