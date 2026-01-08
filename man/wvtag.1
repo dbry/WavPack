@@ -1,4 +1,4 @@
-.Dd February 9, 2024
+.Dd January 7, 2025
 .Dt WVTAG 1
 .Os
 .Sh NAME
@@ -45,9 +45,20 @@ clean all items from tag (done first)
 delete specified metadata item (text or binary)
 .It Fl h , Fl -help
 display this help
+.It Fl -import-file Ar infile.wv
+Import all tag items from the specified WavPack file into the APEv2 tag.
+Note that imported tag items are added to any existing tag items unless
+.Fl -clean
+is included.
+If there are > 1 MB cover images present, add
+.Fl -allow-huge-tags
+to include them.
 .It Fl -import-id3
-import applicable tag items from ID3v2.3 tag
+Import applicable tag items from ID3v2.3 tag
 present in DSF and possibly other files into the APEv2 tag.
+Note that imported tag items are added to any existing tag items unless
+.Fl -clean
+is included.
 If there are > 1 MB cover images present, add
 .Fl -allow-huge-tags
 to include them.

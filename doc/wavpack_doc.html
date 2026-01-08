@@ -108,7 +108,7 @@ a:hover {
 	<body>
 		<div class="container">
 			<div class="pageTitle">
-				<div class="pageHeader">Using WavPack Version 5.8.0</div>
+				<div class="pageHeader">Using WavPack Version 5.9.0</div>
 			</div>
 			<div class="pageMenu">
 				<a href="index.html">Home</a> - 
@@ -892,7 +892,7 @@ a:hover {
 				</p>
 				<p>
      Write a metadata item to the APEv2 tag for the actual encoder being used
-     (e.g., "Encoder=WavPack 5.8.0"). It's also possible to specify a value to override
+     (e.g., "Encoder=WavPack 5.9.0"). It's also possible to specify a value to override
      the default. Note that when re&#235;ncoding WavPack files this metadata item is
      <b>not</b> simply copied from source to destination, but is recreated with the
      appropriate value.
@@ -940,7 +940,7 @@ a:hover {
 					<b><tt>-x[n] = extra encode processing (optional n = 0-6, 1 = default)</tt></b>
 				</p>
 				<p>
-					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 5.8.0 normally
+					Like pre-4.0 versions of WavPack (and many other compressors), WavPack 5.9.0 normally
 					works "symmetrically" in that encoding and decoding operate at about the same rate
 					(regardless of the mode used). However, WavPack has an option to work
 					"asymmetrically", so that extra processing can be done during encoding to
@@ -1552,6 +1552,19 @@ a:hover {
 				</p>
 				<p>
 					Self explanatory.
+				</p>
+
+				<p>
+					<b><tt>--import-file file.wv = import all tag items from specified WavPack file</tt></b>
+				</p>
+				<p>
+     This option is used to copy all the tag items from one WavPack file to one (or more) other
+     WavPack files. Note that the "encoder" and "version" tags are excluded because those might no
+     longer be valid. The tag items are <i>added</i> to any existing tags on the the target file(s),
+     so include the <b>--clean</b> option if you want to start fresh.
+    </p>
+    <p>
+     Note that if over 1 MB of image data is present, then the <b>--allow-huge-tags</b> option must be included
 				</p>
 
 				<p>
