@@ -256,6 +256,7 @@ int main (int argc, char **argv)
                 if (wphdr.flags & FLOAT_DATA) strcat (flags_list, "FLOAT ");
                 if (wphdr.flags & INT32_DATA) strcat (flags_list, "INT32 ");
                 if (wphdr.flags & HYBRID_BITRATE) strcat (flags_list, "HYBRID-BITRATE ");
+                if (wphdr.flags & HYBRID_BALANCE) strcat (flags_list, "HYBRID-BALANCE ");
                 if (wphdr.flags & FALSE_STEREO) strcat (flags_list, "FALSE-STEREO ");
                 if (wphdr.flags & NEW_SHAPING) strcat (flags_list, "NEW-SHAPING ");
                 if (wphdr.flags & HAS_CHECKSUM) strcat (flags_list, "CHECKSUM ");
