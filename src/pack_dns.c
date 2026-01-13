@@ -60,8 +60,14 @@ void dynamic_noise_shaping (WavpackStream *wps, const int32_t *buffer, int short
         free (new_values);
     }
 
+    // The max_allowed_error here is what determines how many samples go in each frame (on average).
+    // If we start generating too short frames, then this will increase the maximum allowed error
+    // until they are in balance. Note that ave_block_samples is actually 8 times the average
+    // (it's exponentially decayed), so what we're really doing here is dividing 150K by the
+    // average length in samples to determine the max error.
+
     if (wps->wpc->wvc_flag) {
-        int max_allowed_error = 1000000 / wps->wpc->ave_block_samples;
+        int max_allowed_error = 1200000 / wps->wpc->ave_block_samples;
         short max_error, trial_max_error;
         double initial_y, final_y;
 
@@ -266,20 +272,25 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
     max_ratio = (float) pow (10.0, max_dB / 20.0);
     min_ratio = (float) pow (10.0, min_dB / 20.0);
 
-    for (i = 0; i < filtered_count; ++i)
-        if (high_freq [i] > 1.0 && low_freq [i] > 1.0) {
+    for (i = 0; i < filtered_count; ++i) {
+        float softest_freq = high_freq [i] < low_freq [i] ? high_freq [i] : low_freq [i];
+
+        // we scale the shaping value at low levels to avoid discontinuities there
+
+        if (softest_freq > 1.0) {
+            float shaping_value = softest_freq > 2.0 ? 1.0 : softest_freq - 1.0;
             float ratio = high_freq [i] / low_freq [i];
-            int shaping_value;
 
             if (ratio >= max_ratio)
-                shaping_value = 1024;
+                shaping_value *= 1024.0;
             else if (ratio <= min_ratio)
-                shaping_value = min_value;
+                shaping_value *= min_value;
             else
-                shaping_value = (int) floor ((log10 (ratio) * 20.0 + dB_offset) * dB_scaler + 0.5);
+                shaping_value *= (log10 (ratio) * 20.0 + dB_offset) * dB_scaler;
 
-            values [i + (FILTER_LENGTH >> 1)] = shaping_value;
+            values [i + (FILTER_LENGTH >> 1)] = (int) floor (shaping_value + 0.5);
         }
+    }
 
     // finally, copy the value at each end into the 7 outermost positions on each side
 
