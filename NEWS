@@ -1,4 +1,24 @@
                      --------------------------------
+                     Release 5.9.0 - January 16, 2026
+                     --------------------------------
+
+ WavPack Library Source Code - 5.9.0
+ wavpack.exe (command-line encoder) - 5.9.0
+ wvunpack.exe (command-line decoder) - 5.9.0
+ wvgain.exe (command-line ReplayGain scanner) - 5.9.0
+ wvtag.exe (command-line tagging utility) - 5.9.0
+ ----------------------------------------------------
+  added: new feature to wvtag to copy tags from one WavPack file to another
+  improved: minor tweaks to the new DNS (dynamic noise shaping) algorithm
+  improved: better handling of specfic non-standard WAV and AIFF files
+  improved: added CI (GitHub Actions) and fixed a few minor build issues
+  fixed: issue related to encoding from an unknown length (e.g., pipes)
+  fixed: several fuzzer-revealed issues related to multithreading
+  fixed: potential buffer overruns in WavpackOpenRawDecoder()
+  fixed: several minor issues with build system & CI
+
+
+                     --------------------------------
                      Release 5.8.0 - January 27, 2025
                      --------------------------------
 

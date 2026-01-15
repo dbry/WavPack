@@ -1,3 +1,47 @@
+2026-01-13  David Bryant  <david@wavpack.com>
+
+  * src/pack_dns.c:
+    a couple minor tweaks to the DNS (dynamic noise shaping) algorithm
+    - eliminate discontinuities in shaping weight stream triggered by low levels
+    - increase block sizes to slightly improve hybrid lossless compression ratio
+
+2026-01-07  David Bryant  <david@wavpack.com>
+
+  * cli/riff.c, cli/aiff.c:
+    handle a few specific non-standard WAV and AIFF files that other programs allow
+
+2025-12-23  David Bryant  <david@wavpack.com>
+
+  * src/open_raw.c:
+    fix another potential read beyond buffer provided by caller of WavpackOpenRawDecoder()
+    - this time the buffer for the correction data
+
+2025-11-10  David Bryant  <david@wavpack.com>
+
+  * src/open_raw.c:
+    fix potential read beyond buffer provided by caller of WavpackOpenRawDecoder()
+
+2025-10-23  David Bryant  <david@wavpack.com>
+
+  * cli/wvtag.c:
+    add --import-file option to copy tags from one WavPack file to another WavPack file
+
+2025-04-02  David Bryant  <david@wavpack.com>
+
+  * src/common_utils.c, cli/wavpack.c:
+    - fixes related to encoding from an unknown length (e.g., pipes)
+    - enhanced reporting of bitrate and compression ratio
+
+2025-02-12  David Bryant  <david@wavpack.com>
+
+  * src/unpack_utils.c:
+    fixes for multiple oss-fuzz issues caught by newly-enabled multithreaded fuzzing
+
+2025-02-07  David Bryant  <david@wavpack.com>
+
+  * fuzzing/fuzzer.cc:
+    enable threading on fuzzer to improve coverage
+
 2025-01-15  David Bryant  <david@wavpack.com>
 
   * CMakeLists.txt, wavpackdll/wavpackdll.rc, cli/utils.h, configure.ac, src/wavpack_version.h:

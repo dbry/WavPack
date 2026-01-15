@@ -53,8 +53,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 5,8,1,0
- PRODUCTVERSION 5,8,1,0
+ FILEVERSION 5,9,0,0
+ PRODUCTVERSION 5,9,0,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -71,9 +71,9 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Conifer Software"
             VALUE "FileDescription", "WavPack Dynamic Link Library"
-            VALUE "FileVersion", "5, 8, 1, 0"
+            VALUE "FileVersion", "5, 9, 0, 0"
             VALUE "InternalName", "wavpackdll"
-            VALUE "LegalCopyright", "Copyright (c) 1998 - 2025 David Bryant"
+            VALUE "LegalCopyright", "Copyright (c) 1998 - 2026 David Bryant"
             VALUE "OriginalFilename", "wavpackdll.dll"
             VALUE "ProductName", "WavPack Dynamic Link Library"
             VALUE "ProductVersion", "5, 8, 1, 0"
