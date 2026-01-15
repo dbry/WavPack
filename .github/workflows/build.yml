@@ -3,8 +3,6 @@ on:
   push:
   pull_request:
     types: [opened, synchronize, reopened]
-  release:
-    types: [published]
 
 jobs:
 
@@ -163,55 +161,3 @@ jobs:
       #     name: ${{env.release_name}}
       #     path: |
       #       *.zip
-
-  add-release-files:
-    name: Add files to release
-    if: (success() || failure()) && github.event_name == 'release'
-    runs-on: ubuntu-latest
-    needs:
-      - tarball
-      - windows-binaries
-    steps:
-      - name: Install packages
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: sudo apt install -y git jq gh
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Show release assets
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        run: gh release view "${{github.event.release.tag_name}}" --json assets | jq -r '.assets[].name'
-      - name: Download artifact
-        uses: actions/download-artifact@v7
-        with:
-          path: artifact
-      - name: Add artifact to release
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        run: |
-          echo "Release version: ${{github.event.release.tag_name}}"
-          filenames=()
-          files=()
-          for i in $(find artifact -type f); do
-            filename=$(basename $i)
-            if [[ ${filenames[@]} =~ ${filename} ]]; then
-              echo "Skipping duplicate file: ${filename}"
-              continue
-            fi
-            filenames+=("${filename}")
-            existing_asset=$(gh release view "${{github.event.release.tag_name}}" --json assets | jq -r '.assets[].name' | tr -d '[:blank:]' | grep ".*/${filename}\$" 2>/dev/null || true)
-            if [ "${existing_asset}" = "" ]; then
-              echo "Adding file: ${filename}"
-              files+=("${i}")
-            else
-              echo "Release already has file: ${filename}"
-            fi
-          done
-          files_list="${files[@]}"
-          if ! [ "${files_list}" = "" ]; then
-            echo "Adding files to GitHub release"
-            gh release upload "${{github.event.release.tag_name}}" ${files_list}
-          fi
