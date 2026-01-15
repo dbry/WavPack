@@ -38,7 +38,10 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
 int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
 {
     WavpackStream *wps = wpc->streams ? wpc->streams [0] : NULL;
-    uint32_t bcount, samples_to_skip, samples_to_decode = 0;
+    uint32_t bcount, samples_to_skip;
+#ifdef ENABLE_DSD
+    uint32_t samples_to_decode = 0;
+#endif
     int stream_index = 0;
     int32_t *buffer;
 
