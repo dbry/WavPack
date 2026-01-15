@@ -278,7 +278,7 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
         // we scale the shaping value at low levels to avoid discontinuities there
 
         if (softest_freq > 1.0) {
-            float shaping_value = softest_freq > 2.0 ? 1.0 : softest_freq - 1.0;
+            float shaping_value = (float)(softest_freq > 2.0 ? 1.0 : softest_freq - 1.0);
             float ratio = high_freq [i] / low_freq [i];
 
             if (ratio >= max_ratio)
@@ -286,7 +286,7 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
             else if (ratio <= min_ratio)
                 shaping_value *= min_value;
             else
-                shaping_value *= (log10 (ratio) * 20.0 + dB_offset) * dB_scaler;
+                shaping_value *= (float)((log10 (ratio) * 20.0 + dB_offset) * dB_scaler);
 
             values [i + (FILTER_LENGTH >> 1)] = (int) floor (shaping_value + 0.5);
         }
