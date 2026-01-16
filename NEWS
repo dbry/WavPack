@@ -13,10 +13,9 @@
   improved: better handling of specfic non-standard WAV and AIFF files
   improved: added CI (GitHub Actions) and fixed a few minor build issues
   fixed: --pause option failed in many situations (Windows-only feature)
-  fixed: issue related to encoding from an unknown length (e.g., pipes)
+  fixed: issues related to encoding from an unknown length (e.g., pipes)
   fixed: several fuzzer-revealed issues related to multithreading
   fixed: potential buffer overruns in WavpackOpenRawDecoder()
-  fixed: several minor issues with build system & CI
 
 
                      --------------------------------
