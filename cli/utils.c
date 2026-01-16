@@ -467,20 +467,16 @@ int get_app_path (char *app_path)
 void do_pause_mode (void)
 {
     HWND consoleWnd = GetConsoleWindow ();
-    DWORD dwProcessId;
 
-    if (!consoleWnd)    // if there's no console window, don't pause
+    if (!consoleWnd)                    // if there's no console window, don't pause
         return;
 
-    GetWindowThreadProcessId (consoleWnd, &dwProcessId);
+    if (!IsWindowVisible(consoleWnd))   // if the console is not visble, don't pause
+        return;
 
-    if (GetCurrentProcessId () != dwProcessId)
-        return;         // if there's a console window, but we don't own it, don't pause
-
-    fprintf (stderr, "\nPress any key to continue . . . ");
-    fflush (stderr);
-    while (!_kbhit ()) Sleep (100);
-    _getch ();
+    fprintf (stderr, "\n");
+    SetConsoleTitle ("Paused");
+    system ("pause");
     fprintf (stderr, "\n");
 }
 

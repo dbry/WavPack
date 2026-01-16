@@ -1,3 +1,10 @@
+2026-01-15  David Bryant  <david@wavpack.com>
+
+  * cli/utils.c:
+    fix --pause option (Windows-only feature)
+    - this was broken when used with the WavPack frontend and in other situations
+    - now uses the Windows "pause" command rather than calling kbhit() repeatedly
+
 2026-01-13  David Bryant  <david@wavpack.com>
 
   * src/pack_dns.c:
