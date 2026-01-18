@@ -76,7 +76,7 @@ BEGIN
             VALUE "LegalCopyright", "Copyright (c) 1998 - 2026 David Bryant"
             VALUE "OriginalFilename", "wavpackdll.dll"
             VALUE "ProductName", "WavPack Dynamic Link Library"
-            VALUE "ProductVersion", "5, 8, 1, 0"
+            VALUE "ProductVersion", "5, 9, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
