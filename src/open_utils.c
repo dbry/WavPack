@@ -212,11 +212,11 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             wpc->config.bits_per_sample = 24;
         }
         else {
-            if (error) strcpy (error, "not configured to handle DSD WavPack files!");
+            if (error) strcpy (error, "WavPack DSD file handling not enabled by application!");
             return WavpackCloseFile (wpc);
         }
 #else
-        if (error) strcpy (error, "not configured to handle DSD WavPack files!");
+        if (error) strcpy (error, "WavPack library not built with DSD file support!");
         return WavpackCloseFile (wpc);
 #endif
     }
@@ -814,7 +814,7 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd, int str
 #ifdef ENABLE_DSD
             return init_dsd_block (wps, wpmd);
 #else
-            strcpy (wpc->error_message, "not configured to handle DSD WavPack files!");
+            strcpy (wpc->error_message, "WavPack library not built with DSD file support!");
             return FALSE;
 #endif
 

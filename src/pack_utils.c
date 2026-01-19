@@ -253,7 +253,7 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
         config->flags &= (CONFIG_HIGH_FLAG | CONFIG_MD5_CHECKSUM | CONFIG_PAIR_UNDEF_CHANS);
         config->float_norm_exp = config->xmode = 0;
 #else
-        strcpy (wpc->error_message, "libwavpack not configured for DSD!");
+        strcpy (wpc->error_message, "WavPack library not built with DSD file support!");
         return FALSE;
 #endif
     }
