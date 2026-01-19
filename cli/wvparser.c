@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
 //                           **** WAVPACK ****                            //
 //                  Hybrid Lossless Wavefile Compressor                   //
-//                Copyright (c) 1998 - 2024 David Bryant.                 //
+//                Copyright (c) 1998 - 2026 David Bryant.                 //
 //                          All Rights Reserved.                          //
 //      Distributed under the BSD Software License (see license.txt)      //
 ////////////////////////////////////////////////////////////////////////////
@@ -125,20 +125,21 @@ static const char *metadata_names [] = {
 };
 
 static int32_t read_bytes (void *buff, int32_t bcount);
-static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr);
+static int32_t read_next_header (read_stream infile, WavpackHeader *wphdr);
 static void little_endian_to_native (void *data, char *format);
 static void native_to_little_endian (void *data, char *format);
 static void parse_wavpack_block (unsigned char *block_data);
 static int verify_wavpack_block (unsigned char *buffer);
 
 static const char *sign_on = "\n"
-" WVPARSER  WavPack Audio File Parser Test Filter  Version 1.20\n"
-" Copyright (c) 1998 - 2024 David Bryant.  All Rights Reserved.\n\n";
+" WVPARSER  WavPack Audio File Parser Test Filter  Version 1.30\n"
+" Copyright (c) 1998 - 2026 David Bryant.  All Rights Reserved.\n\n";
 
 static const char *usage =
 " Usage:     WVPARSER [-options] < infile.wv [> outfile.txt]\n\n"
 " Operation: WavPack file at stdin is parsed and displayed to stdout\n\n"
 " Options:  -h     = display this help message and exit\n"
+"           -v-1   = just show warnings and errors\n"
 "           -v0    = show basic frame information only\n"
 "           -v1    = also list metadata blocks found (default)\n"
 "           -v2    = also display up to 16 bytes of each metadata block\n\n"
@@ -148,8 +149,8 @@ static int verbosity = 1;
 
 int main (int argc, char **argv)
 {
-    uint32_t bcount, total_bytes, sample_rate, first_sample, last_sample = -1L;
-    int channel_count, block_count, asked_help = 0;
+    uint32_t total_bytes, sample_rate, first_sample, last_sample = -1L;
+    int bcount, channel_count, block_count, asked_help = 0;
     char flags_list [256];
     WavpackHeader wphdr;
 
@@ -176,8 +177,8 @@ int main (int argc, char **argv)
                     case 'V': case 'v':
                         verbosity = strtol (++*argv, argv, 10);
 
-                        if (verbosity < 0 || verbosity > 2) {
-                            fprintf (stderr, "\nverbosity  must be 0, 1, or 2!\n");
+                        if (verbosity < -1 || verbosity > 2) {
+                            fprintf (stderr, "\nverbosity  must be -1, 0, 1, or 2!\n");
                             return -1;
                         }
 
@@ -205,13 +206,17 @@ int main (int argc, char **argv)
 
 	bcount = read_next_header (read_bytes, &wphdr);
 
-	if (bcount == (uint32_t) -1) {
-	    printf ("\nend of file\n\n");
+	if (bcount < 0) {
+            if (bcount == -1)
+                printf ("\nend of file\n\n");
+            else
+                printf ("\nwarning: %d unknown bytes (tag?), then end of file\n\n", ~bcount);
+
 	    break;
 	}
 
 	if (bcount)
-	    printf ("\nunknown data skipped, %u bytes\n", bcount);
+	    printf ("\nwarning: unknown data skipped, %u bytes\n", bcount);
 
         if (((wphdr.flags & SRATE_MASK) >> SRATE_LSB) == 15) {
             if (sample_rate != 44100)
@@ -228,16 +233,16 @@ int main (int argc, char **argv)
         // basic summary of the block
 
         if ((wphdr.flags & INITIAL_BLOCK) || !wphdr.block_samples)
-            printf ("\n");
+            if (verbosity >= 0) printf ("\n");
 
 	if (wphdr.block_samples) {
-	    printf ("%s audio block, version 0x%03x, %u samples in %u bytes, time = %.2f-%.2f\n",
+	    if (verbosity >= 0) printf ("%s audio block, version 0x%03x, %u samples in %u bytes, time = %.2f-%.2f\n",
                 (wphdr.flags & MONO_FLAG) ? "mono" : "stereo", wphdr.version, wphdr.block_samples, wphdr.ckSize + 8,
                 (double) wphdr.block_index / sample_rate, (double) (wphdr.block_index + wphdr.block_samples - 1) / sample_rate);
 
             // now show information from the "flags" field of the header
 
-            printf ("samples are %d bits in %d bytes, shifted %d bits, sample rate = %u Hz\n",
+            if (verbosity >= 0) printf ("samples are %d bits in %d bytes, shifted %d bits, sample rate = %u Hz\n",
                 (int)((wphdr.flags & MAG_MASK) >> MAG_LSB) + 1,
                 (wphdr.flags & BYTES_STORED) + 1,
                 (int)(wphdr.flags & SHIFT_MASK) >> SHIFT_LSB,
@@ -266,7 +271,7 @@ int main (int argc, char **argv)
             else
                 strcat (flags_list, "none");
 
-            printf ("flags: %s\n", flags_list);
+            if (verbosity >= 0) printf ("flags: %s\n", flags_list);
         }
         else
             printf ("non-audio block of %u bytes, version 0x%03x\n", wphdr.ckSize + 8, wphdr.version);
@@ -307,7 +312,7 @@ int main (int argc, char **argv)
 		block_count++;
 
 		if (wphdr.flags & FINAL_BLOCK)
-		    printf ("multichannel: %d channels in %d blocks, %u bytes total\n",
+		    if (verbosity >= 0) printf ("multichannel: %d channels in %d blocks, %u bytes total\n",
 			channel_count, block_count, total_bytes);
 	    }
 	}
@@ -490,11 +495,11 @@ static int32_t read_bytes (void *buff, int32_t bcount)
 // to indicate the error. No additional bytes are read past the header and it
 // is returned in the processor's native endian mode. Seeking is not required.
 
-static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
+static int32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
 {
     unsigned char buffer [sizeof (*wphdr)], *sp = buffer + sizeof (*wphdr), *ep = sp;
     uint32_t bytes_skipped = 0;
-    int bleft;
+    int bleft, bread;
 
     while (1) {
 	if (sp < ep) {
@@ -504,8 +509,10 @@ static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
 	else
 	    bleft = 0;
 
-	if (infile (buffer + bleft, sizeof (*wphdr) - bleft) != (int32_t) sizeof (*wphdr) - bleft)
-	    return -1;
+	bread = infile (buffer + bleft, sizeof (*wphdr) - bleft);
+
+	if (bread != (int32_t) sizeof (*wphdr) - bleft)
+	    return ~(bytes_skipped + bread);
 
 	sp = buffer;
 
@@ -523,7 +530,7 @@ static uint32_t read_next_header (read_stream infile, WavpackHeader *wphdr)
 	    sp++;
 
 	if ((bytes_skipped += sp - buffer) > 1024 * 1024)
-	    return -1;
+	    return ~bytes_skipped;
     }
 }
 
