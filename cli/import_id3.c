@@ -107,7 +107,7 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
     }
 
     memcpy (id3_header, tag_data, sizeof (id3_header));
-    snprintf (tag_type, sizeof (tag_type), "ID3v2.%d", id3_header [3]);
+    _snprintf (tag_type, sizeof (tag_type), "ID3v2.%d", id3_header [3]);
     tag_size -= sizeof (id3_header);
     tag_data += sizeof (id3_header);
 
