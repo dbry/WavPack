@@ -509,6 +509,14 @@ static void *unpack_samples_worker_thread (void *param)
 
         if (cxt->samcnt > temp_samples) {           // reallocate temp buffer if not big enough
             temp_buffer = (int32_t *) realloc (temp_buffer, (temp_samples = cxt->samcnt) * 8);
+
+            if (!temp_buffer) {                     // handle NULL return to satisfy Copilot
+                wp_mutex_obtain (*cxt->mutex);
+                (*cxt->worker_errors)++;
+                wp_mutex_release (*cxt->mutex);
+                break;
+            }
+
             memset (temp_buffer, 0, temp_samples * 8);
         }
 
