@@ -100,7 +100,7 @@ static const char *help =
 "    -d \"Field\"            delete specified metadata item (text or binary)\n"
 "    -h or --help          this help display\n"
 "    --import-file file.wv import all tag items from the specified WavPack file\n"
-"                           (except the \"encoder\" and \"version\" items)\n"
+"                           (except the \"encoder\" and \"settings\" items)\n"
 "    --import-id3          import ID3v2 tags from the trailer of original file\n"
 "                           (default for DSF and AIF files, optional for other\n"
 "                            formats, add --allow-huge-tags for > 1 MB images)\n"
@@ -251,8 +251,10 @@ int main (int argc, char **argv)
                     error_line ("can't import tags from more than one file!");
                     ++error_count;
                 }
-                else
+                else {
                     import_file_next_arg = 1;
+                    tag_next_arg = 0;
+                }
             }
             else if (!strcmp (long_option, "import-id3"))               // --import-id3
                 import_id3 = 1;
@@ -260,8 +262,10 @@ int main (int argc, char **argv)
                 no_utf8_convert = 1;
             else if (!strcmp (long_option, "allow-huge-tags"))          // --allow-huge-tags
                 allow_huge_tags = 1;
-            else if (!strcmp (long_option, "write-binary-tag"))         // --write-binary-tag
+            else if (!strcmp (long_option, "write-binary-tag")) {       // --write-binary-tag
+                import_file_next_arg = 0;
                 tag_next_arg = 2;
+            }
             else {
                 error_line ("unknown option: %s !", long_option);
                 ++error_count;
@@ -284,6 +288,7 @@ int main (int argc, char **argv)
                         break;
 
                     case 'D': case 'd':
+                        import_file_next_arg = 0;
                         tag_next_arg = -1;
                         break;
 
@@ -305,6 +310,7 @@ int main (int argc, char **argv)
                         return 0;
 
                     case 'W': case 'w':
+                        import_file_next_arg = 0;
                         tag_next_arg = 1;
                         break;
 
@@ -416,6 +422,11 @@ int main (int argc, char **argv)
     if (tag_next_arg) {
         error_line ("no tag specified with %s option!",
             tag_next_arg < 0 ? "-d" : (tag_next_arg == 1 ? "-w" : "--write-binary-tag"));
+        ++error_count;
+    }
+
+    if (import_file_next_arg) {
+        error_line ("no file specified with --import-file option!");
         ++error_count;
     }
 
@@ -885,6 +896,12 @@ static int process_file (char *infilename)
                 }
 
                 WavpackCloseFile (import_wpc);
+
+                if (!res) {
+                    error_line ("%s", WavpackGetErrorMessage (wpc));
+                    WavpackCloseFile (wpc);
+                    return WAVPACK_HARD_ERROR;
+                }
             }
         }
 
