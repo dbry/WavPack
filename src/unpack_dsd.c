@@ -246,6 +246,8 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
             if (wps->dsd.endptr - wps->dsd.byteptr >= 4)
                 for (i = 4; i--;)
                     wps->dsd.value = (wps->dsd.value << 8) | *wps->dsd.byteptr++;
+            else
+                return 0;
 
             wps->dsd.low = 0;
             wps->dsd.high = 0xffffffff;
@@ -273,7 +275,10 @@ static int decode_fast (WavpackStream *wps, int32_t *output, int sample_count)
             wps->dsd.p1 = code & (wps->dsd.history_bins-1);
         }
 
-        while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low) && wps->dsd.byteptr < wps->dsd.endptr) {
+        while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low)) {
+            if (wps->dsd.byteptr >= wps->dsd.endptr)
+                return 0;
+
             wps->dsd.value = (wps->dsd.value << 8) | *wps->dsd.byteptr++;
             wps->dsd.high = (wps->dsd.high << 8) | 0xff;
             wps->dsd.low <<= 8;
@@ -393,7 +398,10 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
                 sp [0].filter0 = 0;
             }
 
-            while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low) && wps->dsd.byteptr < wps->dsd.endptr) {
+            while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low)) {
+                if (wps->dsd.byteptr >= wps->dsd.endptr)
+                    return 0;
+
                 wps->dsd.value = (wps->dsd.value << 8) | *wps->dsd.byteptr++;
                 wps->dsd.high = (wps->dsd.high << 8) | 0xff;
                 wps->dsd.low <<= 8;
@@ -428,7 +436,10 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
                 sp [1].filter0 = 0;
             }
 
-            while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low) && wps->dsd.byteptr < wps->dsd.endptr) {
+            while (DSD_BYTE_READY (wps->dsd.high, wps->dsd.low)) {
+                if (wps->dsd.byteptr >= wps->dsd.endptr)
+                    return 0;
+
                 wps->dsd.value = (wps->dsd.value << 8) | *wps->dsd.byteptr++;
                 wps->dsd.high = (wps->dsd.high << 8) | 0xff;
                 wps->dsd.low <<= 8;
