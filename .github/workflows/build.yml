@@ -26,7 +26,7 @@ jobs:
       - name: Distcheck
         run: make distcheck
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: tarball
           path: |
@@ -156,7 +156,7 @@ jobs:
         shell: cmd
         run: 7z l ${{env.release_name}}.zip
       # - name: Upload artifact
-      #   uses: actions/upload-artifact@v6
+      #   uses: actions/upload-artifact@v7
       #   with:
       #     name: ${{env.release_name}}
       #     path: |
