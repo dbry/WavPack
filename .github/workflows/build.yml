@@ -112,7 +112,7 @@ jobs:
           sdk: 10.0.19041.0
           vsversion: 2022
       - name: Download artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: artifact/tarball
       - name: Set tarball
