@@ -102,7 +102,7 @@ jobs:
         shell: bash
         run: echo "short_arch=$(test "${{matrix.arch}}" = "x86_64" && echo "x64" || echo "${{matrix.arch}}")" >> $GITHUB_ENV
       - name: Cleanup PATH
-        uses: egor-tensin/cleanup-path@v4
+        uses: egor-tensin/cleanup-path@v5
         with:
           dirs: C:\Windows;C:\Windows\system32;C:\Program Files\Git\bin;C:\Program Files\CMake\bin;C:\Program Files\GitHub CLI;C:\ProgramData\Chocolatey\bin
       - name: Setup MSVC Environment
