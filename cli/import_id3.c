@@ -178,14 +178,14 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
         if (syncsafe)
             frame_size = frame_header [7] + (frame_header [6] << 7) + (frame_header [5] << 14) + (frame_header [4] << 21);
         else
-            frame_size = frame_header [7] + (frame_header [6] << 8) + (frame_header [5] << 16) + (frame_header [4] << 24);
+            frame_size = frame_header [7] + (frame_header [6] << 8) + (frame_header [5] << 16) + ((uint32_t) frame_header [4] << 24);
 
         if (!frame_size) {
             sprintf (error, "invalid %s tag (empty frame encountered)", tag_type);
             return -1;
         }
 
-        if (frame_size > tag_size) {
+        if (frame_size < 0 || frame_size > tag_size) {
             sprintf (error, "invalid %s tag (truncated)", tag_type);
             return -1;
         }
