@@ -160,14 +160,14 @@ WavpackContext *WavpackOpenRawDecoder (
                 block_samples = *mcp++;
                 block_samples += *mcp++ << 8;
                 block_samples += *mcp++ << 16;
-                block_samples += *mcp++ << 24;
+                block_samples += (uint32_t) *mcp++ << 24;
                 main_bytes -= 4;
             }
 
             wphdr_flags = *mcp++;
             wphdr_flags += *mcp++ << 8;
             wphdr_flags += *mcp++ << 16;
-            wphdr_flags += *mcp++ << 24;
+            wphdr_flags += (uint32_t) *mcp++ << 24;
             main_bytes -= 4;
 
             // if the first block does not have the FINAL_BLOCK flag set,
@@ -179,7 +179,7 @@ WavpackContext *WavpackOpenRawDecoder (
             crc = *mcp++;
             crc += *mcp++ << 8;
             crc += *mcp++ << 16;
-            crc += *mcp++ << 24;
+            crc += (uint32_t) *mcp++ << 24;
             main_bytes -= 4;
 
             if (multiple_blocks) {
@@ -193,7 +193,7 @@ WavpackContext *WavpackOpenRawDecoder (
                 block_size = *mcp++;
                 block_size += *mcp++ << 8;
                 block_size += *mcp++ << 16;
-                block_size += *mcp++ << 24;
+                block_size += (uint32_t) *mcp++ << 24;
                 main_bytes -= 4;
             }
             else
@@ -233,7 +233,7 @@ WavpackContext *WavpackOpenRawDecoder (
                 crc = *ccp++;
                 crc += *ccp++ << 8;
                 crc += *ccp++ << 16;
-                crc += *ccp++ << 24;
+                crc += (uint32_t) *ccp++ << 24;
                 corr_bytes -= 4;
 
                 if (multiple_blocks) {
@@ -247,7 +247,7 @@ WavpackContext *WavpackOpenRawDecoder (
                     block_size = *ccp++;
                     block_size += *ccp++ << 8;
                     block_size += *ccp++ << 16;
-                    block_size += *ccp++ << 24;
+                    block_size += (uint32_t) *ccp++ << 24;
                     corr_bytes -= 4;
                 }
                 else
