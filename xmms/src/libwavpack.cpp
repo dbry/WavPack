@@ -265,7 +265,7 @@ update_tag(ape_tag *tag, char *filename)
     if (!ctx) {
         char text[256];
 
-        sprintf(text, "File \"%s\" not found or is read protected!\n",
+        snprintf(text, sizeof(text), "File \"%s\" not found or is read protected!\n",
                 filename);
         xmms_show_message("File-Error", (gchar *) text, "Ok", FALSE, NULL,
                           NULL);
@@ -310,7 +310,7 @@ update_tag(ape_tag *tag, char *filename)
     if (!WavpackWriteTag (ctx)) {
         char text[256];
 
-        sprintf(text, "Couldn't write tag to \"%s\"!\n",
+        snprintf(text, sizeof(text), "Couldn't write tag to \"%s\"!\n",
                 filename);
         xmms_show_message("File-Error", (gchar *) text, "Ok", FALSE, NULL,
                           NULL);
@@ -329,7 +329,7 @@ delete_tag(char *filename)
     ctx = WavpackOpenFileInput (filename, error_buff, OPEN_TAGS | OPEN_EDIT_TAGS, 0);
 
     if (!ctx) {
-        sprintf(text, "File \"%s\" not found or is read protected!\n",
+        snprintf(text, sizeof(text), "File \"%s\" not found or is read protected!\n",
                 filename);
         xmms_show_message("File-Error", (gchar *) text, "Ok", FALSE, NULL,
                           NULL);
@@ -342,7 +342,7 @@ delete_tag(char *filename)
     if (!WavpackWriteTag (ctx)) {
         char text[256];
 
-        sprintf(text, "Couldn't write tag to \"%s\"!\n",
+        snprintf(text, sizeof(text), "Couldn't write tag to \"%s\"!\n",
                 filename);
         xmms_show_message("File-Error", (gchar *) text, "Ok", FALSE, NULL,
                           NULL);
