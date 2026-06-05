@@ -1467,6 +1467,9 @@ static int32_t FASTCALL get_word3 (WavpackStream3 *wps, int chan)
         return 0L;
 
     if (wps->wphdr.bits && dbits > wps->wphdr.bits) {
+        if (wps->wphdr.bits & ~31)
+            return WORD_EOF;
+
         getbits (&value, wps->wphdr.bits, &wps->wvbits);
 
         if (value & bitset [wps->wphdr.bits - 1])
