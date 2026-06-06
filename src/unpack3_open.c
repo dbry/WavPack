@@ -170,9 +170,9 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
 
     WavpackLittleEndianToNative (&wphdr, WavpackHeader3Format);
 
-    // make sure this is a version we know about
+    // make sure this is a version we know about (and valid)
 
-    if (strncmp (wphdr.ckID, "wvpk", 4) || wphdr.version < 1 || wphdr.version > 3) {
+    if (strncmp (wphdr.ckID, "wvpk", 4) || wphdr.version < 1 || wphdr.version > 3 || wphdr.bits < 0) {
         if (error) strcpy (error, "not a valid WavPack file!");
         return WavpackCloseFile (wpc);
     }
