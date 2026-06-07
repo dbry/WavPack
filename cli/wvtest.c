@@ -195,12 +195,12 @@ int main (argc, argv) int argc; char **argv;
                 test_flags |= TEST_FLAG_NO_DECODE;
             }
             else if (!strncmp (long_option, "write", 5)) {              // --write
-                for (number_of_ranges = 0; *long_param && isdigit (*long_param) && number_of_ranges < NUM_WRITE_RANGES;) {
+                for (number_of_ranges = 0; *long_param && isdigit ((unsigned char)*long_param) && number_of_ranges < NUM_WRITE_RANGES;) {
                     write_ranges [number_of_ranges].start = strtol (long_param, &long_param, 10);
 
                     if (*long_param == '-') {
                         long_param++;
-                        if (isdigit (*long_param))
+                        if (isdigit ((unsigned char)*long_param))
                             write_ranges [number_of_ranges].stop = strtol (long_param, &long_param, 10);
                         else
                             break;
@@ -233,7 +233,7 @@ int main (argc, argv) int argc; char **argv;
                     break;
             }
             else if (!strncmp (long_option, "threads", 7)) {            // --threads
-                if (isdigit (*long_param)) {
+                if (isdigit ((unsigned char)*long_param)) {
                     // "worker_threads" doesn't include main thread, so subtract 1 from user value
                     worker_threads = strtol (long_param, &long_param, 10) - 1;
 

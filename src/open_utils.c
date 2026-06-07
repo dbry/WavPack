@@ -845,7 +845,7 @@ static int process_metadata (WavpackContext *wpc, WavpackMetadata *wpmd, int str
                 int i, j;
 
                 for (i = j = 0; i < wpmd->byte_length; ++i)
-                    if (isalnum (((char *) wpmd->data) [i]))
+                    if (isalnum (((unsigned char *) wpmd->data) [i]))
                         wpc->file_extension [j++] = ((char *) wpmd->data) [i];
 
                 wpc->file_extension [j] = 0;

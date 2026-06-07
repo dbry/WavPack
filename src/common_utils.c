@@ -698,7 +698,7 @@ void WavpackLittleEndianToNative (void *data, char *format)
                 break;
 
             default:
-                if (isdigit (*format))
+                if (isdigit ((unsigned char)*format))
                     cp += *format - '0';
 
                 break;
@@ -744,7 +744,7 @@ void WavpackNativeToLittleEndian (void *data, char *format)
                 break;
 
             default:
-                if (isdigit (*format))
+                if (isdigit ((unsigned char)*format))
                     cp += *format - '0';
 
                 break;
@@ -783,7 +783,7 @@ void WavpackBigEndianToNative (void *data, char *format)
                 break;
 
             default:
-                if (isdigit (*format))
+                if (isdigit ((unsigned char)*format))
                     cp += *format - '0';
 
                 break;
@@ -829,7 +829,7 @@ void WavpackNativeToBigEndian (void *data, char *format)
                 break;
 
             default:
-                if (isdigit (*format))
+                if (isdigit ((unsigned char)*format))
                     cp += *format - '0';
 
                 break;

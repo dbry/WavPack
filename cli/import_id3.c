@@ -222,12 +222,12 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
                     else
                         cptr++;
 
-                if (!*cptr && isupper (*utf8_string)) {
+                if (!*cptr && isupper ((unsigned char)*utf8_string)) {
                     cptr = utf8_string;
 
                     while (*++cptr)
-                        if (isupper (*cptr))
-                            *cptr = tolower (*cptr);
+                        if (isupper ((unsigned char)*cptr))
+                            *cptr = tolower ((unsigned char)*cptr);
                 }
 
                 utf8_value = utf8_string + strlen ((char *) utf8_string) + 1;
@@ -259,8 +259,8 @@ static int ImportID3v2_syncsafe (WavpackContext *wpc, unsigned char *tag_data, i
 
             free (utf8_string);
         }
-        else if (!strncmp ((char *) frame_header, "COMM", 4) && frame_size >= 5 && isalpha (frame_body [1]) &&
-            isalpha (frame_body [2]) && isalpha (frame_body [3])) {
+        else if (!strncmp ((char *) frame_header, "COMM", 4) && frame_size >= 5 && isalpha ((unsigned char)frame_body[1]) &&
+            isalpha((unsigned char)frame_body [2]) && isalpha((unsigned char)frame_body [3])) {
                 unsigned char *utf8_string = malloc (frame_size * 2);
                 int num_segments = ID3v2StringsToUTF8 (frame_body [0], frame_body + 4, frame_size - 4, utf8_string);
 

@@ -403,7 +403,7 @@ int main(int argc, char **argv)
             }
             else if (!strncmp (long_option, "threads", 7)) {            // --threads
 #ifdef ENABLE_THREADS
-                if (isdigit (*long_param)) {
+                if (isdigit ((unsigned char)*long_param)) {
                     // "worker_threads" doesn't include main thread, so subtract 1 from user value
                     worker_threads = strtol (long_param, &long_param, 10) - 1;
 
@@ -1039,7 +1039,7 @@ static void parse_sample_time_index (struct sample_time_index *dst, char *src)
             dst->value *= 60.0;
             continue;
         }
-        else if (*src == '.' || isdigit (*src)) {
+        else if (*src == '.' || isdigit ((unsigned char)*src)) {
             temp = strtod_hexfree (src, &src);
 
             if (temp < 0.0 || (dst->value_is_time && temp >= 60.0) ||

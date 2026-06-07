@@ -556,7 +556,7 @@ static void little_endian_to_native (void *data, char *format)
 		break;
 
 	    default:
-		if (isdigit (*format))
+		if (isdigit ((unsigned char)*format))
 		    cp += *format - '0';
 
 		break;
@@ -588,7 +588,7 @@ static void native_to_little_endian (void *data, char *format)
                 break;
 
             default:
-                if (isdigit (*format))
+                if (isdigit ((unsigned char)*format))
                     cp += *format - '0';
 
                 break;
