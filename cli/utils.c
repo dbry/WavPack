@@ -58,11 +58,11 @@ double strtod_hexfree (const char *nptr, char **endptr)
     const char *sptr = nptr;
 
     // skip past any leading whitespace and possibly a sign
-    while (isspace (*sptr)) sptr++;
+    while (isspace ((unsigned char)*sptr)) sptr++;
     if (*sptr == '+' || *sptr == '-') sptr++;
 
     // if hex detected ("0x" or "0X"), return 0.0 and end at the X
-    if (*sptr == '0' && tolower (sptr [1]) == 'x') {
+    if (*sptr == '0' && tolower ((unsigned char)sptr[1]) == 'x') {
         if (endptr) *endptr = (char *) sptr + 1;
         return 0.0;
     }

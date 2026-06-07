@@ -505,7 +505,7 @@ int main (int argc, char **argv)
                 int pi, fp = 0, be = 0, us = 0, s = 0;
 
                 for (pi = 0; *long_param && pi < 3; ++pi) {
-                    if (isdigit (*long_param))
+                    if (isdigit ((unsigned char)*long_param))
                         params [pi] = strtol (long_param, &long_param, 10);
 
                     if (pi == 1) {
@@ -601,7 +601,7 @@ int main (int argc, char **argv)
                         break;
                     }
 
-                    for (ci = 0; isalpha (*long_param) && ci < sizeof (name) - 1; ci++)
+                    for (ci = 0; isalpha ((unsigned char)*long_param) && ci < sizeof (name) - 1; ci++)
                         name [ci] = *long_param++;
 
                     if (!ci) {
@@ -664,7 +664,7 @@ int main (int argc, char **argv)
             }
             else if (!strncmp (long_option, "threads", 7)) {                // --threads
 #ifdef ENABLE_THREADS
-                if (isdigit (*long_param)) {
+                if (isdigit ((unsigned char)*long_param)) {
                     // "worker_threads" doesn't include main thread, so subtract 1 from user value
                     worker_threads = strtol (long_param, &long_param, 10) - 1;
 
@@ -705,7 +705,7 @@ int main (int argc, char **argv)
                         break;
 
                     case 'X': case 'x':
-                        if (isdigit (*++argcp))
+                        if (isdigit ((unsigned char)*++argcp))
                             config.xmode = strtol (argcp, &argcp, 10);
                         else
                             config.xmode = 1;   // 'x' with no value specified = 1
@@ -800,8 +800,8 @@ int main (int argc, char **argv)
                         else
                             config.flags |= CONFIG_CREATE_WVC;
 
-                        if (!isdigit (argcp [1]))       // if no number follows, we're done; otherwise
-                            break;                      // use numeric parameter for -b option
+                        if (!isdigit ((unsigned char)argcp[1])) // if no number follows, we're done; otherwise
+                            break;                              // use numeric parameter for -b option
 
                     case 'B': case 'b':
                         config.flags |= CONFIG_HYBRID_FLAG;
