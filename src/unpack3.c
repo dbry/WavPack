@@ -1368,11 +1368,15 @@ static int32_t FASTCALL get_old_word1 (WavpackStream3 *wps, int chan)
         wps->w1.index [chan] = 0;
 
     k = wps->w1.k_value [chan];
+
+    if (k & ~31)
+        return WORD_EOF;
+
     getbits (&avalue, k, &wps->wvbits);
 
     for (bc = 0; bc < 32 && getbit (&wps->wvbits); ++bc);
 
-    if (bc == 32 || (k & ~31))
+    if (bc == 32)
         return WORD_EOF;
 
     avalue = (avalue & bitmask [k]) + bitset [k] * bc;
