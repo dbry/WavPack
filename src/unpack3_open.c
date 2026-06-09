@@ -224,6 +224,17 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
             wphdr.bits = 0;
     }
 
+    // the decoder picks the mono or stereo path from the MONO_FLAG bit, but the
+    // channel count handed to the caller comes from NumChannels; a version 3 file
+    // can set these two inconsistently (NumChannels == 1 with MONO_FLAG clear makes
+    // the stereo path write two samples into a one-channel output buffer), so reject
+    // the mismatch here rather than overrun the caller's buffer
+
+    if (((wphdr.flags & MONO_FLAG) ? 1 : 2) != wavhdr.NumChannels) {
+        if (error) strcpy (error, "not a valid WavPack file!");
+        return WavpackCloseFile (wpc);
+    }
+
     wpc->config.sample_rate = wavhdr.SampleRate;
     wpc->config.num_channels = wavhdr.NumChannels;
     wpc->config.channel_mask = 5 - wavhdr.NumChannels;
