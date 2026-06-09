@@ -172,9 +172,10 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
 
     // make sure this is a version we know about (and valid)
 
-    if (strncmp (wphdr.ckID, "wvpk", 4) || wphdr.version < 1 || wphdr.version > 3 || wphdr.bits < 0) {
-        if (error) strcpy (error, "not a valid WavPack file!");
-        return WavpackCloseFile (wpc);
+    if (strncmp (wphdr.ckID, "wvpk", 4) || wphdr.version < 1 || wphdr.version > 3 ||
+        (wphdr.version > 1 && wphdr.bits < 0)) {
+            if (error) strcpy (error, "not a valid WavPack file!");
+            return WavpackCloseFile (wpc);
     }
 
     // Because I ran out of flag bits in the WavPack header, an amazingly ugly
