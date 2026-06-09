@@ -327,11 +327,11 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
             min_weight = (flags & EXTREME_DECORR) ? -512 : -256;
 
     if (flags & BYTES_3) {
-        min_shifted = (min_value = -8388608 >> shift) << shift;
+        min_shifted = (uint32_t)(min_value = -8388608 >> shift) << shift;
         max_shifted = (max_value = 8388607 >> shift) << shift;
     }
     else {
-        min_shifted = (min_value = -32768 >> shift) << shift;
+        min_shifted = (uint32_t)(min_value = -32768 >> shift) << shift;
         max_shifted = (max_value = 32767 >> shift) << shift;
     }
 
