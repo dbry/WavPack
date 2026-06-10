@@ -94,7 +94,7 @@ int read_decorr_weights (WavpackStream *wps, WavpackMetadata *wpmd)
 int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     unsigned char *byteptr = (unsigned char *)wpmd->data;
-    unsigned char *endptr = byteptr + wpmd->byte_length;
+    unsigned char *endptr = byteptr ? byteptr + wpmd->byte_length : NULL;
     struct decorr_pass *dpp;
     int tcount;
 
@@ -104,7 +104,7 @@ int read_decorr_samples (WavpackStream *wps, WavpackMetadata *wpmd)
     }
 
     if (wps->wphdr.version == 0x402 && (wps->wphdr.flags & HYBRID_FLAG)) {
-        if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+        if (!byteptr || byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
             return FALSE;
 
         wps->dc.error [0] = wp_exp2s ((int16_t)(byteptr [0] + (byteptr [1] << 8)));
