@@ -2424,7 +2424,7 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     // with the appropriate name, delete it because it's now very obsolete
 
     if (!out2filename && outfilename && *outfilename != '-') {
-        char out2filename_obsolete [PATH_MAX];
+        char *out2filename_obsolete = malloc (strlen (outfilename) + 10);
         FILE *testfile;
         int res;
 
@@ -2439,6 +2439,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
                 error_line ("%s obsolete correction file %s",
                     res ? "deleted" : "can't delete", out2filename_obsolete);
         }
+
+        free (out2filename_obsolete);
     }
 
     // compute and display the time consumed along with some other details of
@@ -3417,7 +3419,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
         }
     
         if (input_mode & MODE_WVC) {
-            char in2filename [PATH_MAX];
+            char *in2filename = malloc (strlen (infilename) + 10);
 
             strcpy (in2filename, infilename);
             strcat (in2filename, "c");
@@ -3429,6 +3431,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
                     error_line ("%s source file %s", res ?
                         "deleted" : "can't delete", in2filename);
             }
+
+            free (in2filename);
         }
     }
 
@@ -3481,7 +3485,7 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     // with the appropriate name, delete it because it's now very obsolete
 
     if (!out2filename && outfilename && *outfilename != '-') {
-        char out2filename_obsolete [PATH_MAX];
+        char *out2filename_obsolete = malloc (strlen (outfilename) + 10);
         FILE *testfile;
         int res;
 
@@ -3496,6 +3500,8 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
                 error_line ("%s obsolete correction file %s",
                     res ? "deleted" : "can't delete", out2filename_obsolete);
         }
+
+        free (out2filename_obsolete);
     }
 
     // compute and display the time consumed along with some other details of

@@ -2098,7 +2098,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
                 "deleted" : "can't delete", infilename);
 
         if (wvc_mode) {
-            char in2filename [PATH_MAX];
+            char *in2filename = malloc (strlen (infilename) + 10);
 
             strcpy (in2filename, infilename);
             strcat (in2filename, "c");
@@ -2107,6 +2107,8 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             if (!quiet_mode || !res)
                 error_line ("%s source file %s", res ?
                     "deleted" : "can't delete", in2filename);
+
+            free (in2filename);
         }
     }
 
