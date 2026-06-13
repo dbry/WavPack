@@ -3068,7 +3068,7 @@ static void dump_summary (WavpackContext *wpc, char *name, FILE *dst)
 // 9. encoding mode (in hex because it's a bitfield, always prefixed with "0x")
 // 10. filename (if available)
 
-static void dump_file_item (WavpackContext *wpc, char *str, int item_id);
+static void dump_file_item (WavpackContext *wpc, char *str, int size, int item_id);
 
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int parameter)
 {
@@ -3079,8 +3079,8 @@ static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int para
 
     if (parameter == 0) {
         for (item_id = 1; item_id <= 9; ++item_id) {
-            dump_file_item (wpc, str, item_id);
-            strcat (str, ";");
+            dump_file_item (wpc, str, sizeof (str), item_id);
+            snprintf (str + strlen (str), sizeof (str) - strlen (str), ";");
         }
 
         if (name && *name != '-')
@@ -3089,7 +3089,7 @@ static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int para
             fprintf (dst, "%s\n", str);
     }
     else if (parameter < 10) {
-        dump_file_item (wpc, str, parameter);
+        dump_file_item (wpc, str, sizeof (str), parameter);
         fprintf (dst, "%s\n", str);
     }
     else if (parameter == 10 && name && *name != '-')
@@ -3098,34 +3098,34 @@ static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int para
         fprintf (dst, "\n");
 }
 
-static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
+static void dump_file_item (WavpackContext *wpc, char *str, int size, int item_id)
 {
     unsigned char md5_sum [16];
 
     switch (item_id) {
         case 1:
-            sprintf (str + strlen (str), "%d", raw_pcm ? WavpackGetSampleRate (wpc) : WavpackGetNativeSampleRate (wpc));
+            snprintf (str + strlen (str), size - strlen (str), "%d", raw_pcm ? WavpackGetSampleRate (wpc) : WavpackGetNativeSampleRate (wpc));
             break;
 
         case 2:
-            sprintf (str + strlen (str), "%d", ((WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO) && !raw_pcm) ? 1 : WavpackGetBitsPerSample (wpc));
+            snprintf (str + strlen (str), size - strlen (str), "%d", ((WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO) && !raw_pcm) ? 1 : WavpackGetBitsPerSample (wpc));
             break;
 
         case 3:
-            sprintf (str + strlen (str), "%s", (WavpackGetMode (wpc) & MODE_FLOAT) ? "float" : "int");
+            snprintf (str + strlen (str), size - strlen (str), "%s", (WavpackGetMode (wpc) & MODE_FLOAT) ? "float" : "int");
             break;
 
         case 4:
-            sprintf (str + strlen (str), "%d", WavpackGetNumChannels (wpc));
+            snprintf (str + strlen (str), size - strlen (str), "%d", WavpackGetNumChannels (wpc));
             break;
 
         case 5:
-            sprintf (str + strlen (str), "0x%x", WavpackGetChannelMask (wpc));
+            snprintf (str + strlen (str), size - strlen (str), "0x%x", WavpackGetChannelMask (wpc));
             break;
 
         case 6:
             if (WavpackGetNumSamples64 (wpc) != -1)
-                sprintf (str + strlen (str), "%lld",
+                snprintf (str + strlen (str), size - strlen (str), "%lld",
                     (long long int) WavpackGetNumSamples64 (wpc) * (WavpackGetQualifyMode (wpc) & QMODE_DSD_AUDIO ? 8 : 1));
 
             break;
@@ -3138,17 +3138,17 @@ static void dump_file_item (WavpackContext *wpc, char *str, int item_id)
                 for (i = 0; i < 16; ++i)
                     sprintf (md5_string + (i * 2), "%02x", md5_sum [i]);
 
-                sprintf (str + strlen (str), "%s", md5_string);
+                snprintf (str + strlen (str), size - strlen (str), "%s", md5_string);
             }
 
             break;
 
         case 8:
-            sprintf (str + strlen (str), "%d", WavpackGetVersion (wpc));
+            snprintf (str + strlen (str), size - strlen (str), "%d", WavpackGetVersion (wpc));
             break;
 
         case 9:
-            sprintf (str + strlen (str), "0x%x", WavpackGetMode (wpc));
+            snprintf (str + strlen (str), size - strlen (str), "0x%x", WavpackGetMode (wpc));
             break;
 
         default:
