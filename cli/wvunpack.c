@@ -3072,7 +3072,7 @@ static void dump_file_item (WavpackContext *wpc, char *str, int size, int item_i
 
 static void dump_file_info (WavpackContext *wpc, char *name, FILE *dst, int parameter)
 {
-    char str [80];
+    char str [100];
     int item_id;
 
     str [0] = 0;
