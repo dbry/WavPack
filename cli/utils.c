@@ -482,7 +482,7 @@ void do_pause_mode (void)
 
 void error_line (char *error, ...)
 {
-    char error_msg [512];
+    char error_msg [2048];
     va_list argptr;
 
     error_msg [0] = '\r';
@@ -526,7 +526,7 @@ void error_line (char *error, ...)
 
 void error_line (char *error, ...)
 {
-    char error_msg [512];
+    char error_msg [2048];
     va_list argptr;
 
     error_msg [0] = '\r';
