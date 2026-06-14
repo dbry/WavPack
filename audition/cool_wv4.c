@@ -1368,10 +1368,19 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
         }
 
         if (!strncmp (ChunkHeader.ckID, "cue ", 4)) {
-            int num_cues = (psp->dwExtra = * (DWORD *) pData);
+            int num_cues = psp->dwSize >= sizeof (DWORD) ? (psp->dwExtra = * (DWORD *) pData) : -1;
             struct cue_type *pCue = (struct cue_type *)(pData + sizeof (DWORD));
-            HANDLE hxData = GlobalAlloc (GMEM_MOVEABLE | GMEM_ZEROINIT, num_cues * 8);
-            DWORD *pdwData = (DWORD *) GlobalLock (hxData);
+            HANDLE hxData;
+            DWORD *pdwData;
+
+            if (num_cues < 0 || (DWORD) num_cues > (psp->dwSize - sizeof (DWORD)) / sizeof (struct cue_type)) {
+                GlobalUnlock (pData);
+                GlobalFree (psp->hData);
+                return 0;
+            }
+
+            hxData = GlobalAlloc (GMEM_MOVEABLE | GMEM_ZEROINIT, num_cues * 8);
+            pdwData = (DWORD *) GlobalLock (hxData);
 
             while (num_cues--) {
                 *pdwData++ = pCue->dwName;
@@ -1386,10 +1395,19 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
             return 1;
         }
         else if (!strncmp (ChunkHeader.ckID, "plst", 4)) {
-            int num_plays = (psp->dwExtra = * (DWORD *) pData);
+            int num_plays = psp->dwSize >= sizeof (DWORD) ? (psp->dwExtra = * (DWORD *) pData) : -1;
             struct play_type *pCue = (struct play_type *)(pData + sizeof (DWORD));
-            HANDLE hxData = GlobalAlloc (GMEM_MOVEABLE | GMEM_ZEROINIT, num_plays * 16);
-            DWORD *pdwData = (DWORD *) GlobalLock (hxData);
+            HANDLE hxData;
+            DWORD *pdwData;
+
+            if (num_plays < 0 || (DWORD) num_plays > (psp->dwSize - sizeof (DWORD)) / sizeof (struct play_type)) {
+                GlobalUnlock (pData);
+                GlobalFree (psp->hData);
+                return 0;
+            }
+
+            hxData = GlobalAlloc (GMEM_MOVEABLE | GMEM_ZEROINIT, num_plays * 16);
+            pdwData = (DWORD *) GlobalLock (hxData);
 
             while (num_plays--) {
                 *pdwData++ = pCue->dwName;
@@ -1406,8 +1424,17 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
             return 1;
         }
         else if (!strncmp (ChunkHeader.ckID, "ltxt", 4)) {
-            HANDLE hxData = GlobalAlloc (GMEM_MOVEABLE | GMEM_ZEROINIT, psp->dwSize - 4);
-            char *pxData = GlobalLock (hxData);
+            HANDLE hxData;
+            char *pxData;
+
+            if (psp->dwSize < 20) {
+                GlobalUnlock (pData);
+                GlobalFree (psp->hData);
+                return 0;
+            }
+
+            hxData = GlobalAlloc (GMEM_MOVEABLE | GMEM_ZEROINIT, psp->dwSize - 4);
+            pxData = GlobalLock (hxData);
 
             memset (pxData, 0, psp->dwSize - 4);
             * (DWORD *) pxData = psp->dwSize - 4;
