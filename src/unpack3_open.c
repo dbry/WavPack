@@ -184,6 +184,15 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
 
     if (wphdr.version == 3) {
 
+        // a version 3 file carries the 'shift' field verbatim, and the decoder uses it
+        // directly as a shift count on 32-bit sample values, so an out-of-range value
+        // results in an undefined shift; reject it here like the other header fields
+
+        if (wphdr.shift < 0 || wphdr.shift > 31) {
+            if (error) strcpy (error, "not a valid WavPack file!");
+            return WavpackCloseFile (wpc);
+        }
+
         if (wphdr.flags & EXTREME_DECORR) {
 
             if ((wphdr.flags & NOT_STORED_FLAGS) ||
