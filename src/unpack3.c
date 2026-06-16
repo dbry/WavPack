@@ -1361,7 +1361,7 @@ static int32_t FASTCALL get_old_word1 (WavpackStream3 *wps, int chan)
             wps->w1.k_value [chan] = guess_k + ones - ((ones + 1) / 3);
 
         wps->w1.ave_k [chan] -= (wps->w1.ave_k [chan] + 0x10) >> 5;
-        wps->w1.ave_k [chan] += wps->w1.k_value [chan] << 3;
+        wps->w1.ave_k [chan] += wps->w1.k_value [chan] * 8;
     }
 
     if (++wps->w1.index [chan] == NUM_SAMPLES)
@@ -1456,12 +1456,12 @@ static int32_t FASTCALL get_word3 (WavpackStream3 *wps, int chan)
     if (chan) {
         dbits = (wps->w3.ave_dbits [1] >> 8) + 1 + delta_dbits;
         wps->w3.ave_dbits [1] -= (wps->w3.ave_dbits [1] + 0x10) >> 5;
-        wps->w3.ave_dbits [1] += dbits << 3;
+        wps->w3.ave_dbits [1] += dbits * 8;
     }
     else {
         dbits = (wps->w3.ave_dbits [0] >> 8) + 1 + delta_dbits;
         wps->w3.ave_dbits [0] -= (wps->w3.ave_dbits [0] + 0x10) >> 5;
-        wps->w3.ave_dbits [0] += dbits << 3;
+        wps->w3.ave_dbits [0] += dbits * 8;
     }
 
     if (dbits < 0 || dbits > 24)
