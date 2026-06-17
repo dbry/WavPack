@@ -136,10 +136,10 @@ int read_entropy_vars (WavpackStream *wps, WavpackMetadata *wpmd)
 int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
 {
     unsigned char *byteptr = (unsigned char *)wpmd->data;
-    unsigned char *endptr = byteptr + wpmd->byte_length;
+    unsigned char *endptr = byteptr ? byteptr + wpmd->byte_length : NULL;
 
     if (wps->wphdr.flags & HYBRID_BITRATE) {
-        if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+        if (!byteptr || byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
             return FALSE;
 
         wps->w.c [0].slow_level = wp_exp2s (byteptr [0] + (byteptr [1] << 8));
@@ -151,7 +151,7 @@ int read_hybrid_profile (WavpackStream *wps, WavpackMetadata *wpmd)
         }
     }
 
-    if (byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
+    if (!byteptr || byteptr + (wps->wphdr.flags & MONO_DATA ? 2 : 4) > endptr)
         return FALSE;
 
     wps->w.bitrate_acc [0] = (uint32_t)(byteptr [0] + (byteptr [1] << 8)) << 16;
