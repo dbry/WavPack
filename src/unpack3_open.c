@@ -226,6 +226,17 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
     // before 3.0 that had smaller headers
 
     if (wphdr.version < 3) {
+
+        // versions before 3.0 only stored 16-bit samples (BYTES_3 / OVER_20 are
+        // version 3 flags and are dropped just below), so a higher BitsPerSample
+        // makes the derived shift negative; unpack_samples3 uses shift as a shift
+        // count, so reject that here rather than execute an undefined shift
+
+        if (wavhdr.BitsPerSample != 16) {
+            if (error) strcpy (error, "not a valid WavPack file!");
+            return WavpackCloseFile (wpc);
+        }
+
         wphdr.total_samples = (int32_t) wpc->total_samples;
         wphdr.flags = wavhdr.NumChannels == 1 ? MONO_FLAG : 0;
         wphdr.shift = 16 - wavhdr.BitsPerSample;
