@@ -357,7 +357,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                         break;
 
                     crc = crc * 3 + (sample [0] [0] += sample [0] [1] += read_word);
-                    *bptr++ = sample [0] [0] << shift;
+                    *bptr++ = (uint32_t) sample [0] [0] << shift;
                 }
         }
         else if (flags & HIGH_FLAG)
@@ -409,7 +409,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                 }
                 else {
                     crc = crc * 3 + read_word;
-                    *bptr++ = read_word << shift;
+                    *bptr++ = (uint32_t) read_word << shift;
                 }
             }
         else
@@ -447,7 +447,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                 }
                 else {
                     crc = crc * 3 + sample [0] [0];
-                    *bptr++ = sample [0] [0] << shift;
+                    *bptr++ = (uint32_t) sample [0] [0] << shift;
                 }
             }
     }
@@ -489,8 +489,8 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                     sample [1] [1] += ((sum - diff) >> 1);
                     crc = crc * 3 + (sample [0] [0] += sample [0] [1]);
                     crc = crc * 3 + (sample [1] [0] += sample [1] [1]);
-                    *bptr++ = sample [0] [0] << shift;
-                    *bptr++ = sample [1] [0] << shift;
+                    *bptr++ = (uint32_t) sample [0] [0] << shift;
+                    *bptr++ = (uint32_t) sample [1] [0] << shift;
                 }
         }
         else if (flags & HIGH_FLAG) {
@@ -671,8 +671,8 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                 }
                 else {
                     crc = crc * 9 + left * 3 + right;
-                    *bptr++ = left << shift;
-                    *bptr++ = right << shift;
+                    *bptr++ = (uint32_t) left << shift;
+                    *bptr++ = (uint32_t) right << shift;
                 }
             }
         }
@@ -740,8 +740,8 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                 }
                 else {
                     crc = crc * 9 + sample [0] [0] * 3 + sample [1] [0];
-                    *bptr++ = sample [0] [0] << shift;
-                    *bptr++ = sample [1] [0] << shift;
+                    *bptr++ = (uint32_t) sample [0] [0] << shift;
+                    *bptr++ = (uint32_t) sample [1] [0] << shift;
                 }
             }
 
@@ -777,7 +777,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                     *bptr++ = max_shifted;
                 }
                 else
-                    *bptr++ = sample [0] [0] << shift;
+                    *bptr++ = (uint32_t) sample [0] [0] << shift;
             }
         else if (flags & (HIGH_FLAG | NEW_HIGH_FLAG))
             for (bptr = buffer, i = 0; i < sample_count; ++i) {
@@ -807,7 +807,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                     else
                         crc = crc * 3 + (read_word += correction [0]);
 
-                    *bptr++ = read_word << shift;
+                    *bptr++ = (uint32_t) read_word << shift;
                 }
                 else {
                     crc = crc * 3 + read_word;
@@ -827,7 +827,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                         *bptr++ = max_shifted;
                     }
                     else
-                        *bptr++ = read_word << shift;
+                        *bptr++ = (uint32_t) read_word << shift;
                 }
             }
         else
@@ -864,7 +864,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                     *bptr++ = max_shifted;
                 }
                 else
-                    *bptr++ = sample [0] [0] << shift;
+                    *bptr++ = (uint32_t) sample [0] [0] << shift;
             }
     }
 
@@ -894,7 +894,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                     *bptr++ = max_shifted;
                 }
                 else
-                    *bptr++ = sample [0] [0] << shift;
+                    *bptr++ = (uint32_t) sample [0] [0] << shift;
 
                 crc = crc * 3 + (sample [1] [0] += sample [1] [1] += get_word3 (wps, 1));
 
@@ -913,7 +913,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                     *bptr++ = max_shifted;
                 }
                 else
-                    *bptr++ = sample [1] [0] << shift;
+                    *bptr++ = (uint32_t) sample [1] [0] << shift;
             }
         else if (flags & (HIGH_FLAG | NEW_HIGH_FLAG))
             for (bptr = buffer, i = 0; i < sample_count; ++i) {
@@ -967,8 +967,8 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                 crc = crc * 9 + left * 3 + right;
 
                 if (flags & WVC_FLAG) {
-                    *bptr++ = left << shift;
-                    *bptr++ = right << shift;
+                    *bptr++ = (uint32_t) left << shift;
+                    *bptr++ = (uint32_t) right << shift;
                 }
                 else {
                     if (left < min_value) {
@@ -986,7 +986,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                         *bptr++ = max_shifted;
                     }
                     else
-                        *bptr++ = left << shift;
+                        *bptr++ = (uint32_t) left << shift;
 
                     if (right < min_value) {
 #ifdef ATTEMPT_ERROR_MUTING
@@ -1003,7 +1003,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                         *bptr++ = max_shifted;
                     }
                     else
-                        *bptr++ = right << shift;
+                        *bptr++ = (uint32_t) right << shift;
                 }
             }
         else
@@ -1053,7 +1053,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                     *bptr++ = max_shifted;
                 }
                 else
-                    *bptr++ = sample [0] [0] << shift;
+                    *bptr++ = (uint32_t) sample [0] [0] << shift;
 
                 if (sample [1] [0] < min_value) {
 #ifdef ATTEMPT_ERROR_MUTING
@@ -1070,7 +1070,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                     *bptr++ = max_shifted;
                 }
                 else
-                    *bptr++ = sample [1] [0] << shift;
+                    *bptr++ = (uint32_t) sample [1] [0] << shift;
             }
     }
 
@@ -1100,7 +1100,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                 }
             }
 
-            *bptr++ = sample [0] [0] << shift;
+            *bptr++ = (uint32_t) sample [0] [0] << shift;
         }
     else if (wps->wphdr.version < 3 && !(flags & MONO_FLAG))
         for (bptr = buffer, i = 0; i < sample_count; ++i) {
@@ -1147,8 +1147,8 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
                 }
             }
 
-            *bptr++ = sample [0] [0] << shift;
-            *bptr++ = sample [1] [0] << shift;
+            *bptr++ = (uint32_t) sample [0] [0] << shift;
+            *bptr++ = (uint32_t) sample [1] [0] << shift;
         }
     else
         i = 0;  /* can't get here, but suppresses warning */
