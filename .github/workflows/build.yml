@@ -15,7 +15,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: sudo apt install -y git tar gcc g++ make autoconf automake libtool
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -41,7 +41,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: sudo apt install -y git tar gcc g++ make cmake
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -70,7 +70,7 @@ jobs:
       - name: Set cmake buildtype
         run: echo "cmake_buildtype=$(echo ${{env.buildtype}} | awk '{print toupper(substr($0,0,1))tolower(substr($0,2))}')" >> $GITHUB_ENV
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
