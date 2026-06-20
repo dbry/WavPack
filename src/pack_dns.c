@@ -193,7 +193,7 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
 
     memset (values, 0, sample_count * sizeof (values [0]));
 
-    if (filtered_count <= 0)
+    if (filtered_count < FILTER_LENGTH)     // anything smaller than this is meaningless
         return;
 
     low_freq = malloc (filtered_count * sizeof (float));
