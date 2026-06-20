@@ -25,7 +25,8 @@ typedef struct {
     int16_t version;
     int16_t bits;                 // added for version 2.00
     int16_t flags, shift;         // added for version 3.00
-    int32_t total_samples, crc, crc2;
+    int32_t total_samples;
+    uint32_t crc, crc2;
     char extension [4], extra_bc, extras [3];
 } WavpackHeader3;
 
