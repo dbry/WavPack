@@ -143,7 +143,7 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
     }
 
     if (wavhdr.FormatTag != 1 || !wavhdr.NumChannels || wavhdr.NumChannels > 2 ||
-        !wavhdr.SampleRate || wavhdr.BitsPerSample < 16 || wavhdr.BitsPerSample > 24 ||
+        !wavhdr.SampleRate || wavhdr.BitsPerSample < 9 || wavhdr.BitsPerSample > 24 ||
         wavhdr.BlockAlign / wavhdr.NumChannels > 3 || wavhdr.BlockAlign % wavhdr.NumChannels ||
         wavhdr.BlockAlign / wavhdr.NumChannels < (wavhdr.BitsPerSample + 7) / 8) {
             if (error) strcpy (error, "not a valid WavPack file!");
@@ -226,6 +226,11 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
     // before 3.0 that had smaller headers
 
     if (wphdr.version < 3) {
+        if (wavhdr.BitsPerSample > 16) {
+            if (error) strcpy (error, "not a valid WavPack file!");
+            return WavpackCloseFile (wpc);
+        }
+
         wphdr.total_samples = (int32_t) wpc->total_samples;
         wphdr.flags = wavhdr.NumChannels == 1 ? MONO_FLAG : 0;
         wphdr.shift = 16 - wavhdr.BitsPerSample;
