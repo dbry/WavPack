@@ -243,7 +243,8 @@ static void generate_dns_values (const int32_t *samples, int sample_count, int n
     for (i = filtered_count - 1; i; --i)
         low_freq [i] -= low_freq [i - 1];
 
-    low_freq [0] = low_freq [1];    // simply duplicate for the "unknown" sample
+    if (filtered_count > 1)
+        low_freq [0] = low_freq [1];    // simply duplicate for the "unknown" sample
 
     // Next we determine the averaged (absolute) levels for each sample using a box filter.
 
