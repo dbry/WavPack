@@ -1251,7 +1251,7 @@ static int32_t FASTCALL get_word1 (WavpackStream3 *wps, int chan)
                 return 0;
         }
         else if (wps->w1.ave_level [0] [0] < 0x20 && wps->w1.ave_level [0] [1] < 0x20) {
-            int32_t mask;
+            uint32_t mask;
             int cbits;
 
             for (cbits = 0; cbits < 33 && getbit (&wps->wvbits); ++cbits);
@@ -1507,7 +1507,7 @@ static int32_t FASTCALL get_word4 (WavpackStream3 *wps, int chan, int32_t *corre
     // if the ones count is exactly 24, then we switch to non-unary method
 
     if (ones_count == 24) {
-        int32_t mask;
+        uint32_t mask;
         int cbits;
 
         for (cbits = 0; cbits < 33 && getbit (&wps->wvbits); ++cbits);
