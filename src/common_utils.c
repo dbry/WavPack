@@ -316,8 +316,14 @@ double WavpackGetInstantBitrate (WavpackContext *wpc)
 
 uint32_t WavpackGetChannelLayout (WavpackContext *wpc, unsigned char *reorder)
 {
-    if ((wpc->channel_layout & 0xff) && wpc->channel_reordering && reorder)
-        memcpy (reorder, wpc->channel_reordering, wpc->channel_layout & 0xff);
+    int nchans = wpc->channel_layout & 0xff;
+
+    // the layout channel count is read verbatim from the file metadata and is not
+    // guaranteed to match the actual channel count, so don't copy a reorder string
+    // longer than the number of channels the caller has allocated space for
+
+    if (nchans && nchans <= wpc->config.num_channels && wpc->channel_reordering && reorder)
+        memcpy (reorder, wpc->channel_reordering, nchans);
 
     return wpc->channel_layout;
 }

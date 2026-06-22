@@ -189,7 +189,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         WavpackGetChannelIdentities (wpc, identities);
 
         if (WavpackGetChannelLayout (wpc, NULL) & 0xff) {
-            unsigned char reordering [WavpackGetChannelLayout (wpc, NULL) & 0xff];
+            unsigned char reordering [num_chans];   // sized like the command-line tools (per channel count)
             WavpackGetChannelLayout (wpc, reordering);
         }
     }
