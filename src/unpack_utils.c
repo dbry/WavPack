@@ -129,11 +129,12 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         WavpackStream *wps = wpc->streams [0];
         int stream_index = 0;
 
-        // if the current block has no audio, or it's not the first block of a multichannel
+        // if we have no raw block buffered (e.g. a failed seek freed the streams), or the
+        // current block has no audio, or it's not the first block of a multichannel
         // sequence, or the sample we're on is past the last sample in this block...we need
         // to free up the streams and read the next block
 
-        if (!wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
+        if (!wps->blockbuff || !wps->wphdr.block_samples || !(wps->wphdr.flags & INITIAL_BLOCK) ||
             wps->sample_index >= GET_BLOCK_INDEX (wps->wphdr) + wps->wphdr.block_samples) {
                 int64_t nexthdrpos;
 

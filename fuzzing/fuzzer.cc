@@ -258,6 +258,19 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
             ++tag_writes;
     }
 
+    // decode again from wherever the seek left us; this must stay safe even when the seek
+    // above failed (a failed seek must not leave the decoder pointing at freed block data)
+
+    if (num_chans && num_chans <= 256) {
+        int32_t decoded_samples [BUF_SAMPLES * num_chans];
+        int unpack_result;
+
+        do {
+            unpack_result = WavpackUnpackSamples (wpc, decoded_samples, BUF_SAMPLES);
+            samples_decoded += unpack_result;
+        } while (unpack_result);
+    }
+
     WavpackCloseFile (wpc);
 
 exit:
