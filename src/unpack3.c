@@ -1156,7 +1156,7 @@ int32_t unpack_samples3 (WavpackContext *wpc, int32_t *buffer, uint32_t sample_c
 
 #ifdef ATTEMPT_ERROR_MUTING
     if (!wps->wphdr.bits || (flags & WVC_FLAG)) {
-        int32_t *eptr = buffer + sample_count * ((flags & MONO_FLAG) ? 1 : 2);
+        int32_t *eptr = buffer + i * ((flags & MONO_FLAG) ? 1 : 2);
 
         for (bptr = buffer; bptr < eptr; bptr += 3)
             if (*bptr > mute_limit || *bptr < -mute_limit) {
