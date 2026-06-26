@@ -194,7 +194,7 @@ int ParseAiffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
             else if (strncmp (common_chunk.compressionType, "SOWT", 4) && strncmp (common_chunk.compressionType, "sowt", 4))
                 supported = FALSE;
 
-            if (sampleRate <= 0.0 || sampleRate > 16777215.0)
+            if (!(sampleRate > 0.0 && sampleRate <= 16777215.0))
                 supported = FALSE;
 
             if (floatData && common_chunk.sampleSize != 32)
