@@ -227,7 +227,7 @@ int ParseCaffHeaderConfig (FILE *infile, char *infilename, char *fourcc, Wavpack
 
             if (strncmp (caf_audio_format.mFormatID, "lpcm", 4) || (caf_audio_format.mFormatFlags & ~3))
                 supported = FALSE;
-            else if (caf_audio_format.mSampleRate <= 0.0 || caf_audio_format.mSampleRate > 16777215.0)
+            else if (!(caf_audio_format.mSampleRate > 0.0 && caf_audio_format.mSampleRate <= 16777215.0))
                 supported = FALSE;
             else if (!caf_audio_format.mChannelsPerFrame || caf_audio_format.mChannelsPerFrame > WAVPACK_MAX_CLI_CHANS)
                 supported = FALSE;
