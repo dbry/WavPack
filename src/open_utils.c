@@ -195,6 +195,16 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
         wpc->config.channel_mask = 0x5 - wpc->config.num_channels;
     }
 
+    // the channel layout count comes straight from the file's NEW_CONFIG metadata and
+    // only becomes verifiable here, once the real channel count is known. a layout that
+    // claims more channels than the file has is invalid (its reordering string would be
+    // longer than a per-channel buffer a caller allocates), so reject the file
+
+    if ((wpc->channel_layout & 0xff) > wpc->config.num_channels) {
+        if (error) strcpy (error, "invalid channel layout in file!");
+        return WavpackCloseFile (wpc);
+    }
+
     if ((flags & OPEN_2CH_MAX) && !(wps->wphdr.flags & FINAL_BLOCK))
         wpc->reduced_channels = (wps->wphdr.flags & MONO_FLAG) ? 1 : 2;
 
