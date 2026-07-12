@@ -3217,7 +3217,14 @@ static int dump_tag_item_to_file (WavpackContext *wpc, const char *tag_item, FIL
                     }
 
                     if (fname) {
-                        char *sanitized_tag_value = filespec_name (value) ? filespec_name (value) : value;
+                        char *sanitized_tag_value = value, *cp;
+
+                        // the embedded filename comes from untrusted tag data; strip any
+                        // path prefix using either separator (filespec_name() only removes
+                        // the native one) so the file can't be written outside the target
+                        for (cp = value; *cp; ++cp)
+                            if (*cp == '\\' || *cp == '/')
+                                sanitized_tag_value = cp + 1;
 
                         if (strlen (sanitized_tag_value) < 256)
                             strcpy (fname, sanitized_tag_value);
