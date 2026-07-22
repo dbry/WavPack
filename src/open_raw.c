@@ -137,6 +137,11 @@ WavpackContext *WavpackOpenRawDecoder (
 {
     WavpackRawContext *raw_wv = NULL, *raw_wvc = NULL;
 
+    if (!main_data || main_size < 4 || corr_size < 0 || (corr_size && !corr_data)) {
+        if (error) strcpy (error, "invalid raw buffer(s) provided!");
+        return NULL;
+    }
+
     // if the WavPack data does not contain headers we assume Matroska-style storage
     // and recreate the missing headers
 
@@ -326,4 +331,3 @@ uint32_t WavpackGetNumSamplesInFrame (WavpackContext *wpc)
     else
         return -1;
 }
-
