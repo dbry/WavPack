@@ -526,6 +526,16 @@ if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
 
     add_library(cool_wv4 MODULE
         audition/cool_wv4.c
+        audition/dsd-utils.c
+        audition/dsd-utils.h
+        audition/decoder.c
+        audition/decoder.h
+        audition/modulator.c
+        audition/modulator.h
+        audition/workers.c
+        audition/workers.h
+        audition/biquad.c
+        audition/biquad.h
         audition/filters.h
         audition/resource.h
         audition/wavpack.rc

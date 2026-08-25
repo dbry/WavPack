@@ -20,7 +20,9 @@
 #define IDC_FLOAT20                     1014
 #define IDC_FLOAT24                     1015
 #define IDC_FLOAT32                     1016
-#define IDC_NORMALIZE                   1017
+#define IDC_DSD                         1017
+#define IDC_PROOF                       1021
+#define IDC_NORMALIZE                   1022
 #define IDC_NOISESHAPE                  1023
 #define IDC_DITHER                      1024
 #define IDC_EXTRA_GROUP                 1025
@@ -30,7 +32,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        105
+#define _APS_NEXT_RESOURCE_VALUE        106
 #define _APS_NEXT_COMMAND_VALUE         40002
 #define _APS_NEXT_CONTROL_VALUE         1028
 #define _APS_NEXT_SYMED_VALUE           101
