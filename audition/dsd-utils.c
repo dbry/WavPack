@@ -372,11 +372,21 @@ int pilotDetectChannelRun (PilotDetect *context, const int32_t *src_buffer, int 
                     chanptr->locked = i | 0x40;
                     break;
                 }
+                else if (diffs & 0xffffffff) {
+#ifdef _MSC_VER
+                    int trailing_zeros = _tzcnt_u32 (diffs);
+#else
+                    int trailing_zeros = __builtin_ctz (diffs);
+#endif
+
+                    if (trailing_zeros > max_trailing_zeros)
+                        max_trailing_zeros = trailing_zeros;
+                }
                 else {
 #ifdef _MSC_VER
-                    int trailing_zeros = _tzcnt_u64 (diffs);
+                    int trailing_zeros = _tzcnt_u32 (diffs >> 32) + 32;
 #else
-                    int trailing_zeros = __builtin_ctzl (diffs);
+                    int trailing_zeros = __builtin_ctz (diffs >> 32) + 32;
 #endif
 
                     if (trailing_zeros > max_trailing_zeros)
