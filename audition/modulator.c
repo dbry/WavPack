@@ -265,11 +265,11 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
                     if (result >= 1.00)
                         *upsample_ptr++ = HARD_CLIP;
                     else if (result > 0.0)
-                        *upsample_ptr++ = 1.0F - (0.0784F / (result - 0.44F));
+                        *upsample_ptr++ = (float) (1.0 - (0.0784 / (result - 0.44)));
                     else if (result <= -1.00)
                         *upsample_ptr++ = -HARD_CLIP;
                     else
-                        *upsample_ptr++ = -1.0F - (0.0784F / (result + 0.44F));
+                        *upsample_ptr++ = (float) (-1.0 - (0.0784 / (result + 0.44)));
                 }
                 else
 #endif

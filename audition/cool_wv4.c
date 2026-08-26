@@ -90,7 +90,7 @@
 // don't use more than one instance in a single printf()!
 static char *options_string (DWORD dwOptions)
 {
-    static char string [256] = {};
+    static char string [256] = { 0 };
 
     if (!dwOptions)
         return "zero";
