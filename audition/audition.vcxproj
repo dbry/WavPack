@@ -204,17 +204,27 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\wavpack.h" />
+    <ClInclude Include="biquad.h" />
+    <ClInclude Include="decoder.h" />
+    <ClInclude Include="dsd-utils.h" />
     <ClInclude Include="filters.h" />
+    <ClInclude Include="modulator.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="workers.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="wavpack.rc" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="biquad.c" />
     <ClCompile Include="cool_wv4.c">
       <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">MultiThreaded</RuntimeLibrary>
       <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MultiThreaded</RuntimeLibrary>
     </ClCompile>
+    <ClCompile Include="decoder.c" />
+    <ClCompile Include="dsd-utils.c" />
+    <ClCompile Include="modulator.c" />
+    <ClCompile Include="workers.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

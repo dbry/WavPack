@@ -456,14 +456,14 @@ static DWORD PASCAL WriteFilterOutputDSD (HANDLE hOutput, BYTE *lpbData, long lB
         out->source_samples += samples;
 
         while (scount--) {
-            float sample24 = *fbuffer++ * 256.0;
+            float sample24 = *fbuffer++ * 256.0F;
 
             if (sample24 > 8388607)
                 *ibuffer++ = 8388607;
             else if (sample24 < -8388608)
                 *ibuffer++ = -8388608;
             else
-                *ibuffer++ = sample24;
+                *ibuffer++ = (int32_t) sample24;
         }
     }
     else
@@ -882,7 +882,7 @@ DWORD PASCAL ReadFilterInput (HANDLE hInput, BYTE *lpbData, long lBytes)
             scount = samples_decimated * num_channels;
 
             for (int i = 0; i < scount; ++i)
-                *out++ = *buffer++ / 256.0;
+                *out++ = *buffer++ / 256.0F;
 
             bytes_returned += samples_decimated * num_channels * 4;
             lBytes -= samples_decimated * num_channels * 4;
@@ -1276,8 +1276,16 @@ static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, 
                     return TRUE;
 
                 case IDABOUT:
+#ifdef _MSC_VER
+                    sprintf (str, "Cool Edit / Audition Filter Version 5.0\n" "MSVC build / libwavpack %s\n"
+                        "Copyright (c) 2026 David Bryant", WavpackGetLibraryVersionString());
+#elif defined __MINGW32__
+                    sprintf (str, "Cool Edit / Audition Filter Version 5.0\n" "MinGW build / libwavpack %s\n"
+                        "Copyright (c) 2026 David Bryant", WavpackGetLibraryVersionString());
+#else
                     sprintf (str, "Cool Edit / Audition Filter Version 5.0\n" "WavPack Library Version %s\n"
                         "Copyright (c) 2026 David Bryant", WavpackGetLibraryVersionString());
+#endif
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
             }

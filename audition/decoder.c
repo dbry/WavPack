@@ -169,7 +169,7 @@ int decodeProcess (Decoder *cxt, const int32_t *source, int in_samples, unsigned
                 samples_to_convert = cxt->source_samples;
 
             for (int i = 0; i < samples_to_convert * cxt->nchans; ++i)
-                cxt->float_buffer [i] = cxt->source_buffer [i] / 8388608.0;
+                cxt->float_buffer [i] = cxt->source_buffer [i] / 8388608.0F;
 
             if (cxt->source_samples > samples_to_convert) {
                 int samples_to_shift = cxt->source_samples - samples_to_convert;

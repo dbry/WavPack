@@ -22,11 +22,11 @@ void biquad_lowpass (BiquadCoefficients *filter, double frequency)
 
     memset (filter, 0, sizeof (BiquadCoefficients));
 
-    filter->a0 = K * K * norm;
+    filter->a0 = (artsample_t) (K * K * norm);
     filter->a1 = 2 * filter->a0;
     filter->a2 = filter->a0;
-    filter->b1 = 2.0 * (K * K - 1.0) * norm;
-    filter->b2 = (1.0 - K / Q + K * K) * norm;
+    filter->b1 = (artsample_t) (2.0 * (K * K - 1.0) * norm);
+    filter->b2 = (artsample_t) ((1.0 - K / Q + K * K) * norm);
 }
 
 // Second-order Highpass
@@ -38,11 +38,11 @@ void biquad_highpass (BiquadCoefficients *filter, double frequency)
 
     memset (filter, 0, sizeof (BiquadCoefficients));
 
-    filter->a0 = norm;
-    filter->a1 = -2.0 * norm;
+    filter->a0 = (artsample_t) (norm);
+    filter->a1 = (artsample_t) (-2.0 * norm);
     filter->a2 = filter->a0;
-    filter->b1 = 2.0 * (K * K - 1.0) * norm;
-    filter->b2 = (1.0 - K / Q + K * K) * norm;
+    filter->b1 = (artsample_t) (2.0 * (K * K - 1.0) * norm);
+    filter->b2 = (artsample_t) ((1.0 - K / Q + K * K) * norm);
 }
 
 // Initialize the specified biquad filter with the given parameters. Note that the "gain" parameter is supplied here
@@ -52,11 +52,11 @@ void biquad_init (Biquad *f, const BiquadCoefficients *coeffs, double gain)
 {
     memset (f, 0, sizeof (Biquad));
 
-    f->a[0] = coeffs->a0 * gain;
-    f->a[1] = coeffs->a1 * gain;
-    f->a[2] = coeffs->a2 * gain;
-    f->a[3] = coeffs->a3 * gain;
-    f->a[4] = coeffs->a4 * gain;
+    f->a[0] = (artsample_t) (coeffs->a0 * gain);
+    f->a[1] = (artsample_t) (coeffs->a1 * gain);
+    f->a[2] = (artsample_t) (coeffs->a2 * gain);
+    f->a[3] = (artsample_t) (coeffs->a3 * gain);
+    f->a[4] = (artsample_t) (coeffs->a4 * gain);
 
     f->b[1] = coeffs->b1;
     f->b[2] = coeffs->b2;

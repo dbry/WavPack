@@ -107,7 +107,7 @@ void modulateSetLevel (Modulate *cxt, int channel_number, int level)
 
 #ifdef ENABLE_DITHER
         if (level)
-            cptr->dither_level = (32 >> level) / 262144.0;
+            cptr->dither_level = (32 >> level) / 262144.0F;
         else
             cptr->dither_level = 0.0;
 #endif
@@ -265,15 +265,15 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
                     if (result >= 1.00)
                         *upsample_ptr++ = HARD_CLIP;
                     else if (result > 0.0)
-                        *upsample_ptr++ = 1.0 - (0.0784 / (result - 0.44));
+                        *upsample_ptr++ = 1.0F - (0.0784F / (result - 0.44F));
                     else if (result <= -1.00)
                         *upsample_ptr++ = -HARD_CLIP;
                     else
-                        *upsample_ptr++ = -1.0 - (0.0784 / (result + 0.44));
+                        *upsample_ptr++ = -1.0F - (0.0784F / (result + 0.44F));
                 }
                 else
 #endif
-                    *upsample_ptr++ = result;
+                    *upsample_ptr++ = (float) result;
 
                 *dsd_ptr++ = (dsd_data >> (11 - f)) & 0x1;      // b.0 of dsd_buffer is embedded DSD
 
@@ -297,11 +297,11 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
 
             if (cxt->level > 1)
                 for (int i = cxt->upsample_buffer_conv < max_depth ? -cxt->upsample_buffer_conv : -max_depth; i <= max_depth; ++i)
-                    sample_max = fmax (sample_max, fabs (sample_ptr [i]));
+                    sample_max = (float) fmax (sample_max, fabs (sample_ptr [i]));
 
             switch (cxt->level) {
                 case 2:
-                    order = 2.8;
+                    order = 2.8F;
                     depth = 4;                                  // 4
 
                     if (sample_max > 0.50) {
@@ -311,14 +311,14 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
                             depth++;                            // 6
 
                             if (sample_max > 0.74)
-                                order -= (sample_max - 0.74) * 3.0;
+                                order -= (sample_max - 0.74F) * 3.0F;
                         }
                     }
 
                     break;
 
                 case 3:
-                    order = 3.0;
+                    order = 3.0F;
                     depth = 5;                                  // 5
 
                     if (sample_max > 0.40) {
@@ -334,7 +334,7 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
                                     depth++;                    // 9
 
                                     if (sample_max > 0.75)
-                                        order -= (sample_max - 0.75) * 3.0;
+                                        order -= (sample_max - 0.75F) * 3.0F;
                                 }
                             }
                         }
@@ -343,7 +343,7 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
                     break;
 
                 case 4:
-                    order = 3.8;
+                    order = 3.8F;
                     depth = 10;                                 // 10
 
                     if (sample_max > 0.33) {
@@ -362,7 +362,7 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
                                         depth++;                // 15
 
                                         if (sample_max > 0.72)
-                                            order -= (sample_max - 0.72) * 5.0;
+                                            order -= (sample_max - 0.72F) * 5.0F;
                                     }
                                 }
                             }
@@ -397,7 +397,7 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
                                                 depth++;                // 19
 
                                                 if (sample_max > 0.72)
-                                                    order -= (sample_max - 0.72) * 3.0;
+                                                    order -= (sample_max - 0.72F) * 3.0F;
                                             }
                                         }
                                     }
@@ -468,7 +468,7 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
             if (filtered_error > cxt->max_filtered_error) cxt->max_filtered_error = filtered_error;
             if (filtered_error < cxt->min_filtered_error) cxt->min_filtered_error = filtered_error;
 #else
-            cxt->last_sample = best_sample (sample_ptr, ORDER_TO_USABLE (order), cxt->error_feedback, depth);
+            cxt->last_sample = (float) best_sample (sample_ptr, ORDER_TO_USABLE (order), cxt->error_feedback, depth);
             *dsd_ptr |= ((cxt->last_sample > 0.0) & 1) << 1;           // b.1 of dsd_buffer is calculated DSD sample
 #endif
 
@@ -555,7 +555,7 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
 
                     if (cxt->plus_error_count + cxt->minus_error_count >= 64 && cxt->plus_error_count != cxt->minus_error_count) {
 #ifndef ALLOW_DRIFT
-                        float average_error = (double) cxt->error_sum / (cxt->plus_error_count + cxt->minus_error_count);
+                        float average_error = (float) cxt->error_sum / (cxt->plus_error_count + cxt->minus_error_count);
                         double correction_scale = (cxt->plus_error_count > cxt->minus_error_count ? +64.0 : -64.0) / 4704.0;
 
                         // when we're close the center, take smaller steps (PID)
@@ -901,7 +901,7 @@ static void init_filter (int numTaps, float *filter, double fraction)
     error = 0.0;
 
     for (i = numTaps / 2; i < numTaps; i = numTaps - i - (i >= numTaps / 2)) {
-        filter [i] = (tempFilter [i] *= scaler) - error;
+        filter [i] = (float) ((tempFilter [i] *= scaler) - error);
         error += filter [i] - tempFilter [i];
     }
 

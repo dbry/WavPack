@@ -198,7 +198,7 @@ EmbedDSD *embedDSDinit (int nchans, int flags)
     context->noise_shapers = calloc (nchans, sizeof (Biquad));
 
     if (flags & EMBED_PILOT_UNIQUE) {
-        seed = time (NULL);
+        seed = (uint32_t) time (NULL);
         for (int i = 0; i < 10; ++i)
             seed = ((seed << 4) - seed) ^ 1;
     }
@@ -294,15 +294,15 @@ static void shaper_init (Biquad *f, double a0, double a1, double a2, double a3, 
         exit (1);
     }
 
-    coeffs.a0 = b1 - a1;
-    coeffs.a1 = b2 - a2;
-    coeffs.a2 = b3 - a3;
-    coeffs.a3 = b4 - a4;
+    coeffs.a0 = (artsample_t) (b1 - a1);
+    coeffs.a1 = (artsample_t) (b2 - a2);
+    coeffs.a2 = (artsample_t) (b3 - a3);
+    coeffs.a3 = (artsample_t) (b4 - a4);
 
-    coeffs.b1 = b1;
-    coeffs.b2 = b2;
-    coeffs.b3 = b3;
-    coeffs.b4 = b4;
+    coeffs.b1 = (artsample_t) b1;
+    coeffs.b2 = (artsample_t) b2;
+    coeffs.b3 = (artsample_t) b3;
+    coeffs.b4 = (artsample_t) b4;
 
     biquad_init (f, &coeffs, 1.0);
 }
@@ -457,7 +457,7 @@ void transitionDSDstreams (DecimateDSD *decimator, int64_t samples, unsigned cha
         double slope = 0.0, value = 0.0;
 
         for (int j = 0; j < HISTORY_BYTES; ++j) {
-            target_pcm [j] = (initial_pcm_eval [j] + final_pcm_eval [j]) / 2.0;
+            target_pcm [j] = (initial_pcm_eval [j] + final_pcm_eval [j]) / 2;
             value += (initial_pcm_eval [j] + final_pcm_eval [j]) / (HISTORY_BYTES * 2.0);
         }
 
