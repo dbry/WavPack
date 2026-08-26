@@ -204,6 +204,7 @@ typedef struct {
     int32_t random, special_bytes;
     RiffChunkHeader listhdr;
     WavpackContext *wpc;
+    time_t start_time;
     float error [2];
     DWORD dwOptions;
     char *listdata;
@@ -211,7 +212,6 @@ typedef struct {
     // DSD-specific items
     int dsd_buffer_size, source_samples, written_samples;
     unsigned char *dsd_buffer;
-    time_t start_time;
     Decoder *decoder;
 } OUTPUT;
 
@@ -698,18 +698,17 @@ void PASCAL CloseFilterOutput (HANDLE hOutput)
             fclose (out->wvc_file.file);
 
         if (out->decoder) {
-            logprintf ("CloseFilterOutput(): source samples = %d, written samples = %d, embedded samples = %d (%.2f%%), %d seconds\n",
-                out->source_samples * WavpackGetNumChannels (wpc), out->written_samples * WavpackGetNumChannels (wpc), decodeTotalEmbeddedSamples (out->decoder),
-                (decodeTotalEmbeddedSamples (out->decoder) * 100.0) / (out->written_samples * WavpackGetNumChannels (wpc)), time (NULL) - out->start_time);
+            logprintf ("CloseFilterOutput() DSD source samples = %d, written samples = %d, embedded samples = %d (%.2f%%)\n",
+                out->source_samples * WavpackGetNumChannels (wpc), out->written_samples * WavpackGetNumChannels (wpc), (int) decodeTotalEmbeddedSamples (out->decoder),
+                (decodeTotalEmbeddedSamples (out->decoder) * 100.0) / (out->written_samples * WavpackGetNumChannels (wpc)));
 
             decodeFree (out->decoder);
         }
 
+        logprintf ("CloseFilterOutput() %d seconds total time\n\n", (int) (time (NULL) - out->start_time));
         free (out->dsd_buffer);
         free (out);
     }
-
-    logprintf ("CloseFilterOutput() done\n\n");
 }
 
 
@@ -725,6 +724,7 @@ typedef struct {
     uint32_t special_bytes;
     unsigned char *special_data;
     int legacy_warned;
+    time_t start_time;
 
     // DSD-specific items
     int dsd_buffer_size, dsd_buffer_samples;
@@ -746,6 +746,7 @@ HANDLE PASCAL OpenFilterInput (LPSTR lpszFilename, long *lplSamprate,
         return 0;
 
     CLEAR (*in);
+    in->start_time = time (NULL);
 
     wpc = in->wpc = WavpackOpenFileInput (lpszFilename, error,
         OPEN_WVC | OPEN_WRAPPER | OPEN_DSD_NATIVE | (4 << OPEN_THREADS_SHFT), 0);
@@ -977,8 +978,8 @@ void PASCAL CloseFilterInput (HANDLE hInput)
             embedDSDdestroy (in->embedder);
         }
 
+        logprintf ("CloseFilterInput() %d seconds total time\n\n", (int) (time (NULL) - in->start_time));
         free (in);
-        logprintf ("CloseFilterInput()\n\n");
     }
 }
 
