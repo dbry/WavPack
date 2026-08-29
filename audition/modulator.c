@@ -248,14 +248,22 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
             }
 
             // generate 8 upsamples, and soft-clip if over +3.1 dB SACD
-            float *upsample_ptr = cxt->upsample_buffer + cxt->upsample_buffer_fill;
-            unsigned char *dsd_ptr = cxt->dsd_buffer + cxt->upsample_buffer_fill;
-            float *source_ptr = cxt->source_buffer + cxt->source_buffer_tail;
-            int dsd_data = (((int32_t)(source_ptr [7] * 8388608.0) & 0xff) << 8) |
-                ((int32_t)(source_ptr [8] * 8388608.0) & 0xff);
+            float *const upsample_ptr = cxt->upsample_buffer + cxt->upsample_buffer_fill;
+            unsigned char *const dsd_ptr = cxt->dsd_buffer + cxt->upsample_buffer_fill;
+            float *const source_ptr = cxt->source_buffer + cxt->source_buffer_tail;
+            int dsd_data = (((int32_t)(source_ptr [US_TAPS/2-1] * 8388608.0) & 0xff) << 8) |
+                ((int32_t)(source_ptr [US_TAPS/2] * 8388608.0) & 0xff);
 
             for (int f = 0; f < NUM_FILTERS; ++f) {
-                double result = apply_filter (source_ptr, cxt->upsample_filters [f], US_TAPS);
+                double result;
+
+                // use the sinc upsampler only above a certain level, and certainly not for level 0 (idle)
+                // - otherwise simple linear interpolation will do
+
+                if (cxt->level <= 1)
+                    result = (source_ptr [US_TAPS/2-1] * ((NUM_FILTERS-f)*2-1) + source_ptr [US_TAPS/2] * (f*2+1)) / (NUM_FILTERS*2);
+                else
+                    result = apply_filter (source_ptr, cxt->upsample_filters [f], US_TAPS);
 
                 if (cxt->dither_level != 0.0)
                     result += tpdf_dither (&cxt->tpdf_generator) * cxt->dither_level;
@@ -263,23 +271,23 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
 #ifdef ENABLE_CLIPPING
                 if (fabs (result) > SOFT_CLIP) {
                     if (result >= 1.00)
-                        *upsample_ptr++ = HARD_CLIP;
+                        upsample_ptr [f] = HARD_CLIP;
                     else if (result > 0.0)
-                        *upsample_ptr++ = (float) (1.0 - (0.0784 / (result - 0.44)));
+                        upsample_ptr [f] = (float) (1.0 - (0.0784 / (result - 0.44)));
                     else if (result <= -1.00)
-                        *upsample_ptr++ = -HARD_CLIP;
+                        upsample_ptr [f] = -HARD_CLIP;
                     else
-                        *upsample_ptr++ = (float) (-1.0 - (0.0784 / (result + 0.44)));
+                        upsample_ptr [f] = (float) (-1.0 - (0.0784 / (result + 0.44)));
                 }
                 else
 #endif
-                    *upsample_ptr++ = (float) result;
+                    upsample_ptr [f] = (float) result;
 
-                *dsd_ptr++ = (dsd_data >> (11 - f)) & 0x1;      // b.0 of dsd_buffer is embedded DSD
+                dsd_ptr [f] = (dsd_data >> (11 - f)) & 0x1;         // b.0 of dsd_buffer is embedded DSD
 
 #ifdef STATISTICS
-                if (upsample_ptr [-1] < cxt->upsample_min) cxt->upsample_min = upsample_ptr [-1];
-                if (upsample_ptr [-1] > cxt->upsample_max) cxt->upsample_max = upsample_ptr [-1];
+                if (upsample_ptr [f] < cxt->upsample_min) cxt->upsample_min = upsample_ptr [f];
+                if (upsample_ptr [f] > cxt->upsample_max) cxt->upsample_max = upsample_ptr [f];
 #endif
             }
 
