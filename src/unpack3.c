@@ -1256,7 +1256,7 @@ static int32_t FASTCALL get_word1 (WavpackStream3 *wps, int chan)
 
             for (cbits = 0; cbits < 33 && getbit (&wps->wvbits); ++cbits);
 
-            if (cbits == 33)
+            if (cbits > 30)         // limit zero count to 0x3fffffff
                 return WORD_EOF;
 
             if (cbits < 2)

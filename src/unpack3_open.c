@@ -142,7 +142,8 @@ WavpackContext *open_file3 (WavpackContext *wpc, char *error)
         return WavpackCloseFile (wpc);
     }
 
-    if (wavhdr.FormatTag != 1 || !wavhdr.NumChannels || wavhdr.NumChannels > 2 ||
+    if (ChunkHeader.ckSize & 0x80000000 ||
+        wavhdr.FormatTag != 1 || !wavhdr.NumChannels || wavhdr.NumChannels > 2 ||
         !wavhdr.SampleRate || wavhdr.BitsPerSample < 9 || wavhdr.BitsPerSample > 24 ||
         wavhdr.BlockAlign / wavhdr.NumChannels > 3 || wavhdr.BlockAlign % wavhdr.NumChannels ||
         wavhdr.BlockAlign / wavhdr.NumChannels < (wavhdr.BitsPerSample + 7) / 8) {
