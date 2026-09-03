@@ -93,7 +93,11 @@
 
 /*
  * This processes one or more 64-byte data blocks, but does NOT update the bit
- * counters.  There are no alignment requirements.
+ * counters.  There are no alignment requirements.  In practice.
+ *
+ * However, unaligned accesses are undefined behavior (UB) and will trigger
+ * a sanitizer, which is what this code did to me. Rather than switch to the
+ * slower version above I fixed the issue in MD5_Update() below.
  */
 static const void *body(MD5_CTX *ctx, const void *data, unsigned long size)
 {
@@ -239,9 +243,19 @@ void MD5_Update(MD5_CTX *ctx, const void *data, unsigned long size)
 		body(ctx, ctx->buffer, 64);
 	}
 
-	if (size >= 64) {
-		data = body(ctx, data, size & ~(unsigned long)0x3f);
-		size &= 0x3f;
+	while (size >= 64) {
+		// if needed, avoid unaligned accesses (UB) by copying 64-byte chunks into our local buffer
+		// and hashing there (assumes that "data" is always aligned to 4-bytes on entry)
+		if (saved_lo & 3) {
+			memcpy(ctx->buffer, data, 64);
+			body(ctx, ctx->buffer, 64);
+			data = (const unsigned char *)data + 64;
+			size -= 64;
+		}
+		else {
+			data = body(ctx, data, size & ~(unsigned long)0x3f);
+			size &= 0x3f;
+		}
 	}
 
 	memcpy(ctx->buffer, data, size);
