@@ -99,7 +99,7 @@ int32_t unpack_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample_cou
     }
 
     if ((flags & HYBRID_FLAG) && !wps->block2buff)
-        mute_limit = (mute_limit * 2) + 128;
+        mute_limit = (mute_limit * 3) + 128;
 
     //////////////// handle lossless or hybrid lossy mono data /////////////////
 
