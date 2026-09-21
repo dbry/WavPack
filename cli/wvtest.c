@@ -40,7 +40,7 @@ static const char *version_warning = "\n"
 
 static const char *usage =
 " Usage:   WVTEST --default|--exhaustive [-options]\n"
-"          WVTEST --seektest[=n] file.wv [...] (n=runs per file, def=1)\n\n"
+"          WVTEST [-options] --seektest[=n] file.wv [...] (n=runs per file, def=1)\n\n"
 " Options: --default           = perform the default test suite\n"
 "          --exhaustive        = perform the exhaustive test suite\n"
 "          --short             = perform shorter runs of each test\n"
@@ -55,6 +55,7 @@ static const char *usage =
 "          --version           = write the version to stdout\n"
 "          --threads[=n]       = use multiple threads, optional 'n' must\n"
 "                                 be 1 - 12, 1 = single thread only\n"
+"          --seek-dsd-pcm      = use DSD to PCM conversion on seeking tests\n"
 "          --write=n[-n][,...] = write specific test(s) (or range(s)) to disk\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -105,7 +106,7 @@ struct audio_generator {
     } u;
 };
 
-static int seeking_test (char *filename, int32_t test_count);
+static int seeking_test (char *filename, int32_t test_count, int dsd_handling);
 static void tone_generator_init (struct audio_generator *cxt, int sample_rate, int low_freq, int high_freq);
 static void noise_generator_init (struct audio_generator *cxt, double factor);
 static void audio_generator_run (struct audio_generator *cxt, float *samples, int num_samples);
@@ -143,7 +144,7 @@ static WavpackStreamReader freader;
 int main (argc, argv) int argc; char **argv;
 {
     int wpconfig_flags = CONFIG_MD5_CHECKSUM | CONFIG_OPTIMIZE_MONO, test_flags = 0, base_minutes = 2, res = 0;
-    int seektest = 0;
+    int seektest = 0, seek_dsd_handling = OPEN_DSD_NATIVE;
 
     // loop through command-line arguments
 
@@ -232,6 +233,9 @@ int main (argc, argv) int argc; char **argv;
                 if (seektest)
                     break;
             }
+            else if (!strcmp (long_option, "seek-dsd-pcm")) {           // --seek-dsd-pcm
+                seek_dsd_handling = OPEN_DSD_AS_PCM;
+            }
             else if (!strncmp (long_option, "threads", 7)) {            // --threads
                 if (isdigit ((unsigned char)*long_param)) {
                     // "worker_threads" doesn't include main thread, so subtract 1 from user value
@@ -268,7 +272,7 @@ int main (argc, argv) int argc; char **argv;
 
     if (seektest) {
         while (--argc)
-            if ((res = seeking_test (*++argv, seektest)))
+            if ((res = seeking_test (*++argv, seektest, seek_dsd_handling)))
                 break;
     }
     else {
@@ -309,10 +313,10 @@ done:
 // actually verify that every sample decoded is correct. For each test run, we decode the entire
 // file 4 times over, on average.
 
-static int seeking_test (char *filename, int32_t test_count)
+static int seeking_test (char *filename, int32_t test_count, int dsd_handling)
 {
     char error [80];
-    int open_flags = OPEN_WVC | OPEN_DSD_NATIVE | OPEN_ALT_TYPES;
+    int open_flags = OPEN_WVC | OPEN_ALT_TYPES | dsd_handling;
     int64_t min_chunk_size = 256, total_samples, sample_count = 0;
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
@@ -358,7 +362,9 @@ static int seeking_test (char *filename, int32_t test_count)
     for (test_index = 0; test_index < test_count; test_index++) {
         uint32_t chunk_samples, total_chunks, chunk_count = 0, seek_count = 0;
 
-        chunk_samples = (uint32_t) (min_chunk_size + frandom () * min_chunk_size);   // 256 - 511 (unless reduced)
+        // chunk_samples = (uint32_t) (1 + frandom () * 256);                       // 1 - 256 (short chunks)
+        chunk_samples = (uint32_t) (min_chunk_size + frandom () * min_chunk_size);  // 256 - 511 (unless reduced)
+
         total_chunks = (uint32_t) ((total_samples + chunk_samples - 1) / chunk_samples);
         decoded_samples = malloc (sizeof (int32_t) * chunk_samples * num_chans);
         chunked_md5 = malloc (total_chunks * 16);
@@ -381,6 +387,11 @@ static int seeking_test (char *filename, int32_t test_count)
 
             if ((sample_count += samples) > total_samples || chunk_count >= total_chunks) {
                 printf ("seeking_test(): WavPack file is invalid or corrupt!\n");
+                return -1;
+            }
+
+            if (WavpackGetSampleIndex64 (wpc) != sample_count) {
+                printf ("seeking_test(): WavPackGetSampleIndex64() error!\n");
                 return -1;
             }
 
@@ -480,6 +491,11 @@ static int seeking_test (char *filename, int32_t test_count)
                 return -1;
             }
 
+            if (WavpackGetSampleIndex64 (wpc) != (int64_t) start_chunk * chunk_samples) {
+                printf ("seeking_test(): WavPackGetSampleIndex64() error!\n");
+                return -1;
+            }
+
             for (current_chunk = start_chunk; current_chunk <= stop_chunk; ++current_chunk) {
                 int samples = WavpackUnpackSamples (wpc, decoded_samples, chunk_samples);
                 unsigned char md5_chunk [16];
@@ -497,6 +513,17 @@ static int seeking_test (char *filename, int32_t test_count)
                 MD5_Init (&md5_local);
                 MD5_Update (&md5_local, (unsigned char *) decoded_samples, bps * samples * num_chans);
                 MD5_Final (md5_chunk, &md5_local);
+
+                if (current_chunk + 1 < total_chunks) {
+                    if (WavpackGetSampleIndex64 (wpc) != (int64_t) (current_chunk + 1) * chunk_samples) {
+                        printf ("seeking_test(): WavPackGetSampleIndex64() error!\n");
+                        return -1;
+                    }
+                }
+                else if (WavpackGetSampleIndex64 (wpc) != total_samples) {
+                    printf ("seeking_test(): WavPackGetSampleIndex64() error at EOF!\n");
+                    return -1;
+                }
 
                 if (memcmp (chunked_md5 + current_chunk * 16, md5_chunk, sizeof (md5_chunk))) {
                     printf ("seeking_test(): seek+decode error at %lld!\n", (long long int) current_chunk * chunk_samples);
