@@ -56,6 +56,8 @@ static const char *usage =
 "          --threads[=n]       = use multiple threads, optional 'n' must\n"
 "                                 be 1 - 12, 1 = single thread only\n"
 "          --seek-dsd-pcm      = use DSD to PCM conversion on seeking tests\n"
+"          --seek-short-chunks = use very short chunks on seeking tests\n"
+"                                 (may not work with very long files)\n"
 "          --write=n[-n][,...] = write specific test(s) (or range(s)) to disk\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -75,6 +77,9 @@ static const char *usage =
 #define TEST_FLAG_IGNORE_WVC            0x4000
 #define TEST_FLAG_NO_DECODE             0x8000
 #define TEST_FLAG_INT32_FILL_LOW_BITS   0x10000
+
+#define TEST_SEEK_DSD_PCM               0x100000
+#define TEST_SEEK_SHORT_CHUNKS          0x200000
 
 static int run_test_size_modes (int wpconfig_flags, int test_flags, int base_minutes);
 static int run_test_speed_modes (int wpconfig_flags, int test_flags, int bits, int num_chans, int num_seconds);
@@ -106,7 +111,7 @@ struct audio_generator {
     } u;
 };
 
-static int seeking_test (char *filename, int32_t test_count, int dsd_handling);
+static int seeking_test (char *filename, int32_t test_count, int test_flags);
 static void tone_generator_init (struct audio_generator *cxt, int sample_rate, int low_freq, int high_freq);
 static void noise_generator_init (struct audio_generator *cxt, double factor);
 static void audio_generator_run (struct audio_generator *cxt, float *samples, int num_samples);
@@ -144,7 +149,7 @@ static WavpackStreamReader freader;
 int main (argc, argv) int argc; char **argv;
 {
     int wpconfig_flags = CONFIG_MD5_CHECKSUM | CONFIG_OPTIMIZE_MONO, test_flags = 0, base_minutes = 2, res = 0;
-    int seektest = 0, seek_dsd_handling = OPEN_DSD_NATIVE;
+    int seektest = 0;
 
     // loop through command-line arguments
 
@@ -234,7 +239,10 @@ int main (argc, argv) int argc; char **argv;
                     break;
             }
             else if (!strcmp (long_option, "seek-dsd-pcm")) {           // --seek-dsd-pcm
-                seek_dsd_handling = OPEN_DSD_AS_PCM;
+                test_flags |= TEST_SEEK_DSD_PCM;
+            }
+            else if (!strcmp (long_option, "seek-short-chunks")) {      // --seek-short-chunks
+                test_flags |= TEST_SEEK_SHORT_CHUNKS;
             }
             else if (!strncmp (long_option, "threads", 7)) {            // --threads
                 if (isdigit ((unsigned char)*long_param)) {
@@ -272,7 +280,7 @@ int main (argc, argv) int argc; char **argv;
 
     if (seektest) {
         while (--argc)
-            if ((res = seeking_test (*++argv, seektest, seek_dsd_handling)))
+            if ((res = seeking_test (*++argv, seektest, test_flags)))
                 break;
     }
     else {
@@ -313,10 +321,10 @@ done:
 // actually verify that every sample decoded is correct. For each test run, we decode the entire
 // file 4 times over, on average.
 
-static int seeking_test (char *filename, int32_t test_count, int dsd_handling)
+static int seeking_test (char *filename, int32_t test_count, int test_flags)
 {
     char error [80];
-    int open_flags = OPEN_WVC | OPEN_ALT_TYPES | dsd_handling;
+    int open_flags = OPEN_WVC | OPEN_ALT_TYPES | (test_flags & TEST_SEEK_DSD_PCM ? OPEN_DSD_AS_PCM : OPEN_DSD_NATIVE);
     int64_t min_chunk_size = 256, total_samples, sample_count = 0;
     char md5_string1 [] = "????????????????????????????????";
     char md5_string2 [] = "????????????????????????????????";
@@ -362,8 +370,10 @@ static int seeking_test (char *filename, int32_t test_count, int dsd_handling)
     for (test_index = 0; test_index < test_count; test_index++) {
         uint32_t chunk_samples, total_chunks, chunk_count = 0, seek_count = 0;
 
-        // chunk_samples = (uint32_t) (1 + frandom () * 256);                       // 1 - 256 (short chunks)
-        chunk_samples = (uint32_t) (min_chunk_size + frandom () * min_chunk_size);  // 256 - 511 (unless reduced)
+        if (test_flags & TEST_SEEK_SHORT_CHUNKS)
+            chunk_samples = (uint32_t) (1 + frandom () * 256);                          // 1 - 256 (could fail with long files)
+        else
+            chunk_samples = (uint32_t) (min_chunk_size + frandom () * min_chunk_size);  // 256 - 511 (unless reduced)
 
         total_chunks = (uint32_t) ((total_samples + chunk_samples - 1) / chunk_samples);
         decoded_samples = malloc (sizeof (int32_t) * chunk_samples * num_chans);
@@ -376,6 +386,8 @@ static int seeking_test (char *filename, int32_t test_count, int dsd_handling)
 
         sample_count = chunk_count = 0;
         MD5_Init (&md5_global);
+
+        printf ("\nprocessing file in %d-sample chunks:\n", chunk_samples);
 
         // read the entire file, calculating the MD5 sums for the whole file and for each "chunk"
 
@@ -438,7 +450,7 @@ static int seeking_test (char *filename, int32_t test_count, int dsd_handling)
             printf ("actual md5: %s\n", md5_string2);
 
             if (WavpackGetMode (wpc) & MODE_LOSSLESS)
-                if (file_has_md5 && memcmp (md5_stored, md5_initial, sizeof (md5_stored))) {
+                if (!(test_flags & TEST_SEEK_DSD_PCM) && file_has_md5 && memcmp (md5_stored, md5_initial, sizeof (md5_stored))) {
                     printf ("seeking_test(): MD5 does not match MD5 stored in file!\n");
                     return -1;
                 }
