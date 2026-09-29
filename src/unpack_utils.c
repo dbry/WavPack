@@ -105,7 +105,11 @@ static void unpack_samples_interleave (WavpackStream *wps, int32_t *outbuf, int 
 // the end of file is encountered or an error occurs. After all samples have
 // been unpacked then 0 will be returned.
 
+#ifdef ENABLE_DSD
+static uint32_t WavpackUnpackSamplesCommon (WavpackContext *wpc, int32_t *buffer, uint32_t samples)
+#else
 uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples)
+#endif
 {
     int num_channels = wpc->config.num_channels, file_done = FALSE;
     uint32_t bcount, samples_unpacked = 0, samples_to_unpack;
@@ -469,13 +473,69 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
     worker_threads_finish (wpc);    // we don't return until all decoding by worker threads is complete
 #endif
 
-#ifdef ENABLE_DSD
-    if (wpc->decimation_context)    // TODO: this could be parallelized too
-        decimate_dsd_run (wpc->decimation_context, buffer, samples_unpacked);
-#endif
-
     return samples_unpacked;
 }
+
+#ifdef ENABLE_DSD
+
+uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t samples)
+{
+    int samples_returned = 0, eof = 0;
+
+    if (!wpc->decimation_context)
+        return WavpackUnpackSamplesCommon (wpc, buffer, samples);
+
+    while (samples) {
+        if (wpc->decimated_samples) {
+            memcpy (buffer, wpc->decimated_data, sizeof (int32_t) * wpc->decimation_channels);
+            buffer += wpc->decimation_channels;
+            wpc->decimated_samples--;
+            wpc->latency_samples--;
+            samples_returned++;
+            samples--;
+
+            if (wpc->decimated_samples)
+                memmove (wpc->decimated_data, wpc->decimated_data + wpc->decimation_channels, sizeof (int32_t) * wpc->decimation_channels * wpc->decimated_samples);
+        }
+        else if (eof) {
+            if (wpc->latency_samples)
+                wpc->decimated_samples = decimate_dsd_run (wpc->decimation_context, wpc->decimated_data, -1);
+            else
+                break;
+        }
+        else if (wpc->latency_samples) {
+            int samples_unpacked = WavpackUnpackSamplesCommon (wpc, buffer, samples);
+
+            if (samples_unpacked < samples)
+                eof = 1;
+
+            if (samples_unpacked) {
+                int samples_decimated = decimate_dsd_run (wpc->decimation_context, buffer, samples_unpacked);
+
+                buffer += samples_decimated * wpc->decimation_channels;
+                samples_returned += samples_decimated;
+                samples -= samples_decimated;
+            }
+        }
+        else {
+            wpc->latency_samples = WavpackUnpackSamplesCommon (wpc, wpc->decimated_data, wpc->dsd_min_samples);
+
+            if (!wpc->latency_samples)
+                break;
+
+            if (wpc->latency_samples < wpc->dsd_min_samples) {
+                wpc->decimated_samples = wpc->latency_samples;
+                memset (wpc->decimated_data, 0, wpc->decimated_samples * wpc->decimation_channels * sizeof (int32_t));
+            }
+            else
+                wpc->decimated_samples = decimate_dsd_run (wpc->decimation_context, wpc->decimated_data, wpc->dsd_min_samples);
+        }
+    }
+
+    return samples_returned;
+}
+
+#endif
 
 ///////////////////////////// multithreading code ////////////////////////////////
 

@@ -57,13 +57,13 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
 
 #ifdef ENABLE_DSD
     if (wpc->decimation_context) {      // the decimation code needs some context to be sample accurate
-        if (sample < 16) {
+        if (sample < wpc->dsd_min_samples) {
             samples_to_decode = (uint32_t) sample;
             sample = 0;
         }
         else {
-            samples_to_decode = 16;
-            sample -= 16;
+            samples_to_decode = wpc->dsd_min_samples;
+            sample -= wpc->dsd_min_samples;
         }
     }
 #endif
@@ -236,17 +236,13 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
     }
 
 #ifdef ENABLE_DSD
+    wpc->latency_samples = wpc->decimated_samples = 0;
+
     if (wpc->decimation_context)
         decimate_dsd_reset (wpc->decimation_context);
 
-    if (samples_to_decode) {
-        buffer = (int32_t *)calloc (1, samples_to_decode * wpc->config.num_channels * 4);
-
-        if (buffer) {
-            WavpackUnpackSamples (wpc, buffer, samples_to_decode);
-            free (buffer);
-        }
-    }
+    if (samples_to_decode)
+        samples_to_decode = WavpackUnpackSamples (wpc, wpc->decimated_data, samples_to_decode);
 #endif
 
     return TRUE;

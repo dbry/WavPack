@@ -168,10 +168,18 @@ int64_t WavpackGetSampleIndex64 (WavpackContext *wpc)
         if (wpc->stream3)
             return get_sample_index3 (wpc);
         else if (wpc->streams && wpc->streams [0])
+#ifdef ENABLE_DSD
+            return wpc->streams [0]->sample_index - wpc->latency_samples;
+#else
             return wpc->streams [0]->sample_index;
+#endif
 #else
         if (wpc->streams && wpc->streams [0])
+#ifdef ENABLE_DSD
+            return wpc->streams [0]->sample_index - wpc->latency_samples;
+#else
             return wpc->streams [0]->sample_index;
+#endif
 #endif
     }
 
@@ -453,8 +461,10 @@ WavpackContext *WavpackCloseFile (WavpackContext *wpc)
 #endif
 
 #ifdef ENABLE_DSD
-    if (wpc->decimation_context)
+    if (wpc->decimation_context) {
         decimate_dsd_destroy (wpc->decimation_context);
+        free (wpc->decimated_data);
+    }
 #endif
 
 #ifdef ENABLE_THREADS

@@ -205,8 +205,10 @@ WavpackContext *WavpackOpenFileInputEx64 (WavpackStreamReader64 *reader, void *w
             wpc->config.bits_per_sample = 8;
         }
         else if (flags & OPEN_DSD_AS_PCM) {
-            wpc->decimation_context = decimate_dsd_init (wpc->reduced_channels ?
-                wpc->reduced_channels : wpc->config.num_channels);
+            wpc->decimation_channels = wpc->reduced_channels ? wpc->reduced_channels : wpc->config.num_channels;
+            wpc->decimation_context = decimate_dsd_init (wpc->decimation_channels);
+            wpc->dsd_min_samples = decimate_dsd_min_samples (wpc->decimation_context);
+            wpc->decimated_data = malloc (wpc->decimation_channels * wpc->dsd_min_samples * sizeof (int32_t));
 
             wpc->config.bytes_per_sample = 3;
             wpc->config.bits_per_sample = 24;

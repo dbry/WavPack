@@ -472,32 +472,16 @@ static int decode_high (WavpackStream *wps, int32_t *output, int sample_count)
 
 /*------------------------------------------------------------------------------------------------------------------------*/
 
-#if 0
+#define NUM_FILTER_TERMS    104  // must be an odd multiple of eight, currently just 56 or 104
 
-// 80 term DSD decimation filter
-// < 1 dB down at 20 kHz
-// > 108 dB stopband attenuation (fs/16)
+#if NUM_FILTER_TERMS == 56
 
-static const int32_t decm_filter [] = {
-    4, 17, 56, 147, 336, 693, 1320, 2359,
-    4003, 6502, 10170, 15392, 22623, 32389, 45275, 61920,
-    82994, 109174, 141119, 179431, 224621, 277068, 336983, 404373,
-    479004, 560384, 647741, 740025, 835917, 933849, 1032042, 1128551,
-    1221329, 1308290, 1387386, 1456680, 1514425, 1559128, 1589610, 1605059,
-    1605059, 1589610, 1559128, 1514425, 1456680, 1387386, 1308290, 1221329,
-    1128551, 1032042, 933849, 835917, 740025, 647741, 560384, 479004,
-    404373, 336983, 277068, 224621, 179431, 141119, 109174, 82994,
-    61920, 45275, 32389, 22623, 15392, 10170, 6502, 4003,
-    2359, 1320, 693, 336, 147, 56, 17, 4,
-};
-
-#define NUM_FILTER_TERMS 80
-
-#else
-
-// 56 term decimation filter
-// < 0.5 dB down at 20 kHz
-// > 100 dB stopband attenuation (fs/12)
+// 56 term decimation filter (Gaussian)
+// linear-phase, no negative terms, no ringing
+// 0.4 dB down at 20 kHz
+// 6.0 dB down at 75 kHz
+// 36 dB down at 176 kHz (Nyquist)
+// 120 dB stopband attenuation
 
 static const int32_t decm_filter [] = {
     4, 17, 56, 147, 336, 692, 1315, 2337,
@@ -509,46 +493,67 @@ static const int32_t decm_filter [] = {
     2337, 1315, 692, 336, 147, 56, 17, 4,
 };
 
-#define NUM_FILTER_TERMS 56
+#endif
+
+#if NUM_FILTER_TERMS == 104
+
+// 104 term decimation filter (Sinc + Blackman-Harris, 80 kHz lowpass)
+// linear-phase, negative terms, ringing possible
+// 0.1 dB down at 20 kHz
+// 6.0 dB down at 80 kHz
+// 80 dB down at 176 kHz (Nyquist)
+// 120 dB stopband attenuation
+
+static const int32_t decm_filter [] = {
+    1, 4, 13, 31, 63, 113, 184, 279,
+    399, 538, 687, 829, 937, 975, 894, 639,
+    147, -651, -1819, -3415, -5478, -8019, -11015, -14393,
+    -18028, -21728, -25237, -28233, -30328, -31084, -30024, -26649,
+    -20471, -11030, 2066, 19117, 40300, 65640, 94995, 128039,
+    164259, 202961, 243285, 284233, 324702, 363526, 399531, 431580,
+    458626, 479766, 494279, 501664, 501664, 494279, 479766, 458626,
+    431580, 399531, 363526, 324702, 284233, 243285, 202961, 164259,
+    128039, 94995, 65640, 40300, 19117, 2066, -11030, -20471,
+    -26649, -30024, -31084, -30328, -28233, -25237, -21728, -18028,
+    -14393, -11015, -8019, -5478, -3415, -1819, -651, 147,
+    639, 894, 975, 937, 829, 687, 538, 399,
+    279, 184, 113, 63, 31, 13, 4, 1
+};
 
 #endif
 
-#define HISTORY_BYTES ((NUM_FILTER_TERMS+7)/8)
+#define HISTORY_BYTES       (NUM_FILTER_TERMS / 8)      // required history bytes for DSD decimation
+#define DELAY_SAMPLES       ((HISTORY_BYTES - 1) / 2)   // decimated DSD is delayed this amount
 
 typedef struct {
     unsigned char delay [HISTORY_BYTES];
-} DecimationChannel;
+} DecimateDSDchannel;
 
 typedef struct {
     int32_t conv_tables [HISTORY_BYTES] [256];
-    DecimationChannel *chans;
-    int num_channels, reset;
-} DecimationContext;
-
-static void extrapolate_pcm (int32_t *samples, int samples_to_extrapolate, int samples_visible, int num_channels);
+    int32_t filter_sums [DELAY_SAMPLES + 1];
+    int flags, num_channels, reset;
+    DecimateDSDchannel *chans;
+    int64_t output_index;
+} DecimateDSD;
 
 void *decimate_dsd_init (int num_channels)
 {
-    DecimationContext *context = (DecimationContext *)malloc (sizeof (DecimationContext));
-    double filter_sum = 0, filter_scale;
+    DecimateDSD *cxt = (DecimateDSD *)malloc (sizeof (DecimateDSD));
+    double filter_scale;
     int i, j;
 
-    if (!context)
-        return context;
+    if (!cxt)
+        return cxt;
 
-    memset (context, 0, sizeof (*context));
-    context->num_channels = num_channels;
-    context->chans = (DecimationChannel *)malloc (num_channels * sizeof (DecimationChannel));
+    memset (cxt, 0, sizeof (*cxt));
+    cxt->num_channels = num_channels;
 
-    if (!context->chans) {
-        free (context);
-        return NULL;
-    }
+    for (int start_byte = 0; start_byte <= DELAY_SAMPLES; ++start_byte)
+        for (i = start_byte * 8; i < NUM_FILTER_TERMS - start_byte * 8; ++i)
+            cxt->filter_sums [start_byte] += decm_filter [i];
 
-    for (i = 0; i < NUM_FILTER_TERMS; ++i)
-        filter_sum += decm_filter [i];
-
-    filter_scale = ((1 << 23) - 1) / filter_sum * 16.0;
+    filter_scale = ((1 << 23) - 1) / (double) cxt->filter_sums [0] * 16.0;
 
     for (i = 0; i < NUM_FILTER_TERMS; ++i) {
         int scaled_term = (int) floor (decm_filter [i] * filter_scale + 0.5);
@@ -556,144 +561,144 @@ void *decimate_dsd_init (int num_channels)
         if (scaled_term) {
             for (j = 0; j < 256; ++j)
                 if (j & (0x80 >> (i & 0x7)))
-                    context->conv_tables [i >> 3] [j] += scaled_term;
+                    cxt->conv_tables [i >> 3] [j] += scaled_term;
                 else
-                    context->conv_tables [i >> 3] [j] -= scaled_term;
+                    cxt->conv_tables [i >> 3] [j] -= scaled_term;
         }
     }
 
-    decimate_dsd_reset (context);
+    if (num_channels) {
+        cxt->chans = (DecimateDSDchannel *)malloc (num_channels * sizeof (DecimateDSDchannel));
 
-    return context;
+        if (!cxt->chans) {
+            free (cxt);
+            return NULL;
+        }
+    }
+
+    decimate_dsd_reset (cxt);
+
+    return cxt;
 }
 
 void decimate_dsd_reset (void *decimate_context)
 {
-    DecimationContext *context = (DecimationContext *) decimate_context;
+    DecimateDSD *cxt = (DecimateDSD *) decimate_context;
     int chan = 0, i;
 
-    if (!context)
+    if (!cxt)
         return;
 
-    for (chan = 0; chan < context->num_channels; ++chan)
+    for (chan = 0; chan < cxt->num_channels; ++chan)
         for (i = 0; i < HISTORY_BYTES; ++i)
-            context->chans [chan].delay [i] = 0x55;
+            cxt->chans [chan].delay [i] = 0x55;
 
-    context->reset = 1;
+    cxt->output_index = 0;
+    cxt->reset = 1;
 }
 
-void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples)
+int decimate_dsd_min_samples (void *decimate_context)
 {
-    DecimationContext *context = (DecimationContext *) decimate_context;
-    int chan = 0, scount = num_samples;
-    int32_t *samptr = samples;
-
-    if (!context)
-        return;
-
-    while (scount) {
-        DecimationChannel *sp = context->chans + chan;
-        int32_t sum = 0;
-
-#if (HISTORY_BYTES == 10)
-        sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
-        sum += context->conv_tables [1] [sp->delay [1] = sp->delay [2]];
-        sum += context->conv_tables [2] [sp->delay [2] = sp->delay [3]];
-        sum += context->conv_tables [3] [sp->delay [3] = sp->delay [4]];
-        sum += context->conv_tables [4] [sp->delay [4] = sp->delay [5]];
-        sum += context->conv_tables [5] [sp->delay [5] = sp->delay [6]];
-        sum += context->conv_tables [6] [sp->delay [6] = sp->delay [7]];
-        sum += context->conv_tables [7] [sp->delay [7] = sp->delay [8]];
-        sum += context->conv_tables [8] [sp->delay [8] = sp->delay [9]];
-        sum += context->conv_tables [9] [sp->delay [9] = (unsigned char)*samptr];
-#elif (HISTORY_BYTES == 7)
-        sum += context->conv_tables [0] [sp->delay [0] = sp->delay [1]];
-        sum += context->conv_tables [1] [sp->delay [1] = sp->delay [2]];
-        sum += context->conv_tables [2] [sp->delay [2] = sp->delay [3]];
-        sum += context->conv_tables [3] [sp->delay [3] = sp->delay [4]];
-        sum += context->conv_tables [4] [sp->delay [4] = sp->delay [5]];
-        sum += context->conv_tables [5] [sp->delay [5] = sp->delay [6]];
-        sum += context->conv_tables [6] [sp->delay [6] = (unsigned char)*samptr];
-#else
-        int i;
-
-        for (i = 0; i < HISTORY_BYTES-1; ++i)
-            sum += context->conv_tables [i] [sp->delay [i] = sp->delay [i+1]];
-
-        sum += context->conv_tables [i] [sp->delay [i] = (unsigned char)*samptr];
-#endif
-
-        *samptr++ = (sum + 8) >> 4;
-
-        if (++chan == context->num_channels) {
-            scount--;
-            chan = 0;
-        }
-    }
-
-    if (context->reset) {
-        extrapolate_pcm (samples, HISTORY_BYTES - 1, num_samples, context->num_channels);
-        context->reset = 0;
-    }
+    return HISTORY_BYTES;
 }
 
-// This function is used to linearly extrapolate some samples at the beginning of the first
-// decoded frame because we don't have the previous DSD data to prefill the decimation filter.
-// Currently we only extrapolate at the beginning of the file because we have an implicit
-// delay in the decimation. It might be better, but more complicated, to have zero delay in
-// the decimation and split the extrapolated samples between the beginning and end of the
-// file.
-
-static void extrapolate_pcm (int32_t *samples, int samples_to_extrapolate, int samples_visible, int num_channels)
+int decimate_dsd_run (void *decimate_context, int32_t *samples, int numInputFrames)
 {
-    int scount = num_channels, min_period = 5, max_period = 10;
+    DecimateDSD *cxt = (DecimateDSD *) decimate_context;
+    int32_t *outsamptr = samples;
+    int numOutputFrames = 0;
 
-    if (samples_visible < samples_to_extrapolate + min_period * 2)
-        return;
+    if (!cxt)
+        return 0;
 
-    if (samples_visible < samples_to_extrapolate + max_period * 2)
-        max_period = (samples_visible - samples_to_extrapolate) / 2;
+    if (numInputFrames < 0) {
+        if (cxt->reset)
+            return 0;
 
-    while (scount--) {
-        float left_value_ave = 0.0, right_value_ave = 0.0, slope;
-        int period, i;
+        for (int j = 1; j < DELAY_SAMPLES; ++j)
+            for (int chan = 0; chan < cxt->num_channels; ++chan) {
+                DecimateDSDchannel *sp = cxt->chans + chan;
+                int32_t sum = 0;
 
-        for (period = min_period; period <= max_period; ++period) {
-            float left_ratio = (samples_to_extrapolate + period / 2.0F) / period, right_ratio = (period / 2.0F) / period;
-            int32_t *sam1 = samples + samples_to_extrapolate * num_channels, *sam2 = sam1 + period * num_channels;
-            float ave1 = 0.0, ave2 = 0.0;
+                for (int i = j * 2; i < HISTORY_BYTES; ++i)
+                    sum += cxt->conv_tables [i - j] [sp->delay [i]];
 
-            for (i = 0; i < period; ++i) {
-                ave1 += (float) sam1 [i * num_channels] / period;
-                ave2 += (float) sam2 [i * num_channels] / period;
+                sum = (int32_t) floor ((double) sum * cxt->filter_sums [0] / cxt->filter_sums [j] + 0.5);
+                *outsamptr++ = (sum + 8) >> 4;
             }
 
-            left_value_ave += ave1 + (ave1 - ave2) * left_ratio;
-            right_value_ave += ave1 + (ave1 - ave2) * right_ratio;
+        for (int chan = 0; chan < cxt->num_channels; ++chan) {
+            *outsamptr = ((outsamptr [-cxt->num_channels] * 3) - outsamptr [-cxt->num_channels * 2]) / 2;
+            outsamptr++;
         }
 
-        right_value_ave /= (max_period - min_period + 1);
-        left_value_ave /= (max_period - min_period + 1);
-        slope = (right_value_ave - left_value_ave) / (samples_to_extrapolate - 1);
-
-        for (i = 0; i < samples_to_extrapolate; ++i)
-            samples [i * num_channels] = (int32_t) (left_value_ave + i * slope + 0.5);
-
-        samples++;
+        decimate_dsd_reset (cxt);
+        return DELAY_SAMPLES;
     }
+
+    for (int i = 0; i < numInputFrames; ++i) {
+        cxt->output_index++;
+
+        for (int chan = 0; chan < cxt->num_channels; ++chan) {
+            DecimateDSDchannel *sp = cxt->chans + chan;
+            int32_t sum = 0, i;
+
+            for (i = 0; i < HISTORY_BYTES-1; ++i)
+                sum += cxt->conv_tables [i] [sp->delay [i] = sp->delay [i+1]];
+
+            sum += cxt->conv_tables [i] [sp->delay [i] = *samples++];
+
+            if (cxt->output_index >= HISTORY_BYTES) {
+                *outsamptr++ = (sum + 8) >> 4;
+                numOutputFrames++;
+            }
+        }
+
+        if (cxt->output_index == HISTORY_BYTES - 2) {
+            outsamptr += cxt->num_channels;     // make room for first sample which we reverse extrapolate
+
+            for (int j = DELAY_SAMPLES - 1; j; j--)
+                for (int chan = 0; chan < cxt->num_channels; ++chan) {
+                    DecimateDSDchannel *sp = cxt->chans + chan;
+                    int32_t sum = 0;
+
+                    for (int i = 2; i <= (HISTORY_BYTES + 1) - (j * 2); ++i)
+                        sum += cxt->conv_tables [i + j - 2] [sp->delay [i]];
+
+                    sum = (int32_t) floor ((double) sum * cxt->filter_sums [0] / cxt->filter_sums [j] + 0.5);
+                    *outsamptr++ = (sum + 8) >> 4;
+                    numOutputFrames++;
+                }
+
+            outsamptr -= cxt->num_channels * DELAY_SAMPLES;
+
+            for (int chan = 0; chan < cxt->num_channels; ++chan) {
+                *outsamptr = ((outsamptr [cxt->num_channels] * 3) - outsamptr [cxt->num_channels * 2]) / 2;
+                numOutputFrames++;
+                outsamptr++;
+            }
+
+            outsamptr += cxt->num_channels * (DELAY_SAMPLES - 1);
+            cxt->reset = 0;
+        }
+    }
+
+    numOutputFrames /= cxt->num_channels;
+
+    return numOutputFrames;
 }
 
 void decimate_dsd_destroy (void *decimate_context)
 {
-    DecimationContext *context = (DecimationContext *) decimate_context;
+    DecimateDSD *cxt = (DecimateDSD *) decimate_context;
 
-    if (!context)
+    if (!cxt)
         return;
 
-    if (context->chans)
-        free (context->chans);
+    if (cxt->chans)
+        free (cxt->chans);
 
-    free (context);
+    free (cxt);
 }
 
 #endif      // ENABLE_DSD

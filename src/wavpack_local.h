@@ -408,8 +408,13 @@ struct WavpackContext {
     // these items were added in 5.0 to support alternate file types (especially CAF & DSD)
     unsigned char file_format, *channel_reordering, *channel_identities;
     uint32_t channel_layout, dsd_multiplier;
-    void *decimation_context;
     char file_extension [8];
+
+#ifdef ENABLE_DSD
+    int decimation_channels, latency_samples, decimated_samples, dsd_min_samples;
+    void *decimation_context;
+    int32_t *decimated_data;
+#endif
 
 #ifdef ENABLE_THREADS
     // these items support multithreaded operations on multichannel streams
@@ -509,7 +514,8 @@ int32_t unpack_dsd_samples (WavpackStream *wps, int32_t *buffer, uint32_t sample
 
 void *decimate_dsd_init (int num_channels);
 void decimate_dsd_reset (void *decimate_context);
-void decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples);
+int decimate_dsd_min_samples (void *decimate_context);
+int decimate_dsd_run (void *decimate_context, int32_t *samples, int num_samples);
 void decimate_dsd_destroy (void *decimate_context);
 
 ///////////////////////////////// CPU feature detection ////////////////////////////////
