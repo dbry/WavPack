@@ -58,6 +58,7 @@ static const char *usage =
 "          --seek-dsd-pcm      = use DSD to PCM conversion on seeking tests\n"
 "          --seek-short-chunks = use very short chunks on seeking tests\n"
 "                                 (may not work with very long files)\n"
+"          --seek-2ch-max      = use 2-ch max mode on seeking tests\n"
 "          --write=n[-n][,...] = write specific test(s) (or range(s)) to disk\n\n"
 " Web:     Visit www.wavpack.com for latest version and info\n";
 
@@ -80,6 +81,7 @@ static const char *usage =
 
 #define TEST_SEEK_DSD_PCM               0x100000
 #define TEST_SEEK_SHORT_CHUNKS          0x200000
+#define TEST_SEEK_2CH_MAX               0x400000
 
 static int run_test_size_modes (int wpconfig_flags, int test_flags, int base_minutes);
 static int run_test_speed_modes (int wpconfig_flags, int test_flags, int bits, int num_chans, int num_seconds);
@@ -244,6 +246,9 @@ int main (argc, argv) int argc; char **argv;
             else if (!strcmp (long_option, "seek-short-chunks")) {      // --seek-short-chunks
                 test_flags |= TEST_SEEK_SHORT_CHUNKS;
             }
+            else if (!strcmp (long_option, "seek-2ch-max")) {           // --seek-2ch-max
+                test_flags |= TEST_SEEK_2CH_MAX;
+            }
             else if (!strncmp (long_option, "threads", 7)) {            // --threads
                 if (isdigit ((unsigned char)*long_param)) {
                     // "worker_threads" doesn't include main thread, so subtract 1 from user value
@@ -334,6 +339,14 @@ static int seeking_test (char *filename, int32_t test_count, int test_flags)
     unsigned char *chunked_md5;
     WavpackContext *wpc;
 
+    if (*filename == '-') {
+        printf ("\nseeking_test(): error \"%s\" opening input file \"%s\"\n", "name begins with dash", filename);
+        return -1;
+    }
+
+    if (test_flags & TEST_SEEK_2CH_MAX)
+        open_flags |= OPEN_2CH_MAX;
+
     if (worker_threads)
         open_flags |= worker_threads << OPEN_THREADS_SHFT;
 
@@ -347,7 +360,7 @@ static int seeking_test (char *filename, int32_t test_count, int test_flags)
         return -1;
     }
 
-    num_chans = WavpackGetNumChannels (wpc);
+    num_chans = WavpackGetReducedChannels (wpc);
     total_samples = WavpackGetNumSamples64 (wpc);
     bps = WavpackGetBytesPerSample (wpc);
     qmode = WavpackGetQualifyMode (wpc);
