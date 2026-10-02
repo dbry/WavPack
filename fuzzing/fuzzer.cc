@@ -135,7 +135,6 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     char error [80];
     int num_chans, bps, mode, qmode;
     int64_t total_samples;
-    int retval = 0;
 
     times_called++;
 
@@ -147,10 +146,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     raw_wv.eptr = raw_wv.dptr + size;
     wpc = WavpackOpenFileInputEx64 (&raw_reader, &raw_wv, NULL, error, flags, 15);
 
-    if (!wpc) {
-        retval = 1;
+    if (!wpc)
         goto exit;
-    }
 
     opens++;
     num_chans = WavpackGetNumChannels (wpc);
@@ -265,7 +262,7 @@ exit:
         printf ("LLVMFuzzerTestOneInput(): %lld calls, %lld opens, %lld seeks, %lld tag writes, %lld samples, %lld text & %lld binary tags\n",
             times_called, opens, seeks, tag_writes, samples_decoded, text_tags, binary_tags);
 
-    return retval;
+    return 0;
 }
 
 #ifdef STAND_ALONE_LENGTH   // max file length for stand-alone testing (sans fuzz)
