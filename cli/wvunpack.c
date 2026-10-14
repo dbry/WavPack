@@ -60,7 +60,6 @@
 #define rename(o,n) rename_utf8(o,n)
 #define fopen(f,m) fopen_utf8(f,m)
 #define strdup(x) _strdup(x)
-#define snprintf _snprintf
 #endif
 
 ///////////////////////////// local variable storage //////////////////////////

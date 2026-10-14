@@ -60,7 +60,6 @@
 #define strdup(x) _strdup(x)
 #define stricmp(x,y) _stricmp(x,y)
 #define strdup(x) _strdup(x)
-#define snprintf _snprintf
 #else
 #define stricmp strcasecmp
 #endif
