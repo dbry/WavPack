@@ -3567,13 +3567,17 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             cmode = "lossy";
 
             if (WavpackGetAverageBitrate (outfile, TRUE) != 0.0)
-                sprintf (cratio, ", %d kbps", (int) (WavpackGetAverageBitrate (outfile, TRUE) / 1000.0));
+                snprintf (cratio, sizeof (cratio), ", %d kbps", (int) (WavpackGetAverageBitrate (outfile, TRUE) / 1000.0));
         }
         else {
             cmode = "lossless";
 
-            if (WavpackGetRatio (outfile) != 0.0)
-                sprintf (cratio, ", %.2f%%", 100.0 - WavpackGetRatio (outfile) * 100.0);
+            if (WavpackGetRatio (outfile) != 0.0) {
+                if (WavpackGetRatio (outfile) < 2.0)
+                    snprintf (cratio, sizeof (cratio), ", %.2f%%", 100.0 - WavpackGetRatio (outfile) * 100.0);
+                else
+                    strcpy (cratio, ", <-100.00%");
+            }
         }
 
         error_line ("%s %s%s in %.2f secs (%s%s)", oper, file, fext, dtime, cmode, cratio);
