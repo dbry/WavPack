@@ -2074,14 +2074,18 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
         if (WavpackGetMode (wpc) & MODE_LOSSLESS) {
             cmode = "lossless";
 
-            if (WavpackGetRatio (wpc) != 0.0)
-                sprintf (cratio, ", %.2f%%", 100.0 - WavpackGetRatio (wpc) * 100.0);
+            if (WavpackGetRatio (wpc) != 0.0) {
+                if (WavpackGetRatio (wpc) < 2.0)
+                    snprintf (cratio, sizeof (cratio), ", %.2f%%", 100.0 - WavpackGetRatio (wpc) * 100.0);
+                else
+                    strcpy (cratio, ", <-100.00%");
+            }
         }
         else {
             cmode = "lossy";
 
             if (WavpackGetAverageBitrate (wpc, TRUE) != 0.0)
-                sprintf (cratio, ", %d kbps", (int) (WavpackGetAverageBitrate (wpc, TRUE) / 1000.0));
+                snprintf (cratio, sizeof (cratio), ", %d kbps", (int) (WavpackGetAverageBitrate (wpc, TRUE) / 1000.0));
         }
 
         error_line ("%s %s%s in %.2f secs (%s%s)", oper, file, fext, dtime, cmode, cratio);
