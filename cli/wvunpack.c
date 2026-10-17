@@ -60,6 +60,8 @@
 #define rename(o,n) rename_utf8(o,n)
 #define fopen(f,m) fopen_utf8(f,m)
 #define strdup(x) _strdup(x)
+#else
+#define stricmp strcasecmp
 #endif
 
 ///////////////////////////// local variable storage //////////////////////////
@@ -2093,23 +2095,34 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
 
     WavpackCloseFile (wpc);
 
-    if (result == WAVPACK_NO_ERROR && delete_source) {
-        int res = DoDeleteFile (infilename);
+    // delete the source file(s) if that option is enabled, but don't delete any file named the same as the output file
 
-        if (!quiet_mode || !res)
-            error_line ("%s source file %s", res ?
-                "deleted" : "can't delete", infilename);
+    if (result == WAVPACK_NO_ERROR && delete_source) {
+        if (stricmp (filespec_name (infilename), filespec_name (outfilename))) {
+            int res = DoDeleteFile (infilename);
+
+            if (!quiet_mode || !res)
+                error_line ("%s source file %s", res ?
+                    "deleted" : "can't delete", infilename);
+        }
+        else
+            error_line ("not deleting source file %s because output name matches", infilename);
 
         if (wvc_mode) {
             char *in2filename = malloc (strlen (infilename) + 10);
 
             strcpy (in2filename, infilename);
             strcat (in2filename, "c");
-            res = DoDeleteFile (in2filename);
 
-            if (!quiet_mode || !res)
-                error_line ("%s source file %s", res ?
-                    "deleted" : "can't delete", in2filename);
+            if (stricmp (filespec_name (in2filename), filespec_name (outfilename))) {
+                int res = DoDeleteFile (in2filename);
+
+                if (!quiet_mode || !res)
+                    error_line ("%s source file %s", res ?
+                        "deleted" : "can't delete", in2filename);
+            }
+            else
+                error_line ("not deleting source file %s because output name matches", in2filename);
 
             free (in2filename);
         }

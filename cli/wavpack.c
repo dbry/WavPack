@@ -1680,6 +1680,11 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
     struct timezone timez;
 #endif
 
+    if (out2filename && !stricmp (outfilename, out2filename)) {
+        error_line ("attempting to name WavPack main file and correction file the same!");
+        return WAVPACK_SOFT_ERROR;
+    }
+
     CLEAR (wv_file);
     CLEAR (wvc_file);
     wpc = WavpackOpenFileOutput (write_block, &wv_file, out2filename ? &wvc_file : NULL);
@@ -2404,20 +2409,24 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             (out2filename && !copy_timestamp (infilename, out2filename)))
                 error_line ("failure copying time stamp!");
 
-    // delete source file if that option is enabled
+    // delete source file if that option is enabled, but not if it matches the name of any output file
 
     if (result == WAVPACK_NO_ERROR && delete_source) {
         if (warnings) {
             if (!quiet_mode)
                 error_line ("not deleting source file %s because of warnings", infilename);
         }
-        else {
-            int res = DoDeleteFile (infilename);
+        else if (stricmp (filespec_name (infilename), filespec_name (outfilename)) &&
+            (!out2filename || stricmp (filespec_name (infilename), filespec_name (out2filename)))) {
+                int res = DoDeleteFile (infilename);
 
-            if (!quiet_mode || !res)
-                error_line ("%s source file %s", res ?
-                "deleted" : "can't delete", infilename);
+                if (!quiet_mode || !res)
+                    error_line ("%s source file %s", res ?
+                    "deleted" : "can't delete", infilename);
         }
+        else
+            error_line ("not deleting source file %s because it matches %s output name",
+                infilename, out2filename ? "an" : "the");
     }
 
     // if we're not creating a correction file but there's an existing one
