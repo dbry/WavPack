@@ -113,6 +113,9 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 
     memset (buffer, 0, (wpc->reduced_channels ? wpc->reduced_channels : num_channels) * samples * sizeof (int32_t));
 
+    if (wpc->seek_failed)       // see WavpackSeekSample64()
+        return 0;
+
 #ifdef ENABLE_THREADS
     if (wpc->num_workers && !wpc->workers)
         worker_threads_create (wpc);

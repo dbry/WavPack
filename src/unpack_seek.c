@@ -21,6 +21,7 @@
 ///////////////////////////// executable code ////////////////////////////////
 
 static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_pos, int64_t sample);
+static int seek_sample (WavpackContext *wpc, int64_t sample);
 
 // Seek to the specified sample index, returning TRUE on success. Note that
 // files generated with version 4.0 or newer will seek almost immediately.
@@ -29,6 +30,12 @@ static int64_t find_sample (WavpackContext *wpc, void *infile, int64_t header_po
 // (or forward seeks to already scanned areas) will be very fast. After a
 // FALSE return the file should not be accessed again (other than to close
 // it); this is a fatal error.
+//
+// To keep a caller that ignores this from operating on a partially torn-down
+// context, a failed seek sets a flag that makes any further calls here or to
+// WavpackUnpackSamples() simply fail. Requests that are rejected up front
+// (sample out of range, file not seekable) leave the context untouched and
+// do not set the flag.
 
 int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
 {
@@ -37,6 +44,21 @@ int WavpackSeekSample (WavpackContext *wpc, uint32_t sample)
 
 int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
 {
+    if (wpc->seek_failed || wpc->total_samples == -1 || sample >= wpc->total_samples ||
+        !wpc->reader->can_seek (wpc->wv_in) || (wpc->open_flags & OPEN_STREAMING) ||
+        (wpc->wvc_flag && !wpc->reader->can_seek (wpc->wvc_in)))
+            return FALSE;
+
+    if (!seek_sample (wpc, sample)) {
+        wpc->seek_failed = TRUE;
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+static int seek_sample (WavpackContext *wpc, int64_t sample)
+{
     WavpackStream *wps = wpc->streams ? wpc->streams [0] : NULL;
     uint32_t bcount, samples_to_skip;
 #ifdef ENABLE_DSD
@@ -44,11 +66,6 @@ int WavpackSeekSample64 (WavpackContext *wpc, int64_t sample)
 #endif
     int stream_index = 0;
     int32_t *buffer;
-
-    if (wpc->total_samples == -1 || sample >= wpc->total_samples ||
-        !wpc->reader->can_seek (wpc->wv_in) || (wpc->open_flags & OPEN_STREAMING) ||
-        (wpc->wvc_flag && !wpc->reader->can_seek (wpc->wvc_in)))
-            return FALSE;
 
 #ifdef ENABLE_LEGACY
     if (wpc->stream3)
