@@ -19,7 +19,10 @@
 #include <math.h>
 
 #include "dsd-utils.h"
+
+#ifdef ENABLE_THREADS
 #include "workers.h"
+#endif
 
 #define NUM_FILTERS 8                   // upsample ratio
 #define US_TAPS     16                  // upsample filter number of taps
@@ -67,7 +70,9 @@ typedef struct {
 
 typedef struct {
     int numChannels;
+#ifdef ENABLE_THREADS
     Workers *workers;
+#endif
     ModulatorChannel *channels;
 } Modulate;
 

@@ -89,8 +89,10 @@ Modulate *modulateInit (int numChannels, int level, int flags)
         seed = (seed << 1) | ((seed >> 31) & 1);
     }
 
+#ifdef ENABLE_THREADS
     if ((flags & MODULATE_MULTITHREADED) && numChannels > 1)
         cxt->workers = workersInit (numChannels - 1);
+#endif
 
     return cxt;
 }
@@ -147,15 +149,19 @@ int modulateProcess (Modulate *cxt, const float *input, int numInputFrames, unsi
         if (emb_output) cxt->channels [c].emb_output = emb_output + c;
         cxt->channels [c].stride = cxt->numChannels;
 
+#ifdef ENABLE_THREADS
         if (cxt->workers)
             workersEnqueueJob (cxt->workers, modulateProcessChannelJob, cxt->channels + c,
                 c < cxt->numChannels - 1 ? WaitForAvailableWorkerThread : DontUseWorkerThread);
         else
+#endif
             modulateProcessChannelJob (cxt->channels + c, NULL);
     }
 
+#ifdef ENABLE_THREADS
     if (cxt->workers)
         workersWaitAllJobs (cxt->workers);
+#endif
 
     return cxt->channels [0].numOutputFrames;
 }
@@ -633,8 +639,10 @@ void modulateFree (Modulate *cxt)
     }
 #endif
 
+#ifdef ENABLE_THREADS
     if (cxt->workers)
         workersDeinit (cxt->workers);
+#endif
 
     for (int c = 0; c < cxt->numChannels; ++c) {
         free (cxt->channels [c].dsd_buffer);

@@ -38,6 +38,8 @@
 // Version 4.4 - January 23, 2025 (fixed bug with loading unpacked samples, library ver 5.8.0)
 // Version 5.0 - August 25, 2026 Introduced lossless DSD editing (DXD-e project, library ver 5.9.0)
 
+#define FILTER_VERSION  5.1
+
 #include <windows.h>
 #include <commctrl.h>
 #include <stdlib.h>
@@ -1278,14 +1280,19 @@ static INT_PTR CALLBACK WavPackDlgProc (HWND hDlg, UINT message, WPARAM wParam, 
 
                 case IDABOUT:
 #ifdef _MSC_VER
-                    sprintf (str, "Cool Edit / Audition Filter Version 5.0\n" "MSVC build / libwavpack %s\n"
-                        "Copyright (c) 2026 David Bryant", WavpackGetLibraryVersionString());
+                    sprintf (str, "Cool Edit / Audition Filter Version %.1f\n" "MSVC build / libwavpack %s\n"
+                        "Copyright (c) 2026 David Bryant", FILTER_VERSION, WavpackGetLibraryVersionString());
 #elif defined __MINGW32__
-                    sprintf (str, "Cool Edit / Audition Filter Version 5.0\n" "MinGW build / libwavpack %s\n"
-                        "Copyright (c) 2026 David Bryant", WavpackGetLibraryVersionString());
+#ifdef ENABLE_THREADS
+                    sprintf (str, "Cool Edit / Audition Filter Version %.1f\n" "MinGW build / libwavpack %s\n"
+                        "Copyright (c) 2026 David Bryant", FILTER_VERSION, WavpackGetLibraryVersionString());
 #else
-                    sprintf (str, "Cool Edit / Audition Filter Version 5.0\n" "WavPack Library Version %s\n"
-                        "Copyright (c) 2026 David Bryant", WavpackGetLibraryVersionString());
+                    sprintf (str, "Cool Edit / Audition Filter Version %.1f\n" "WinXP build / libwavpack %s\n"
+                        "Copyright (c) 2026 David Bryant", FILTER_VERSION, WavpackGetLibraryVersionString());
+#endif
+#else
+                    sprintf (str, "Cool Edit / Audition Filter Version %.1f\n" "WavPack Library Version %s\n"
+                        "Copyright (c) 2026 David Bryant", FILTER_VERSION, WavpackGetLibraryVersionString());
 #endif
                     MessageBox (hDlg, str, "About WavPack Filter", MB_OK);
                     break;
