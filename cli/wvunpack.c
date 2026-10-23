@@ -2376,8 +2376,12 @@ static int unpack_dsd_audio (WavpackContext *wpc, FILE *outfile, int qmode, unsi
             else {
                 int scount = samples_this_block * num_channels;
 
-                while (scount--)
-                    *dptr++ = *sptr++;
+                if (qmode & QMODE_DSD_LSB_FIRST)
+                    while (scount--)
+                        *dptr++ = bit_reverse_table [*sptr++];
+                else
+                    while (scount--)
+                        *dptr++ = *sptr++;
             }
 
             if (md5_digest)

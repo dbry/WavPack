@@ -502,7 +502,7 @@ int main (int argc, char **argv)
             else if (!strncmp (long_option, "raw-pcm", 7)) {            // --raw-pcm & --raw-pcm-ex
                 int extended = !strncmp (long_option, "raw-pcm-ex", 10);
                 int params [] = { 44100, 16, 2 };
-                int pi, fp = 0, be = 0, us = 0, s = 0;
+                int pi, fp = 0, be = 0, le = 0, us = 0, s = 0;
 
                 for (pi = 0; *long_param && pi < 3; ++pi) {
                     if (isdigit ((unsigned char)*long_param))
@@ -534,8 +534,10 @@ int main (int argc, char **argv)
                         long_param += 2;
                         be = 1;
                     }
-                    else if (!stricmp (long_param, "le"))
+                    else if (!stricmp (long_param, "le")) {
                         long_param += 2;
+                        le = 1;
+                    }
                 }
 
                 if (*long_param) {
@@ -553,7 +555,7 @@ int main (int argc, char **argv)
                     config.bits_per_sample = params [1] * 8;
                     config.bytes_per_sample = 1;
                     config.num_channels = params [2];
-                    config.qmode |= QMODE_DSD_MSB_FIRST | QMODE_RAW_PCM;
+                    config.qmode |= QMODE_DSD_MSB_FIRST | QMODE_RAW_PCM | (QMODE_RAW_DSD_LSB_FIRST * le);
                 }
                 else {
                     config.sample_rate = params [0];
@@ -2795,6 +2797,19 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
 
             DoReadFile (infile, input_buffer, bytes_to_read, &bytes_read);
 
+            // For now we handle raw DSD LSB-first audio by flipping the bytes just after we read them. In this
+            // way, the MD5 sum will not match the source data (which we try to do with other endian changes)
+            // and we also don't store anything in the file to indicate that the endianness was different. The
+            // file is exactly the same as if none of this had happened and the user had simply flipped around
+            // the bytes with a filter instead.
+
+            if (qmode & QMODE_RAW_DSD_LSB_FIRST) {
+                int i;
+
+                for (i = 0; i < bytes_read; ++i)
+                    input_buffer [i] = bit_reverse_table [input_buffer [i]];
+            }
+
             if (qmode & QMODE_DSD_IN_BLOCKS) {
                 if (bytes_read != bytes_to_read) {
                     error_line ("incomplete DSD block!");
@@ -2854,8 +2869,12 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
                     int32_t scount = sample_count * num_channels;
                     unsigned char *iptr = input_buffer;
 
-                    while (scount--)
-                        *sptr++ = *iptr++;
+                    if (qmode & QMODE_DSD_LSB_FIRST)
+                        while (scount--)
+                            *sptr++ = bit_reverse_table [*iptr++];
+                    else
+                        while (scount--)
+                            *sptr++ = *iptr++;
                 }
             }
 
@@ -3726,8 +3745,12 @@ static int repack_audio (WavpackContext *outfile, WavpackContext *infile, unsign
                 else {
                     int scount = sample_count * num_channels;
 
-                    while (scount--)
-                        *dptr++ = *sptr++;
+                    if (qmode & QMODE_DSD_LSB_FIRST)
+                        while (scount--)
+                            *dptr++ = bit_reverse_table [*sptr++];
+                    else
+                        while (scount--)
+                            *dptr++ = *sptr++;
                 }
             }
             else
@@ -3937,8 +3960,12 @@ static int verify_audio (char *infilename, unsigned char *md5_digest_source)
                     else {
                         int scount = samples_this_block * num_channels;
 
-                        while (scount--)
-                            *dptr++ = *sptr++;
+                        if (qmode & QMODE_DSD_LSB_FIRST)
+                            while (scount--)
+                                *dptr++ = bit_reverse_table [*sptr++];
+                        else
+                            while (scount--)
+                                *dptr++ = *sptr++;
                     }
 
                     MD5_Update (&md5_context, dsd_buffer, samples_this_block * num_channels);

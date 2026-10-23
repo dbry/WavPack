@@ -258,6 +258,7 @@ typedef struct {
 #define QMODE_IGNORE_LENGTH     0x800   // user specified to ignore length in file header
 #define QMODE_RAW_PCM           0x1000  // user specified raw PCM format (no header present)
 #define QMODE_EVEN_BYTE_DEPTH   0x2000  // user specified to force even byte bit-depth
+#define QMODE_RAW_DSD_LSB_FIRST 0x4000  // user specified little-endian DSD in --raw-pcm option
 
 ////////////// Callbacks used for reading & writing WavPack streams //////////
 
