@@ -22,9 +22,8 @@
 #include "wavpack_local.h"
 
 #ifdef ENABLE_THREADS
-static void worker_threads_create (WavpackContext *wpc);
-static void pack_samples_enqueue (WavpackStream *wps, int free_wps);
-static int write_completed_blocks (WavpackContext *wpc, int write_all_blocks, int result);
+static void pack_samples_enqueue (WavpackStream *wps);
+static int handle_completed_blocks (WavpackContext *wpc, int wait_all_blocks, int result);
 static int worker_available (WavpackContext *wpc);
 #endif
 
@@ -591,7 +590,7 @@ int WavpackPackInit (WavpackContext *wpc)
             wpc->max_pre_samples = 512;
 
         if (wpc->num_workers)
-            worker_threads_create (wpc);
+            wpc->workers = workersInit (wpc->num_workers, wpc->num_workers + 1);
     }
 #endif
 
@@ -1148,8 +1147,8 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
         // thread. In this case we pass the WavpackStream structure directly (i.e., not a copy).
 
         if (worker_available (wpc) && stream_index < wpc->num_streams - 1) {
-            result = write_completed_blocks (wpc, FALSE, result);
-            pack_samples_enqueue (wps, FALSE);
+            result = handle_completed_blocks (wpc, FALSE, result);
+            pack_samples_enqueue (wps);
         }
 
         // If there is a worker available and we're doing a single stream (i.e., mono or stereo) and
@@ -1165,6 +1164,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
             WavpackStream *wps_copy = malloc (sizeof (WavpackStream));
 
             memcpy (wps_copy, wps, sizeof (WavpackStream));
+            wps_copy->wps_copy = TRUE;
 
             // If there is a discontinuity (i.e., the previous block is not done, so we can't get any
             // continuation information from it) then we must essentially start fresh. For "high" mode
@@ -1191,8 +1191,8 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
                 memcpy (wps_copy->dsd.ptable, wps->dsd.ptable, 256 * sizeof (*wps->dsd.ptable));
             }
 
-            result = write_completed_blocks (wpc, FALSE, result);
-            pack_samples_enqueue (wps_copy, TRUE);
+            result = handle_completed_blocks (wpc, FALSE, result);
+            pack_samples_enqueue (wps_copy);
 
             // Fix up the existing WavpackStream, and mark it as "discontinuous" because we will be continuing with
             // it before this operation is complete. The block buffers will be freed after the block is written.
@@ -1221,17 +1221,16 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
                 break;
             }
 
+#ifdef ENABLE_THREADS
+            // all background blocks must be complete before we do anything else
+            if (wpc->num_workers)
+                result = handle_completed_blocks (wpc, TRUE, result);
+#endif
+
             if (wps->decorr_passes [0].term)
                 wps->delta_decay = (float)((wps->delta_decay * 2.0 + wps->decorr_passes [0].delta) / 3.0);
 
             wpc->lossy_blocks |= wps->lossy_blocks;
-
-#ifdef ENABLE_THREADS
-            // all background blocks must be complete and sent before we send this one...
-            if (wpc->num_workers)
-                result = write_completed_blocks (wpc, TRUE, result);
-#endif
-
             result = write_stream_block (wps, result);
             wps->discontinuous = FALSE;
         }
@@ -1263,7 +1262,7 @@ static int pack_streams (WavpackContext *wpc, uint32_t block_samples, int last_b
     // multichannel audio, this was already done above before we sent the last stream.
 
     if (wpc->num_workers && (last_block || !result))
-        result = write_completed_blocks (wpc, TRUE, result);
+        result = handle_completed_blocks (wpc, TRUE, result);
 #endif
 
     // If there's still audio in the sample buffer, move it up to the front for the next call
@@ -1696,176 +1695,73 @@ static void block_update_checksum (unsigned char *buffer_start)
 #ifdef ENABLE_THREADS
 
 // This is the worker thread function for packing support, essentially allowing
-// pack_stream_block() to be running for multiple streams simultaneously.
+// pack_stream_block() to be running for multiple streams simultaneously. The
+// block write must be single-threaded (because order matters) so we call
+// workerSync() before we do that.
 
-#ifdef _WIN32
-static unsigned WINAPI pack_samples_worker_thread (LPVOID param)
-#else
-static void *pack_samples_worker_thread (void *param)
-#endif
+static void *pack_samples_work (void *context, void *worker)
 {
-    WorkerInfo *cxt = param;
+    WavpackStream *wps = context;
 
+    wps->result = pack_stream_block (wps);
+
+    workerSync (worker);    // the rest must be done single-threaded
+
+    if (!wps->result)
+        strcpy (((WavpackContext *) wps->wpc)->error_message, "output buffer overflowed!");
+
+    wps->result = write_stream_block (wps, wps->result);
+
+    return wps;
+}
+
+// If there are streams that have completed the packing and writing operations, handle
+// the final steps that must be done on the main thread, including freeing the workerData
+// structure that was originally enqueued. Depending on the "wait_all_blocks" parameter,
+// this will return either as soon all the currently finished jobs have been processed
+// or once all running jobs have finished and processed. The "result" status passes
+// through here and indicates that one of the two possible errors occurred: the output
+// buffer overflowed or the write callback (to the user) failed.
+
+static int handle_completed_blocks (WavpackContext *wpc, int wait_all_blocks, int result)
+{
     while (1) {
-        wp_mutex_obtain (*cxt->mutex);
-        cxt->state = Ready;
-        (*cxt->workers_ready)++;
-        wp_condvar_signal (*cxt->global_cond);      // signal that we're ready to work
+        WavpackStream *wps;
 
-        while (cxt->state == Ready)                 // wait for something to do
-            wp_condvar_wait (cxt->worker_cond, *cxt->mutex);
+        while (workersGetNextFinishedJob (wpc->workers, (void **) &wps, wait_all_blocks)) {
+            WavpackStream *parent = wpc->streams [wps->stream_index];
 
-        wp_mutex_release (*cxt->mutex);
+            if (wps->decorr_passes [0].term)
+                parent->delta_decay = (float)((parent->delta_decay * 2.0 + wps->decorr_passes [0].delta) / 3.0);
 
-        if (cxt->state == Quit)                     // break out if we're done
-            break;
+            wpc->lossy_blocks |= wps->lossy_blocks;
 
-        cxt->result = pack_stream_block (cxt->wps); // this is where the work is done
+            if (!wps->result)
+                result = wps->result;
 
-        wp_mutex_obtain (*cxt->mutex);
-        cxt->state = Done;
-        wp_condvar_signal (*cxt->global_cond);      // signal completion
-
-        while (cxt->state == Done)                  // wait for output to be written
-            wp_condvar_wait (cxt->worker_cond, *cxt->mutex);
-
-        wp_mutex_release (*cxt->mutex);
-
-        if (cxt->state == Quit)                     // should check for quit here too
-            break;
-    }
-
-    wp_thread_exit (0);
-    return 0;
-}
-
-// Send the given stream to an available worker thread. In the background, the specified
-// stream will begin the packing operation. The "free_wps" flag indicates that the
-// WavpackStream structure should be freed once the unpack operation is complete because
-// it is a copy of the original created for this operation only.
-
-static void pack_samples_enqueue (WavpackStream *wps, int free_wps)
-{
-    WavpackContext *wpc = (WavpackContext *) wps->wpc;  // this is safe here because single-threaded
-    int i;
-
-    wp_mutex_obtain (wpc->mutex);
-
-    while (!wpc->workers_ready)                         // make sure a worker thread is ready
-        wp_condvar_wait (wpc->global_cond, wpc->mutex);
-
-    for (i = 0; i < wpc->num_workers; ++i)
-        if (wpc->workers [i].state == Ready) {
-            wpc->workers [i].wps = wps;
-            wpc->workers [i].state = Running;
-            wpc->workers [i].free_wps = free_wps;
-            wp_condvar_signal (wpc->workers [i].worker_cond);
-            wpc->workers_ready--;
-            break;
+            if (wps->wps_copy) {
+                free (wps->pre_sample_buffer);
+                free (wps->sample_buffer);
+                free (wps->dsd.ptable);
+                free (wps);
+            }
         }
 
-    wp_mutex_release (wpc->mutex);
-}
-
-// If there are streams that have completed the packing operation, send their packed
-// data to the block output device. Depending on the "write_all_blocks" parameter, this
-// will return either as soon as there is a single worker thread in the "ready" state
-// or once they're all in the "ready" state. If there are workers available already,
-// it will return without doing anything. The "result" status passes through here and
-// indicates that one of the two possible errors occurred: the output buffer overflowed
-// or the write callback (to the user) failed.
-
-static int write_completed_blocks (WavpackContext *wpc, int write_all_blocks, int result)
-{
-    wp_mutex_obtain (wpc->mutex);
-
-    while (!wpc->workers_ready || (write_all_blocks && wpc->workers_ready < wpc->num_workers)) {
-        WorkerInfo *next_worker = NULL;
-        int i;
-
-        // loop through the worker threads to determine the lowest sample index
-        // (or stream index if the sample index is the same) that is either running
-        // or done (which will be the next one we send)
-
-        for (i = 0; i < wpc->num_workers; ++i)
-            if (wpc->workers [i].state == Done || wpc->workers [i].state == Running)
-                if (!next_worker || wpc->workers [i].wps->sample_index < next_worker->wps->sample_index ||
-                   (wpc->workers [i].wps->sample_index == next_worker->wps->sample_index &&
-                    wpc->workers [i].wps->stream_index < next_worker->wps->stream_index))
-                        next_worker = &wpc->workers [i];
-
-        // if the lowest stream is done, then we can send it now, otherwise wait
-
-        if (next_worker && next_worker->state == Done) {
-            WavpackStream *parent = wpc->streams [next_worker->wps->stream_index];
-
-            if (next_worker->wps->decorr_passes [0].term)
-                parent->delta_decay = (float)((parent->delta_decay * 2.0 + next_worker->wps->decorr_passes [0].delta) / 3.0);
-
-            wpc->lossy_blocks |= next_worker->wps->lossy_blocks;
-            wp_mutex_release (wpc->mutex);
-
-            if (result && !next_worker->result) {
-                strcpy (wpc->error_message, "output buffer overflowed!");
-                result = next_worker->result;
-            }
-
-            result = write_stream_block (next_worker->wps, result);
-
-            if (next_worker->free_wps) {
-                free (next_worker->wps->pre_sample_buffer);
-                free (next_worker->wps->sample_buffer);
-                free (next_worker->wps->dsd.ptable);
-                free (next_worker->wps);
-            }
-
-            wp_mutex_obtain (wpc->mutex);
-            next_worker->state = Uninit;
-            wp_condvar_signal (next_worker->worker_cond);   // signal the thread so it can go ready
-        }
-        else
-            wp_condvar_wait (wpc->global_cond, wpc->mutex);
+        if (!wait_all_blocks || !workersNumRunningJobs (wpc->workers))
+            break;
     }
-
-    wp_mutex_release (wpc->mutex);
 
     return result;
 }
 
-// Create the worker thread contexts and start the threads
-// (which should all quickly go to the ready state)
+// Send the given stream to an available worker thread. In the background, the specified
+// stream will begin the packing operation. The "wps_copy" flag indicates that the
+// WavpackStream structure should be freed once the unpack operation is complete because
+// it is a copy of the original created for this operation only.
 
-static void worker_threads_create (WavpackContext *wpc)
+static void pack_samples_enqueue (WavpackStream *wps)
 {
-    if (!wpc->workers) {
-        int i;
-
-        wp_mutex_init (wpc->mutex);
-        wp_condvar_init (wpc->global_cond);
-
-        wpc->workers = calloc (wpc->num_workers, sizeof (WorkerInfo));
-
-        for (i = 0; i < wpc->num_workers; ++i) {
-            wpc->workers [i].mutex = &wpc->mutex;
-            wpc->workers [i].global_cond = &wpc->global_cond;
-            wpc->workers [i].workers_ready = &wpc->workers_ready;
-            wp_condvar_init (wpc->workers [i].worker_cond);
-            wp_thread_create (wpc->workers [i].thread, pack_samples_worker_thread, &wpc->workers [i]);
-
-            // gracefully handle failures in creating worker threads
-
-            if (!wpc->workers [i].thread) {
-                wp_condvar_delete (wpc->workers [i].worker_cond);
-                wpc->num_workers = i;
-                break;
-            }
-        }
-
-        if (!wpc->num_workers) {    // if we failed to start any workers, free the array
-            free (wpc->workers);
-            wpc->workers = NULL;
-        }
-    }
+    workersEnqueueJob (((WavpackContext *) wps->wpc)->workers, pack_samples_work, wps, WaitForAvailableWorkerThread);
 }
 
 // Return TRUE if there is a worker thread available. Obviously this depends on
@@ -1875,19 +1771,7 @@ static void worker_threads_create (WavpackContext *wpc)
 
 static int worker_available (WavpackContext *wpc)
 {
-    int retval = FALSE;
-
-    if (wpc->num_workers && wpc->workers) {
-        if (wpc->num_workers < 4) {
-            wp_mutex_obtain (wpc->mutex);
-            retval = wpc->workers_ready;
-            wp_mutex_release (wpc->mutex);
-        }
-        else
-            retval = TRUE;
-    }
-
-    return retval;
+    return wpc->workers && (wpc->num_workers >= 4 || workersNumAvailableWorkers (wpc->workers));
 }
 
 #endif

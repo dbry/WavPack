@@ -23,7 +23,8 @@
 #define ENABLE_THREADS
 #endif
 
-#include "../src/wavpack_local.h"   // for threading typedefs and macros
+#include "../src/workers.h"         // for threading typedefs and macros
+#include "wavpack.h"
 #include "utils.h"                  // for PACKAGE_VERSION, etc.
 #include "md5.h"
 
@@ -128,8 +129,8 @@ typedef struct {
     uint32_t buffer_size, bytes_written, bytes_read, first_block_size;
     volatile unsigned char *buffer_base, *buffer_head, *buffer_tail;
     int push_back, done, error, empty_waits, full_waits;
-    wp_condvar_t cond_read, cond_write;
-    wp_mutex_t mutex;
+    wkr_condvar_t cond_read, cond_write;
+    wkr_mutex_t mutex;
     FILE *file;
 } StreamingFile;
 
@@ -772,7 +773,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     char *filename = NULL, mode_string [32] = "-";
     struct audio_channel *channels;
     float *source, *destin;
-    wp_thread_t thread;
+    wkr_thread_t thread;
     WavpackContext *out_wpc;
     WavpackConfig wpconfig;
     StreamingFile wv_stream, wvc_stream;
@@ -907,7 +908,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     out_wpc = WavpackOpenFileOutput (write_block, &wv_stream, (wpconfig_flags & CONFIG_CREATE_WVC) ? &wvc_stream : NULL);
 
     if (!(test_flags & TEST_FLAG_NO_DECODE))
-        wp_thread_create (thread, decode_thread, (void *) &wv_decoder);
+        wkr_thread_create (thread, decode_thread, (void *) &wv_decoder);
 
     if (test_flags & (TEST_FLAG_FLOAT_DATA | TEST_FLAG_STORE_INT32_AS_FLOAT)) {
         wpconfig.float_norm_exp = 127;
@@ -1063,7 +1064,7 @@ static int run_test (int wpconfig_flags, int test_flags, int bits, int num_chans
     flush_stream (&wvc_stream);
 
     if (!(test_flags & TEST_FLAG_NO_DECODE))
-        wp_thread_join (thread);
+        wkr_thread_join (thread);
 
     if (!(test_flags & TEST_FLAG_NO_DECODE)) {
         for (i = 0; i < 16; ++i) {
@@ -1117,7 +1118,7 @@ static void *decode_thread (void *threadid)
     if (!wpc) {
         printf ("decode_thread(): error \"%s\" opening input file\n", error);
         wd->num_errors = 1;
-        wp_thread_exit (0);
+        wkr_thread_exit (0);
     }
 
     MD5_Init (&md5_context);
@@ -1146,7 +1147,7 @@ static void *decode_thread (void *threadid)
     wd->num_errors = WavpackGetNumErrors (wpc);
     free (decoded_samples);
     WavpackCloseFile (wpc);
-    wp_thread_exit (0);
+    wkr_thread_exit (0);
     return 0;
 }
 
@@ -1180,7 +1181,7 @@ static int write_block (void *id, void *data, int32_t length)
     if (!ws->buffer_size)       // if no buffer, just swallow data silently
         return 1;
 
-    wp_mutex_obtain (ws->mutex);
+    wkr_mutex_obtain (ws->mutex);
 
     while (length) {
         int32_t bytes_available = (int32_t) (ws->buffer_tail - ws->buffer_head - 1);
@@ -1197,7 +1198,7 @@ static int write_block (void *id, void *data, int32_t length)
 
         if (!bytes_to_copy) {
             ws->full_waits++;
-            wp_condvar_wait (ws->cond_read, ws->mutex);
+            wkr_condvar_wait (ws->cond_read, ws->mutex);
             continue;
         }
 
@@ -1208,10 +1209,10 @@ static int write_block (void *id, void *data, int32_t length)
 
         data_ptr += bytes_to_copy;
         length -= bytes_to_copy;
-        wp_condvar_signal (ws->cond_write);
+        wkr_condvar_signal (ws->cond_write);
     }
 
-    wp_mutex_release (ws->mutex);
+    wkr_mutex_release (ws->mutex);
 
     return 1;
 }
@@ -1221,14 +1222,14 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
     StreamingFile *ws = (StreamingFile *) id;
     unsigned char *data_ptr = data;
 
-    wp_mutex_obtain (ws->mutex);
+    wkr_mutex_obtain (ws->mutex);
 
     while (bcount) {
         if (ws->push_back) {
             *data_ptr++ = ws->push_back;
             ws->push_back = 0;
             bcount--;
-            wp_condvar_signal (ws->cond_read);
+            wkr_condvar_signal (ws->cond_read);
         }
         else if (ws->buffer_head != ws->buffer_tail) {
             int bytes_available = (int) (ws->buffer_head - ws->buffer_tail);
@@ -1251,17 +1252,17 @@ static int32_t read_bytes (void *id, void *data, int32_t bcount)
             ws->bytes_read += bytes_to_copy;
             data_ptr += bytes_to_copy;
             bcount -= bytes_to_copy;
-            wp_condvar_signal (ws->cond_read);
+            wkr_condvar_signal (ws->cond_read);
         }
         else if (ws->done)
             break;
         else {
             ws->empty_waits++;
-            wp_condvar_wait (ws->cond_write, ws->mutex);
+            wkr_condvar_wait (ws->cond_write, ws->mutex);
         }
     }
 
-    wp_mutex_release (ws->mutex);
+    wkr_mutex_release (ws->mutex);
 
     return (int32_t) (data_ptr - (unsigned char *) data);
 }
@@ -1310,19 +1311,19 @@ static void initialize_stream (StreamingFile *ws, int buffer_size)
     if (buffer_size) {
         ws->buffer_base = malloc (ws->buffer_size = buffer_size);
         ws->buffer_head = ws->buffer_tail = ws->buffer_base;
-        wp_condvar_init (ws->cond_write);
-        wp_condvar_init (ws->cond_read);
-        wp_mutex_init (ws->mutex);
+        wkr_condvar_init (ws->cond_write);
+        wkr_condvar_init (ws->cond_read);
+        wkr_mutex_init (ws->mutex);
     }
 }
 
 static void flush_stream (StreamingFile *ws)
 {
     if (ws->buffer_base) {
-        wp_mutex_obtain (ws->mutex);
+        wkr_mutex_obtain (ws->mutex);
         ws->done = 1;
-        wp_condvar_signal (ws->cond_write);
-        wp_mutex_release (ws->mutex);
+        wkr_condvar_signal (ws->cond_write);
+        wkr_mutex_release (ws->mutex);
     }
 }
 

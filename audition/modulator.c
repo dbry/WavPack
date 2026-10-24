@@ -91,7 +91,7 @@ Modulate *modulateInit (int numChannels, int level, int flags)
 
 #ifdef ENABLE_THREADS
     if ((flags & MODULATE_MULTITHREADED) && numChannels > 1)
-        cxt->workers = workersInit (numChannels - 1);
+        cxt->workers = workersInit (numChannels - 1, 0);
 #endif
 
     return cxt;
@@ -138,7 +138,7 @@ void modulateSetAlignment (Modulate *cxt, int channel_number, int enable)
     }
 }
 
-static int modulateProcessChannelJob (void *ptr, void *sync_not_used);
+static void *modulateProcessChannelJob (void *ptr, void *sync_not_used);
 
 int modulateProcess (Modulate *cxt, const float *input, int numInputFrames, unsigned char *mod_output, unsigned char *emb_output)
 {
@@ -183,7 +183,7 @@ static unsigned char xor_images [] = {
 
 #define ORDER_TO_USABLE(order) (floor (order) + sqrt ((order) - floor (order)))
 
-static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
+static void *modulateProcessChannelJob (void *ptr, void *sync_not_used)
 {
     ModulatorChannel *cxt = ptr;
     cxt->numOutputFrames = 0;
@@ -613,7 +613,7 @@ static int modulateProcessChannelJob (void *ptr, void *sync_not_used)
         }
     }
 
-    return 0;
+    return NULL;
 }
 
 void modulateFree (Modulate *cxt)

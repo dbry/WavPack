@@ -165,6 +165,7 @@
     <ClInclude Include="unpack3.h" />
     <ClInclude Include="wavpack_local.h" />
     <ClInclude Include="wavpack_version.h" />
+    <ClCompile Include="workers.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="common_utils.c" />
@@ -192,6 +193,7 @@
     <ClCompile Include="unpack_floats.c" />
     <ClCompile Include="unpack_seek.c" />
     <ClCompile Include="unpack_utils.c" />
+    <ClCompile Include="workers.c" />
     <ClCompile Include="write_words.c" />
   </ItemGroup>
   <ItemGroup>
