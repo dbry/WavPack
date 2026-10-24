@@ -21,7 +21,7 @@
 #include "dsd-utils.h"
 
 #ifdef ENABLE_THREADS
-#include "workers.h"
+#include "../src/workers.h"
 #endif
 
 #define NUM_FILTERS 8                   // upsample ratio

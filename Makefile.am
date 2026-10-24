@@ -161,6 +161,10 @@ src_libwavpack_la_SOURCES = \
 	src/wavpack_local.h \
 	src/wavpack_version.h
 
+if ENABLE_THREADS
+src_libwavpack_la_SOURCES += src/workers.c src/workers.h
+endif
+
 if ENABLE_LEGACY
 src_libwavpack_la_SOURCES += src/unpack3.c src/unpack3_open.c src/unpack3_seek.c
 endif

@@ -177,6 +177,8 @@ add_library(wavpack
     $<$<BOOL:${WAVPACK_ENABLE_LEGACY}>:src/unpack3_seek.c>
     $<$<BOOL:${WAVPACK_ENABLE_DSD}>:src/pack_dsd.c>
     $<$<BOOL:${WAVPACK_ENABLE_DSD}>:src/unpack_dsd.c>
+    $<$<BOOL:${WAVPACK_ENABLE_THREADS}>:src/workers.c>
+    $<$<BOOL:${WAVPACK_ENABLE_THREADS}>:src/workers.h>
     $<$<AND:$<BOOL:${WAVPACK_ENABLE_ASM}>,$<BOOL:${HAVE_MASM}>,$<BOOL:${WavPack_CPU_X86}>>:src/pack_x86.asm>
     $<$<AND:$<BOOL:${WAVPACK_ENABLE_ASM}>,$<BOOL:${HAVE_MASM}>,$<BOOL:${WavPack_CPU_X86}>>:src/unpack_x86.asm>
     $<$<AND:$<BOOL:${WAVPACK_ENABLE_ASM}>,$<BOOL:${HAVE_MASM}>,$<BOOL:${WavPack_CPU_X64}>>:src/pack_x64.asm>
@@ -532,8 +534,6 @@ if(WAVPACK_BUILD_COOLEDIT_PLUGIN)
         audition/decoder.h
         audition/modulator.c
         audition/modulator.h
-        audition/workers.c
-        audition/workers.h
         audition/biquad.c
         audition/biquad.h
         audition/filters.h

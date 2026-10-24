@@ -214,7 +214,6 @@
     <ClInclude Include="filters.h" />
     <ClInclude Include="modulator.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="workers.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="wavpack.rc" />
@@ -228,7 +227,6 @@
     <ClCompile Include="decoder.c" />
     <ClCompile Include="dsd-utils.c" />
     <ClCompile Include="modulator.c" />
-    <ClCompile Include="workers.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
