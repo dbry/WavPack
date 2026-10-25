@@ -59,6 +59,7 @@
 #define remove(f) unlink_utf8(f)
 #define rename(o,n) rename_utf8(o,n)
 #define fopen(f,m) fopen_utf8(f,m)
+#define stricmp(x,y) _stricmp(x,y)
 #define strdup(x) _strdup(x)
 #else
 #define stricmp strcasecmp

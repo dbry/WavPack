@@ -57,7 +57,6 @@
 #define remove(f) unlink_utf8(f)
 #define rename(o,n) rename_utf8(o,n)
 #define fopen(f,m) fopen_utf8(f,m)
-#define strdup(x) _strdup(x)
 #define stricmp(x,y) _stricmp(x,y)
 #define strdup(x) _strdup(x)
 #define exp2(e) pow(2.0,e)
@@ -2806,7 +2805,7 @@ static int pack_dsd_audio (WavpackContext *wpc, FILE *infile, int qmode, unsigne
             if (qmode & QMODE_RAW_DSD_LSB_FIRST) {
                 int i;
 
-                for (i = 0; i < bytes_read; ++i)
+                for (i = 0; i < (int) bytes_read; ++i)
                     input_buffer [i] = bit_reverse_table [input_buffer [i]];
             }
 
