@@ -504,7 +504,7 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
                 break;
         }
         else if (wpc->latency_samples) {
-            int samples_unpacked = WavpackUnpackSamplesCommon (wpc, buffer, samples);
+            uint32_t samples_unpacked = WavpackUnpackSamplesCommon (wpc, buffer, samples);
 
             if (samples_unpacked < samples)
                 eof = 1;

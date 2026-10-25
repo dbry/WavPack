@@ -539,7 +539,7 @@ static int seeking_test (char *filename, int32_t test_count, int test_flags)
                 MD5_Update (&md5_local, (unsigned char *) decoded_samples, bps * samples * num_chans);
                 MD5_Final (md5_chunk, &md5_local);
 
-                if (current_chunk + 1 < total_chunks) {
+                if (current_chunk + 1 < (int) total_chunks) {
                     if (WavpackGetSampleIndex64 (wpc) != (int64_t) (current_chunk + 1) * chunk_samples) {
                         printf ("seeking_test(): WavPackGetSampleIndex64() error!\n");
                         return -1;
