@@ -2417,8 +2417,8 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             if (!quiet_mode)
                 error_line ("not deleting source file %s because of warnings", infilename);
         }
-        else if (stricmp (filespec_name (infilename), filespec_name (outfilename)) &&
-            (!out2filename || stricmp (filespec_name (infilename), filespec_name (out2filename)))) {
+        else if (!same_file_name (infilename, outfilename) &&
+            (!out2filename || !same_file_name (infilename, out2filename))) {
                 int res = DoDeleteFile (infilename);
 
                 if (!quiet_mode || !res)
@@ -3437,13 +3437,15 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
     if (result == WAVPACK_NO_ERROR && delete_source) {
         int res;
 
-        if (stricmp (infilename, outfilename)) {
+        if (!same_file_path (infilename, outfilename)) {
             res = DoDeleteFile (infilename);
 
             if (!quiet_mode || !res)
                 error_line ("%s source file %s", res ?
                     "deleted" : "can't delete", infilename);
         }
+        else
+            error_line ("not deleting source file %s because output name matches", infilename);
     
         if (input_mode & MODE_WVC) {
             char *in2filename = malloc (strlen (infilename) + 10);
@@ -3451,13 +3453,15 @@ static int repack_file (char *infilename, char *outfilename, char *out2filename,
             strcpy (in2filename, infilename);
             strcat (in2filename, "c");
 
-            if (!out2filename || stricmp (in2filename, out2filename)) {
+            if (!out2filename || !same_file_path (in2filename, out2filename)) {
                 res = DoDeleteFile (in2filename);
 
                 if (!quiet_mode || !res)
                     error_line ("%s source file %s", res ?
                         "deleted" : "can't delete", in2filename);
             }
+            else
+                error_line ("not deleting source file %s because output name matches", in2filename);
 
             free (in2filename);
         }

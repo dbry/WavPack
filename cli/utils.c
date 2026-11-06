@@ -327,6 +327,121 @@ char *filespec_name (char *filespec)
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
+// This function compares two filenames (with or without path components)   //
+// and returns non-zero if they refer to the same name, ignoring any path   //
+// prefix. On Windows '/', '\' and ':' are all treated as path separators   //
+// and the comparison is case-insensitive; on other platforms the semantics //
+// match filespec_name() / strcasecmp().                                    //
+//////////////////////////////////////////////////////////////////////////////
+
+#if defined(_WIN32)
+#define PATH_SEPARATOR(c)  ((c) == '/' || (c) == '\\' || (c) == ':')
+#define PATH_SEP_CHAR      '\\'
+#define PATH_NAME_COMPARE  _stricmp
+#else
+#define PATH_SEPARATOR(c)  ((c) == '/')
+#define PATH_SEP_CHAR      '/'
+#define PATH_NAME_COMPARE  strcasecmp
+#endif
+
+// Normalize a path in place by collapsing runs of path separators into a
+// single one and stripping redundant leading "./" components. Returns the
+// normalized path.
+
+static char *normalize_pathname (char *path)
+{
+    char *src = path, *dst = path;
+    int stripped = 0;
+
+    while (src[0] == '.' && PATH_SEPARATOR (src[1])) {
+        src += 2;
+        stripped = 1;
+    }
+
+    if (stripped)
+        while (PATH_SEPARATOR (*src) && src[1])
+            src++;
+
+    while (*src) {
+        if (PATH_SEPARATOR (*src)) {
+            *dst++ = PATH_SEP_CHAR;
+
+            while (PATH_SEPARATOR (*src))
+                src++;
+        }
+        else
+            *dst++ = *src++;
+    }
+
+    *dst = '\0';
+    return path;
+}
+
+// Return a pointer to the filename portion of a normalized path.
+
+static char *pathname_name (char *path)
+{
+    char *name = path, *cp;
+
+    for (cp = path; *cp; ++cp)
+        if (*cp == PATH_SEP_CHAR)
+            name = cp + 1;
+
+    return name;
+}
+
+int same_file_name (char *f1, char *f2)
+{
+    char *n1, *n2;
+    int result;
+
+    if (!f1 || !f2)
+        return 0;
+
+    n1 = malloc (strlen (f1) + 1);
+    n2 = malloc (strlen (f2) + 1);
+
+    strcpy (n1, f1);
+    strcpy (n2, f2);
+
+    result = !PATH_NAME_COMPARE (pathname_name (normalize_pathname (n1)),
+        pathname_name (normalize_pathname (n2)));
+
+    free (n1);
+    free (n2);
+
+    return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// This function compares two complete paths and returns non-zero if they   //
+// refer to the same file, normalizing equivalent spellings first so that   //
+// a redundant leading ./ or duplicate separators don't cause a mismatch.   //
+//////////////////////////////////////////////////////////////////////////////
+
+int same_file_path (char *f1, char *f2)
+{
+    char *n1, *n2;
+    int result;
+
+    if (!f1 || !f2)
+        return 0;
+
+    n1 = malloc (strlen (f1) + 1);
+    n2 = malloc (strlen (f2) + 1);
+
+    strcpy (n1, f1);
+    strcpy (n2, f2);
+
+    result = !PATH_NAME_COMPARE (normalize_pathname (n1), normalize_pathname (n2));
+
+    free (n1);
+    free (n2);
+
+    return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
 // This function allows the user to type 'y', 'n', or 'a' (with Enter) in   //
 // response to a system query. The return value is the key typed as         //
 // lowercase (regardless of the typed case).                                //
