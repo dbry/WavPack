@@ -53,6 +53,7 @@ double strtod_hexfree (const char *nptr, char **endptr);
 int copy_timestamp (const char *src_filename, const char *dst_filename);
 char *filespec_ext (char *filespec), *filespec_path (char *filespec);
 char *filespec_name (char *filespec), *filespec_wild (char *filespec);
+int same_file_name (char *f1, char *f2), same_file_path (char *f1, char *f2);
 void error_line (char *error, ...);
 void setup_break (void), finish_line (void);
 void do_pause_mode (void);

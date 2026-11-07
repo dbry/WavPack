@@ -2099,7 +2099,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
     // delete the source file(s) if that option is enabled, but don't delete any file named the same as the output file
 
     if (result == WAVPACK_NO_ERROR && delete_source) {
-        if (stricmp (filespec_name (infilename), filespec_name (outfilename))) {
+        if (!same_file_name (infilename, outfilename)) {
             int res = DoDeleteFile (infilename);
 
             if (!quiet_mode || !res)
@@ -2115,7 +2115,7 @@ static int unpack_file (char *infilename, char *outfilename, int add_extension)
             strcpy (in2filename, infilename);
             strcat (in2filename, "c");
 
-            if (stricmp (filespec_name (in2filename), filespec_name (outfilename))) {
+            if (!same_file_name (in2filename, outfilename)) {
                 int res = DoDeleteFile (in2filename);
 
                 if (!quiet_mode || !res)
