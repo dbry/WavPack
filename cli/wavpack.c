@@ -2360,6 +2360,28 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
         return result;
     }
 
+    if (result == WAVPACK_NO_ERROR && copy_time)
+        if (!copy_timestamp (infilename, use_tempfiles ? outfilename_temp : outfilename) ||
+            (out2filename && !copy_timestamp (infilename, use_tempfiles ? out2filename_temp : out2filename)))
+                error_line ("failure copying time stamp!");
+
+    // delete source file if that option is enabled (this is done before temp file rename to make sure
+    // we don't delete the file we just created)
+
+    if (result == WAVPACK_NO_ERROR && delete_source) {
+        if (warnings) {
+            if (!quiet_mode)
+                error_line ("not deleting source file %s because of warnings", infilename);
+        }
+        else {
+            int res = DoDeleteFile (infilename);
+
+            if (!quiet_mode || !res)
+                error_line ("%s source file %s", res ?
+                "deleted" : "can't delete", infilename);
+        }
+    }
+
     // if we were writing to a temp file because the target file already existed,
     // do the rename / overwrite now (and if that fails, return the error)
 
@@ -2403,31 +2425,6 @@ static int pack_file (char *infilename, char *outfilename, char *out2filename, c
             WavpackCloseFile (wpc);
             return result;
         }
-    }
-
-    if (result == WAVPACK_NO_ERROR && copy_time)
-        if (!copy_timestamp (infilename, outfilename) ||
-            (out2filename && !copy_timestamp (infilename, out2filename)))
-                error_line ("failure copying time stamp!");
-
-    // delete source file if that option is enabled, but not if it matches the name of any output file
-
-    if (result == WAVPACK_NO_ERROR && delete_source) {
-        if (warnings) {
-            if (!quiet_mode)
-                error_line ("not deleting source file %s because of warnings", infilename);
-        }
-        else if (stricmp (filespec_name (infilename), filespec_name (outfilename)) &&
-            (!out2filename || stricmp (filespec_name (infilename), filespec_name (out2filename)))) {
-                int res = DoDeleteFile (infilename);
-
-                if (!quiet_mode || !res)
-                    error_line ("%s source file %s", res ?
-                    "deleted" : "can't delete", infilename);
-        }
-        else
-            error_line ("not deleting source file %s because it matches %s output name",
-                infilename, out2filename ? "an" : "the");
     }
 
     // if we're not creating a correction file but there's an existing one
