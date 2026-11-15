@@ -1034,6 +1034,14 @@ DWORD PASCAL FilterGetOptions (HWND hWnd, HINSTANCE hInst, long lSamprate, WORD 
         force_std_bitrate = TRUE;
     }
 
+    // this handles the edge-case where a file is resampled to a lower bit-depth or
+    // a non-DXD sample rate and can no longer be saved with the provided options
+
+    if (!float_data)
+        dwOptions &= ~(OPTIONS_FLOAT20 | OPTIONS_FLOAT24 | OPTIONS_DSD);
+    else if (!dxd_rate)
+        dwOptions &= ~OPTIONS_DSD;
+
     if (dwOptions & OPTIONS_HYBRID) {
         if (dwOptions & OPTIONS_FAST)
             iCurrentMode = IDC_HYBRID_FAST;
