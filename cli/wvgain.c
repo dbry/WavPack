@@ -602,7 +602,7 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
     int64_t total_unpacked_samples = 0;
     void *decimation_context = NULL;
     double progress = -1.0;
-    int32_t *temp_buffer;
+    int32_t *temp_buffer = NULL;
     WavpackContext *wpc;
     char error [80];
 
@@ -649,18 +649,20 @@ static int analyze_file (char *infilename, uint32_t *histogram, float *peak)
         sample_rate /= 4;
     }
 
-    window_samples = sample_rate / 20;
-
-    if (worker_threads)
-        num_windows = (worker_threads + 1) * 48000 / window_samples;
-
-    if (decimation_context)
-        temp_buffer = malloc (num_windows * window_samples * 8 * 4);
-    else
-        temp_buffer = malloc (num_windows * window_samples * 8);
-
     if (!filter_init (sample_rate))
         result = WAVPACK_SOFT_ERROR;
+
+    if (result == WAVPACK_NO_ERROR) {
+        window_samples = sample_rate / 20;
+
+        if (worker_threads)
+            num_windows = (worker_threads + 1) * 48000 / window_samples;
+
+        if (decimation_context)
+            temp_buffer = malloc (num_windows * window_samples * 8 * 4);
+        else
+            temp_buffer = malloc (num_windows * window_samples * 8);
+    }
 
     while (result == WAVPACK_NO_ERROR) {
         uint32_t samples_to_unpack, samples_unpacked;
