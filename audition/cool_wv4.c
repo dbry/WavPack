@@ -1617,6 +1617,7 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
 {
     ChunkHeader ChunkHeader;
     WavpackInput *in = hInput;
+    DWORD padded_size;
 
     while (in && in->special_bytes) {
         char * pData;
@@ -1637,11 +1638,16 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
             continue;
         }
         else if (!strncmp (ChunkHeader.ckID, "fmt ", 4)) {
-            if (in->special_bytes < ((ChunkHeader.ckSize + 1) & ~1))
+            if (ChunkHeader.ckSize == (DWORD) -1)
                 return 0;
 
-            in->special_data += (ChunkHeader.ckSize + 1) & ~1;
-            in->special_bytes -= (ChunkHeader.ckSize + 1) & ~1;
+            padded_size = ChunkHeader.ckSize + (ChunkHeader.ckSize & 1);
+
+            if (in->special_bytes < padded_size)
+                return 0;
+
+            in->special_data += padded_size;
+            in->special_bytes -= padded_size;
             continue;
         }
         else if (!strncmp (ChunkHeader.ckID, "data", 4)) {
@@ -1665,6 +1671,14 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
             continue;
         }
 
+        if (ChunkHeader.ckSize == (DWORD) -1)
+            return 0;
+
+        padded_size = ChunkHeader.ckSize + (ChunkHeader.ckSize & 1);
+
+        if (in->special_bytes < padded_size)
+            return 0;
+
         if (in->listhdr.ckSize) {
             if (in->listhdr.ckSize >= sizeof (ChunkHeader))
                 in->listhdr.ckSize -= sizeof (ChunkHeader);
@@ -1682,22 +1696,26 @@ DWORD PASCAL FilterGetNextSpecialData (HANDLE hInput, SPECIALDATA *psp)
         psp->dwSize = ChunkHeader.ckSize;
         psp->dwExtra = 1;
         psp->hSpecialData = NULL;
-        psp->hData = GlobalAlloc (GMEM_MOVEABLE | GMEM_ZEROINIT, psp->dwSize + 1);
+        psp->hData = GlobalAlloc (GMEM_MOVEABLE | GMEM_ZEROINIT, (size_t) psp->dwSize + 1);
+
+        if (!psp->hData)
+            return 0;
+
         pData = (char *) GlobalLock (psp->hData);
 
-        if (in->special_bytes < ((psp->dwSize + 1) & ~1)) {
-            GlobalUnlock (pData);
+        if (!pData) {
             GlobalFree (psp->hData);
+            psp->hData = NULL;
             return 0;
         }
 
-        memcpy (pData, in->special_data, (psp->dwSize + 1) & ~1);
-        in->special_data += (psp->dwSize + 1) & ~1;
-        in->special_bytes -= (psp->dwSize + 1) & ~1;
+        memcpy (pData, in->special_data, padded_size);
+        in->special_data += padded_size;
+        in->special_bytes -= padded_size;
 
         if (in->listhdr.ckSize) {
-            if (in->listhdr.ckSize >= ((ChunkHeader.ckSize + 1) & ~1))
-                in->listhdr.ckSize -= (ChunkHeader.ckSize + 1) & ~1;
+            if (in->listhdr.ckSize >= padded_size)
+                in->listhdr.ckSize -= padded_size;
             else
                 in->listhdr.ckSize = 0;
         }
