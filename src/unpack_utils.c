@@ -262,8 +262,11 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
         // to stereo), then enter this conditional block...otherwise we just unpack the samples directly
 
         if (!wpc->reduced_channels && !(wps->wphdr.flags & FINAL_BLOCK)) {
-            int32_t *temp_buffer = (int32_t *)calloc (1, samples_to_unpack * 8);
+            int32_t *temp_buffer = (int32_t *)calloc ((size_t) samples_to_unpack, 8);
             uint32_t offset = 0;     // offset to next channel in sequence (0 to num_channels - 1)
+
+            if (!temp_buffer)
+                break;
 
             // loop through all the streams...
 
@@ -491,7 +494,17 @@ uint32_t WavpackUnpackSamples (WavpackContext *wpc, int32_t *buffer, uint32_t sa
 static void *unpack_samples_work (void *context, void *worker)
 {
     WorkerData *cxt = context;
-    int32_t *temp_buffer = (int32_t *) calloc (1, cxt->samcnt * 8);
+    int32_t *temp_buffer = (int32_t *) calloc ((size_t) cxt->samcnt, 8);
+
+    if (!temp_buffer) {
+        if (cxt->wps->wps_copy) {
+            free_single_stream (cxt->wps);
+            free (cxt->wps);
+        }
+
+        free (cxt);
+        return NULL;
+    }
 
     unpack_samples_interleave (cxt->wps, cxt->outbuf, cxt->offset, temp_buffer, cxt->samcnt);
 
