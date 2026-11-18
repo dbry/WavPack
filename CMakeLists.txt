@@ -113,6 +113,14 @@ check_c_source_compiles(
         HAVE___BUILTIN_CLZ
 )
 
+check_c_source_compiles(
+        "int main()
+        {
+            return __builtin_ctz(1);
+        }"
+        HAVE___BUILTIN_CTZ
+)
+
 test_large_files(LARGE_FILES_SUPPORTED)
 if(LARGE_FILES_SUPPORTED)
     add_definitions(${LARGE_FILES_DEFINITIONS})
@@ -210,6 +218,7 @@ target_compile_definitions(wavpack
         $<$<BOOL:${WAVPACK_ENABLE_DSD}>:ENABLE_DSD>
         $<$<BOOL:${MSVC}>:_CRT_SECURE_NO_WARNINGS>
         $<$<BOOL:${HAVE___BUILTIN_CLZ}>:HAVE___BUILTIN_CLZ>
+        $<$<BOOL:${HAVE___BUILTIN_CTZ}>:HAVE___BUILTIN_CTZ>
         $<$<BOOL:${HAVE_FSEEKO}>:HAVE_FSEEKO>
         $<$<AND:$<BOOL:${WAVPACK_ENABLE_ASM}>,$<BOOL:${WavPack_CPU_X86}>>:OPT_ASM_X86>
         $<$<AND:$<BOOL:${WAVPACK_ENABLE_ASM}>,$<BOOL:${WavPack_CPU_X64}>>:OPT_ASM_X64>
