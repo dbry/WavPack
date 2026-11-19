@@ -11,9 +11,11 @@ LNKFILE = $(LIBNAME).lnk
 # change to 1 to build a static lib instead of a dll
 STATIC = 0
 
-ENABLE_LEGACY = 1
+ENABLE_LEGACY = 0
 ENABLE_DSD = 1
 ENABLE_X86ASM = 1
+# disabled, because we don't have native os/2 threads code here.
+ENABLE_THREADS = 0
 
 CC = wcc386
 AS = jwasm
@@ -56,6 +58,11 @@ SRCS = common_utils.c &
 	unpack_utils.c &
 	write_words.c
 
+!ifeq ENABLE_THREADS 1
+SRCS += workers.c
+CFLAGS+= -DENABLE_THREADS
+!endif
+
 !ifeq ENABLE_LEGACY 1
 SRCS += unpack3.c unpack3_open.c unpack3_seek.c
 CFLAGS+= -DENABLE_LEGACY
@@ -67,7 +74,7 @@ CFLAGS+= -DENABLE_DSD
 !endif
 
 .extensions:
-.extensions: .lib .dll .obj .c .asm
+.extensions: .lib .dll .obj .res .c .rc .asm
 
 OBJS = $(SRCS:.c=.obj)
 
