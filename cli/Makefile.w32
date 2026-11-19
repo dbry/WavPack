@@ -11,6 +11,7 @@ CFLAGS+= -wcd=303
 # include paths:
 CFLAGS+= -I"$(%WATCOM)/h/nt" -I"$(%WATCOM)/h"
 CFLAGS+= -I"../include"
+#CFLAGS+= -DENABLE_THREADS=1
 
 PACKSRCS = wavpack.c &
 	riff.c &

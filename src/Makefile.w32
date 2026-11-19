@@ -11,9 +11,11 @@ LNKFILE = $(LIBNAME).lnk
 # change to 1 to build a static lib instead of a dll
 STATIC = 0
 
-ENABLE_LEGACY = 1
+ENABLE_LEGACY = 0
 ENABLE_DSD = 1
 ENABLE_X86ASM = 1
+# threads needs open watcom v2.
+ENABLE_THREADS = 0
 
 CC = wcc386
 RC = wrc
@@ -59,6 +61,11 @@ SRCS = common_utils.c &
 	write_words.c
 
 RCSRCS = wavpackdll.rc
+
+!ifeq ENABLE_THREADS 1
+SRCS += workers.c
+CFLAGS+= -DENABLE_THREADS
+!endif
 
 !ifeq ENABLE_LEGACY 1
 SRCS += unpack3.c unpack3_open.c unpack3_seek.c
