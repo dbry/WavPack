@@ -30,6 +30,11 @@ static int get_id3_tag_item (M_Tag *m_tag, const char *item, char *value, int si
 static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int size, int type);
 static int get_id3_tag_item_indexed (M_Tag *m_tag, int index, char *item, int size);
 static int append_ape_tag_item (WavpackContext *wpc, const char *item, const char *value, int vsize, int type);
+static int build_ape_tag_index (M_Tag *m_tag);
+static unsigned char *find_ape_tag_item (M_Tag *m_tag, const char *item, int type);
+static int compare_ape_tag_items (const void *p1, const void *p2);
+static int get_ape_tag_type (const unsigned char *item);
+static void clear_ape_tag_cache (M_Tag *m_tag);
 static int write_tag_blockout (WavpackContext *wpc);
 static int write_tag_reader (WavpackContext *wpc);
 static void tagcpy (char *dest, char *src, int tag_size);
@@ -207,6 +212,7 @@ int WavpackDeleteTagItem (WavpackContext *wpc, const char *item)
 
                 m_tag->ape_tag_hdr.length = (int32_t)(d - m_tag->ape_tag_data) + sizeof (APE_Tag_Hdr);
                 m_tag->ape_tag_hdr.item_count--;
+                clear_ape_tag_cache (m_tag);
                 return 1;
             }
             else
@@ -238,6 +244,14 @@ static int get_ape_tag_item (M_Tag *m_tag, const char *item, char *value, int si
     unsigned char *p = m_tag->ape_tag_data;
     unsigned char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
     int i;
+
+    if (type >= APE_TAG_TYPE_TEXT && type <= APE_TAG_TYPE_BINARY &&
+        m_tag->ape_tag_cursor [type].item && build_ape_tag_index (m_tag)) {
+        p = find_ape_tag_item (m_tag, item, type);
+
+        if (!p)
+            return 0;
+    }
 
     for (i = 0; i < m_tag->ape_tag_hdr.item_count && q - p > 8; ++i) {
         int vsize, flags, isize;
@@ -328,9 +342,21 @@ static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int si
 {
     unsigned char *p = m_tag->ape_tag_data;
     unsigned char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
-    int i;
+    int i, item_index = 0;
 
-    for (i = 0; i < m_tag->ape_tag_hdr.item_count && index >= 0 && q - p > 8; ++i) {
+    if (index < 0 || type < APE_TAG_TYPE_TEXT || type > APE_TAG_TYPE_BINARY)
+        return 0;
+
+    if (m_tag->ape_tag_cursor [type].item && index >= m_tag->ape_tag_cursor [type].index) {
+        p = m_tag->ape_tag_cursor [type].item;
+        item_index = m_tag->ape_tag_cursor [type].index;
+        i = m_tag->ape_tag_cursor [type].item_number;
+    }
+    else
+        i = 0;
+
+    for (; i < m_tag->ape_tag_hdr.item_count && q - p > 8; ++i) {
+        unsigned char *item_start = p;
         int vsize, flags, isize;
 
         vsize = p[0] + (p[1] << 8) + (p[2] << 16) + ((uint32_t) p[3] << 24); p += 4;
@@ -340,7 +366,10 @@ static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int si
         if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
             break;
 
-        if (isize && vsize && ((flags & 6) >> 1) == type && !index--) {
+        if (isize && vsize && ((flags & 6) >> 1) == type && item_index++ == index) {
+            m_tag->ape_tag_cursor [type].item = item_start;
+            m_tag->ape_tag_cursor [type].index = index;
+            m_tag->ape_tag_cursor [type].item_number = i;
 
             if (!item || !size)
                 return isize;
@@ -364,6 +393,123 @@ static int get_ape_tag_item_indexed (M_Tag *m_tag, int index, char *item, int si
     }
 
     return 0;
+}
+
+static int build_ape_tag_index (M_Tag *m_tag)
+{
+    unsigned char *p = m_tag->ape_tag_data;
+    unsigned char *q = p + m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
+    int data_length = m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr);
+    int i, max_items, num_items = 0;
+
+    if (m_tag->ape_tag_index_state)
+        return m_tag->ape_tag_index_state > 0;
+
+    max_items = m_tag->ape_tag_hdr.item_count;
+
+    if (max_items < 0 || max_items > data_length / 11)
+        max_items = data_length / 11;
+
+    if (max_items) {
+        m_tag->ape_tag_index = malloc ((size_t) max_items * sizeof (*m_tag->ape_tag_index));
+
+        if (!m_tag->ape_tag_index) {
+            m_tag->ape_tag_index_state = -1;
+            return FALSE;
+        }
+
+        for (i = 0; i < m_tag->ape_tag_hdr.item_count && q - p > 8; ++i) {
+            unsigned char *item_start = p;
+            int vsize, flags, isize;
+
+            vsize = p[0] + (p[1] << 8) + (p[2] << 16) + ((uint32_t) p[3] << 24); p += 4;
+            flags = p[0] + (p[1] << 8) + (p[2] << 16) + ((uint32_t) p[3] << 24); p += 4;
+            for (isize = 0; p + isize < q && p[isize]; ++isize);
+
+            if (vsize < 0 || vsize > m_tag->ape_tag_hdr.length || p + isize + vsize + 1 > q)
+                break;
+
+            if (isize && vsize && ((flags & 6) >> 1) <= APE_TAG_TYPE_BINARY)
+                m_tag->ape_tag_index [num_items++] = item_start;
+
+            p += isize + vsize + 1;
+        }
+
+        qsort (m_tag->ape_tag_index, num_items, sizeof (*m_tag->ape_tag_index), compare_ape_tag_items);
+
+        if (!num_items) {
+            free (m_tag->ape_tag_index);
+            m_tag->ape_tag_index = NULL;
+        }
+    }
+
+    m_tag->ape_tag_index_count = num_items;
+    m_tag->ape_tag_index_state = 1;
+    return TRUE;
+}
+
+static unsigned char *find_ape_tag_item (M_Tag *m_tag, const char *item, int type)
+{
+    int high = m_tag->ape_tag_index_count, low = 0;
+
+    while (low < high) {
+        unsigned char *p;
+        int result;
+        int mid = low + (high - low) / 2;
+
+        p = m_tag->ape_tag_index [mid];
+        result = stricmp ((char *) p + 8, item);
+
+        if (result < 0 || (!result && get_ape_tag_type (p) < type))
+            low = mid + 1;
+        else
+            high = mid;
+    }
+
+    if (low < m_tag->ape_tag_index_count) {
+        unsigned char *p = m_tag->ape_tag_index [low];
+
+        if (!stricmp ((char *) p + 8, item) && get_ape_tag_type (p) == type)
+            return p;
+    }
+
+    return NULL;
+}
+
+static int compare_ape_tag_items (const void *p1, const void *p2)
+{
+    unsigned char *item1 = * (unsigned char **) p1;
+    unsigned char *item2 = * (unsigned char **) p2;
+    int type1, type2;
+    int result = stricmp ((char *) item1 + 8, (char *) item2 + 8);
+
+    if (result)
+        return result;
+
+    type1 = get_ape_tag_type (item1);
+    type2 = get_ape_tag_type (item2);
+
+    if (type1 != type2)
+        return type1 - type2;
+    else if (item1 < item2)
+        return -1;
+    else
+        return item1 != item2;
+}
+
+static int get_ape_tag_type (const unsigned char *item)
+{
+    uint32_t flags = item[4] + (item[5] << 8) + (item[6] << 16) + ((uint32_t) item[7] << 24);
+
+    return (flags & 6) >> 1;
+}
+
+static void clear_ape_tag_cache (M_Tag *m_tag)
+{
+    free (m_tag->ape_tag_index);
+    m_tag->ape_tag_index = NULL;
+    m_tag->ape_tag_index_count = m_tag->ape_tag_index_state = 0;
+    memset (m_tag->ape_tag_cursor, 0, sizeof (m_tag->ape_tag_cursor));
 }
 
 static int get_id3_tag_item_indexed (M_Tag *m_tag, int index, char *item, int size)
@@ -432,6 +578,7 @@ static int append_ape_tag_item (WavpackContext *wpc, const char *item, const cha
         m_tag->ape_tag_hdr.item_count++;
         m_tag->ape_tag_hdr.length += new_item_len;
         p = m_tag->ape_tag_data = (unsigned char*)realloc (m_tag->ape_tag_data, m_tag->ape_tag_hdr.length);
+        clear_ape_tag_cache (m_tag);
         p += m_tag->ape_tag_hdr.length - sizeof (APE_Tag_Hdr) - new_item_len;
 
         *p++ = (unsigned char) vsize;

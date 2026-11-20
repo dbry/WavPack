@@ -176,4 +176,9 @@ void free_tag (M_Tag *m_tag)
         free (m_tag->ape_tag_data);
         m_tag->ape_tag_data = NULL;
     }
+
+    free (m_tag->ape_tag_index);
+    m_tag->ape_tag_index = NULL;
+    m_tag->ape_tag_index_count = m_tag->ape_tag_index_state = 0;
+    CLEARA (m_tag->ape_tag_cursor);
 }

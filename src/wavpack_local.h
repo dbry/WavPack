@@ -104,6 +104,13 @@ typedef struct {
     char res [8];
 } APE_Tag_Hdr;
 
+// Last indexed text or binary item, invalidated when tag data changes.
+
+typedef struct {
+    unsigned char *item;
+    int index, item_number;
+} APE_Tag_Cursor;
+
 #define APE_Tag_Hdr_Format "8LLLL"
 
 #define APE_TAG_TYPE_TEXT       0x0
@@ -118,6 +125,9 @@ typedef struct {
     ID3_Tag id3_tag;
     APE_Tag_Hdr ape_tag_hdr;
     unsigned char *ape_tag_data;
+    unsigned char **ape_tag_index;
+    int ape_tag_index_count, ape_tag_index_state;
+    APE_Tag_Cursor ape_tag_cursor [2];
 } M_Tag;
 
 // or-values for "flags"
