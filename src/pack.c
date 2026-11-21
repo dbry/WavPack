@@ -915,6 +915,15 @@ static void send_int32_data (WavpackStream *wps, int32_t *values, int32_t num_va
                     }
                 }
 
+            // The decoder only sees the upper (value >> sent_bits) part of each value when it calculates
+            // its width, so for values whose upper part is 0 or -1 it uses sent_bits as the width. If
+            // max_width were less than sent_bits it would then read fewer bits than we send for those
+            // values, so don't let that happen (max_width = sent_bits is always valid when the actual
+            // maximum is smaller, because those values have no more significant bits than that).
+
+            if (max_width && max_width < sent_bits)
+                max_width = sent_bits;
+
             putbits (max_width, 5, &wps->wvxbits);
         }
 
