@@ -482,8 +482,14 @@ int WavpackSetConfiguration64 (WavpackContext *wpc, WavpackConfig *config, int64
 #ifdef SKIP_DECORRELATION
     wpc->config.xmode = 0;
 #else
-    if (config->flags & CONFIG_EXTRA_MODE)
+    if (config->flags & CONFIG_EXTRA_MODE) {
+        if (config->xmode < 0 || config->xmode > 6) {
+            strcpy (wpc->error_message, "invalid extra mode!");
+            return FALSE;
+        }
+
         wpc->config.xmode = config->xmode ? config->xmode : 1;
+    }
     else
         wpc->config.xmode = 0;
 #endif
